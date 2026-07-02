@@ -1,8 +1,9 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 function LandingPage() {
   const [current, setCurrent] = useState(0);
-
+  const navigate = useNavigate();
   const slides = ['slide-1', 'slide-2'];
 
   const nextSlide = () => {
@@ -25,7 +26,7 @@ function LandingPage() {
             <a href="#about">ABOUT US</a>
             <a href="#services">SERVICES</a>
           </nav>
-          <button className="login-btn">LOG IN</button>
+          <button className="login-btn" onClick={() => navigate('/login')}>LOG IN</button>
         </div>
       </header>
 

@@ -10,7 +10,7 @@ const SERVICES = [
 
 const UNIT_TYPES = ['Window Type', 'Split Type', 'Floor Mounted', 'Cassette Type', 'Portable'];
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
 
 function StepIndicator({ current }) {
   return (
@@ -220,7 +220,19 @@ function Step4({ form, setForm }) {
         <div className="cost-row total"><span>Remaining Balance</span><span>₱{balance.toLocaleString()}</span></div>
       </div>
 
-      {/* Booking Summary — full width below */}
+    
+    </div>
+  );
+}
+
+function Step5({ form, setForm }) {
+  {/* Booking Summary — full width below */}
+  const selected = SERVICES.find((s) => s.id === form.service);
+  const basePrice = selected?.price || 0;
+  const downPayment = Math.round(basePrice * 0.5);
+  const balance = basePrice - downPayment;
+
+  return (
       <div className="bs-card booking-summary">
         <h3 className="bs-card-title">Booking Summary</h3>
         <div className="summary-grid">
@@ -246,11 +258,10 @@ function Step4({ form, setForm }) {
           Cancellation or rescheduling requests must be made at least <strong>3 hours</strong> prior to the scheduled service.
         </p>
       </div>
-
-    </div>
   );
-}
 
+
+}
 function BookService() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
@@ -272,7 +283,7 @@ function BookService() {
     return true;
   };
 
-  const stepLabels = ['Choose Service', 'Unit Details', 'Location & Schedule', 'Payment'];
+  const stepLabels = ['Choose Service', 'Unit Details', 'Location & Schedule', 'Payment', 'Booking Summary'];
 
   return (
     <div className="dashboard-shell">
@@ -316,6 +327,7 @@ function BookService() {
           {step === 2 && <Step2 form={form} setForm={setForm} />}
           {step === 3 && <Step3 form={form} setForm={setForm} />}
           {step === 4 && <Step4 form={form} setForm={setForm} />}
+          {step === 5 && <Step5 form={form} setForm={setForm} />}
 
           {/* Navigation buttons */}
           <div className="bs-nav-row">

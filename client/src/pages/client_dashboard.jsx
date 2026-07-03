@@ -38,7 +38,7 @@ function ClientDashboard() {
               <span className="link-icon">📊</span>
               Dashboard
             </Link>
-            <Link to="/book-service" className="sidebar-link">
+            <Link to="/book_service" className="sidebar-link">
               <span className="link-icon">📋</span>
               Book Service
             </Link>

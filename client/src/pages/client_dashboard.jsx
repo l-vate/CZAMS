@@ -80,7 +80,7 @@ function ClientDashboard() {
           <h1 className="dashboard-welcome">Welcome, User!</h1>
 
           {/* Book a Service banner */}
-          <Link to="/book-service" className="book-banner">
+          <Link to="/book_service" className="book-banner">
             <div className="book-banner-left">
               <div className="book-banner-icon">❄️</div>
               <div className="book-banner-text">

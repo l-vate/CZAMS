@@ -301,7 +301,7 @@ function BookService() {
           <p className="sidebar-section-label">Customer Portal</p>
           <nav className="sidebar-nav">
             <Link to="/dashboard"        className="sidebar-link">          <span className="link-icon">📊</span> Dashboard</Link>
-            <Link to="/book-service"     className="sidebar-link active">   <span className="link-icon">📋</span> Book Service</Link>
+            <Link to="/book_service"     className="sidebar-link active">   <span className="link-icon">📋</span> Book Service</Link>
             <Link to="/my-bookings"      className="sidebar-link">          <span className="link-icon">📁</span> My Bookings</Link>
             <Link to="/payment-billing"  className="sidebar-link">          <span className="link-icon">💳</span> Payment &amp; Billing</Link>
             <Link to="/profile"          className="sidebar-link">          <span className="link-icon">👤</span> Profile</Link>

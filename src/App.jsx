@@ -5,18 +5,29 @@ import LoginPage from './pages/public/login_page';
 import RegisterPage from './pages/public/register_page';
 
 import Dashboard from './pages/customer/dashboard';
-import Book from './pages/customer/book';
+import Book from './pages/customer/book_service';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
+
+        {/* Public Pages */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
 
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/book_service" element={<Book />} />
+        {/* Customer Pages */}
+        <Route
+          path="/customer/dashboard"
+          element={<Dashboard />}
+        />
+
+        <Route
+          path="/customer/book_service"
+          element={<Book />}
+        />
+
       </Routes>
     </BrowserRouter>
   );

@@ -1,4 +1,4 @@
-import Sidebar from '../../components/sidebar';
+import Sidebar from '../../components/customer_sidebar';
 
 function CustomerLayout({ title, children }) {
   return (

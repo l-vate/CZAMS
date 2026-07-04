@@ -78,7 +78,7 @@ function LoginPage() {
             </div>
           </div>
 
-          <button type="submit" className="auth-submit-btn" onClick={() => navigate('/dashboard')}>Log In</button>
+          <button type="submit" className="auth-submit-btn" onClick={() => navigate('/customer/dashboard')}>Log In</button>
 
         </form>
 

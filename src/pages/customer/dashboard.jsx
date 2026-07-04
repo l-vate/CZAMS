@@ -18,7 +18,7 @@ function Dashboard() {
 
       {/* Book Service Banner */}
       <Link
-        to="/book_service"
+        to="/customer/book_service"
         className="book-banner"
       >
         <div className="book-banner-left">

@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import CustomerSidebar from '../../components/customer_sidebar';
 
 const SERVICES = [
-  { id: 'cleaning',     label: 'Cleaning',     desc: 'Deep clean & sanitize',        price: 650,   icon: '🧹' },
-  { id: 'repair',       label: 'Repair',        desc: 'Diagnose & fix issues',        price: 1200,  icon: '🔧' },
-  { id: 'installation', label: 'Installation',  desc: 'Deep clean & fix surroundings', price: 3500,  icon: '❄️' },
-  { id: 'maintenance',  label: 'Maintenance',   desc: 'Routine check-up',             price: 550,   icon: '🛠️' },
+  { id: 'cleaning', label: 'Cleaning', desc: 'Deep clean & sanitize', price: 650, icon: '🧹' },
+  { id: 'repair', label: 'Repair', desc: 'Diagnose & fix issues', price: 1200, icon: '🔧' },
+  { id: 'installation', label: 'Installation', desc: 'Deep clean & fix surroundings', price: 3500, icon: '❄️' },
+  { id: 'maintenance', label: 'Maintenance', desc: 'Routine check-up', price: 550, icon: '🛠️' },
 ];
 
 const UNIT_TYPES = ['Window Type', 'Split Type', 'Floor Mounted', 'Cassette Type', 'Portable'];
@@ -18,7 +19,7 @@ function StepIndicator({ current }) {
       {Array.from({ length: TOTAL_STEPS }, (_, i) => {
         const num = i + 1;
         const isCompleted = num < current;
-        const isActive    = num === current;
+        const isActive = num === current;
         return (
           <div key={num} className="step-indicator-item">
             <div className={`step-dot ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}>
@@ -65,7 +66,7 @@ function Step1({ form, setForm }) {
 function Step2({ form, setForm }) {
   const toggleUnit = (type) => {
     const current = form.unitTypes || [];
-    const updated  = current.includes(type)
+    const updated = current.includes(type)
       ? current.filter((t) => t !== type)
       : [...current, type];
     setForm({ ...form, unitTypes: updated });
@@ -169,10 +170,10 @@ function Step3({ form, setForm }) {
 }
 
 function Step4({ form, setForm }) {
-  const selected    = SERVICES.find((s) => s.id === form.service);
-  const basePrice   = selected?.price || 0;
+  const selected = SERVICES.find((s) => s.id === form.service);
+  const basePrice = selected?.price || 0;
   const downPayment = Math.round(basePrice * 0.5);
-  const balance     = basePrice - downPayment;
+  const balance = basePrice - downPayment;
 
   return (
     <div className="bs-step4-layout">
@@ -220,44 +221,44 @@ function Step4({ form, setForm }) {
         <div className="cost-row total"><span>Remaining Balance</span><span>₱{balance.toLocaleString()}</span></div>
       </div>
 
-    
+
     </div>
   );
 }
 
 function Step5({ form, setForm }) {
-  {/* Booking Summary — full width below */}
+  {/* Booking Summary — full width below */ }
   const selected = SERVICES.find((s) => s.id === form.service);
   const basePrice = selected?.price || 0;
   const downPayment = Math.round(basePrice * 0.5);
   const balance = basePrice - downPayment;
 
   return (
-      <div className="bs-card booking-summary">
-        <h3 className="bs-card-title">Booking Summary</h3>
-        <div className="summary-grid">
-          <div>
-            <p className="summary-section-title">Service Details</p>
-            <div className="summary-row"><span>Service</span><span>{selected?.label || '—'}</span></div>
-            <div className="summary-row"><span>Unit Type</span><span>{(form.unitTypes || []).join(', ') || '—'}</span></div>
-            <div className="summary-row"><span>Brand &amp; Model</span><span>{form.brandModel || '—'}</span></div>
-            <div className="summary-row"><span>Date &amp; Time</span><span>{form.date ? `${form.date}, ${form.time || ''}` : '—'}</span></div>
-            <div className="summary-row"><span>Address</span><span>{form.address || '—'}</span></div>
-            <div className="summary-row"><span>Preferred Tech</span><span>{form.technician || 'No preference'}</span></div>
-          </div>
-          <div>
-            <p className="summary-section-title">Payment Details</p>
-            <div className="summary-row"><span>Base Price</span><span>₱{basePrice.toLocaleString()}</span></div>
-            <div className="summary-row"><span>Down Payment</span><span>₱{downPayment.toLocaleString()}</span></div>
-            <div className="summary-row"><span>2nd Payment Mode</span><span>{form.paymentMode || '—'}</span></div>
-            <div className="summary-row total"><span>Balance</span><span>₱{balance.toLocaleString()}</span></div>
-          </div>
+    <div className="bs-card booking-summary">
+      <h3 className="bs-card-title">Booking Summary</h3>
+      <div className="summary-grid">
+        <div>
+          <p className="summary-section-title">Service Details</p>
+          <div className="summary-row"><span>Service</span><span>{selected?.label || '—'}</span></div>
+          <div className="summary-row"><span>Unit Type</span><span>{(form.unitTypes || []).join(', ') || '—'}</span></div>
+          <div className="summary-row"><span>Brand &amp; Model</span><span>{form.brandModel || '—'}</span></div>
+          <div className="summary-row"><span>Date &amp; Time</span><span>{form.date ? `${form.date}, ${form.time || ''}` : '—'}</span></div>
+          <div className="summary-row"><span>Address</span><span>{form.address || '—'}</span></div>
+          <div className="summary-row"><span>Preferred Tech</span><span>{form.technician || 'No preference'}</span></div>
         </div>
-        <p className="summary-note">
-          ⏱ Service is typically completed within <strong>1–3 days</strong> after confirmation.<br />
-          Cancellation or rescheduling requests must be made at least <strong>3 hours</strong> prior to the scheduled service.
-        </p>
+        <div>
+          <p className="summary-section-title">Payment Details</p>
+          <div className="summary-row"><span>Base Price</span><span>₱{basePrice.toLocaleString()}</span></div>
+          <div className="summary-row"><span>Down Payment</span><span>₱{downPayment.toLocaleString()}</span></div>
+          <div className="summary-row"><span>2nd Payment Mode</span><span>{form.paymentMode || '—'}</span></div>
+          <div className="summary-row total"><span>Balance</span><span>₱{balance.toLocaleString()}</span></div>
+        </div>
       </div>
+      <p className="summary-note">
+        ⏱ Service is typically completed within <strong>1–3 days</strong> after confirmation.<br />
+        Cancellation or rescheduling requests must be made at least <strong>3 hours</strong> prior to the scheduled service.
+      </p>
+    </div>
   );
 
 
@@ -289,30 +290,7 @@ function BookService() {
     <div className="dashboard-shell">
 
       {/* Sidebar */}
-      <aside className="sidebar">
-        <div>
-          <div className="sidebar-brand">
-            <img src="/images/logo.png" alt="Logo" className="sidebar-logo" />
-            <div className="sidebar-brand-text">
-              <span className="sidebar-brand-name">Cooling Zone Aircon</span>
-              <span className="sidebar-brand-sub">Services</span>
-            </div>
-          </div>
-          <p className="sidebar-section-label">Customer Portal</p>
-          <nav className="sidebar-nav">
-            <Link to="/dashboard"        className="sidebar-link">          <span className="link-icon">📊</span> Dashboard</Link>
-            <Link to="/book_service"     className="sidebar-link active">   <span className="link-icon">📋</span> Book Service</Link>
-            <Link to="/my-bookings"      className="sidebar-link">          <span className="link-icon">📁</span> My Bookings</Link>
-            <Link to="/payment-billing"  className="sidebar-link">          <span className="link-icon">💳</span> Payment &amp; Billing</Link>
-            <Link to="/profile"          className="sidebar-link">          <span className="link-icon">👤</span> Profile</Link>
-          </nav>
-        </div>
-        <div className="sidebar-logout">
-          <button className="sidebar-link" onClick={() => navigate('/login')}>
-            <span className="link-icon">🚪</span> Log out
-          </button>
-        </div>
-      </aside>
+      <CustomerSidebar />
 
       {/* Main */}
       <div className="dashboard-main">
@@ -347,7 +325,10 @@ function BookService() {
                   Next →
                 </button>
               ) : (
-                <button className="bs-next-btn" onClick={() => navigate('/dashboard')}>
+                <button
+                  className="bs-next-btn"
+                  onClick={() => navigate('/customer/dashboard')}
+                >
                   Confirm ✓
                 </button>
               )}

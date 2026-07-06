@@ -52,8 +52,8 @@ function MyBookings() {
         activeFilter === 'All'
             ? bookings
             : bookings.filter(
-                  (booking) => booking.status === activeFilter
-              );
+                (booking) => booking.status === activeFilter
+            );
 
     const getStatusColor = (status) => {
         switch (status) {
@@ -70,178 +70,178 @@ function MyBookings() {
         }
     };
 
-return (
-    <CustomerLayout title="My Bookings">
-                {/* Filters */}
+    return (
+        <CustomerLayout title="My Bookings">
+            {/* Filters */}
+            <div
+                style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '20px'
+                }}
+            >
                 <div
                     style={{
                         display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: '20px'
+                        gap: '12px',
+                        flexWrap: 'wrap'
                     }}
                 >
-                    <div
-                        style={{
-                            display: 'flex',
-                            gap: '12px',
-                            flexWrap: 'wrap'
-                        }}
-                    >
-                        {filters.map((filter) => (
-                            <button
-                                key={filter}
-                                onClick={() => setActiveFilter(filter)}
-                                style={{
-                                    padding: '10px 18px',
-                                    borderRadius: '999px',
-                                    border:
-                                        '1px solid #1b9ce5',
-                                    background:
-                                        activeFilter === filter
-                                            ? '#1b9ce5'
-                                            : '#fff',
-                                    color:
-                                        activeFilter === filter
-                                            ? '#fff'
-                                            : '#333',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                {filter}
-                            </button>
-                        ))}
-                    </div>
-
-                    <button
-                        style={{
-                            background: '#1b9ce5',
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: '6px',
-                            padding: '10px 16px',
-                            cursor: 'pointer',
-                            fontWeight: '600'
-                        }}
-                    >
-                        New Booking
-                    </button>
-                </div>
-
-                {/* Booking Cards */}
-                <div
-                    style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '12px'
-                    }}
-                >
-                    {filteredBookings.map((booking) => (
-                        <div
-                            key={booking.id}
+                    {filters.map((filter) => (
+                        <button
+                            key={filter}
+                            onClick={() => setActiveFilter(filter)}
                             style={{
-                                background: '#fff',
-                                border: '1px solid #d9d9d9',
-                                borderRadius: '12px',
-                                padding: '18px 20px',
-                                display: 'grid',
-                                gridTemplateColumns:
-                                    '2fr 1.5fr 1.5fr 1fr',
-                                alignItems: 'center'
+                                padding: '10px 18px',
+                                borderRadius: '999px',
+                                border:
+                                    '1px solid #1b9ce5',
+                                background:
+                                    activeFilter === filter
+                                        ? '#1b9ce5'
+                                        : '#fff',
+                                color:
+                                    activeFilter === filter
+                                        ? '#fff'
+                                        : '#333',
+                                cursor: 'pointer'
                             }}
                         >
-                            <div>
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        gap: '10px',
-                                        alignItems: 'center',
-                                        marginBottom: '8px'
-                                    }}
-                                >
-                                    <small
-                                        style={{
-                                            color: '#888'
-                                        }}
-                                    >
-                                        {booking.date}
-                                    </small>
+                            {filter}
+                        </button>
+                    ))}
+                </div>
 
-                                    <span
-                                        style={{
-                                            background:
-                                                getStatusColor(
-                                                    booking.status
-                                                ),
-                                            color: '#fff',
-                                            padding:
-                                                '2px 8px',
-                                            borderRadius:
-                                                '999px',
-                                            fontSize:
-                                                '11px'
-                                        }}
-                                    >
-                                        {booking.status}
-                                    </span>
-                                </div>
+                <button
+                    style={{
+                        background: '#1b9ce5',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '10px 16px',
+                        cursor: 'pointer',
+                        fontWeight: '600'
+                    }}
+                >
+                    New Booking
+                </button>
+            </div>
 
-                                <h3
-                                    style={{
-                                        margin: 0,
-                                        fontSize: '18px'
-                                    }}
-                                >
-                                    {booking.service}
-                                </h3>
-
-                                <p
-                                    style={{
-                                        margin: '4px 0',
-                                        color: '#666'
-                                    }}
-                                >
-                                    {booking.id}
-                                </p>
-
-                                <small>
-                                    Technician:{' '}
-                                    {booking.technician}
-                                </small>
-                            </div>
-
-                            <div>
-                                🕒 {booking.date}
-                            </div>
-
-                            <div>
-                                📍 {booking.address}
-                            </div>
-
+            {/* Booking Cards */}
+            <div
+                style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
+                }}
+            >
+                {filteredBookings.map((booking) => (
+                    <div
+                        key={booking.id}
+                        style={{
+                            background: '#fff',
+                            border: '1px solid #d9d9d9',
+                            borderRadius: '12px',
+                            padding: '18px 20px',
+                            display: 'grid',
+                            gridTemplateColumns:
+                                '2fr 1.5fr 1.5fr 1fr',
+                            alignItems: 'center'
+                        }}
+                    >
+                        <div>
                             <div
                                 style={{
                                     display: 'flex',
-                                    justifyContent:
-                                        'flex-end'
+                                    gap: '10px',
+                                    alignItems: 'center',
+                                    marginBottom: '8px'
                                 }}
                             >
-                                <button
+                                <small
                                     style={{
-                                        background:
-                                            'transparent',
-                                        border: 'none',
-                                        color: '#333',
-                                        cursor: 'pointer'
+                                        color: '#888'
                                     }}
                                 >
-                                    View Details
-                                </button>
+                                    {booking.date}
+                                </small>
+
+                                <span
+                                    style={{
+                                        background:
+                                            getStatusColor(
+                                                booking.status
+                                            ),
+                                        color: '#fff',
+                                        padding:
+                                            '2px 8px',
+                                        borderRadius:
+                                            '999px',
+                                        fontSize:
+                                            '11px'
+                                    }}
+                                >
+                                    {booking.status}
+                                </span>
                             </div>
+
+                            <h3
+                                style={{
+                                    margin: 0,
+                                    fontSize: '18px'
+                                }}
+                            >
+                                {booking.service}
+                            </h3>
+
+                            <p
+                                style={{
+                                    margin: '4px 0',
+                                    color: '#666'
+                                }}
+                            >
+                                {booking.id}
+                            </p>
+
+                            <small>
+                                Technician:{' '}
+                                {booking.technician}
+                            </small>
                         </div>
-                    ))}
-                </div>
-    </CustomerLayout>
-);
+
+                        <div>
+                            🕒 {booking.date}
+                        </div>
+
+                        <div>
+                            📍 {booking.address}
+                        </div>
+
+                        <div
+                            style={{
+                                display: 'flex',
+                                justifyContent:
+                                    'flex-end'
+                            }}
+                        >
+                            <button
+                                style={{
+                                    background:
+                                        'transparent',
+                                    border: 'none',
+                                    color: '#333',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                View Details
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </CustomerLayout>   
+    );
 }
 
 export default MyBookings;

@@ -7,6 +7,7 @@ import RegisterPage from './pages/public/register_page';
 import Dashboard from './pages/customer/dashboard';
 import Book from './pages/customer/book_service';
 import MyBookings from './pages/customer/my_bookings';
+import Profile from './pages/customer/profile';
 
 function App() {
   return (
@@ -32,6 +33,11 @@ function App() {
         <Route
           path="/customer/bookings"
           element={<MyBookings />}
+        />
+
+        <Route
+          path="/customer/profile"
+          element={<Profile />}
         />
       
 

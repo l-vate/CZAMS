@@ -1,0 +1,116 @@
+import { NavLink, useNavigate } from "react-router-dom";
+
+function StaffSidebar() {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    // TODO: Clear authentication data
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+
+    navigate("/login");
+  };
+
+  return (
+    <aside className="sidebar">
+      <div>
+        {/* Brand */}
+        <div className="sidebar-brand">
+          <img
+            src="/images/logo.png"
+            alt="Cooling Zone Aircon Services"
+            className="sidebar-logo"
+          />
+
+          <div className="sidebar-brand-text">
+            <span className="sidebar-brand-name">
+              Cooling Zone Aircon
+            </span>
+            <span className="sidebar-brand-sub">
+              Services
+            </span>
+          </div>
+        </div>
+
+        <p className="sidebar-section-label">
+          Staff Portal
+        </p>
+
+        <nav className="sidebar-nav">
+          <NavLink
+            to="/staff/dashboard"
+            className={({ isActive }) =>
+              isActive
+                ? "sidebar-link active"
+                : "sidebar-link"
+            }
+          >
+            <span className="link-icon">📊</span>
+            Dashboard
+          </NavLink>
+
+          <NavLink
+            to="/staff/assigned_jobs"
+            className={({ isActive }) =>
+              isActive
+                ? "sidebar-link active"
+                : "sidebar-link"
+            }
+          >
+            <span className="link-icon">🧰</span>
+            Assigned Jobs
+          </NavLink>
+
+          <NavLink
+            to="/staff/schedule"
+            className={({ isActive }) =>
+              isActive
+                ? "sidebar-link active"
+                : "sidebar-link"
+            }
+          >
+            <span className="link-icon">📅</span>
+            Schedule
+          </NavLink>
+
+          <NavLink
+            to="/staff/job_history"
+            className={({ isActive }) =>
+              isActive
+                ? "sidebar-link active"
+                : "sidebar-link"
+            }
+          >
+            <span className="link-icon">📁</span>
+            Job History
+          </NavLink>
+
+          <NavLink
+            to="/staff/profile"
+            className={({ isActive }) =>
+              isActive
+                ? "sidebar-link active"
+                : "sidebar-link"
+            }
+          >
+            <span className="link-icon">👤</span>
+            Profile
+          </NavLink>
+        </nav>
+      </div>
+
+      <div className="sidebar-logout">
+        <button
+          type="button"
+          className="sidebar-link"
+          onClick={handleLogout}
+        >
+          <span className="link-icon">🚪</span>
+          Log Out
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+export default StaffSidebar;

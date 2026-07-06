@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
+import PaymentModal from '../../components/payment_modal';
+import ReceiptModal from '../../components/receipt_modal';
 
 const SERVICES = [
   { id: 'cleaning', label: 'Cleaning', desc: 'Deep clean & sanitize', price: 650, icon: '🧹' },
@@ -213,87 +215,7 @@ function Step3({ form, setForm }) {
   );
 }
 
-/* ── Payment Modal ────────────────────────────────────────── */
-function PaymentModal({ form, onClose, onSubmit }) {
-  const selected = SERVICES.find((s) => s.id === form.service);
-  const basePrice = selected?.price || 0;
-  const dpPercent = form.downPaymentPercent ?? 10;
-  const toPayNow = Math.round(basePrice * (dpPercent / 100));
-  const remaining = basePrice - toPayNow;
 
-  const [proof, setProof] = useState(null);
-  const [senior, setSenior] = useState(null);
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-
-        <div className="modal-header">
-          <h4 className="modal-title">Cost Breakdown</h4>
-          <button className="modal-close-btn" onClick={onClose}>✕</button>
-        </div>
-
-        {/* Summary rows */}
-        <div className="modal-cost-rows">
-          <div className="modal-cost-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}.00</span></div>
-          <div className="modal-cost-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
-          <div className="modal-cost-row"><span>Amount to Pay Now</span><span>₱{toPayNow.toLocaleString()}.00</span></div>
-          <div className="modal-cost-row"><span>Remaining Balance</span><span>₱{remaining.toLocaleString()}.00</span></div>
-          <div className="modal-cost-row"><span>Payment Mode</span><span>{form.paymentMode || '—'}</span></div>
-        </div>
-
-        <div className="modal-divider" />
-
-        {/* Account details */}
-        <p className="modal-instruction">Send your payment to the account:</p>
-        <div className="modal-account-box">
-          <div className="modal-account-row"><span>Account Name</span><span>John Owner</span></div>
-          <div className="modal-account-row"><span>Account Number</span><span>09xxxxxxxxx</span></div>
-        </div>
-
-        {/* Proof of payment upload */}
-        <div className="modal-upload-group">
-          <label className="modal-upload-label">
-            Upload your proof of payment here:
-          </label>
-          <label className="modal-file-btn">
-            {proof ? proof.name : '[Choose a file]'}
-            <input
-              type="file"
-              accept="image/*,.pdf"
-              style={{ display: 'none' }}
-              onChange={(e) => setProof(e.target.files[0] || null)}
-            />
-          </label>
-        </div>
-
-        {/* PWD/Senior Citizen discount */}
-        <div className="modal-upload-group">
-          <label className="modal-upload-label">
-            PWD/Senior Citizen <span className="modal-optional">(If Applicable):</span>
-          </label>
-          <label className="modal-file-btn">
-            {senior ? senior.name : '[Choose a file]'}
-            <input
-              type="file"
-              accept="image/*,.pdf"
-              style={{ display: 'none' }}
-              onChange={(e) => setSenior(e.target.files[0] || null)}
-            />
-          </label>
-        </div>
-
-        <button
-          className="modal-submit-btn"
-          onClick={() => onSubmit({ proof, senior })}
-        >
-          SUBMIT
-        </button>
-
-      </div>
-    </div>
-  );
-}
 
 /* ── Step 4: Payment ──────────────────────────────────────── */
 function Step4({ form, setForm }) {
@@ -458,114 +380,6 @@ function Step5({ form }) {
         ⏱ Service is typically completed within <strong>1–3 days</strong> after confirmation.<br />
         Cancellation or rescheduling requests must be made at least <strong>3 hours</strong> prior to the scheduled service.
       </p>
-    </div>
-  );
-}
-
-/* ── Receipt Modal (printable invoice) ────────────────────── */
-function ReceiptModal({ form, booking, onClose }) {
-  const selected = SERVICES.find((s) => s.id === form.service);
-  const basePrice = selected?.price || 0;
-  const dpPercent = form.downPaymentPercent ?? 10;
-  const toPayNow = Math.round(basePrice * (dpPercent / 100));
-
-  useEffect(() => {
-    document.body.classList.add('printing-receipt-active');
-    return () => document.body.classList.remove('printing-receipt-active');
-  }, []);
-
-  const handlePrint = () => window.print();
-
-  return (
-    <div className="modal-overlay receipt-modal-overlay" onClick={onClose}>
-      <div className="receipt-modal-card" onClick={(e) => e.stopPropagation()}>
-
-        <div className="modal-header receipt-modal-header">
-          <span />
-          <button className="modal-close-btn" onClick={onClose}>✕</button>
-        </div>
-
-        <div className="receipt-print-area">
-          <div className="receipt-top-row">
-            <div className="receipt-brand">
-              <span className="receipt-brand-icon">❄️</span>
-              <div>
-                <p className="receipt-brand-name">Cooling Zone Aircon</p>
-                <p className="receipt-brand-sub">Services</p>
-              </div>
-            </div>
-            <div className="receipt-invoice-meta">
-              <p className="receipt-invoice-title">Invoice</p>
-              <p>Invoice No.: {booking.id}</p>
-              <p>Date: {formatDate(booking.createdAt)}</p>
-            </div>
-          </div>
-
-          <div className="receipt-section">
-            <p className="receipt-section-title">Customer Information</p>
-            <div className="receipt-info-row"><span>Customer Name:</span><span>{form.customerName || 'John Doe'}</span></div>
-            <div className="receipt-info-row"><span>Address:</span><span>{form.address || '—'}</span></div>
-            <div className="receipt-info-row"><span>Contact Number:</span><span>{form.contactNumber || '+63 924 567 8910'}</span></div>
-          </div>
-
-          <div className="receipt-section">
-            <p className="receipt-section-title">Service Details</p>
-            <table className="receipt-table">
-              <thead>
-                <tr>
-                  <th>Description of Service</th>
-                  <th>Quantity</th>
-                  <th>Price</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>{selected?.label || '—'}</td>
-                  <td>1</td>
-                  <td>₱{basePrice.toLocaleString()}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div className="receipt-section receipt-footer-info">
-
-            <div className="receipt-info-row">
-              <span>Subtotal</span>
-              <span>₱{basePrice.toLocaleString()}</span>
-            </div>
-
-            <div className="receipt-info-row">
-              <span>Amount Paid</span>
-              <span>₱{toPayNow.toLocaleString()}</span>
-            </div>
-
-            <div className="receipt-info-row">
-              <span>Payment Method</span>
-              <span>{form.paymentMode || '—'}</span>
-            </div>
-
-            <div className="receipt-info-row">
-              <span>Status</span>
-              <span className="receipt-status-paid">
-                {form.paymentStatus === 'Paid'
-                  ? `${dpPercent}% Paid`
-                  : 'Unpaid'}
-              </span>
-            </div>
-
-          </div>
-
-          <p className="receipt-thanks">
-            Thank you for choosing Cooling Zone Aircon Services.
-          </p>
-        </div>
-
-        <button className="modal-submit-btn receipt-print-btn" onClick={handlePrint}>
-          🖨 Print Receipt
-        </button>
-
-      </div>
     </div>
   );
 }
@@ -857,6 +671,8 @@ function BookService() {
           )}
         </div>
       </div>
+
+      
     </CustomerLayout>
   );
 }

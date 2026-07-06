@@ -1,0 +1,128 @@
+import { useEffect } from 'react';
+
+const SERVICES = [
+  { id: 'cleaning', label: 'Cleaning', price: 650 },
+  { id: 'repair', label: 'Repair', price: 1200 },
+  { id: 'installation', label: 'Installation', price: 3500 },
+  { id: 'maintenance', label: 'Maintenance', price: 550 },
+];
+
+function formatDate(dateStr) {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  if (isNaN(d)) return dateStr;
+  return d.toLocaleDateString('en-US', {
+    month: '2-digit',
+    day: '2-digit',
+    year: 'numeric',
+  });
+}
+
+function ReceiptModal({ form, booking, onClose }) {
+  const selected = SERVICES.find((s) => s.id === form.service);
+  const basePrice = selected?.price || 0;
+  const dpPercent = form.downPaymentPercent ?? 10;
+  const toPayNow = Math.round(basePrice * (dpPercent / 100));
+
+  useEffect(() => {
+    document.body.classList.add('printing-receipt-active');
+    return () => document.body.classList.remove('printing-receipt-active');
+  }, []);
+
+  const handlePrint = () => window.print();
+
+  return (
+    <div className="modal-overlay receipt-modal-overlay" onClick={onClose}>
+      <div className="receipt-modal-card" onClick={(e) => e.stopPropagation()}>
+
+        <div className="modal-header receipt-modal-header">
+          <span />
+          <button className="modal-close-btn" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="receipt-print-area">
+          <div className="receipt-top-row">
+            <div className="receipt-brand">
+              <span className="receipt-brand-icon">❄️</span>
+              <div>
+                <p className="receipt-brand-name">Cooling Zone Aircon</p>
+                <p className="receipt-brand-sub">Services</p>
+              </div>
+            </div>
+            <div className="receipt-invoice-meta">
+              <p className="receipt-invoice-title">Invoice</p>
+              <p>Invoice No.: {booking.id}</p>
+              <p>Date: {formatDate(booking.createdAt)}</p>
+            </div>
+          </div>
+
+          <div className="receipt-section">
+            <p className="receipt-section-title">Customer Information</p>
+            <div className="receipt-info-row"><span>Customer Name:</span><span>{form.customerName || 'John Doe'}</span></div>
+            <div className="receipt-info-row"><span>Address:</span><span>{form.address || '—'}</span></div>
+            <div className="receipt-info-row"><span>Contact Number:</span><span>{form.contactNumber || '+63 924 567 8910'}</span></div>
+          </div>
+
+          <div className="receipt-section">
+            <p className="receipt-section-title">Service Details</p>
+            <table className="receipt-table">
+              <thead>
+                <tr>
+                  <th>Description of Service</th>
+                  <th>Quantity</th>
+                  <th>Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>{selected?.label || '—'}</td>
+                  <td>1</td>
+                  <td>₱{basePrice.toLocaleString()}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="receipt-section receipt-footer-info">
+
+            <div className="receipt-info-row">
+              <span>Subtotal</span>
+              <span>₱{basePrice.toLocaleString()}</span>
+            </div>
+
+            <div className="receipt-info-row">
+              <span>Amount Paid</span>
+              <span>₱{toPayNow.toLocaleString()}</span>
+            </div>
+
+            <div className="receipt-info-row">
+              <span>Payment Method</span>
+              <span>{form.paymentMode || '—'}</span>
+            </div>
+
+            <div className="receipt-info-row">
+              <span>Status</span>
+              <span className="receipt-status-paid">
+                {form.paymentStatus === 'Paid'
+                  ? `${dpPercent}% Paid`
+                  : 'Unpaid'}
+              </span>
+            </div>
+
+          </div>
+
+          <p className="receipt-thanks">
+            Thank you for choosing Cooling Zone Aircon Services.
+          </p>
+        </div>
+
+        <button className="modal-submit-btn receipt-print-btn" onClick={handlePrint}>
+          🖨 Print Receipt
+        </button>
+
+      </div>
+    </div>
+  );
+}
+
+export default ReceiptModal;

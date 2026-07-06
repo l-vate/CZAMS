@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import CustomerLayout from './customer_layout';
+import { useNavigate } from 'react-router-dom';
+
 
 function MyBookings() {
+    const navigate = useNavigate();
     const [activeFilter, setActiveFilter] = useState('All');
 
     const filters = [
@@ -23,7 +26,7 @@ function MyBookings() {
             address: 'Davao City'
         },
         {
-            id: 'BK-002',
+            id: 'CZ-002',
             service: 'Aircon Repair',
             status: 'Pending',
             date: '07-08-26',
@@ -31,7 +34,7 @@ function MyBookings() {
             address: 'Davao City'
         },
         {
-            id: 'BK-003',
+            id: 'CZ-003',
             service: 'Aircon Installation',
             status: 'Pending',
             date: '07-10-26',
@@ -39,7 +42,7 @@ function MyBookings() {
             address: 'Tagum City'
         },
         {
-            id: 'BK-004',
+            id: 'CZ-004',
             service: 'Maintenance Check',
             status: 'Pending',
             date: '07-12-26',
@@ -114,6 +117,7 @@ function MyBookings() {
                 </div>
 
                 <button
+                    onClick={() => navigate('/customer/book_service')}
                     style={{
                         background: '#1b9ce5',
                         color: '#fff',
@@ -240,7 +244,7 @@ function MyBookings() {
                     </div>
                 ))}
             </div>
-        </CustomerLayout>   
+        </CustomerLayout>
     );
 }
 

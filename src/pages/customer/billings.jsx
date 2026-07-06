@@ -1,20 +1,47 @@
+import { useState } from 'react';
 import CustomerLayout from './customer_layout';
+import PaymentModal from '../../components/payment_modal';
+import ReceiptModal from '../../components/receipt_modal';
 
 function Billings() {
+  const [showPayment, setShowPayment] = useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [selectedBill, setSelectedBill] = useState(null);
+
+  const handlePaymentSubmit = ({ proof, senior }) => {
+    console.log('Payment submitted:', proof, senior);
+
+    setShowPayment(false);
+  };
+
   const bills = [
     {
       id: 'CZ-2026-7395',
-      service: 'Cleaning',
-      date: '07/06/2026',
-      status: 'Fully Paid',
+      service: 'cleaning',
+      customerName: 'Juan Dela Cruz',
+      address: 'San Fernando, Pampanga',
+      contactNumber: '09123456789',
+      paymentMode: 'GCash',
+      paymentStatus: 'Paid',
+      downPaymentPercent: 30,
+      createdAt: '2026-07-06',
       paid: true,
+      status: 'Fully Paid',
+      date: '07/06/2026',
     },
     {
       id: 'CZ-2026-7401',
-      service: 'Repair',
-      date: '07/10/2026',
-      status: 'To Verify',
+      service: 'repair',
+      customerName: 'Maria Santos',
+      address: 'Angeles City',
+      contactNumber: '09998887777',
+      paymentMode: 'Bank Transfer',
+      paymentStatus: 'Unpaid',
+      downPaymentPercent: 10,
+      createdAt: '2026-07-10',
       paid: false,
+      status: 'To Verify',
+      date: '07/10/2026',
     },
   ];
 
@@ -50,11 +77,23 @@ function Billings() {
               🕒 {bill.date}
             </div>
 
-            <button className="invoice-btn">
+            <button
+              className="invoice-btn"
+              onClick={() => {
+                setSelectedBill(bill);
+                setShowReceipt(true);
+              }}
+            >
               📄 Invoice
             </button>
 
-            <button className="payment-btn">
+            <button
+              className="payment-btn"
+              onClick={() => {
+                setSelectedBill(bill);
+                setShowPayment(true);
+              }}
+            >
               💳 Settle Payment
             </button>
 
@@ -65,7 +104,23 @@ function Billings() {
           </div>
         ))}
       </div>
+      {/* Payment Modal */}
+      {showPayment && selectedBill && (
+        <PaymentModal
+          form={selectedBill}
+          onClose={() => setShowPayment(false)}
+          onSubmit={handlePaymentSubmit}
+        />
+      )}
 
+      {/* Receipt Modal */}
+      {showReceipt && selectedBill && (
+        <ReceiptModal
+          form={selectedBill}
+          booking={selectedBill}
+          onClose={() => setShowReceipt(false)}
+        />
+      )}
     </CustomerLayout>
   );
 }

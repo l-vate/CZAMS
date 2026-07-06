@@ -1,5 +1,11 @@
+import CustomerLayout from './customer_layout';
+
 function Billings() {
-  return <h1>Billings</h1>;
+  return (
+    <CustomerLayout title="Billings">
+      <h1 className="dashboard-welcome">Billings</h1>
+    </CustomerLayout>
+  );
 }
 
 export default Billings;

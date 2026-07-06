@@ -50,7 +50,7 @@ function StaffSidebar() {
           </NavLink>
 
           <NavLink
-            to="/staff/assigned_jobs"
+            to="/staff/my_jobs"
             className={({ isActive }) =>
               isActive
                 ? "sidebar-link active"
@@ -58,11 +58,11 @@ function StaffSidebar() {
             }
           >
             <span className="link-icon">🧰</span>
-            Assigned Jobs
+            My Jobs
           </NavLink>
 
           <NavLink
-            to="/staff/schedule"
+            to="/staff/calendar"
             className={({ isActive }) =>
               isActive
                 ? "sidebar-link active"
@@ -70,11 +70,11 @@ function StaffSidebar() {
             }
           >
             <span className="link-icon">📅</span>
-            Schedule
+            Calendar
           </NavLink>
 
           <NavLink
-            to="/staff/job_history"
+            to="/staff/reports"
             className={({ isActive }) =>
               isActive
                 ? "sidebar-link active"
@@ -82,7 +82,7 @@ function StaffSidebar() {
             }
           >
             <span className="link-icon">📁</span>
-            Job History
+            Reports
           </NavLink>
 
           <NavLink

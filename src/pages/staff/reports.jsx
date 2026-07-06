@@ -1,5 +1,11 @@
+import StaffLayout from './staff_layout';
+
 function Reports() {
-  return <h1>Reports</h1>;
+  return (
+    <StaffLayout title="Reports">
+      <h1 className="dashboard-welcome">Reports</h1>
+    </StaffLayout>
+  );
 }
 
 export default Reports;

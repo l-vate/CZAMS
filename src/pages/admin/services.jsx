@@ -1,5 +1,11 @@
+import AdminLayout from './admin_layout';
+
 function Services() {
-  return <h1>Services</h1>;
+  return (
+    <AdminLayout title="Services">
+      <h1 className="dashboard-welcome">Services</h1>
+    </AdminLayout>
+  );
 }
 
 export default Services;

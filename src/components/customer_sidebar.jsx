@@ -74,7 +74,7 @@ function CustomerSidebar() {
           </NavLink>
 
           <NavLink
-            to="/customer/payments"
+            to="/customer/billings  "
             className={({ isActive }) =>
               isActive
                 ? "sidebar-link active"

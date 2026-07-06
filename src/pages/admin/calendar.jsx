@@ -1,5 +1,11 @@
+import AdminLayout from './admin_layout';
+
 function Calendar() {
-  return <h1>Calendar</h1>;
+  return (
+    <AdminLayout title="Calendar">
+      <h1 className="dashboard-welcome">Calendar</h1>
+    </AdminLayout>
+  );
 }
 
 export default Calendar;

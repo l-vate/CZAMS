@@ -1,5 +1,11 @@
+import StaffLayout from './staff_layout';
+
 function Profile() {
-  return <h1>Profile</h1>;
+  return (
+    <StaffLayout title="Profile">
+      <h1 className="dashboard-welcome">Profile</h1>
+    </StaffLayout>
+  );
 }
 
 export default Profile;

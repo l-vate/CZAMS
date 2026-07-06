@@ -1,5 +1,11 @@
+import StaffLayout from './staff_layout';
+
 function Calendar() {
-  return <h1>Calendar</h1>;
+  return (
+    <StaffLayout title="Calendar">
+      <h1 className="dashboard-welcome">Calendar</h1>
+    </StaffLayout>
+  );
 }
 
 export default Calendar;

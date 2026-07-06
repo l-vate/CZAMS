@@ -1,5 +1,11 @@
+import AdminLayout from './admin_layout';
+
 function Payments() {
-  return <h1>Payments</h1>;
+  return (
+    <AdminLayout title="Payments">
+      <h1 className="dashboard-welcome">Payments</h1>
+    </AdminLayout>
+  );
 }
 
 export default Payments;

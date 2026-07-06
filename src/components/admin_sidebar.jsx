@@ -50,31 +50,31 @@ function AdminSidebar() {
           </NavLink>
 
           <NavLink
-            to="/admin/bookings"
+            to="/admin/analytics"
             className={({ isActive }) =>
               isActive
                 ? "sidebar-link active"
                 : "sidebar-link"
             }
           >
-            <span className="link-icon">📁</span>
-            Manage Bookings
+            <span className="link-icon">📈</span>
+            Analytics
           </NavLink>
 
           <NavLink
-            to="/admin/staff"
+            to="/admin/calendar"
             className={({ isActive }) =>
               isActive
                 ? "sidebar-link active"
                 : "sidebar-link"
             }
           >
-            <span className="link-icon">🧑‍🔧</span>
-            Manage Staff
+            <span className="link-icon">🗓️</span>
+            Calendar
           </NavLink>
 
           <NavLink
-            to="/admin/customers"
+            to="/admin/manage_accounts"
             className={({ isActive }) =>
               isActive
                 ? "sidebar-link active"
@@ -82,7 +82,7 @@ function AdminSidebar() {
             }
           >
             <span className="link-icon">👥</span>
-            Manage Customers
+            Manage Accounts
           </NavLink>
 
           <NavLink
@@ -98,7 +98,7 @@ function AdminSidebar() {
           </NavLink>
 
           <NavLink
-            to="/admin/billings"
+            to="/admin/payments"
             className={({ isActive }) =>
               isActive
                 ? "sidebar-link active"
@@ -106,31 +106,7 @@ function AdminSidebar() {
             }
           >
             <span className="link-icon">💳</span>
-            Payments & Billing
-          </NavLink>
-
-          <NavLink
-            to="/admin/reports"
-            className={({ isActive }) =>
-              isActive
-                ? "sidebar-link active"
-                : "sidebar-link"
-            }
-          >
-            <span className="link-icon">📈</span>
-            Reports
-          </NavLink>
-
-          <NavLink
-            to="/admin/profile"
-            className={({ isActive }) =>
-              isActive
-                ? "sidebar-link active"
-                : "sidebar-link"
-            }
-          >
-            <span className="link-icon">👤</span>
-            Profile
+            Payments
           </NavLink>
         </nav>
       </div>

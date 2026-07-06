@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import CustomerSidebar from '../../components/customer_sidebar';
+import CustomerLayout from './customer_layout';
 
 const SERVICES = [
   { id: 'cleaning', label: 'Cleaning', desc: 'Deep clean & sanitize', price: 650, icon: '🧹' },
@@ -286,59 +286,55 @@ function BookService() {
 
   const stepLabels = ['Choose Service', 'Unit Details', 'Location & Schedule', 'Payment', 'Booking Summary'];
 
-  return (
-    <div className="dashboard-shell">
+return (
+  <CustomerLayout title="Book Service">
+    <h1 className="dashboard-welcome">
+      Tell us what you need
+    </h1>
 
-      {/* Sidebar */}
-      <CustomerSidebar />
+    <StepIndicator current={step} />
 
-      {/* Main */}
-      <div className="dashboard-main">
-        <div className="dashboard-topbar">Book Service</div>
+    {step === 1 && <Step1 form={form} setForm={setForm} />}
+    {step === 2 && <Step2 form={form} setForm={setForm} />}
+    {step === 3 && <Step3 form={form} setForm={setForm} />}
+    {step === 4 && <Step4 form={form} setForm={setForm} />}
+    {step === 5 && <Step5 form={form} setForm={setForm} />}
 
-        <div className="dashboard-body">
-          <h1 className="dashboard-welcome">Tell us what you need</h1>
+    <div className="bs-nav-row">
+      <span className="bs-step-label">
+        Step {step} of {TOTAL_STEPS} — {stepLabels[step - 1]}
+      </span>
 
-          <StepIndicator current={step} />
+      <div className="bs-nav-btns">
+        {step > 1 && (
+          <button
+            className="bs-back-btn"
+            onClick={() => setStep(step - 1)}
+          >
+            ← Back
+          </button>
+        )}
 
-          {step === 1 && <Step1 form={form} setForm={setForm} />}
-          {step === 2 && <Step2 form={form} setForm={setForm} />}
-          {step === 3 && <Step3 form={form} setForm={setForm} />}
-          {step === 4 && <Step4 form={form} setForm={setForm} />}
-          {step === 5 && <Step5 form={form} setForm={setForm} />}
-
-          {/* Navigation buttons */}
-          <div className="bs-nav-row">
-            <span className="bs-step-label">Step {step} of {TOTAL_STEPS} — {stepLabels[step - 1]}</span>
-            <div className="bs-nav-btns">
-              {step > 1 && (
-                <button className="bs-back-btn" onClick={() => setStep(step - 1)}>
-                  ← Back
-                </button>
-              )}
-              {step < TOTAL_STEPS ? (
-                <button
-                  className="bs-next-btn"
-                  onClick={() => setStep(step + 1)}
-                  disabled={!canNext()}
-                >
-                  Next →
-                </button>
-              ) : (
-                <button
-                  className="bs-next-btn"
-                  onClick={() => navigate('/customer/dashboard')}
-                >
-                  Confirm ✓
-                </button>
-              )}
-            </div>
-          </div>
-
-        </div>
+        {step < TOTAL_STEPS ? (
+          <button
+            className="bs-next-btn"
+            onClick={() => setStep(step + 1)}
+            disabled={!canNext()}
+          >
+            Next →
+          </button>
+        ) : (
+          <button
+            className="bs-next-btn"
+            onClick={() => navigate('/customer/dashboard')}
+          >
+            Confirm ✓
+          </button>
+        )}
       </div>
     </div>
-  );
+  </CustomerLayout>
+);
 }
 
 export default BookService;

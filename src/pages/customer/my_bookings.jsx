@@ -1,216 +1,247 @@
-import CustomerSidebar from '../../components/customer_sidebar';
 import { useState } from 'react';
-
-const BOOKINGS = [
-    {
-        id: 'BK-2026-001',
-        service: 'Cleaning',
-        date: '2026-07-10',
-        time: 'Morning',
-        technician: 'Juan Dela Cruz',
-        status: 'Pending',
-        payment: '50% Paid',
-        total: 650,
-    },
-    {
-        id: 'BK-2026-001',
-        service: 'Cleaning',
-        date: '2026-07-10',
-        time: 'Morning',
-        technician: 'Juan Dela Cruz',
-        status: 'Pending',
-        payment: '50% Paid',
-        total: 650,
-    },
-    {
-        id: 'BK-2026-001',
-        service: 'Cleaning',
-        date: '2026-07-10',
-        time: 'Morning',
-        technician: 'Juan Dela Cruz',
-        status: 'Pending',
-        payment: '50% Paid',
-        total: 650,
-    },
-    {
-        id: 'BK-2026-001',
-        service: 'Cleaning',
-        date: '2026-07-10',
-        time: 'Morning',
-        technician: 'Juan Dela Cruz',
-        status: 'Pending',
-        payment: '50% Paid',
-        total: 650,
-    },
-    {
-        id: 'BK-2026-002',
-        service: 'Repair',
-        date: '2026-07-15',
-        time: 'Afternoon',
-        technician: 'Pedro Santos',
-        status: 'Confirmed',
-        payment: '50% Paid',
-        total: 1200,
-    },
-];
+import CustomerLayout from './customer_layout';
 
 function MyBookings() {
+    const [activeFilter, setActiveFilter] = useState('All');
 
-    const [selectedBooking, setSelectedBooking] = useState(null);
+    const filters = [
+        'All',
+        'Pending',
+        'Approved',
+        'In Progress',
+        'Completed',
+        'Cancelled'
+    ];
 
-    return (
-        <div className="dashboard-shell">
-            <CustomerSidebar />
+    const bookings = [
+        {
+            id: 'BK-001',
+            service: 'Aircon Cleaning',
+            status: 'Completed',
+            date: '07-06-26',
+            technician: 'Juan Dela Cruz',
+            address: 'Davao City'
+        },
+        {
+            id: 'BK-002',
+            service: 'Aircon Repair',
+            status: 'Pending',
+            date: '07-08-26',
+            technician: 'Pedro Santos',
+            address: 'Davao City'
+        },
+        {
+            id: 'BK-003',
+            service: 'Aircon Installation',
+            status: 'Pending',
+            date: '07-10-26',
+            technician: 'Not Assigned',
+            address: 'Tagum City'
+        },
+        {
+            id: 'BK-004',
+            service: 'Maintenance Check',
+            status: 'Pending',
+            date: '07-12-26',
+            technician: 'Not Assigned',
+            address: 'Panabo City'
+        }
+    ];
 
-            <div className="dashboard-main">
-                <div className="dashboard-topbar">
-                    My Bookings
+    const filteredBookings =
+        activeFilter === 'All'
+            ? bookings
+            : bookings.filter(
+                  (booking) => booking.status === activeFilter
+              );
+
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'Completed':
+                return '#22c55e';
+            case 'Approved':
+                return '#3b82f6';
+            case 'In Progress':
+                return '#f59e0b';
+            case 'Cancelled':
+                return '#ef4444';
+            default:
+                return '#f59e0b';
+        }
+    };
+
+return (
+    <CustomerLayout title="My Bookings">
+                {/* Filters */}
+                <div
+                    style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: '20px'
+                    }}
+                >
+                    <div
+                        style={{
+                            display: 'flex',
+                            gap: '12px',
+                            flexWrap: 'wrap'
+                        }}
+                    >
+                        {filters.map((filter) => (
+                            <button
+                                key={filter}
+                                onClick={() => setActiveFilter(filter)}
+                                style={{
+                                    padding: '10px 18px',
+                                    borderRadius: '999px',
+                                    border:
+                                        '1px solid #1b9ce5',
+                                    background:
+                                        activeFilter === filter
+                                            ? '#1b9ce5'
+                                            : '#fff',
+                                    color:
+                                        activeFilter === filter
+                                            ? '#fff'
+                                            : '#333',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                {filter}
+                            </button>
+                        ))}
+                    </div>
+
+                    <button
+                        style={{
+                            background: '#1b9ce5',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '10px 16px',
+                            cursor: 'pointer',
+                            fontWeight: '600'
+                        }}
+                    >
+                        New Booking
+                    </button>
                 </div>
 
-                <div className="dashboard-body">
-                    <h1 className="dashboard-welcome">
-                        My Service Bookings
-                    </h1>
-
-
-                    <div className="bookings-list">
-                        {BOOKINGS.map((booking) => (
-                            <div className="booking-item" key={booking.id}>
-                                <div className="booking-item-header">
-                                    <div>
-                                        <h3>{booking.service}</h3>
-                                        <p>{booking.id}</p>
-                                    </div>
+                {/* Booking Cards */}
+                <div
+                    style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px'
+                    }}
+                >
+                    {filteredBookings.map((booking) => (
+                        <div
+                            key={booking.id}
+                            style={{
+                                background: '#fff',
+                                border: '1px solid #d9d9d9',
+                                borderRadius: '12px',
+                                padding: '18px 20px',
+                                display: 'grid',
+                                gridTemplateColumns:
+                                    '2fr 1.5fr 1.5fr 1fr',
+                                alignItems: 'center'
+                            }}
+                        >
+                            <div>
+                                <div
+                                    style={{
+                                        display: 'flex',
+                                        gap: '10px',
+                                        alignItems: 'center',
+                                        marginBottom: '8px'
+                                    }}
+                                >
+                                    <small
+                                        style={{
+                                            color: '#888'
+                                        }}
+                                    >
+                                        {booking.date}
+                                    </small>
 
                                     <span
-                                        className={`booking-badge ${booking.status.toLowerCase()}`}
+                                        style={{
+                                            background:
+                                                getStatusColor(
+                                                    booking.status
+                                                ),
+                                            color: '#fff',
+                                            padding:
+                                                '2px 8px',
+                                            borderRadius:
+                                                '999px',
+                                            fontSize:
+                                                '11px'
+                                        }}
                                     >
                                         {booking.status}
                                     </span>
                                 </div>
 
-                                <div className="booking-item-body">
-                                    <div>
-                                        <span>Date</span>
-                                        <strong>{booking.date}</strong>
-                                    </div>
+                                <h3
+                                    style={{
+                                        margin: 0,
+                                        fontSize: '18px'
+                                    }}
+                                >
+                                    {booking.service}
+                                </h3>
 
-                                    <div>
-                                        <span>Time</span>
-                                        <strong>{booking.time}</strong>
-                                    </div>
+                                <p
+                                    style={{
+                                        margin: '4px 0',
+                                        color: '#666'
+                                    }}
+                                >
+                                    {booking.id}
+                                </p>
 
-                                    <div>
-                                        <span>Technician</span>
-                                        <strong>{booking.technician}</strong>
-                                    </div>
-
-                                    <div>
-                                        <span>Payment</span>
-                                        <strong>{booking.payment}</strong>
-                                    </div>
-                                </div>
-
-                                <div className="booking-item-footer">
-                                    <div>
-                                        <span>Total Cost</span>
-                                        <strong>₱{booking.total.toLocaleString()}</strong>
-                                    </div>
-
-                                    <button
-                                        className="info-card-view-all"
-                                        onClick={() => setSelectedBooking(booking)}
-                                    >
-                                        View Details →
-                                    </button>
-                                </div>
+                                <small>
+                                    Technician:{' '}
+                                    {booking.technician}
+                                </small>
                             </div>
-                        ))}
-                    </div>
-                    
-                    {selectedBooking && (
-                        <div
-                            className="booking-modal-overlay"
-                            onClick={() => setSelectedBooking(null)}
-                        >
+
+                            <div>
+                                🕒 {booking.date}
+                            </div>
+
+                            <div>
+                                📍 {booking.address}
+                            </div>
+
                             <div
-                                className="booking-modal"
-                                onClick={(e) => e.stopPropagation()}
+                                style={{
+                                    display: 'flex',
+                                    justifyContent:
+                                        'flex-end'
+                                }}
                             >
-                                <div className="booking-modal-header">
-                                    <h2>Booking Details</h2>
-
-                                    <button
-                                        className="booking-modal-close"
-                                        onClick={() => setSelectedBooking(null)}
-                                    >
-                                        ✕
-                                    </button>
-                                </div>
-
-                                <div className="summary-grid">
-                                    <div>
-                                        <p className="summary-section-title">
-                                            Service Information
-                                        </p>
-
-                                        <div className="summary-row">
-                                            <span>Booking ID</span>
-                                            <span>{selectedBooking.id}</span>
-                                        </div>
-
-                                        <div className="summary-row">
-                                            <span>Service</span>
-                                            <span>{selectedBooking.service}</span>
-                                        </div>
-
-                                        <div className="summary-row">
-                                            <span>Status</span>
-                                            <span>{selectedBooking.status}</span>
-                                        </div>
-
-                                        <div className="summary-row">
-                                            <span>Technician</span>
-                                            <span>{selectedBooking.technician}</span>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <p className="summary-section-title">
-                                            Schedule & Payment
-                                        </p>
-
-                                        <div className="summary-row">
-                                            <span>Date</span>
-                                            <span>{selectedBooking.date}</span>
-                                        </div>
-
-                                        <div className="summary-row">
-                                            <span>Time</span>
-                                            <span>{selectedBooking.time}</span>
-                                        </div>
-
-                                        <div className="summary-row">
-                                            <span>Payment</span>
-                                            <span>{selectedBooking.payment}</span>
-                                        </div>
-
-                                        <div className="summary-row total">
-                                            <span>Total Cost</span>
-                                            <span>
-                                                ₱{selectedBooking.total.toLocaleString()}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
+                                <button
+                                    style={{
+                                        background:
+                                            'transparent',
+                                        border: 'none',
+                                        color: '#333',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    View Details
+                                </button>
                             </div>
                         </div>
-                    )}
-
+                    ))}
                 </div>
-            </div>
-        </div>
-    );
+    </CustomerLayout>
+);
 }
 
 export default MyBookings;

@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import '../css/calendar_view.css';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const HOUR_HEIGHT = 56; // px per hour row

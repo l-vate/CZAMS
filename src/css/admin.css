@@ -1,0 +1,127 @@
+/* ============ REFACTORED COMPONENT STYLES ============ */
+
+/* Main content wrapper padding to match the body container */
+.dashboard {
+    padding: 0; /* Let .dashboard-body handle outer padding if using shell, or keep 32px if standalone */
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* Header section aligned with dashboard-welcome styles */
+.dashboard-header {
+    margin-bottom: 8px;
+}
+
+.dashboard-header h1 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--navy);
+    margin: 0;
+}
+
+.dashboard-header p {
+    font-size: 14px;
+    color: var(--ink-soft);
+    margin-top: 6px;
+    font-weight: 500;
+}
+
+/* Stats layout matching .stats-row grid structure */
+.stats-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 8px;
+}
+
+/* Updated card design using subtle borders and elevation on hover */
+.stat-card {
+    background: var(--white);
+    border-radius: 12px;
+    padding: 20px 24px;
+    border: 1px solid #e2eaf1;
+    text-align: left; /* Switched to left-aligned to match the modern dashboard look */
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.stat-card:hover {
+    box-shadow: 0 4px 16px rgba(11, 37, 69, 0.08);
+    transform: translateY(-1px);
+}
+
+.stat-icon {
+    font-size: 24px;
+    margin-bottom: 12px;
+    display: inline-block;
+}
+
+.stat-card h3 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--navy);
+    line-height: 1;
+    margin: 0 0 6px 0;
+}
+
+.stat-card p {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    margin: 0;
+}
+
+/* Table container matching the .info-card styling */
+.recent-bookings {
+    background: var(--white);
+    border-radius: 12px;
+    border: 1px solid #e2eaf1;
+    overflow: hidden;
+}
+
+/* Added explicit table header title formatting to match info-card-header */
+.recent-bookings h2 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--navy);
+    padding: 16px 22px;
+    margin: 0;
+    border-bottom: 1px solid #f0f4f8;
+}
+
+.recent-bookings table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.recent-bookings th,
+.recent-bookings td {
+    padding: 14px 22px; /* Matched the internal horizontal alignment padding */
+    text-align: left;
+    font-size: 14px;
+}
+
+.recent-bookings th {
+    background-color: #f8fafc;
+    color: var(--navy);
+    font-weight: 600;
+    border-bottom: 1px solid #e2eaf1;
+}
+
+.recent-bookings td {
+    color: var(--ink-soft);
+    border-bottom: 1px solid #f0f4f8;
+    font-weight: 500;
+}
+
+/* Remove bottom border from the final table row */
+.recent-bookings tr:last-child td {
+    border-bottom: none;
+}
+
+/* Row hover highlight for clean interactive feel */
+.recent-bookings tbody tr:hover td {
+    background-color: #fcfdfe;
+}

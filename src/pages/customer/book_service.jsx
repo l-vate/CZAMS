@@ -3,19 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
 
 const SERVICES = [
-  { id: 'cleaning',     label: 'Cleaning',     desc: 'Deep clean & sanitize',         price: 650,  icon: '🧹' },
-  { id: 'repair',       label: 'Repair',        desc: 'Diagnose & fix issues',         price: 1200, icon: '🔧' },
-  { id: 'installation', label: 'Installation',  desc: 'Deep clean & fix surroundings', price: 3500, icon: '❄️' },
-  { id: 'maintenance',  label: 'Maintenance',   desc: 'Routine check-up',              price: 550,  icon: '🛠️' },
+  { id: 'cleaning', label: 'Cleaning', desc: 'Deep clean & sanitize', price: 650, icon: '🧹' },
+  { id: 'repair', label: 'Repair', desc: 'Diagnose & fix issues', price: 1200, icon: '🔧' },
+  { id: 'installation', label: 'Installation', desc: 'Deep clean & fix surroundings', price: 3500, icon: '❄️' },
+  { id: 'maintenance', label: 'Maintenance', desc: 'Routine check-up', price: 550, icon: '🛠️' },
 ];
 
 const UNIT_TYPES = ['Window Type', 'Split Type', 'Floor Mounted', 'Cassette Type', 'Portable'];
 
 const DOWN_PAYMENT_OPTIONS = [
   { label: 'Full Payment (100%)', value: 100 },
-  { label: '30% Down Payment',    value: 30  },
-  { label: '50% Down Payment',    value: 50  },
-  { label: '10% Down Payment',    value: 10  },
+  { label: '30% Down Payment', value: 30 },
+  { label: '50% Down Payment', value: 50 },
+  { label: '10% Down Payment', value: 10 },
 ];
 
 const PAYMENT_MODES = ['Cash', 'E-Wallet (GCash, Maya...)', 'Bank Transfer'];
@@ -49,7 +49,7 @@ function StepIndicator({ current }) {
       {Array.from({ length: TOTAL_STEPS }, (_, i) => {
         const num = i + 1;
         const isCompleted = num < current;
-        const isActive    = num === current;
+        const isActive = num === current;
         return (
           <div key={num} className="step-indicator-item">
             <div className={`step-dot ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}>
@@ -215,13 +215,13 @@ function Step3({ form, setForm }) {
 
 /* ── Payment Modal ────────────────────────────────────────── */
 function PaymentModal({ form, onClose, onSubmit }) {
-  const selected  = SERVICES.find((s) => s.id === form.service);
+  const selected = SERVICES.find((s) => s.id === form.service);
   const basePrice = selected?.price || 0;
   const dpPercent = form.downPaymentPercent ?? 10;
-  const toPayNow  = Math.round(basePrice * (dpPercent / 100));
+  const toPayNow = Math.round(basePrice * (dpPercent / 100));
   const remaining = basePrice - toPayNow;
 
-  const [proof, setProof]   = useState(null);
+  const [proof, setProof] = useState(null);
   const [senior, setSenior] = useState(null);
 
   return (
@@ -299,12 +299,12 @@ function PaymentModal({ form, onClose, onSubmit }) {
 function Step4({ form, setForm }) {
   const [showModal, setShowModal] = useState(false);
 
-  const selected    = SERVICES.find((s) => s.id === form.service);
-  const basePrice   = selected?.price || 0;
-  const dpPercent   = form.downPaymentPercent ?? 10;
-  const toPayNow    = Math.round(basePrice * (dpPercent / 100));
-  const remaining   = basePrice - toPayNow;
-  const isFullPay   = dpPercent === 100;
+  const selected = SERVICES.find((s) => s.id === form.service);
+  const basePrice = selected?.price || 0;
+  const dpPercent = form.downPaymentPercent ?? 10;
+  const toPayNow = Math.round(basePrice * (dpPercent / 100));
+  const remaining = basePrice - toPayNow;
+  const isFullPay = dpPercent === 100;
 
   const handleSubmitPayment = ({ proof, senior }) => {
     // TODO: send proof + senior files to Express backend
@@ -422,10 +422,10 @@ function Step4({ form, setForm }) {
 
 /* ── Step 5: Booking Summary ──────────────────────────────── */
 function Step5({ form }) {
-  const selected  = SERVICES.find((s) => s.id === form.service);
+  const selected = SERVICES.find((s) => s.id === form.service);
   const basePrice = selected?.price || 0;
   const dpPercent = form.downPaymentPercent ?? 10;
-  const toPayNow  = Math.round(basePrice * (dpPercent / 100));
+  const toPayNow = Math.round(basePrice * (dpPercent / 100));
   const remaining = basePrice - toPayNow;
   const isFullPay = dpPercent === 100;
 
@@ -464,10 +464,10 @@ function Step5({ form }) {
 
 /* ── Receipt Modal (printable invoice) ────────────────────── */
 function ReceiptModal({ form, booking, onClose }) {
-  const selected  = SERVICES.find((s) => s.id === form.service);
+  const selected = SERVICES.find((s) => s.id === form.service);
   const basePrice = selected?.price || 0;
   const dpPercent = form.downPaymentPercent ?? 10;
-  const toPayNow  = Math.round(basePrice * (dpPercent / 100));
+  const toPayNow = Math.round(basePrice * (dpPercent / 100));
 
   useEffect(() => {
     document.body.classList.add('printing-receipt-active');
@@ -529,18 +529,35 @@ function ReceiptModal({ form, booking, onClose }) {
           </div>
 
           <div className="receipt-section receipt-footer-info">
-            <div className="receipt-info-row"><span>Payment Method:</span><span>{form.paymentMode || '—'}</span></div>
+
             <div className="receipt-info-row">
-              <span>Status:</span>
+              <span>Subtotal</span>
+              <span>₱{basePrice.toLocaleString()}</span>
+            </div>
+
+            <div className="receipt-info-row">
+              <span>Amount Paid</span>
+              <span>₱{toPayNow.toLocaleString()}</span>
+            </div>
+
+            <div className="receipt-info-row">
+              <span>Payment Method</span>
+              <span>{form.paymentMode || '—'}</span>
+            </div>
+
+            <div className="receipt-info-row">
+              <span>Status</span>
               <span className="receipt-status-paid">
-                {form.paymentStatus === 'Paid' ? `Paid (${dpPercent}% Downpayment)` : 'Unpaid'}
+                {form.paymentStatus === 'Paid'
+                  ? `${dpPercent}% Paid`
+                  : 'Unpaid'}
               </span>
             </div>
+
           </div>
 
           <p className="receipt-thanks">
-            Thank you for choosing Cooling Zone Aircon Services. We appreciate your trust in our services.
-            For inquiries and future maintenance appointments, please contact us.
+            Thank you for choosing Cooling Zone Aircon Services.
           </p>
         </div>
 
@@ -555,12 +572,12 @@ function ReceiptModal({ form, booking, onClose }) {
 
 /* ── Booking Confirmation (after booking is submitted) ────── */
 function BookingConfirmation({ form, booking, onReschedule, onCancelClick, onPrintReceipt }) {
-  const selected  = SERVICES.find((s) => s.id === form.service);
+  const selected = SERVICES.find((s) => s.id === form.service);
   const basePrice = selected?.price || 0;
   const dpPercent = form.downPaymentPercent ?? 10;
-  const toPayNow  = Math.round(basePrice * (dpPercent / 100));
+  const toPayNow = Math.round(basePrice * (dpPercent / 100));
   const remaining = basePrice - toPayNow;
-  const techName  = form.technician ? TECHNICIANS[form.technician] : 'To be assigned';
+  const techName = form.technician ? TECHNICIANS[form.technician] : 'To be assigned';
 
   return (
     <div className="confirmation-wrap">

@@ -2297,160 +2297,221 @@ section { padding: 90px 40px; }
   gap: 12px;
 }
  
-/* ── Receipt modal ─────────────────────────────────────────── */
-.receipt-modal-card {
-  max-width: 380px;
-  padding: 20px 22px 20px;
+/* =========================
+   RECEIPT MODAL
+========================= */
+
+.receipt-modal-card{
+    width:450px;
+    height:fit-content;
+    max-width:92vw;
+    background:#fff;
+    border-radius:14px;
+    overflow:hidden;
+    box-shadow:0 20px 60px rgba(0,0,0,.18);
 }
- 
-.receipt-modal-header {
-  justify-content: flex-end;
+
+.receipt-print-area{
+    padding:16px 20px;
+    background:#fff;
 }
- 
-.receipt-print-area {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  background: var(--white);
+
+/* ---------- HEADER ---------- */
+
+.receipt-top-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    border-bottom:2px solid #E6EEF5;
+    padding-bottom:12px;
+    margin-bottom:16px;
 }
- 
-.receipt-top-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--mist);
-  padding-bottom: 12px;
+
+.receipt-brand{
+    display:flex;
+    align-items:center;
+    gap:14px;
 }
- 
-.receipt-brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+
+.receipt-brand-icon{
+    font-size:28px;
 }
- 
-.receipt-brand-icon { font-size: 20px; }
- 
-.receipt-brand-name {
-  font-family: 'Outfit', sans-serif;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--teal-dark);
-  line-height: 1.2;
+
+.receipt-brand-name{
+    font-size:18px;
+    font-weight:700;
+    color:#0B2545;
+    margin:0;
 }
- 
-.receipt-brand-sub {
-  font-size: 10px;
-  color: var(--ink-soft);
+
+.receipt-brand-sub{
+    margin-top:3px;
+    font-size:12px;
+    color:#6B7280;
 }
- 
-.receipt-invoice-meta {
-  text-align: right;
-  font-size: 11px;
-  color: var(--ink-soft);
+
+.receipt-invoice-meta{
+    text-align:right;
 }
- 
-.receipt-invoice-title {
-  font-family: 'Outfit', sans-serif;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--navy);
-  margin-bottom: 2px;
+
+.receipt-invoice-title{
+    font-size:22px;
+    font-weight:800;
+    color:#0B2545;
+    margin-bottom:10px;
 }
- 
-.receipt-section-title {
-  font-family: 'Outfit', sans-serif;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--navy);
-  margin-bottom: 8px;
+
+.receipt-invoice-meta p{
+    margin:4px 0;
+    font-size:12px;
+    color:#475569;
 }
- 
-.receipt-info-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 12px;
-  color: var(--ink-soft);
-  margin-bottom: 4px;
+
+/* ---------- SECTIONS ---------- */
+
+.receipt-section{
+    margin-bottom:12px;
 }
- 
-.receipt-info-row span:last-child {
-  font-weight: 600;
-  color: var(--navy);
-  text-align: right;
+
+.receipt-section-title{
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    color:#0E8C8C;
+    margin-bottom:6px;
 }
- 
-.receipt-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
+
+/* ---------- CUSTOMER INFO ---------- */
+
+.receipt-info-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:4px 0;
+    border-bottom:1px solid #EEF2F7;
+    font-size:12px;
 }
- 
-.receipt-table th {
-  text-align: left;
-  color: var(--ink-soft);
-  font-weight: 600;
-  padding: 6px 4px;
-  border-bottom: 1px solid var(--mist);
+
+.receipt-info-row span:first-child{
+    color:#64748B;
+    font-weight:500;
 }
- 
-.receipt-table td {
-  padding: 8px 4px;
-  color: var(--navy);
-  font-weight: 500;
+
+.receipt-info-row span:last-child{
+    color:#0F172A;
+    font-weight:600;
+    text-align:right;
 }
- 
-.receipt-footer-info {
-  border-top: 1px solid var(--mist);
-  padding-top: 10px;
+
+/* ---------- TABLE ---------- */
+
+.receipt-table{
+    width:100%;
+    border-collapse:collapse;
 }
- 
-.receipt-status-paid {
-  color: var(--teal-dark) !important;
-  font-weight: 700 !important;
+
+.receipt-table thead{
+    background:#F4F8FB;
 }
- 
-.receipt-thanks {
-  font-size: 10.5px;
-  color: var(--ink-soft);
-  line-height: 1.6;
-  text-align: center;
-  padding-top: 6px;
-  border-top: 1px solid var(--mist);
+
+.receipt-table th{
+    padding:6px 8px;
+    text-align:left;
+    font-size:12px;
+    color:#475569;
+    font-weight:700;
 }
- 
-.receipt-print-btn {
-  margin-top: 8px;
+
+.receipt-table td{
+    padding:16px 8px;
+    border-bottom:1px solid #EDF2F7;
+    font-size:13px;
 }
- 
-/* ── Print-only rules ──────────────────────────────────────
-   When the receipt modal is open and the user hits Print
-   (or Ctrl/Cmd+P), only .receipt-print-area is shown.        */
-@media print {
-  /* Hide everything on the page by default */
-  body.printing-receipt-active * {
-    visibility: hidden;
-  }
- 
-  /* Reveal only the receipt content and its ancestors */
-  body.printing-receipt-active .receipt-print-area,
-  body.printing-receipt-active .receipt-print-area * {
-    visibility: visible;
-  }
- 
-  body.printing-receipt-active .receipt-print-area {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    padding: 24px;
-  }
- 
-  /* Never print the modal chrome (overlay dimming, close/print buttons) */
-  body.printing-receipt-active .receipt-modal-header,
-  body.printing-receipt-active .receipt-print-btn {
-    display: none !important;
-  }
+
+.receipt-table th:nth-child(2),
+.receipt-table td:nth-child(2){
+    text-align:center;
+}
+
+.receipt-table th:last-child,
+.receipt-table td:last-child{
+    text-align:right;
+    font-weight:700;
+}
+
+/* ---------- FOOTER ---------- */
+
+.receipt-footer-info{
+    border-top:2px solid #E6EEF5;
+    padding-top:10px;
+}
+
+.receipt-status-paid{
+    background:#DCFCE7;
+    color:#15803D;
+    padding:6px 14px;
+    border-radius:999px;
+    font-size:13px;
+    font-weight:700;
+}
+
+.receipt-thanks{
+    margin-top:12px;
+    padding-top:10px;
+    border-top:1px dashed #CBD5E1;
+    text-align:center;
+    font-size:11px;
+    color:#64748B;
+    line-height:1.4;
+}
+
+/* ---------- PRINT BUTTON ---------- */
+
+.receipt-print-btn{
+    width:180px;
+    margin:12px auto;
+    display:block;
+    background:#0B2545;
+    color:white;
+    border:none;
+    border-radius:12px;
+    padding:10px;
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+    transition:.25s;
+}
+
+.receipt-print-btn:hover{
+    background:#143A63;
+}
+
+/* ---------- PRINT ---------- */
+
+@media print{
+
+body *{
+    visibility:hidden;
+}
+
+.receipt-print-area,
+.receipt-print-area *{
+    visibility:visible;
+}
+
+.receipt-print-area{
+    position:absolute;
+    inset:0;
+    width:100%;
+    padding:30px;
+}
+
+.receipt-print-btn,
+.modal-close-btn{
+    display:none;
+}
+
 }
  
 /* ── Responsive ────────────────────────────────────────────── */
@@ -2460,5 +2521,129 @@ section { padding: 90px 40px; }
   .confirmation-actions { flex-direction: column; }
   .cancel-confirm-actions { flex-direction: column; }
   .cancelled-actions { flex-direction: column; width: 100%; }
+}
+
+.billing-page{
+    padding:30px;
+}
+
+.billing-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:25px;
+}
+
+.billing-header h2{
+    font-size:26px;
+    font-weight:700;
+    color:#0B2545;
+}
+
+.billing-tools{
+    display:flex;
+    gap:12px;
+}
+
+.billing-tools select,
+.billing-tools input{
+    height:38px;
+    border:1px solid #D8E3EC;
+    border-radius:8px;
+    padding:0 14px;
+    background:#fff;
+    outline:none;
+}
+
+.billing-list{
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+}
+
+.billing-card{
+    display:flex;
+    align-items:center;
+    gap:28px;
+
+    background:#fff;
+    border:1px solid #E5EAF0;
+    border-radius:14px;
+
+    padding:18px 22px;
+
+    box-shadow:0 4px 12px rgba(0,0,0,.05);
+
+    transition:.2s;
+}
+
+.billing-card:hover{
+    transform:translateY(-2px);
+    box-shadow:0 10px 24px rgba(0,0,0,.08);
+}
+
+.billing-left{
+    width:220px;
+}
+
+.billing-left h3{
+    font-size:15px;
+    margin-bottom:3px;
+    color:#0B2545;
+}
+
+.billing-left p{
+    font-size:12px;
+    color:#7A8797;
+}
+
+.billing-date{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    color:#5D6978;
+    min-width:160px;
+    font-size:14px;
+}
+
+.invoice-btn,
+.payment-btn{
+    display:flex;
+    align-items:center;
+    gap:8px;
+
+    border:none;
+    background:none;
+
+    cursor:pointer;
+
+    font-size:14px;
+    color:#243B53;
+}
+
+.invoice-btn:hover,
+.payment-btn:hover{
+    color:#0E8C8C;
+}
+
+.status{
+    margin-left:auto;
+
+    padding:6px 14px;
+
+    border-radius:30px;
+
+    font-size:12px;
+    font-weight:600;
+}
+
+.status.paid{
+    background:#DCFCE7;
+    color:#15803D;
+}
+
+.status.verify{
+    background:#EDE9FE;
+    color:#7C3AED;
 }
  

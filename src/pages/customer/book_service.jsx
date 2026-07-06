@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
 
@@ -11,23 +11,6 @@ const SERVICES = [
 
 const UNIT_TYPES = ['Window Type', 'Split Type', 'Floor Mounted', 'Cassette Type', 'Portable'];
 
-const PAYMENT_OPTIONS = [
-  { id: 'full', label: 'Full Payment (100%)', percent: 100 },
-  { id: '30', label: '30% Down Payment', percent: 30 },
-  { id: '50', label: '50% Down Payment', percent: 50 },
-  { id: '10', label: '10% Down Payment', percent: 10 },
-];
-
-const PAYMENT_MODES = ['E-Wallet (GCash, Maya...)', 'Bank Transfer', 'Credit/Debit Card', 'Cash'];
-const SECOND_PAYMENT_MODES = ['Cash', 'GCash', 'Bank Transfer'];
-
-const TECHNICIANS = {
-  tech1: 'Juan Dela Cruz',
-  tech2: 'Pedro Santos',
-  tech3: 'Maria Reyes',
-};
-
-const TOTAL_STEPS = 4;
 const DOWN_PAYMENT_OPTIONS = [
   { label: 'Full Payment (100%)', value: 100 },
   { label: '30% Down Payment',    value: 30  },
@@ -37,7 +20,27 @@ const DOWN_PAYMENT_OPTIONS = [
 
 const PAYMENT_MODES = ['Cash', 'E-Wallet (GCash, Maya...)', 'Bank Transfer'];
 
+const TECHNICIANS = {
+  tech1: 'Juan Dela Cruz',
+  tech2: 'Pedro Santos',
+  tech3: 'Maria Reyes',
+};
+
 const TOTAL_STEPS = 5;
+
+/* ── Helpers ───────────────────────────────────────────────── */
+function generateBookingId() {
+  const year = new Date().getFullYear();
+  const rand = Math.floor(1000 + Math.random() * 9000);
+  return `CZ-${year}-${rand}`;
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  if (isNaN(d)) return dateStr;
+  return d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+}
 
 /* ── Step Indicator ───────────────────────────────────────── */
 function StepIndicator({ current }) {
@@ -190,9 +193,9 @@ function Step3({ form, setForm }) {
           onChange={(e) => setForm({ ...form, technician: e.target.value })}
         >
           <option value="">No preference</option>
-          {Object.entries(TECHNICIANS).map(([id, name]) => (
-            <option key={id} value={id}>{name}</option>
-          ))}
+          <option value="tech1">Juan Dela Cruz</option>
+          <option value="tech2">Pedro Santos</option>
+          <option value="tech3">Maria Reyes</option>
         </select>
       </div>
 
@@ -214,10 +217,6 @@ function Step3({ form, setForm }) {
 function PaymentModal({ form, onClose, onSubmit }) {
   const selected  = SERVICES.find((s) => s.id === form.service);
   const basePrice = selected?.price || 0;
-  const selectedOption = PAYMENT_OPTIONS.find((p) => p.id === form.paymentOption);
-  const percent = selectedOption?.percent || 0;
-  const downPayment = Math.round(basePrice * percent / 100);
-  const balance = basePrice - downPayment;
   const dpPercent = form.downPaymentPercent ?? 10;
   const toPayNow  = Math.round(basePrice * (dpPercent / 100));
   const remaining = basePrice - toPayNow;
@@ -229,91 +228,6 @@ function PaymentModal({ form, onClose, onSubmit }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
 
-      {/* Left — payment form */}
-      <div className="bs-card bs-step4-left">
-        <h3 className="bs-card-title">Payment</h3>
-        <p className="bs-card-sub">Choose payment option.</p>
-
-        <div className="bs-field-group">
-          <label className="bs-label">Down Payment</label>
-          <div className="payment-options-grid">
-            {PAYMENT_OPTIONS.map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                className={`payment-radio-option ${form.paymentOption === opt.id ? 'selected' : ''}`}
-                onClick={() => setForm({ ...form, paymentOption: opt.id, paid: false })}
-              >
-                <span className="radio-circle" />
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="bs-field-group">
-          <label className="bs-label">Mode of Payment</label>
-          <select
-            className="bs-select"
-            value={form.paymentMode || ''}
-            onChange={(e) => setForm({ ...form, paymentMode: e.target.value, paid: false })}
-          >
-            <option value="" disabled>Select a mode of payment</option>
-            {PAYMENT_MODES.map((mode) => (
-              <option key={mode} value={mode}>{mode}</option>
-            ))}
-          </select>
-        </div>
-
-        {percent < 100 && (
-          <div className="bs-field-group">
-            <label className="bs-label">Mode for 2nd Payment</label>
-            <select
-              className="bs-select"
-              value={form.paymentMode2 || ''}
-              onChange={(e) => setForm({ ...form, paymentMode2: e.target.value })}
-            >
-              <option value="" disabled>Select a mode of payment</option>
-              {SECOND_PAYMENT_MODES.map((mode) => (
-                <option key={mode} value={mode}>{mode}</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        <button
-          type="button"
-          className="pay-down-btn"
-          disabled={!form.paymentOption || !form.paymentMode || form.paid}
-          onClick={() => setForm({ ...form, paid: true })}
-        >
-          {form.paid ? '✓ Paid' : 'Pay Downpayment →'}
-        </button>
-      </div>
-
-      {/* Right — cost breakdown */}
-      <div className="bs-card bs-step4-right">
-        <h3 className="bs-card-title">Cost Breakdown</h3>
-        <div className="cost-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}</span></div>
-        <div className="cost-row"><span>Down Payment</span><span>{percent ? `${percent}%` : '—'}</span></div>
-        <div className="cost-row"><span>To Pay Now</span><span>₱{downPayment.toLocaleString()}</span></div>
-        <div className="cost-divider" />
-        <div className="cost-row total"><span>Remaining Balance</span><span>₱{balance.toLocaleString()}</span></div>
-
-        <div className="cost-divider" />
-        <div className="cost-row">
-          <span>Payment Status</span>
-          <span className={form.paid ? 'status-paid' : 'status-pending'}>
-            {form.paid ? 'Paid' : 'Pending'}
-          </span>
-        </div>
-        {form.paid && (
-          <div className="cost-row">
-            <span>Proof of Payment</span>
-            <a href="#" onClick={(e) => e.preventDefault()} className="attachment-link">View attachment</a>
-          </div>
-        )}
-      </div>
         <div className="modal-header">
           <h4 className="modal-title">Cost Breakdown</h4>
           <button className="modal-close-btn" onClick={onClose}>✕</button>
@@ -381,13 +295,6 @@ function PaymentModal({ form, onClose, onSubmit }) {
   );
 }
 
-function ReviewSummary({ form }) {
-  const selected = SERVICES.find((s) => s.id === form.service);
-  const basePrice = selected?.price || 0;
-  const selectedOption = PAYMENT_OPTIONS.find((p) => p.id === form.paymentOption);
-  const percent = selectedOption?.percent || 0;
-  const downPayment = Math.round(basePrice * percent / 100);
-  const balance = basePrice - downPayment;
 /* ── Step 4: Payment ──────────────────────────────────────── */
 function Step4({ form, setForm }) {
   const [showModal, setShowModal] = useState(false);
@@ -523,30 +430,20 @@ function Step5({ form }) {
   const isFullPay = dpPercent === 100;
 
   return (
-    <div className="bs-card booking-review-card">
-      <div className="review-header">
-        <h2>BOOKING SUMMARY</h2>
-        <p>Review Details</p>
-      </div>
-
+    <div className="bs-card booking-summary">
+      <h3 className="bs-card-title">Booking Summary</h3>
       <div className="summary-grid">
         <div>
           <p className="summary-section-title">Service Details</p>
-          <div className="summary-row"><span>Service Type</span><span>{selected?.label || '—'}</span></div>
-          <div className="summary-row"><span>Unit</span><span>{(form.unitTypes || []).length ? `${form.unitTypes.length} x ${form.unitTypes.join(', ')}` : '—'}</span></div>
-          <div className="summary-row"><span>Date &amp; Time</span><span>{form.date ? `${form.date} ${form.time || ''}` : '—'}</span></div>
-          <div className="summary-row"><span>Location</span><span>{form.address || '—'}</span></div>
-          <div className="summary-row"><span>Preferred Technician</span><span>{form.technician ? TECHNICIANS[form.technician] : '[None]'}</span></div>
+          <div className="summary-row"><span>Service</span><span>{selected?.label || '—'}</span></div>
+          <div className="summary-row"><span>Unit Type</span><span>{(form.unitTypes || []).join(', ') || '—'}</span></div>
+          <div className="summary-row"><span>Brand &amp; Model</span><span>{form.brandModel || '—'}</span></div>
+          <div className="summary-row"><span>Date &amp; Time</span><span>{form.date ? `${form.date}, ${form.time || ''}` : '—'}</span></div>
+          <div className="summary-row"><span>Address</span><span>{form.address || '—'}</span></div>
+          <div className="summary-row"><span>Preferred Tech</span><span>{form.technician ? TECHNICIANS[form.technician] : 'No preference'}</span></div>
         </div>
         <div>
           <p className="summary-section-title">Payment Details</p>
-          <div className="summary-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}</span></div>
-          <div className="summary-row"><span>Down Payment</span><span>{percent}%</span></div>
-          <div className="summary-row"><span>Amount to Pay Now</span><span>₱{downPayment.toLocaleString()}</span></div>
-          <div className="summary-row total"><span>Remaining Balance</span><span>₱{balance.toLocaleString()}</span></div>
-          <div className="summary-row"><span>Payment Mode</span><span>{form.paymentMode || '—'}</span></div>
-          {percent < 100 && <div className="summary-row"><span>2nd Payment Mode</span><span>{form.paymentMode2 || '—'}</span></div>}
-          <div className="summary-row"><span>Proof of Payment</span><span><a href="#" onClick={(e) => e.preventDefault()} className="attachment-link">View attachment</a></span></div>
           <div className="summary-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}.00</span></div>
           <div className="summary-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
           <div className="summary-row"><span>To Pay Now</span><span>₱{toPayNow.toLocaleString()}.00</span></div>
@@ -557,88 +454,252 @@ function Step5({ form }) {
           )}
         </div>
       </div>
-
-      <div className="cost-divider" />
       <p className="summary-note">
-        This service includes a <strong>30-day warranty</strong> after completion of the job.<br />
-        Cancellation or rescheduling requests must be made at least <strong>three (3) days</strong> prior to the scheduled service date.
+        ⏱ Service is typically completed within <strong>1–3 days</strong> after confirmation.<br />
+        Cancellation or rescheduling requests must be made at least <strong>3 hours</strong> prior to the scheduled service.
       </p>
     </div>
   );
 }
 
-function SubmittedScreen({ form, bookingId }) {
-  const selected = SERVICES.find((s) => s.id === form.service);
+/* ── Receipt Modal (printable invoice) ────────────────────── */
+function ReceiptModal({ form, booking, onClose }) {
+  const selected  = SERVICES.find((s) => s.id === form.service);
   const basePrice = selected?.price || 0;
-  const selectedOption = PAYMENT_OPTIONS.find((p) => p.id === form.paymentOption);
-  const percent = selectedOption?.percent || 0;
-  const downPayment = Math.round(basePrice * percent / 100);
-  const balance = basePrice - downPayment;
-  const assignedTech = form.technician ? TECHNICIANS[form.technician] : 'Juan Reyes';
+  const dpPercent = form.downPaymentPercent ?? 10;
+  const toPayNow  = Math.round(basePrice * (dpPercent / 100));
+
+  useEffect(() => {
+    document.body.classList.add('printing-receipt-active');
+    return () => document.body.classList.remove('printing-receipt-active');
+  }, []);
+
+  const handlePrint = () => window.print();
 
   return (
-    <div className="submitted-page">
-      <div className="submitted-header">
-        <span className="submitted-check">✅</span>
+    <div className="modal-overlay receipt-modal-overlay" onClick={onClose}>
+      <div className="receipt-modal-card" onClick={(e) => e.stopPropagation()}>
+
+        <div className="modal-header receipt-modal-header">
+          <span />
+          <button className="modal-close-btn" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="receipt-print-area">
+          <div className="receipt-top-row">
+            <div className="receipt-brand">
+              <span className="receipt-brand-icon">❄️</span>
+              <div>
+                <p className="receipt-brand-name">Cooling Zone Aircon</p>
+                <p className="receipt-brand-sub">Services</p>
+              </div>
+            </div>
+            <div className="receipt-invoice-meta">
+              <p className="receipt-invoice-title">Invoice</p>
+              <p>Invoice No.: {booking.id}</p>
+              <p>Date: {formatDate(booking.createdAt)}</p>
+            </div>
+          </div>
+
+          <div className="receipt-section">
+            <p className="receipt-section-title">Customer Information</p>
+            <div className="receipt-info-row"><span>Customer Name:</span><span>{form.customerName || 'John Doe'}</span></div>
+            <div className="receipt-info-row"><span>Address:</span><span>{form.address || '—'}</span></div>
+            <div className="receipt-info-row"><span>Contact Number:</span><span>{form.contactNumber || '+63 924 567 8910'}</span></div>
+          </div>
+
+          <div className="receipt-section">
+            <p className="receipt-section-title">Service Details</p>
+            <table className="receipt-table">
+              <thead>
+                <tr>
+                  <th>Description of Service</th>
+                  <th>Quantity</th>
+                  <th>Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>{selected?.label || '—'}</td>
+                  <td>1</td>
+                  <td>₱{basePrice.toLocaleString()}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="receipt-section receipt-footer-info">
+            <div className="receipt-info-row"><span>Payment Method:</span><span>{form.paymentMode || '—'}</span></div>
+            <div className="receipt-info-row">
+              <span>Status:</span>
+              <span className="receipt-status-paid">
+                {form.paymentStatus === 'Paid' ? `Paid (${dpPercent}% Downpayment)` : 'Unpaid'}
+              </span>
+            </div>
+          </div>
+
+          <p className="receipt-thanks">
+            Thank you for choosing Cooling Zone Aircon Services. We appreciate your trust in our services.
+            For inquiries and future maintenance appointments, please contact us.
+          </p>
+        </div>
+
+        <button className="modal-submit-btn receipt-print-btn" onClick={handlePrint}>
+          🖨 Print Receipt
+        </button>
+
+      </div>
+    </div>
+  );
+}
+
+/* ── Booking Confirmation (after booking is submitted) ────── */
+function BookingConfirmation({ form, booking, onReschedule, onCancelClick, onPrintReceipt }) {
+  const selected  = SERVICES.find((s) => s.id === form.service);
+  const basePrice = selected?.price || 0;
+  const dpPercent = form.downPaymentPercent ?? 10;
+  const toPayNow  = Math.round(basePrice * (dpPercent / 100));
+  const remaining = basePrice - toPayNow;
+  const techName  = form.technician ? TECHNICIANS[form.technician] : 'To be assigned';
+
+  return (
+    <div className="confirmation-wrap">
+      <div className="confirmation-heading">
+        <span className="confirmation-check-icon">✓</span>
         <h2>Booking Request Submitted!</h2>
-        <p>Booking ID: <strong>{bookingId}</strong></p>
+        <p className="confirmation-id">Booking ID: {booking.id}</p>
       </div>
 
-      <div className="notify-row">
-        <div className="notify-box">
-          <p className="notify-title">📧 Email sent</p>
-          <p className="notify-value">demo.account@gmail.com</p>
+      <div className="confirmation-notif-row">
+        <div className="confirmation-notif-card">
+          <p className="confirmation-notif-title">✉️ Email sent</p>
+          <p className="confirmation-notif-sub">{form.email || 'demo.account@gmail.com'}</p>
         </div>
-        <div className="notify-box">
-          <p className="notify-title">💬 SMS sent</p>
-          <p className="notify-value">+63 924 567 8910</p>
+        <div className="confirmation-notif-card">
+          <p className="confirmation-notif-title">💬 SMS sent</p>
+          <p className="confirmation-notif-sub">{form.contactNumber || '+63 924 567 8910'}</p>
         </div>
-        <div className="notify-box">
-          <p className="notify-title">🔔 In-app notification</p>
-          <p className="notify-value">Just now</p>
+        <div className="confirmation-notif-card">
+          <p className="confirmation-notif-title">🔔 In-app notification</p>
+          <p className="confirmation-notif-sub">Just now</p>
         </div>
       </div>
 
-      <div className="booking-details-card">
-        <div className="booking-details-header">
+      <div className="bs-card confirmation-details-card">
+        <div className="confirmation-details-header">
+          <h3 className="bs-card-title">Booking Details</h3>
+          <div className="confirmation-header-right">
+            <button className="receipt-icon-btn" title="Print Receipt" onClick={onPrintReceipt}>🖨</button>
+            <span className="status-badge pending">Pending</span>
+          </div>
+        </div>
+
+        <div className="confirmation-details-grid">
           <div>
-            <h3>{selected?.label || '—'}</h3>
-            <p>Units: {(form.unitTypes || []).length ? `${form.unitTypes.length}x ${form.unitTypes.join(', ')}` : '—'}</p>
-          </div>
-          <span className="status-badge pending">Pending</span>
-        </div>
+            <p className="summary-section-title">{selected?.label || '—'}</p>
+            <p className="confirmation-detail-line">Unit: {(form.unitTypes || []).join(', ') || '—'}</p>
 
-        <div className="booking-details-body">
-          <div className="booking-details-left">
-            <p className="booking-detail-item">📅 <strong>Date:</strong> {form.date || '—'}</p>
-            <p className="booking-detail-item">🕒 <strong>Time:</strong> {form.time || '—'}</p>
-            <p className="booking-detail-item">📍 <strong>Address:</strong> {form.address || '—'}</p>
-            {form.problemDescription && (
-              <p className="booking-detail-item">ℹ️ <strong>Problem Description:</strong> {form.problemDescription}</p>
-            )}
+            <div className="confirmation-detail-item">
+              <span className="confirmation-detail-icon">📅</span>
+              <div>
+                <p className="confirmation-detail-label">Date</p>
+                <p className="confirmation-detail-value">{formatDate(form.date)}</p>
+              </div>
+            </div>
+
+            <div className="confirmation-detail-item">
+              <span className="confirmation-detail-icon">🕐</span>
+              <div>
+                <p className="confirmation-detail-label">Time</p>
+                <p className="confirmation-detail-value">{form.time || '—'}</p>
+              </div>
+            </div>
+
+            <div className="confirmation-detail-item">
+              <span className="confirmation-detail-icon">📍</span>
+              <div>
+                <p className="confirmation-detail-label">Address</p>
+                <p className="confirmation-detail-value">{form.address || '—'}</p>
+              </div>
+            </div>
+
+            <div className="confirmation-detail-item">
+              <span className="confirmation-detail-icon">ℹ️</span>
+              <div>
+                <p className="confirmation-detail-label">Problem Description</p>
+                <p className="confirmation-detail-value">{form.problemDescription || '—'}</p>
+              </div>
+            </div>
           </div>
-          <div className="booking-details-right">
-            <p className="summary-section-title">Payment Details</p>
+
+          <div>
+            <p className="summary-section-title">💳 Payment Details</p>
             <div className="summary-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}</span></div>
-            <div className="summary-row"><span>Down Payment</span><span>{percent}%</span></div>
-            <div className="summary-row"><span>Amount to Pay Now</span><span>₱{downPayment.toLocaleString()}</span></div>
-            <div className="summary-row"><span>Remaining Balance</span><span>₱{balance.toLocaleString()}</span></div>
+            <div className="summary-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
+            <div className="summary-row"><span>Amount to Pay Now</span><span>₱{toPayNow.toLocaleString()}</span></div>
+            <div className="summary-row"><span>Remaining Balance</span><span>₱{remaining.toLocaleString()}</span></div>
             <div className="summary-row"><span>Payment Mode</span><span>{form.paymentMode || '—'}</span></div>
-            <div className="summary-row"><span>Proof of Payment</span><span><a href="#" onClick={(e) => e.preventDefault()} className="attachment-link">View attachment</a></span></div>
+            <div className="summary-row">
+              <span>Proof of Payment</span>
+              <span className="cost-link" onClick={onPrintReceipt}>View attachment</span>
+            </div>
           </div>
         </div>
 
-        <div className="assigned-tech-box">
-          <span className="assigned-tech-icon">👤</span>
+        <div className="confirmation-technician-row">
+          <div className="confirmation-technician-avatar">👤</div>
           <div>
-            <p className="assigned-tech-label">ASSIGNED TECHNICIAN</p>
-            <p className="assigned-tech-name">{assignedTech}</p>
+            <p className="confirmation-detail-label">Assigned Technician</p>
+            <p className="confirmation-technician-name">{techName}</p>
           </div>
         </div>
 
-        <div className="booking-detail-actions">
-          <button type="button" className="bs-back-btn">Reschedule</button>
-          <button type="button" className="cancel-booking-btn">Cancel booking</button>
+        <div className="confirmation-actions">
+          <button className="bs-back-btn" onClick={onReschedule}>Reschedule</button>
+          <button className="cancel-booking-btn" onClick={onCancelClick}>Cancel booking</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Cancel Confirmation Dialog ───────────────────────────── */
+function CancelConfirmDialog({ onKeep, onConfirmCancel }) {
+  return (
+    <div className="modal-overlay" onClick={onKeep}>
+      <div className="modal-card cancel-confirm-card" onClick={(e) => e.stopPropagation()}>
+        <div className="cancel-confirm-icon">⚠️</div>
+        <h4 className="modal-title cancel-confirm-title">Cancel this booking?</h4>
+        <p className="cancel-confirm-text">
+          This action can't be undone. Your technician assignment and scheduled slot will be released.
+        </p>
+        <div className="cancel-confirm-actions">
+          <button className="bs-back-btn" onClick={onKeep}>Keep booking</button>
+          <button className="cancel-booking-btn" onClick={onConfirmCancel}>Yes, cancel it</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Booking Cancelled Page ───────────────────────────────── */
+function BookingCancelled({ booking, onBookAgain, onBackToDashboard }) {
+  return (
+    <div className="confirmation-wrap">
+      <div className="confirmation-heading cancelled">
+        <span className="confirmation-cancel-icon">✕</span>
+        <h2>Booking Cancelled</h2>
+        <p className="confirmation-id">Booking ID: {booking.id}</p>
+      </div>
+
+      <div className="bs-card cancelled-card">
+        <p className="cancelled-message">
+          Your booking has been successfully cancelled. No further charges will be made,
+          and any pending downpayment will be reviewed for refund if applicable.
+        </p>
+        <div className="cancelled-actions">
+          <button className="bs-back-btn" onClick={onBackToDashboard}>Back to Dashboard</button>
+          <button className="bs-next-btn" onClick={onBookAgain}>Book Another Service →</button>
         </div>
       </div>
     </div>
@@ -649,8 +710,11 @@ function SubmittedScreen({ form, bookingId }) {
 function BookService() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
-  const [phase, setPhase] = useState('form'); // 'form' | 'review' | 'submitted'
-  const [bookingId] = useState(`CZ-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
+  const [view, setView] = useState('form'); // 'form' | 'confirmation' | 'cancelled'
+  const [booking, setBooking] = useState(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
+
   const [form, setForm] = useState({
     service: '',
     unitTypes: [],
@@ -660,10 +724,6 @@ function BookService() {
     time: '',
     technician: '',
     address: '',
-    paymentOption: '',
-    paymentMode: '',
-    paymentMode2: '',
-    paid: false,
     downPaymentPercent: 10,
     paymentMode: '',
     paymentMode2: '',
@@ -673,48 +733,75 @@ function BookService() {
     if (step === 1) return !!form.service;
     if (step === 2) return (form.unitTypes || []).length > 0;
     if (step === 3) return !!form.date && !!form.time && !!form.address;
-    if (step === 4) {
-      const percent = PAYMENT_OPTIONS.find((p) => p.id === form.paymentOption)?.percent || 0;
-      return !!form.paymentOption && !!form.paymentMode && (percent === 100 || !!form.paymentMode2) && form.paid;
-    }
     if (step === 4) return !!form.paymentMode;
     return true;
   };
 
-  const stepLabels = ['Choose Service', 'Unit Details', 'Location & Schedule', 'Payment'];
+  const stepLabels = ['Choose Service', 'Unit Details', 'Location & Schedule', 'Payment', 'Booking Summary'];
 
-  if (phase === 'submitted') {
+  const handleConfirmBooking = () => {
+    setBooking({ id: generateBookingId(), createdAt: new Date().toISOString() });
+    setView('confirmation');
+  };
+
+  const handleReschedule = () => {
+    setView('form');
+    setStep(3);
+  };
+
+  const handleCancelClick = () => setShowCancelConfirm(true);
+
+  const handleConfirmCancel = () => {
+    setShowCancelConfirm(false);
+    setView('cancelled');
+  };
+
+  const handleBookAgain = () => {
+    setForm({
+      service: '', unitTypes: [], brandModel: '', problemDescription: '',
+      date: '', time: '', technician: '', address: '',
+      downPaymentPercent: 10, paymentMode: '', paymentMode2: '',
+    });
+    setBooking(null);
+    setStep(1);
+    setView('form');
+  };
+
+  if (view === 'confirmation') {
     return (
       <CustomerLayout title="Book Service">
-        <h1 className="dashboard-welcome">Tell us what you need</h1>
-        <SubmittedScreen form={form} bookingId={bookingId} />
+        <BookingConfirmation
+          form={form}
+          booking={booking}
+          onReschedule={handleReschedule}
+          onCancelClick={handleCancelClick}
+          onPrintReceipt={() => setShowReceipt(true)}
+        />
+        {showCancelConfirm && (
+          <CancelConfirmDialog
+            onKeep={() => setShowCancelConfirm(false)}
+            onConfirmCancel={handleConfirmCancel}
+          />
+        )}
+        {showReceipt && (
+          <ReceiptModal form={form} booking={booking} onClose={() => setShowReceipt(false)} />
+        )}
       </CustomerLayout>
     );
   }
 
-  return (
-    <CustomerLayout title="Book Service">
-      <h1 className="dashboard-welcome">
-        Tell us what you need
-      </h1>
+  if (view === 'cancelled') {
+    return (
+      <CustomerLayout title="Book Service">
+        <BookingCancelled
+          booking={booking}
+          onBookAgain={handleBookAgain}
+          onBackToDashboard={() => navigate('/customer/dashboard')}
+        />
+      </CustomerLayout>
+    );
+  }
 
-      {phase === 'form' && <StepIndicator current={step} />}
-
-      {phase === 'form' && step === 1 && <Step1 form={form} setForm={setForm} />}
-      {phase === 'form' && step === 2 && <Step2 form={form} setForm={setForm} />}
-      {phase === 'form' && step === 3 && <Step3 form={form} setForm={setForm} />}
-      {phase === 'form' && step === 4 && <Step4 form={form} setForm={setForm} />}
-      {phase === 'review' && <ReviewSummary form={form} />}
-
-      <div className="bs-nav-row">
-        {phase === 'form' ? (
-          <span className="bs-step-label">
-            Step {step} of {TOTAL_STEPS} — {stepLabels[step - 1]}
-          </span>
-        ) : <span />}
-
-        <div className="bs-nav-btns">
-          {phase === 'form' && step > 1 && (
   return (
     <CustomerLayout title="Book Service">
       <h1 className="dashboard-welcome">Tell us what you need</h1>
@@ -738,40 +825,16 @@ function BookService() {
               ← Back
             </button>
           )}
-          {phase === 'review' && (
-            <button className="bs-back-btn" onClick={() => setPhase('form')}>
-              ← Back
-            </button>
-          )}
-
-          {phase === 'form' && step < TOTAL_STEPS && (
           {step < TOTAL_STEPS ? (
             <button
               className="bs-next-btn"
               onClick={() => setStep(step + 1)}
               disabled={!canNext()}
             >
-              Next →
-            </button>
-          )}
-
-          {phase === 'form' && step === TOTAL_STEPS && (
-            <button
-              className="bs-next-btn"
-              onClick={() => setPhase('review')}
-              disabled={!canNext()}
-            >
-              Book →
-            </button>
-          )}
-
-          {phase === 'review' && (
-            <button className="bs-next-btn" onClick={() => setPhase('submitted')}>
-              Confirm →
               {step === 4 ? 'Book →' : 'Next →'}
             </button>
           ) : (
-            <button className="bs-next-btn" onClick={() => navigate('/customer/dashboard')}>
+            <button className="bs-next-btn" onClick={handleConfirmBooking}>
               Confirm ✓
             </button>
           )}

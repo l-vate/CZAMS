@@ -1802,208 +1802,6 @@ section { padding: 90px 40px; }
   .summary-grid    { grid-template-columns: 1fr; }
 }
 
-/* ============ 13. BOOKING REVIEW & CONFIRMATION ============ */
-.payment-options-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.payment-radio-option {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  border: 1.5px solid var(--mist);
-  border-radius: 10px;
-  background: var(--frost);
-  font-family: 'Inter', sans-serif;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--navy-soft);
-  cursor: pointer;
-  text-align: left;
-  transition: border-color 0.2s ease, background 0.2s ease;
-}
-
-.payment-radio-option:hover { border-color: var(--teal); }
-
-.payment-radio-option.selected {
-  border-color: var(--teal);
-  background: rgba(14,140,140,0.07);
-  color: var(--navy);
-  font-weight: 600;
-}
-
-.radio-circle {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 2px solid var(--mist);
-  flex-shrink: 0;
-  position: relative;
-}
-
-.payment-radio-option.selected .radio-circle {
-  border-color: var(--teal);
-}
-
-.payment-radio-option.selected .radio-circle::after {
-  content: '';
-  position: absolute;
-  inset: 3px;
-  border-radius: 50%;
-  background: var(--teal);
-}
-
-.status-paid { color: #16a34a; font-weight: 700; }
-.status-pending { color: #f59e0b; font-weight: 700; }
-
-.attachment-link {
-  color: var(--teal);
-  font-weight: 600;
-  text-decoration: underline;
-}
-
-/* Review summary */
-.booking-review-card { max-width: 900px; margin: 0 auto; }
-
-.review-header {
-  text-align: center;
-  margin-bottom: 24px;
-}
-
-.review-header h2 {
-  font-family: 'Outfit', sans-serif;
-  font-size: 26px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  color: var(--navy);
-}
-
-.review-header p {
-  color: var(--ink-soft);
-  font-size: 14px;
-  margin-top: 4px;
-}
-
-/* Submitted screen */
-.submitted-page {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  max-width: 900px;
-  margin: 0 auto;
-}
-
-.submitted-header {
-  text-align: center;
-}
-
-.submitted-check { font-size: 34px; }
-
-.submitted-header h2 {
-  font-family: 'Outfit', sans-serif;
-  font-size: 26px;
-  font-weight: 800;
-  color: var(--navy);
-  margin: 10px 0 6px;
-}
-
-.submitted-header p { color: var(--ink-soft); font-size: 14px; }
-
-.notify-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
-
-.notify-box {
-  background: var(--white);
-  border: 1px solid #e2eaf1;
-  border-radius: 12px;
-  padding: 16px 20px;
-}
-
-.notify-title { font-size: 14px; font-weight: 700; color: var(--teal-dark); margin-bottom: 4px; }
-.notify-value { font-size: 13px; color: var(--ink-soft); }
-
-.booking-details-card {
-  background: #eef7fb;
-  border: 1px solid #ddeef0;
-  border-radius: 16px;
-  padding: 26px 30px;
-}
-
-.booking-details-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 18px;
-}
-
-.booking-details-header h3 {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--teal-dark);
-}
-
-.booking-details-header p { font-size: 13px; color: var(--ink-soft); }
-
-.booking-details-body {
-  display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  gap: 32px;
-  margin-bottom: 20px;
-}
-
-.booking-detail-item {
-  font-size: 14px;
-  color: var(--navy);
-  margin-bottom: 10px;
-}
-
-.assigned-tech-box {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  background: var(--white);
-  border-radius: 12px;
-  padding: 14px 18px;
-  margin-bottom: 18px;
-}
-
-.assigned-tech-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  background: var(--teal);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-}
-
-.assigned-tech-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-}
-
-.assigned-tech-name { font-size: 16px; font-weight: 700; color: var(--navy); }
-
-.booking-detail-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-}
-
-.cancel-booking-btn {
-  padding: 11px 22px;
-  background: #ef4444;
 /* ── Step 4: Payment — radio grid + cost breakdown card ── */
  
 /* 2×2 radio button grid */
@@ -2191,19 +1989,6 @@ section { padding: 90px 40px; }
   border: none;
   border-radius: 10px;
   font-family: 'Outfit', sans-serif;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.cancel-booking-btn:hover { background: #dc2626; }
-
-@media (max-width: 768px) {
-  .payment-options-grid { grid-template-columns: 1fr; }
-  .notify-row { grid-template-columns: 1fr; }
-  .booking-details-body { grid-template-columns: 1fr; }
-}
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -2241,5 +2026,439 @@ section { padding: 90px 40px; }
 .modal-close-btn:hover {
   background: #f0f4f8;
   color: var(--navy);
+}
+ 
+/* ── Shared confirmation/cancelled wrapper ───────────────── */
+.confirmation-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+ 
+.confirmation-heading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  padding-top: 12px;
+}
+ 
+.confirmation-check-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(14,140,140,0.12);
+  color: var(--teal-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+ 
+.confirmation-cancel-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #fde3e3;
+  color: #e05a5a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+ 
+.confirmation-heading h2 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--navy);
+}
+ 
+.confirmation-id {
+  font-size: 13px;
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+ 
+/* ── Notification row ─────────────────────────────────────── */
+.confirmation-notif-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+ 
+.confirmation-notif-card {
+  background: var(--white);
+  border: 1px solid #e2eaf1;
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+ 
+.confirmation-notif-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--teal-dark);
+  margin-bottom: 4px;
+}
+ 
+.confirmation-notif-sub {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+ 
+/* ── Booking details card ─────────────────────────────────── */
+.confirmation-details-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+ 
+.confirmation-details-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+ 
+.confirmation-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+ 
+.receipt-icon-btn {
+  background: var(--frost);
+  border: 1.5px solid var(--mist);
+  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+ 
+.receipt-icon-btn:hover {
+  border-color: var(--teal);
+  background: rgba(14,140,140,0.07);
+}
+ 
+.confirmation-details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+ 
+.confirmation-detail-line {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin-bottom: 14px;
+}
+ 
+.confirmation-detail-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+ 
+.confirmation-detail-icon {
+  font-size: 14px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+ 
+.confirmation-detail-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #a0b4c4;
+  margin-bottom: 2px;
+}
+ 
+.confirmation-detail-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--navy);
+}
+ 
+.confirmation-technician-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--frost);
+  border: 1px solid #e2eaf1;
+  border-radius: 12px;
+  padding: 14px 18px;
+}
+ 
+.confirmation-technician-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(14,140,140,0.12);
+  color: var(--teal-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+ 
+.confirmation-technician-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--navy);
+}
+ 
+.confirmation-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+ 
+.cancel-booking-btn {
+  padding: 11px 22px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+ 
+.cancel-booking-btn:hover {
+  background: #c43a3a;
+  transform: translateY(-1px);
+}
+ 
+/* ── Cancel confirm dialog ────────────────────────────────── */
+.cancel-confirm-card {
+  max-width: 340px;
+  align-items: center;
+  text-align: center;
+}
+ 
+.cancel-confirm-icon {
+  font-size: 32px;
+  margin-bottom: 4px;
+}
+ 
+.cancel-confirm-title { justify-content: center; }
+ 
+.cancel-confirm-text {
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.6;
+}
+ 
+.cancel-confirm-actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  margin-top: 6px;
+}
+ 
+.cancel-confirm-actions .bs-back-btn,
+.cancel-confirm-actions .cancel-booking-btn {
+  flex: 1;
+}
+ 
+/* ── Booking cancelled page ───────────────────────────────── */
+.cancelled-card {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+ 
+.cancelled-message {
+  font-size: 14px;
+  color: var(--ink-soft);
+  line-height: 1.7;
+  max-width: 520px;
+}
+ 
+.cancelled-actions {
+  display: flex;
+  gap: 12px;
+}
+ 
+/* ── Receipt modal ─────────────────────────────────────────── */
+.receipt-modal-card {
+  max-width: 380px;
+  padding: 20px 22px 20px;
+}
+ 
+.receipt-modal-header {
+  justify-content: flex-end;
+}
+ 
+.receipt-print-area {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--white);
+}
+ 
+.receipt-top-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--mist);
+  padding-bottom: 12px;
+}
+ 
+.receipt-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+ 
+.receipt-brand-icon { font-size: 20px; }
+ 
+.receipt-brand-name {
+  font-family: 'Outfit', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--teal-dark);
+  line-height: 1.2;
+}
+ 
+.receipt-brand-sub {
+  font-size: 10px;
+  color: var(--ink-soft);
+}
+ 
+.receipt-invoice-meta {
+  text-align: right;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+ 
+.receipt-invoice-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 2px;
+}
+ 
+.receipt-section-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 8px;
+}
+ 
+.receipt-info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+}
+ 
+.receipt-info-row span:last-child {
+  font-weight: 600;
+  color: var(--navy);
+  text-align: right;
+}
+ 
+.receipt-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+ 
+.receipt-table th {
+  text-align: left;
+  color: var(--ink-soft);
+  font-weight: 600;
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--mist);
+}
+ 
+.receipt-table td {
+  padding: 8px 4px;
+  color: var(--navy);
+  font-weight: 500;
+}
+ 
+.receipt-footer-info {
+  border-top: 1px solid var(--mist);
+  padding-top: 10px;
+}
+ 
+.receipt-status-paid {
+  color: var(--teal-dark) !important;
+  font-weight: 700 !important;
+}
+ 
+.receipt-thanks {
+  font-size: 10.5px;
+  color: var(--ink-soft);
+  line-height: 1.6;
+  text-align: center;
+  padding-top: 6px;
+  border-top: 1px solid var(--mist);
+}
+ 
+.receipt-print-btn {
+  margin-top: 8px;
+}
+ 
+/* ── Print-only rules ──────────────────────────────────────
+   When the receipt modal is open and the user hits Print
+   (or Ctrl/Cmd+P), only .receipt-print-area is shown.        */
+@media print {
+  /* Hide everything on the page by default */
+  body.printing-receipt-active * {
+    visibility: hidden;
+  }
+ 
+  /* Reveal only the receipt content and its ancestors */
+  body.printing-receipt-active .receipt-print-area,
+  body.printing-receipt-active .receipt-print-area * {
+    visibility: visible;
+  }
+ 
+  body.printing-receipt-active .receipt-print-area {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 24px;
+  }
+ 
+  /* Never print the modal chrome (overlay dimming, close/print buttons) */
+  body.printing-receipt-active .receipt-modal-header,
+  body.printing-receipt-active .receipt-print-btn {
+    display: none !important;
+  }
+}
+ 
+/* ── Responsive ────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .confirmation-notif-row { grid-template-columns: 1fr; }
+  .confirmation-details-grid { grid-template-columns: 1fr; }
+  .confirmation-actions { flex-direction: column; }
+  .cancel-confirm-actions { flex-direction: column; }
+  .cancelled-actions { flex-direction: column; width: 100%; }
 }
  

@@ -45,7 +45,6 @@ function StaffSidebar() {
                 : "sidebar-link"
             }
           >
-            <span className="link-icon">📊</span>
             Dashboard
           </NavLink>
 
@@ -57,7 +56,6 @@ function StaffSidebar() {
                 : "sidebar-link"
             }
           >
-            <span className="link-icon">🧰</span>
             My Jobs
           </NavLink>
 
@@ -69,7 +67,6 @@ function StaffSidebar() {
                 : "sidebar-link"
             }
           >
-            <span className="link-icon">📅</span>
             Calendar
           </NavLink>
 
@@ -81,7 +78,6 @@ function StaffSidebar() {
                 : "sidebar-link"
             }
           >
-            <span className="link-icon">📁</span>
             Reports
           </NavLink>
 
@@ -93,7 +89,6 @@ function StaffSidebar() {
                 : "sidebar-link"
             }
           >
-            <span className="link-icon">👤</span>
             Profile
           </NavLink>
         </nav>
@@ -105,7 +100,6 @@ function StaffSidebar() {
           className="sidebar-link"
           onClick={handleLogout}
         >
-          <span className="link-icon">🚪</span>
           Log Out
         </button>
       </div>

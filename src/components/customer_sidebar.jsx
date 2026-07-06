@@ -45,7 +45,6 @@ function CustomerSidebar() {
                 : "sidebar-link"
             }
           >
-            <span className="link-icon">📊</span>
             Dashboard
           </NavLink>
 
@@ -57,7 +56,6 @@ function CustomerSidebar() {
                 : "sidebar-link"
             }
           >
-            <span className="link-icon">📋</span>
             Book Service
           </NavLink>
 
@@ -69,7 +67,6 @@ function CustomerSidebar() {
                 : "sidebar-link"
             }
           >
-            <span className="link-icon">📁</span>
             My Bookings
           </NavLink>
 
@@ -81,7 +78,6 @@ function CustomerSidebar() {
                 : "sidebar-link"
             }
           >
-            <span className="link-icon">💳</span>
             Payment & Billing
           </NavLink>
 
@@ -93,7 +89,6 @@ function CustomerSidebar() {
                 : "sidebar-link"
             }
           >
-            <span className="link-icon">👤</span>
             Profile
           </NavLink>
         </nav>
@@ -105,7 +100,6 @@ function CustomerSidebar() {
           className="sidebar-link"
           onClick={handleLogout}
         >
-          <span className="link-icon">🚪</span>
           Log Out
         </button>
       </div>

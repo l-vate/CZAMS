@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
 
 const SERVICES = [
-  { id: 'cleaning', label: 'Cleaning', desc: 'Deep clean & sanitize', price: 650, icon: '🧹' },
-  { id: 'repair', label: 'Repair', desc: 'Diagnose & fix issues', price: 1200, icon: '🔧' },
-  { id: 'installation', label: 'Installation', desc: 'Deep clean & fix surroundings', price: 3500, icon: '❄️' },
-  { id: 'maintenance', label: 'Maintenance', desc: 'Routine check-up', price: 550, icon: '🛠️' },
+  { id: 'cleaning',     label: 'Cleaning',     desc: 'Deep clean & sanitize',         price: 650,  icon: '🧹' },
+  { id: 'repair',       label: 'Repair',        desc: 'Diagnose & fix issues',         price: 1200, icon: '🔧' },
+  { id: 'installation', label: 'Installation',  desc: 'Deep clean & fix surroundings', price: 3500, icon: '❄️' },
+  { id: 'maintenance',  label: 'Maintenance',   desc: 'Routine check-up',              price: 550,  icon: '🛠️' },
 ];
 
 const UNIT_TYPES = ['Window Type', 'Split Type', 'Floor Mounted', 'Cassette Type', 'Portable'];
@@ -28,14 +28,25 @@ const TECHNICIANS = {
 };
 
 const TOTAL_STEPS = 4;
+const DOWN_PAYMENT_OPTIONS = [
+  { label: 'Full Payment (100%)', value: 100 },
+  { label: '30% Down Payment',    value: 30  },
+  { label: '50% Down Payment',    value: 50  },
+  { label: '10% Down Payment',    value: 10  },
+];
 
+const PAYMENT_MODES = ['Cash', 'E-Wallet (GCash, Maya...)', 'Bank Transfer'];
+
+const TOTAL_STEPS = 5;
+
+/* ── Step Indicator ───────────────────────────────────────── */
 function StepIndicator({ current }) {
   return (
     <div className="step-indicator">
       {Array.from({ length: TOTAL_STEPS }, (_, i) => {
         const num = i + 1;
         const isCompleted = num < current;
-        const isActive = num === current;
+        const isActive    = num === current;
         return (
           <div key={num} className="step-indicator-item">
             <div className={`step-dot ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}>
@@ -51,6 +62,7 @@ function StepIndicator({ current }) {
   );
 }
 
+/* ── Step 1: Choose a Service ─────────────────────────────── */
 function Step1({ form, setForm }) {
   return (
     <div className="bs-card">
@@ -79,6 +91,7 @@ function Step1({ form, setForm }) {
   );
 }
 
+/* ── Step 2: Unit Details ─────────────────────────────────── */
 function Step2({ form, setForm }) {
   const toggleUnit = (type) => {
     const current = form.unitTypes || [];
@@ -134,6 +147,7 @@ function Step2({ form, setForm }) {
   );
 }
 
+/* ── Step 3: Location & Schedule ──────────────────────────── */
 function Step3({ form, setForm }) {
   return (
     <div className="bs-card">
@@ -196,16 +210,24 @@ function Step3({ form, setForm }) {
   );
 }
 
-function Step4({ form, setForm }) {
-  const selected = SERVICES.find((s) => s.id === form.service);
+/* ── Payment Modal ────────────────────────────────────────── */
+function PaymentModal({ form, onClose, onSubmit }) {
+  const selected  = SERVICES.find((s) => s.id === form.service);
   const basePrice = selected?.price || 0;
   const selectedOption = PAYMENT_OPTIONS.find((p) => p.id === form.paymentOption);
   const percent = selectedOption?.percent || 0;
   const downPayment = Math.round(basePrice * percent / 100);
   const balance = basePrice - downPayment;
+  const dpPercent = form.downPaymentPercent ?? 10;
+  const toPayNow  = Math.round(basePrice * (dpPercent / 100));
+  const remaining = basePrice - toPayNow;
+
+  const [proof, setProof]   = useState(null);
+  const [senior, setSenior] = useState(null);
 
   return (
-    <div className="bs-step4-layout">
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
 
       {/* Left — payment form */}
       <div className="bs-card bs-step4-left">
@@ -292,6 +314,69 @@ function Step4({ form, setForm }) {
           </div>
         )}
       </div>
+        <div className="modal-header">
+          <h4 className="modal-title">Cost Breakdown</h4>
+          <button className="modal-close-btn" onClick={onClose}>✕</button>
+        </div>
+
+        {/* Summary rows */}
+        <div className="modal-cost-rows">
+          <div className="modal-cost-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}.00</span></div>
+          <div className="modal-cost-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
+          <div className="modal-cost-row"><span>Amount to Pay Now</span><span>₱{toPayNow.toLocaleString()}.00</span></div>
+          <div className="modal-cost-row"><span>Remaining Balance</span><span>₱{remaining.toLocaleString()}.00</span></div>
+          <div className="modal-cost-row"><span>Payment Mode</span><span>{form.paymentMode || '—'}</span></div>
+        </div>
+
+        <div className="modal-divider" />
+
+        {/* Account details */}
+        <p className="modal-instruction">Send your payment to the account:</p>
+        <div className="modal-account-box">
+          <div className="modal-account-row"><span>Account Name</span><span>John Owner</span></div>
+          <div className="modal-account-row"><span>Account Number</span><span>09xxxxxxxxx</span></div>
+        </div>
+
+        {/* Proof of payment upload */}
+        <div className="modal-upload-group">
+          <label className="modal-upload-label">
+            Upload your proof of payment here:
+          </label>
+          <label className="modal-file-btn">
+            {proof ? proof.name : '[Choose a file]'}
+            <input
+              type="file"
+              accept="image/*,.pdf"
+              style={{ display: 'none' }}
+              onChange={(e) => setProof(e.target.files[0] || null)}
+            />
+          </label>
+        </div>
+
+        {/* PWD/Senior Citizen discount */}
+        <div className="modal-upload-group">
+          <label className="modal-upload-label">
+            PWD/Senior Citizen <span className="modal-optional">(If Applicable):</span>
+          </label>
+          <label className="modal-file-btn">
+            {senior ? senior.name : '[Choose a file]'}
+            <input
+              type="file"
+              accept="image/*,.pdf"
+              style={{ display: 'none' }}
+              onChange={(e) => setSenior(e.target.files[0] || null)}
+            />
+          </label>
+        </div>
+
+        <button
+          className="modal-submit-btn"
+          onClick={() => onSubmit({ proof, senior })}
+        >
+          SUBMIT
+        </button>
+
+      </div>
     </div>
   );
 }
@@ -303,6 +388,139 @@ function ReviewSummary({ form }) {
   const percent = selectedOption?.percent || 0;
   const downPayment = Math.round(basePrice * percent / 100);
   const balance = basePrice - downPayment;
+/* ── Step 4: Payment ──────────────────────────────────────── */
+function Step4({ form, setForm }) {
+  const [showModal, setShowModal] = useState(false);
+
+  const selected    = SERVICES.find((s) => s.id === form.service);
+  const basePrice   = selected?.price || 0;
+  const dpPercent   = form.downPaymentPercent ?? 10;
+  const toPayNow    = Math.round(basePrice * (dpPercent / 100));
+  const remaining   = basePrice - toPayNow;
+  const isFullPay   = dpPercent === 100;
+
+  const handleSubmitPayment = ({ proof, senior }) => {
+    // TODO: send proof + senior files to Express backend
+    setForm({ ...form, paymentStatus: 'Paid', proofFile: proof?.name || null });
+    setShowModal(false);
+  };
+
+  return (
+    <>
+      {showModal && (
+        <PaymentModal
+          form={form}
+          onClose={() => setShowModal(false)}
+          onSubmit={handleSubmitPayment}
+        />
+      )}
+
+      <div className="bs-step4-layout">
+
+        {/* ── Left: Payment form ── */}
+        <div className="bs-card bs-step4-left">
+          <h3 className="bs-card-title">Payment</h3>
+          <p className="bs-card-sub">Choose payment option.</p>
+
+          {/* Down Payment — 2×2 radio grid */}
+          <div className="bs-field-group">
+            <label className="bs-label">Down Payment</label>
+            <div className="dp-radio-grid">
+              {DOWN_PAYMENT_OPTIONS.map((opt) => (
+                <label key={opt.value} className="dp-radio-label">
+                  <input
+                    type="radio"
+                    name="downPayment"
+                    value={opt.value}
+                    checked={dpPercent === opt.value}
+                    onChange={() =>
+                      setForm({ ...form, downPaymentPercent: opt.value, paymentMode2: '' })
+                    }
+                    className="dp-radio-input"
+                  />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Mode of Payment */}
+          <div className="bs-field-group">
+            <label className="bs-label">Mode of Payment</label>
+            <select
+              className="bs-select"
+              value={form.paymentMode || ''}
+              onChange={(e) => setForm({ ...form, paymentMode: e.target.value })}
+            >
+              <option value="">Select mode</option>
+              {PAYMENT_MODES.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Mode for 2nd Payment — hidden when Full Payment */}
+          {!isFullPay && (
+            <div className="bs-field-group">
+              <label className="bs-label">Mode for 2nd Payment</label>
+              <select
+                className="bs-select"
+                value={form.paymentMode2 || ''}
+                onChange={(e) => setForm({ ...form, paymentMode2: e.target.value })}
+              >
+                <option value="">Select mode</option>
+                {PAYMENT_MODES.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* ── Right: Cost Breakdown ── */}
+        <div className="cost-breakdown-card">
+          <h4 className="cost-breakdown-title">Cost Breakdown</h4>
+
+          <div className="cost-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}.00</span></div>
+          <div className="cost-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
+          <div className="cost-row"><span>To Pay Now</span><span>₱{toPayNow.toLocaleString()}.00</span></div>
+          <div className="cost-row"><span>Remaining Balance</span><span>₱{remaining.toLocaleString()}.00</span></div>
+
+          <div className="cost-divider" />
+
+          <div className="cost-row">
+            <span>Payment Status</span>
+            <span className={form.paymentStatus === 'Paid' ? 'cost-status-paid' : 'cost-status-unpaid'}>
+              {form.paymentStatus || 'Unpaid'}
+            </span>
+          </div>
+          <div className="cost-row">
+            <span>Proof of Payment</span>
+            <span className="cost-link">{form.proofFile || '—'}</span>
+          </div>
+
+          <button
+            className="pay-down-btn"
+            onClick={() => setShowModal(true)}
+            disabled={!form.paymentMode}
+          >
+            Pay Downpayment
+          </button>
+        </div>
+
+      </div>
+    </>
+  );
+}
+
+/* ── Step 5: Booking Summary ──────────────────────────────── */
+function Step5({ form }) {
+  const selected  = SERVICES.find((s) => s.id === form.service);
+  const basePrice = selected?.price || 0;
+  const dpPercent = form.downPaymentPercent ?? 10;
+  const toPayNow  = Math.round(basePrice * (dpPercent / 100));
+  const remaining = basePrice - toPayNow;
+  const isFullPay = dpPercent === 100;
 
   return (
     <div className="bs-card booking-review-card">
@@ -329,6 +547,14 @@ function ReviewSummary({ form }) {
           <div className="summary-row"><span>Payment Mode</span><span>{form.paymentMode || '—'}</span></div>
           {percent < 100 && <div className="summary-row"><span>2nd Payment Mode</span><span>{form.paymentMode2 || '—'}</span></div>}
           <div className="summary-row"><span>Proof of Payment</span><span><a href="#" onClick={(e) => e.preventDefault()} className="attachment-link">View attachment</a></span></div>
+          <div className="summary-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}.00</span></div>
+          <div className="summary-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
+          <div className="summary-row"><span>To Pay Now</span><span>₱{toPayNow.toLocaleString()}.00</span></div>
+          <div className="summary-row total"><span>Remaining Balance</span><span>₱{remaining.toLocaleString()}.00</span></div>
+          <div className="summary-row"><span>Payment Mode</span><span>{form.paymentMode || '—'}</span></div>
+          {!isFullPay && (
+            <div className="summary-row"><span>2nd Payment Mode</span><span>{form.paymentMode2 || '—'}</span></div>
+          )}
         </div>
       </div>
 
@@ -419,6 +645,7 @@ function SubmittedScreen({ form, bookingId }) {
   );
 }
 
+/* ── Main ─────────────────────────────────────────────────── */
 function BookService() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
@@ -437,6 +664,9 @@ function BookService() {
     paymentMode: '',
     paymentMode2: '',
     paid: false,
+    downPaymentPercent: 10,
+    paymentMode: '',
+    paymentMode2: '',
   });
 
   const canNext = () => {
@@ -447,6 +677,7 @@ function BookService() {
       const percent = PAYMENT_OPTIONS.find((p) => p.id === form.paymentOption)?.percent || 0;
       return !!form.paymentOption && !!form.paymentMode && (percent === 100 || !!form.paymentMode2) && form.paid;
     }
+    if (step === 4) return !!form.paymentMode;
     return true;
   };
 
@@ -484,6 +715,25 @@ function BookService() {
 
         <div className="bs-nav-btns">
           {phase === 'form' && step > 1 && (
+  return (
+    <CustomerLayout title="Book Service">
+      <h1 className="dashboard-welcome">Tell us what you need</h1>
+
+      <StepIndicator current={step} />
+
+      {step === 1 && <Step1 form={form} setForm={setForm} />}
+      {step === 2 && <Step2 form={form} setForm={setForm} />}
+      {step === 3 && <Step3 form={form} setForm={setForm} />}
+      {step === 4 && <Step4 form={form} setForm={setForm} />}
+      {step === 5 && <Step5 form={form} />}
+
+      <div className="bs-nav-row">
+        <span className="bs-step-label">
+          Step {step} of {TOTAL_STEPS} — {stepLabels[step - 1]}
+        </span>
+
+        <div className="bs-nav-btns">
+          {step > 1 && (
             <button className="bs-back-btn" onClick={() => setStep(step - 1)}>
               ← Back
             </button>
@@ -495,6 +745,7 @@ function BookService() {
           )}
 
           {phase === 'form' && step < TOTAL_STEPS && (
+          {step < TOTAL_STEPS ? (
             <button
               className="bs-next-btn"
               onClick={() => setStep(step + 1)}
@@ -517,6 +768,11 @@ function BookService() {
           {phase === 'review' && (
             <button className="bs-next-btn" onClick={() => setPhase('submitted')}>
               Confirm →
+              {step === 4 ? 'Book →' : 'Next →'}
+            </button>
+          ) : (
+            <button className="bs-next-btn" onClick={() => navigate('/customer/dashboard')}>
+              Confirm ✓
             </button>
           )}
         </div>

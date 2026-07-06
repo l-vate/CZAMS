@@ -45,7 +45,6 @@ function AdminSidebar() {
                 : "sidebar-link"
             }
           >
-            <span className="link-icon">📊</span>
             Dashboard
           </NavLink>
 
@@ -57,7 +56,6 @@ function AdminSidebar() {
                 : "sidebar-link"
             }
           >
-            <span className="link-icon">📈</span>
             Analytics
           </NavLink>
 
@@ -69,7 +67,6 @@ function AdminSidebar() {
                 : "sidebar-link"
             }
           >
-            <span className="link-icon">🗓️</span>
             Calendar
           </NavLink>
 
@@ -81,7 +78,6 @@ function AdminSidebar() {
                 : "sidebar-link"
             }
           >
-            <span className="link-icon">👥</span>
             Manage Accounts
           </NavLink>
 
@@ -93,7 +89,6 @@ function AdminSidebar() {
                 : "sidebar-link"
             }
           >
-            <span className="link-icon">🛠️</span>
             Services
           </NavLink>
 
@@ -105,7 +100,6 @@ function AdminSidebar() {
                 : "sidebar-link"
             }
           >
-            <span className="link-icon">💳</span>
             Payments
           </NavLink>
         </nav>
@@ -117,7 +111,6 @@ function AdminSidebar() {
           className="sidebar-link"
           onClick={handleLogout}
         >
-          <span className="link-icon">🚪</span>
           Log Out
         </button>
       </div>

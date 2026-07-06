@@ -1,4 +1,4 @@
-/* ============ REFACTORED COMPONENT STYLES ============ */
+/* ============ DASHBOARD ============ */
 
 /* Main content wrapper padding to match the body container */
 .dashboard {
@@ -124,4 +124,142 @@
 /* Row hover highlight for clean interactive feel */
 .recent-bookings tbody tr:hover td {
     background-color: #fcfdfe;
+}
+
+
+/* ============ ANALYTICS ============ */
+
+
+.analytics-page {
+    padding: 20px;
+}
+
+.dashboard-welcome {
+    margin-bottom: 25px;
+    font-size: 2rem;
+    font-weight: 600;
+    color: #333;
+}
+
+/* Summary Cards */
+
+.analytics-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.analytics-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    transition: transform 0.2s ease;
+}
+
+.analytics-card:hover {
+    transform: translateY(-3px);
+}
+
+.analytics-card h3 {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #666;
+    font-weight: 500;
+}
+
+.analytics-card p {
+    margin-top: 12px;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+/* Sections */
+
+.analytics-section {
+    background: #fff;
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 25px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.analytics-section h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #1f2937;
+    font-size: 1.3rem;
+    border-bottom: 2px solid #f1f1f1;
+    padding-bottom: 10px;
+}
+
+/* Tables */
+
+.analytics-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+}
+
+.analytics-table thead {
+    background: #f8fafc;
+}
+
+.analytics-table th {
+    text-align: left;
+    padding: 14px;
+    font-weight: 600;
+    color: #374151;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.analytics-table td {
+    padding: 14px;
+    border-bottom: 1px solid #e5e7eb;
+    color: #4b5563;
+}
+
+.analytics-table tbody tr:hover {
+    background: #f9fafb;
+}
+
+/* Service Analytics Info */
+
+.analytics-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-top: 10px;
+}
+
+.analytics-info p {
+    margin: 0;
+    font-weight: 500;
+    color: #374151;
+}
+
+/* Responsive */
+
+@media (max-width: 768px) {
+    .analytics-page {
+        padding: 15px;
+    }
+
+    .analytics-section {
+        overflow-x: auto;
+    }
+
+    .analytics-table {
+        min-width: 700px;
+    }
+
+    .dashboard-welcome {
+        font-size: 1.6rem;
+    }
+
+    .analytics-card p {
+        font-size: 1.6rem;
+    }
 }

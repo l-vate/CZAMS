@@ -11,7 +11,23 @@ const SERVICES = [
 
 const UNIT_TYPES = ['Window Type', 'Split Type', 'Floor Mounted', 'Cassette Type', 'Portable'];
 
-const TOTAL_STEPS = 5;
+const PAYMENT_OPTIONS = [
+  { id: 'full', label: 'Full Payment (100%)', percent: 100 },
+  { id: '30', label: '30% Down Payment', percent: 30 },
+  { id: '50', label: '50% Down Payment', percent: 50 },
+  { id: '10', label: '10% Down Payment', percent: 10 },
+];
+
+const PAYMENT_MODES = ['E-Wallet (GCash, Maya...)', 'Bank Transfer', 'Credit/Debit Card', 'Cash'];
+const SECOND_PAYMENT_MODES = ['Cash', 'GCash', 'Bank Transfer'];
+
+const TECHNICIANS = {
+  tech1: 'Juan Dela Cruz',
+  tech2: 'Pedro Santos',
+  tech3: 'Maria Reyes',
+};
+
+const TOTAL_STEPS = 4;
 
 function StepIndicator({ current }) {
   return (
@@ -103,6 +119,17 @@ function Step2({ form, setForm }) {
           onChange={(e) => setForm({ ...form, brandModel: e.target.value })}
         />
       </div>
+
+      <div className="bs-field-group">
+        <label className="bs-label">Problem Description <span className="bs-label-hint">(Optional)</span></label>
+        <textarea
+          className="bs-textarea"
+          rows={2}
+          placeholder="e.g. The aircon is not cooling, makes rattling noise"
+          value={form.problemDescription || ''}
+          onChange={(e) => setForm({ ...form, problemDescription: e.target.value })}
+        />
+      </div>
     </div>
   );
 }
@@ -149,9 +176,9 @@ function Step3({ form, setForm }) {
           onChange={(e) => setForm({ ...form, technician: e.target.value })}
         >
           <option value="">No preference</option>
-          <option value="tech1">Juan Dela Cruz</option>
-          <option value="tech2">Pedro Santos</option>
-          <option value="tech3">Maria Reyes</option>
+          {Object.entries(TECHNICIANS).map(([id, name]) => (
+            <option key={id} value={id}>{name}</option>
+          ))}
         </select>
       </div>
 
@@ -172,7 +199,9 @@ function Step3({ form, setForm }) {
 function Step4({ form, setForm }) {
   const selected = SERVICES.find((s) => s.id === form.service);
   const basePrice = selected?.price || 0;
-  const downPayment = Math.round(basePrice * 0.5);
+  const selectedOption = PAYMENT_OPTIONS.find((p) => p.id === form.paymentOption);
+  const percent = selectedOption?.percent || 0;
+  const downPayment = Math.round(basePrice * percent / 100);
   const balance = basePrice - downPayment;
 
   return (
@@ -181,160 +210,319 @@ function Step4({ form, setForm }) {
       {/* Left — payment form */}
       <div className="bs-card bs-step4-left">
         <h3 className="bs-card-title">Payment</h3>
+        <p className="bs-card-sub">Choose payment option.</p>
 
         <div className="bs-field-group">
           <label className="bs-label">Down Payment</label>
-          <div className="payment-option selected">
-            <div>
-              <p className="payment-option-title">✅ Confirmed (50%) — 50% Down Payment</p>
-              <p className="payment-option-desc">₱{downPayment.toLocaleString()} — 50% downpayment required</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bs-field-group">
-          <label className="bs-label">Mode for 2nd Payment</label>
-          <div className="payment-modes">
-            {['Cash', 'GCash', 'Bank Transfer'].map((mode) => (
+          <div className="payment-options-grid">
+            {PAYMENT_OPTIONS.map((opt) => (
               <button
-                key={mode}
+                key={opt.id}
                 type="button"
-                className={`payment-mode-btn ${form.paymentMode === mode ? 'selected' : ''}`}
-                onClick={() => setForm({ ...form, paymentMode: mode })}
+                className={`payment-radio-option ${form.paymentOption === opt.id ? 'selected' : ''}`}
+                onClick={() => setForm({ ...form, paymentOption: opt.id, paid: false })}
               >
-                {mode}
+                <span className="radio-circle" />
+                {opt.label}
               </button>
             ))}
           </div>
         </div>
 
-        <button className="pay-down-btn">Pay Downpayment →</button>
+        <div className="bs-field-group">
+          <label className="bs-label">Mode of Payment</label>
+          <select
+            className="bs-select"
+            value={form.paymentMode || ''}
+            onChange={(e) => setForm({ ...form, paymentMode: e.target.value, paid: false })}
+          >
+            <option value="" disabled>Select a mode of payment</option>
+            {PAYMENT_MODES.map((mode) => (
+              <option key={mode} value={mode}>{mode}</option>
+            ))}
+          </select>
+        </div>
+
+        {percent < 100 && (
+          <div className="bs-field-group">
+            <label className="bs-label">Mode for 2nd Payment</label>
+            <select
+              className="bs-select"
+              value={form.paymentMode2 || ''}
+              onChange={(e) => setForm({ ...form, paymentMode2: e.target.value })}
+            >
+              <option value="" disabled>Select a mode of payment</option>
+              {SECOND_PAYMENT_MODES.map((mode) => (
+                <option key={mode} value={mode}>{mode}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <button
+          type="button"
+          className="pay-down-btn"
+          disabled={!form.paymentOption || !form.paymentMode || form.paid}
+          onClick={() => setForm({ ...form, paid: true })}
+        >
+          {form.paid ? '✓ Paid' : 'Pay Downpayment →'}
+        </button>
       </div>
 
       {/* Right — cost breakdown */}
       <div className="bs-card bs-step4-right">
         <h3 className="bs-card-title">Cost Breakdown</h3>
-        <div className="cost-row"><span>Service</span><span>{selected?.label || '—'}</span></div>
-        <div className="cost-row"><span>Base Price</span><span>₱{basePrice.toLocaleString()}</span></div>
-        <div className="cost-row"><span>Down Payment (50%)</span><span>₱{downPayment.toLocaleString()}</span></div>
+        <div className="cost-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}</span></div>
+        <div className="cost-row"><span>Down Payment</span><span>{percent ? `${percent}%` : '—'}</span></div>
+        <div className="cost-row"><span>To Pay Now</span><span>₱{downPayment.toLocaleString()}</span></div>
         <div className="cost-divider" />
         <div className="cost-row total"><span>Remaining Balance</span><span>₱{balance.toLocaleString()}</span></div>
+
+        <div className="cost-divider" />
+        <div className="cost-row">
+          <span>Payment Status</span>
+          <span className={form.paid ? 'status-paid' : 'status-pending'}>
+            {form.paid ? 'Paid' : 'Pending'}
+          </span>
+        </div>
+        {form.paid && (
+          <div className="cost-row">
+            <span>Proof of Payment</span>
+            <a href="#" onClick={(e) => e.preventDefault()} className="attachment-link">View attachment</a>
+          </div>
+        )}
       </div>
-
-
     </div>
   );
 }
 
-function Step5({ form, setForm }) {
-  {/* Booking Summary — full width below */ }
+function ReviewSummary({ form }) {
   const selected = SERVICES.find((s) => s.id === form.service);
   const basePrice = selected?.price || 0;
-  const downPayment = Math.round(basePrice * 0.5);
+  const selectedOption = PAYMENT_OPTIONS.find((p) => p.id === form.paymentOption);
+  const percent = selectedOption?.percent || 0;
+  const downPayment = Math.round(basePrice * percent / 100);
   const balance = basePrice - downPayment;
 
   return (
-    <div className="bs-card booking-summary">
-      <h3 className="bs-card-title">Booking Summary</h3>
+    <div className="bs-card booking-review-card">
+      <div className="review-header">
+        <h2>BOOKING SUMMARY</h2>
+        <p>Review Details</p>
+      </div>
+
       <div className="summary-grid">
         <div>
           <p className="summary-section-title">Service Details</p>
-          <div className="summary-row"><span>Service</span><span>{selected?.label || '—'}</span></div>
-          <div className="summary-row"><span>Unit Type</span><span>{(form.unitTypes || []).join(', ') || '—'}</span></div>
-          <div className="summary-row"><span>Brand &amp; Model</span><span>{form.brandModel || '—'}</span></div>
-          <div className="summary-row"><span>Date &amp; Time</span><span>{form.date ? `${form.date}, ${form.time || ''}` : '—'}</span></div>
-          <div className="summary-row"><span>Address</span><span>{form.address || '—'}</span></div>
-          <div className="summary-row"><span>Preferred Tech</span><span>{form.technician || 'No preference'}</span></div>
+          <div className="summary-row"><span>Service Type</span><span>{selected?.label || '—'}</span></div>
+          <div className="summary-row"><span>Unit</span><span>{(form.unitTypes || []).length ? `${form.unitTypes.length} x ${form.unitTypes.join(', ')}` : '—'}</span></div>
+          <div className="summary-row"><span>Date &amp; Time</span><span>{form.date ? `${form.date} ${form.time || ''}` : '—'}</span></div>
+          <div className="summary-row"><span>Location</span><span>{form.address || '—'}</span></div>
+          <div className="summary-row"><span>Preferred Technician</span><span>{form.technician ? TECHNICIANS[form.technician] : '[None]'}</span></div>
         </div>
         <div>
           <p className="summary-section-title">Payment Details</p>
-          <div className="summary-row"><span>Base Price</span><span>₱{basePrice.toLocaleString()}</span></div>
-          <div className="summary-row"><span>Down Payment</span><span>₱{downPayment.toLocaleString()}</span></div>
-          <div className="summary-row"><span>2nd Payment Mode</span><span>{form.paymentMode || '—'}</span></div>
-          <div className="summary-row total"><span>Balance</span><span>₱{balance.toLocaleString()}</span></div>
+          <div className="summary-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}</span></div>
+          <div className="summary-row"><span>Down Payment</span><span>{percent}%</span></div>
+          <div className="summary-row"><span>Amount to Pay Now</span><span>₱{downPayment.toLocaleString()}</span></div>
+          <div className="summary-row total"><span>Remaining Balance</span><span>₱{balance.toLocaleString()}</span></div>
+          <div className="summary-row"><span>Payment Mode</span><span>{form.paymentMode || '—'}</span></div>
+          {percent < 100 && <div className="summary-row"><span>2nd Payment Mode</span><span>{form.paymentMode2 || '—'}</span></div>}
+          <div className="summary-row"><span>Proof of Payment</span><span><a href="#" onClick={(e) => e.preventDefault()} className="attachment-link">View attachment</a></span></div>
         </div>
       </div>
+
+      <div className="cost-divider" />
       <p className="summary-note">
-        ⏱ Service is typically completed within <strong>1–3 days</strong> after confirmation.<br />
-        Cancellation or rescheduling requests must be made at least <strong>3 hours</strong> prior to the scheduled service.
+        This service includes a <strong>30-day warranty</strong> after completion of the job.<br />
+        Cancellation or rescheduling requests must be made at least <strong>three (3) days</strong> prior to the scheduled service date.
       </p>
     </div>
   );
-
-
 }
+
+function SubmittedScreen({ form, bookingId }) {
+  const selected = SERVICES.find((s) => s.id === form.service);
+  const basePrice = selected?.price || 0;
+  const selectedOption = PAYMENT_OPTIONS.find((p) => p.id === form.paymentOption);
+  const percent = selectedOption?.percent || 0;
+  const downPayment = Math.round(basePrice * percent / 100);
+  const balance = basePrice - downPayment;
+  const assignedTech = form.technician ? TECHNICIANS[form.technician] : 'Juan Reyes';
+
+  return (
+    <div className="submitted-page">
+      <div className="submitted-header">
+        <span className="submitted-check">✅</span>
+        <h2>Booking Request Submitted!</h2>
+        <p>Booking ID: <strong>{bookingId}</strong></p>
+      </div>
+
+      <div className="notify-row">
+        <div className="notify-box">
+          <p className="notify-title">📧 Email sent</p>
+          <p className="notify-value">demo.account@gmail.com</p>
+        </div>
+        <div className="notify-box">
+          <p className="notify-title">💬 SMS sent</p>
+          <p className="notify-value">+63 924 567 8910</p>
+        </div>
+        <div className="notify-box">
+          <p className="notify-title">🔔 In-app notification</p>
+          <p className="notify-value">Just now</p>
+        </div>
+      </div>
+
+      <div className="booking-details-card">
+        <div className="booking-details-header">
+          <div>
+            <h3>{selected?.label || '—'}</h3>
+            <p>Units: {(form.unitTypes || []).length ? `${form.unitTypes.length}x ${form.unitTypes.join(', ')}` : '—'}</p>
+          </div>
+          <span className="status-badge pending">Pending</span>
+        </div>
+
+        <div className="booking-details-body">
+          <div className="booking-details-left">
+            <p className="booking-detail-item">📅 <strong>Date:</strong> {form.date || '—'}</p>
+            <p className="booking-detail-item">🕒 <strong>Time:</strong> {form.time || '—'}</p>
+            <p className="booking-detail-item">📍 <strong>Address:</strong> {form.address || '—'}</p>
+            {form.problemDescription && (
+              <p className="booking-detail-item">ℹ️ <strong>Problem Description:</strong> {form.problemDescription}</p>
+            )}
+          </div>
+          <div className="booking-details-right">
+            <p className="summary-section-title">Payment Details</p>
+            <div className="summary-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}</span></div>
+            <div className="summary-row"><span>Down Payment</span><span>{percent}%</span></div>
+            <div className="summary-row"><span>Amount to Pay Now</span><span>₱{downPayment.toLocaleString()}</span></div>
+            <div className="summary-row"><span>Remaining Balance</span><span>₱{balance.toLocaleString()}</span></div>
+            <div className="summary-row"><span>Payment Mode</span><span>{form.paymentMode || '—'}</span></div>
+            <div className="summary-row"><span>Proof of Payment</span><span><a href="#" onClick={(e) => e.preventDefault()} className="attachment-link">View attachment</a></span></div>
+          </div>
+        </div>
+
+        <div className="assigned-tech-box">
+          <span className="assigned-tech-icon">👤</span>
+          <div>
+            <p className="assigned-tech-label">ASSIGNED TECHNICIAN</p>
+            <p className="assigned-tech-name">{assignedTech}</p>
+          </div>
+        </div>
+
+        <div className="booking-detail-actions">
+          <button type="button" className="bs-back-btn">Reschedule</button>
+          <button type="button" className="cancel-booking-btn">Cancel booking</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function BookService() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
+  const [phase, setPhase] = useState('form'); // 'form' | 'review' | 'submitted'
+  const [bookingId] = useState(`CZ-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
   const [form, setForm] = useState({
     service: '',
     unitTypes: [],
     brandModel: '',
+    problemDescription: '',
     date: '',
     time: '',
     technician: '',
     address: '',
+    paymentOption: '',
     paymentMode: '',
+    paymentMode2: '',
+    paid: false,
   });
 
   const canNext = () => {
     if (step === 1) return !!form.service;
     if (step === 2) return (form.unitTypes || []).length > 0;
     if (step === 3) return !!form.date && !!form.time && !!form.address;
+    if (step === 4) {
+      const percent = PAYMENT_OPTIONS.find((p) => p.id === form.paymentOption)?.percent || 0;
+      return !!form.paymentOption && !!form.paymentMode && (percent === 100 || !!form.paymentMode2) && form.paid;
+    }
     return true;
   };
 
-  const stepLabels = ['Choose Service', 'Unit Details', 'Location & Schedule', 'Payment', 'Booking Summary'];
+  const stepLabels = ['Choose Service', 'Unit Details', 'Location & Schedule', 'Payment'];
 
-return (
-  <CustomerLayout title="Book Service">
-    <h1 className="dashboard-welcome">
-      Tell us what you need
-    </h1>
+  if (phase === 'submitted') {
+    return (
+      <CustomerLayout title="Book Service">
+        <h1 className="dashboard-welcome">Tell us what you need</h1>
+        <SubmittedScreen form={form} bookingId={bookingId} />
+      </CustomerLayout>
+    );
+  }
 
-    <StepIndicator current={step} />
+  return (
+    <CustomerLayout title="Book Service">
+      <h1 className="dashboard-welcome">
+        Tell us what you need
+      </h1>
 
-    {step === 1 && <Step1 form={form} setForm={setForm} />}
-    {step === 2 && <Step2 form={form} setForm={setForm} />}
-    {step === 3 && <Step3 form={form} setForm={setForm} />}
-    {step === 4 && <Step4 form={form} setForm={setForm} />}
-    {step === 5 && <Step5 form={form} setForm={setForm} />}
+      {phase === 'form' && <StepIndicator current={step} />}
 
-    <div className="bs-nav-row">
-      <span className="bs-step-label">
-        Step {step} of {TOTAL_STEPS} — {stepLabels[step - 1]}
-      </span>
+      {phase === 'form' && step === 1 && <Step1 form={form} setForm={setForm} />}
+      {phase === 'form' && step === 2 && <Step2 form={form} setForm={setForm} />}
+      {phase === 'form' && step === 3 && <Step3 form={form} setForm={setForm} />}
+      {phase === 'form' && step === 4 && <Step4 form={form} setForm={setForm} />}
+      {phase === 'review' && <ReviewSummary form={form} />}
 
-      <div className="bs-nav-btns">
-        {step > 1 && (
-          <button
-            className="bs-back-btn"
-            onClick={() => setStep(step - 1)}
-          >
-            ← Back
-          </button>
-        )}
+      <div className="bs-nav-row">
+        {phase === 'form' ? (
+          <span className="bs-step-label">
+            Step {step} of {TOTAL_STEPS} — {stepLabels[step - 1]}
+          </span>
+        ) : <span />}
 
-        {step < TOTAL_STEPS ? (
-          <button
-            className="bs-next-btn"
-            onClick={() => setStep(step + 1)}
-            disabled={!canNext()}
-          >
-            Next →
-          </button>
-        ) : (
-          <button
-            className="bs-next-btn"
-            onClick={() => navigate('/customer/dashboard')}
-          >
-            Confirm ✓
-          </button>
-        )}
+        <div className="bs-nav-btns">
+          {phase === 'form' && step > 1 && (
+            <button className="bs-back-btn" onClick={() => setStep(step - 1)}>
+              ← Back
+            </button>
+          )}
+          {phase === 'review' && (
+            <button className="bs-back-btn" onClick={() => setPhase('form')}>
+              ← Back
+            </button>
+          )}
+
+          {phase === 'form' && step < TOTAL_STEPS && (
+            <button
+              className="bs-next-btn"
+              onClick={() => setStep(step + 1)}
+              disabled={!canNext()}
+            >
+              Next →
+            </button>
+          )}
+
+          {phase === 'form' && step === TOTAL_STEPS && (
+            <button
+              className="bs-next-btn"
+              onClick={() => setPhase('review')}
+              disabled={!canNext()}
+            >
+              Book →
+            </button>
+          )}
+
+          {phase === 'review' && (
+            <button className="bs-next-btn" onClick={() => setPhase('submitted')}>
+              Confirm →
+            </button>
+          )}
+        </div>
       </div>
-    </div>
-  </CustomerLayout>
-);
+    </CustomerLayout>
+  );
 }
 
 export default BookService;

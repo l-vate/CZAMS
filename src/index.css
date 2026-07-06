@@ -1801,3 +1801,223 @@ section { padding: 90px 40px; }
   .booking-summary { grid-row: 3; }
   .summary-grid    { grid-template-columns: 1fr; }
 }
+
+/* ============ 13. BOOKING REVIEW & CONFIRMATION ============ */
+.payment-options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.payment-radio-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border: 1.5px solid var(--mist);
+  border-radius: 10px;
+  background: var(--frost);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--navy-soft);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.payment-radio-option:hover { border-color: var(--teal); }
+
+.payment-radio-option.selected {
+  border-color: var(--teal);
+  background: rgba(14,140,140,0.07);
+  color: var(--navy);
+  font-weight: 600;
+}
+
+.radio-circle {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--mist);
+  flex-shrink: 0;
+  position: relative;
+}
+
+.payment-radio-option.selected .radio-circle {
+  border-color: var(--teal);
+}
+
+.payment-radio-option.selected .radio-circle::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--teal);
+}
+
+.status-paid { color: #16a34a; font-weight: 700; }
+.status-pending { color: #f59e0b; font-weight: 700; }
+
+.attachment-link {
+  color: var(--teal);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+/* Review summary */
+.booking-review-card { max-width: 900px; margin: 0 auto; }
+
+.review-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.review-header h2 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--navy);
+}
+
+.review-header p {
+  color: var(--ink-soft);
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+/* Submitted screen */
+.submitted-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.submitted-header {
+  text-align: center;
+}
+
+.submitted-check { font-size: 34px; }
+
+.submitted-header h2 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--navy);
+  margin: 10px 0 6px;
+}
+
+.submitted-header p { color: var(--ink-soft); font-size: 14px; }
+
+.notify-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.notify-box {
+  background: var(--white);
+  border: 1px solid #e2eaf1;
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+
+.notify-title { font-size: 14px; font-weight: 700; color: var(--teal-dark); margin-bottom: 4px; }
+.notify-value { font-size: 13px; color: var(--ink-soft); }
+
+.booking-details-card {
+  background: #eef7fb;
+  border: 1px solid #ddeef0;
+  border-radius: 16px;
+  padding: 26px 30px;
+}
+
+.booking-details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.booking-details-header h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--teal-dark);
+}
+
+.booking-details-header p { font-size: 13px; color: var(--ink-soft); }
+
+.booking-details-body {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 32px;
+  margin-bottom: 20px;
+}
+
+.booking-detail-item {
+  font-size: 14px;
+  color: var(--navy);
+  margin-bottom: 10px;
+}
+
+.assigned-tech-box {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--white);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 18px;
+}
+
+.assigned-tech-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--teal);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.assigned-tech-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.assigned-tech-name { font-size: 16px; font-weight: 700; color: var(--navy); }
+
+.booking-detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.cancel-booking-btn {
+  padding: 11px 22px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.cancel-booking-btn:hover { background: #dc2626; }
+
+@media (max-width: 768px) {
+  .payment-options-grid { grid-template-columns: 1fr; }
+  .notify-row { grid-template-columns: 1fr; }
+  .booking-details-body { grid-template-columns: 1fr; }
+}

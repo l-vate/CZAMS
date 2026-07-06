@@ -91,7 +91,7 @@ function Dashboard() {
 
             <p>
               No upcoming bookings.{' '}
-              <Link to="/book_service">
+              <Link to="/customer/book_service">
                 Book one now
               </Link>
             </p>

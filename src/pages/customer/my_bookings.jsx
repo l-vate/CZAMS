@@ -19,7 +19,7 @@ function MyBookings() {
 
     const bookings = [
         {
-            id: 'BK-001',
+            id: 'CZ-001',
             service: 'Aircon Cleaning',
             status: 'Completed',
             date: '07-06-26',

@@ -1,4 +1,5 @@
 import CustomerLayout from './customer_layout';
+import { FiUser } from 'react-icons/fi';
 
 function Profile() {
     const user = {
@@ -18,7 +19,7 @@ function Profile() {
                 <div className="profile-card">
                     <div className="profile-header">
                         <div className="profile-avatar">
-                            👤
+                            <FiUser />
                         </div>
 
                         <div className="profile-info">

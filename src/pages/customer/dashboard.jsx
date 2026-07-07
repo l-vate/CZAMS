@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
+import { FiThermometer, FiArrowRight, FiEye, FiCalendar, FiClock } from 'react-icons/fi';
 
 function Dashboard() {
   // Placeholder stats — API later
@@ -23,7 +24,7 @@ function Dashboard() {
       >
         <div className="book-banner-left">
           <div className="book-banner-icon">
-            ❄️
+            <FiThermometer />
           </div>
 
           <div className="book-banner-text">
@@ -36,7 +37,7 @@ function Dashboard() {
         </div>
 
         <div className="book-banner-arrow">
-          →
+          <FiArrowRight />
         </div>
       </Link>
 
@@ -76,17 +77,17 @@ function Dashboard() {
           <h4>Next service</h4>
 
           <Link
-            to="/my-bookings"
+            to="/customer/bookings"
             className="info-card-view-all"
           >
-            👁 View all
+            <FiEye /> View all
           </Link>
         </div>
 
         <div className="info-card-body">
           <div className="info-card-empty">
             <span className="empty-icon">
-              📅
+              <FiCalendar />
             </span>
 
             <p>
@@ -108,7 +109,7 @@ function Dashboard() {
         <div className="info-card-body">
           <div className="info-card-empty">
             <span className="empty-icon">
-              🕐
+              <FiClock />
             </span>
 
             <p>No activity yet.</p>

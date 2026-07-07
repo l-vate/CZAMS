@@ -3,12 +3,35 @@ import { useNavigate } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
 import PaymentModal from '../../components/payment_modal';
 import ReceiptModal from '../../components/receipt_modal';
+import {
+  FiWind,
+  FiTool,
+  FiThermometer,
+  FiSettings,
+  FiCheck,
+  FiSunrise,
+  FiSunset,
+  FiClock,
+  FiMail,
+  FiMessageSquare,
+  FiBell,
+  FiPrinter,
+  FiCalendar,
+  FiMapPin,
+  FiInfo,
+  FiCreditCard,
+  FiUser,
+  FiAlertTriangle,
+  FiX,
+  FiArrowLeft,
+  FiArrowRight,
+} from 'react-icons/fi';
 
 const SERVICES = [
-  { id: 'cleaning', label: 'Cleaning', desc: 'Deep clean & sanitize', price: 650, icon: '🧹' },
-  { id: 'repair', label: 'Repair', desc: 'Diagnose & fix issues', price: 1200, icon: '🔧' },
-  { id: 'installation', label: 'Installation', desc: 'Deep clean & fix surroundings', price: 3500, icon: '❄️' },
-  { id: 'maintenance', label: 'Maintenance', desc: 'Routine check-up', price: 550, icon: '🛠️' },
+  { id: 'cleaning', label: 'Cleaning', desc: 'Deep clean & sanitize', price: 650, icon: <FiWind /> },
+  { id: 'repair', label: 'Repair', desc: 'Diagnose & fix issues', price: 1200, icon: <FiTool /> },
+  { id: 'installation', label: 'Installation', desc: 'Deep clean & fix surroundings', price: 3500, icon: <FiThermometer /> },
+  { id: 'maintenance', label: 'Maintenance', desc: 'Routine check-up', price: 550, icon: <FiSettings /> },
 ];
 
 const UNIT_TYPES = ['Window Type', 'Split Type', 'Floor Mounted', 'Cassette Type', 'Portable'];
@@ -55,7 +78,7 @@ function StepIndicator({ current }) {
         return (
           <div key={num} className="step-indicator-item">
             <div className={`step-dot ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}>
-              {isCompleted ? '✓' : num}
+              {isCompleted ? <FiCheck /> : num}
             </div>
             {num < TOTAL_STEPS && (
               <div className={`step-line ${isCompleted ? 'completed' : ''}`} />
@@ -180,7 +203,7 @@ function Step3({ form, setForm }) {
                 className={`time-btn ${form.time === t ? 'selected' : ''}`}
                 onClick={() => setForm({ ...form, time: t })}
               >
-                {t === 'Morning' ? '🌅' : '🌇'} {t}
+                {t === 'Morning' ? <FiSunrise /> : <FiSunset />} {t}
               </button>
             ))}
           </div>
@@ -377,7 +400,7 @@ function Step5({ form }) {
         </div>
       </div>
       <p className="summary-note">
-        ⏱ Service is typically completed within <strong>1–3 days</strong> after confirmation.<br />
+        <FiClock /> Service is typically completed within <strong>1–3 days</strong> after confirmation.<br />
         Cancellation or rescheduling requests must be made at least <strong>3 hours</strong> prior to the scheduled service.
       </p>
     </div>
@@ -396,22 +419,22 @@ function BookingConfirmation({ form, booking, onReschedule, onCancelClick, onPri
   return (
     <div className="confirmation-wrap">
       <div className="confirmation-heading">
-        <span className="confirmation-check-icon">✓</span>
+        <span className="confirmation-check-icon"><FiCheck /></span>
         <h2>Booking Request Submitted!</h2>
         <p className="confirmation-id">Booking ID: {booking.id}</p>
       </div>
 
       <div className="confirmation-notif-row">
         <div className="confirmation-notif-card">
-          <p className="confirmation-notif-title">✉️ Email sent</p>
+          <p className="confirmation-notif-title"><FiMail /> Email sent</p>
           <p className="confirmation-notif-sub">{form.email || 'demo.account@gmail.com'}</p>
         </div>
         <div className="confirmation-notif-card">
-          <p className="confirmation-notif-title">💬 SMS sent</p>
+          <p className="confirmation-notif-title"><FiMessageSquare /> SMS sent</p>
           <p className="confirmation-notif-sub">{form.contactNumber || '+63 924 567 8910'}</p>
         </div>
         <div className="confirmation-notif-card">
-          <p className="confirmation-notif-title">🔔 In-app notification</p>
+          <p className="confirmation-notif-title"><FiBell /> In-app notification</p>
           <p className="confirmation-notif-sub">Just now</p>
         </div>
       </div>
@@ -420,7 +443,7 @@ function BookingConfirmation({ form, booking, onReschedule, onCancelClick, onPri
         <div className="confirmation-details-header">
           <h3 className="bs-card-title">Booking Details</h3>
           <div className="confirmation-header-right">
-            <button className="receipt-icon-btn" title="Print Receipt" onClick={onPrintReceipt}>🖨</button>
+            <button className="receipt-icon-btn" title="Print Receipt" onClick={onPrintReceipt}><FiPrinter /></button>
             <span className="status-badge pending">Pending</span>
           </div>
         </div>
@@ -431,7 +454,7 @@ function BookingConfirmation({ form, booking, onReschedule, onCancelClick, onPri
             <p className="confirmation-detail-line">Unit: {(form.unitTypes || []).join(', ') || '—'}</p>
 
             <div className="confirmation-detail-item">
-              <span className="confirmation-detail-icon">📅</span>
+              <span className="confirmation-detail-icon"><FiCalendar /></span>
               <div>
                 <p className="confirmation-detail-label">Date</p>
                 <p className="confirmation-detail-value">{formatDate(form.date)}</p>
@@ -439,7 +462,7 @@ function BookingConfirmation({ form, booking, onReschedule, onCancelClick, onPri
             </div>
 
             <div className="confirmation-detail-item">
-              <span className="confirmation-detail-icon">🕐</span>
+              <span className="confirmation-detail-icon"><FiClock /></span>
               <div>
                 <p className="confirmation-detail-label">Time</p>
                 <p className="confirmation-detail-value">{form.time || '—'}</p>
@@ -447,7 +470,7 @@ function BookingConfirmation({ form, booking, onReschedule, onCancelClick, onPri
             </div>
 
             <div className="confirmation-detail-item">
-              <span className="confirmation-detail-icon">📍</span>
+              <span className="confirmation-detail-icon"><FiMapPin /></span>
               <div>
                 <p className="confirmation-detail-label">Address</p>
                 <p className="confirmation-detail-value">{form.address || '—'}</p>
@@ -455,7 +478,7 @@ function BookingConfirmation({ form, booking, onReschedule, onCancelClick, onPri
             </div>
 
             <div className="confirmation-detail-item">
-              <span className="confirmation-detail-icon">ℹ️</span>
+              <span className="confirmation-detail-icon"><FiInfo /></span>
               <div>
                 <p className="confirmation-detail-label">Problem Description</p>
                 <p className="confirmation-detail-value">{form.problemDescription || '—'}</p>
@@ -464,7 +487,7 @@ function BookingConfirmation({ form, booking, onReschedule, onCancelClick, onPri
           </div>
 
           <div>
-            <p className="summary-section-title">💳 Payment Details</p>
+            <p className="summary-section-title"><FiCreditCard /> Payment Details</p>
             <div className="summary-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}</span></div>
             <div className="summary-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
             <div className="summary-row"><span>Amount to Pay Now</span><span>₱{toPayNow.toLocaleString()}</span></div>
@@ -478,7 +501,7 @@ function BookingConfirmation({ form, booking, onReschedule, onCancelClick, onPri
         </div>
 
         <div className="confirmation-technician-row">
-          <div className="confirmation-technician-avatar">👤</div>
+          <div className="confirmation-technician-avatar"><FiUser /></div>
           <div>
             <p className="confirmation-detail-label">Assigned Technician</p>
             <p className="confirmation-technician-name">{techName}</p>
@@ -499,7 +522,7 @@ function CancelConfirmDialog({ onKeep, onConfirmCancel }) {
   return (
     <div className="modal-overlay" onClick={onKeep}>
       <div className="modal-card cancel-confirm-card" onClick={(e) => e.stopPropagation()}>
-        <div className="cancel-confirm-icon">⚠️</div>
+        <div className="cancel-confirm-icon"><FiAlertTriangle /></div>
         <h4 className="modal-title cancel-confirm-title">Cancel this booking?</h4>
         <p className="cancel-confirm-text">
           This action can't be undone. Your technician assignment and scheduled slot will be released.
@@ -518,7 +541,7 @@ function BookingCancelled({ booking, onBookAgain, onBackToDashboard }) {
   return (
     <div className="confirmation-wrap">
       <div className="confirmation-heading cancelled">
-        <span className="confirmation-cancel-icon">✕</span>
+        <span className="confirmation-cancel-icon"><FiX /></span>
         <h2>Booking Cancelled</h2>
         <p className="confirmation-id">Booking ID: {booking.id}</p>
       </div>
@@ -530,7 +553,7 @@ function BookingCancelled({ booking, onBookAgain, onBackToDashboard }) {
         </p>
         <div className="cancelled-actions">
           <button className="bs-back-btn" onClick={onBackToDashboard}>Back to Dashboard</button>
-          <button className="bs-next-btn" onClick={onBookAgain}>Book Another Service →</button>
+          <button className="bs-next-btn" onClick={onBookAgain}>Book Another Service <FiArrowRight /></button>
         </div>
       </div>
     </div>
@@ -653,7 +676,7 @@ function BookService() {
         <div className="bs-nav-btns">
           {step > 1 && (
             <button className="bs-back-btn" onClick={() => setStep(step - 1)}>
-              ← Back
+              <FiArrowLeft /> Back
             </button>
           )}
           {step < TOTAL_STEPS ? (
@@ -662,11 +685,11 @@ function BookService() {
               onClick={() => setStep(step + 1)}
               disabled={!canNext()}
             >
-              {step === 4 ? 'Book →' : 'Next →'}
+              {step === 4 ? <>Book <FiArrowRight /></> : <>Next <FiArrowRight /></>}
             </button>
           ) : (
             <button className="bs-next-btn" onClick={handleConfirmBooking}>
-              Confirm ✓
+              Confirm <FiCheck />
             </button>
           )}
         </div>

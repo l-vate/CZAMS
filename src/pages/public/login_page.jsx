@@ -1,5 +1,14 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import {
+  FiThermometer,
+  FiCalendar,
+  FiTool,
+  FiEye,
+  FiEyeOff,
+  FiUser,
+  FiShield,
+} from 'react-icons/fi';
 
 function LoginPage() {
   const [formData, setFormData] = useState({ email: '', password: '' });
@@ -35,9 +44,9 @@ function LoginPage() {
         </div>
 
         <div className="auth-split-features">
-          <div className="auth-feature-item"><span>❄️</span> Cleaning, repair & installation</div>
-          <div className="auth-feature-item"><span>📅</span> Easy online scheduling</div>
-          <div className="auth-feature-item"><span>🔧</span> Trusted technicians since 2009</div>
+          <div className="auth-feature-item"><span><FiThermometer /></span> Cleaning, repair & installation</div>
+          <div className="auth-feature-item"><span><FiCalendar /></span> Easy online scheduling</div>
+          <div className="auth-feature-item"><span><FiTool /></span> Trusted technicians since 2009</div>
         </div>
 
         <p className="auth-split-copy">© 2009 Cooling Zone. All Rights Reserved.</p>
@@ -87,7 +96,7 @@ function LoginPage() {
                   className="toggle-password"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  {showPassword ? '🙈' : '👁️'}
+                  {showPassword ? <FiEyeOff /> : <FiEye />}
                 </button>
               </div>
             </div>
@@ -95,7 +104,7 @@ function LoginPage() {
             <button
               type="submit"
               className="auth-submit-btn"
-              onClick={() => navigate('/customer/dashboard')}
+              
             >
               Sign In
             </button>
@@ -115,21 +124,21 @@ function LoginPage() {
               type="button"
               onClick={() => navigate('/customer/dashboard')}
             >
-              👤 Client
+              <FiUser /> Client
             </button>
             <button
               className="role-btn"
               type="button"
               onClick={() => navigate('/staff/dashboard')}
             >
-              🔧 Technician
+              <FiTool /> Technician
             </button>
             <button
               className="role-btn"
               type="button"
               onClick={() => navigate('/admin/dashboard')}
             >
-              🛡️ Admin
+              <FiShield /> Admin
             </button>
           </div>
 

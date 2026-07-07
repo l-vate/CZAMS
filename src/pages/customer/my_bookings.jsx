@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import CustomerLayout from './customer_layout';
 import { useNavigate } from 'react-router-dom';
+import { FiClock, FiMapPin } from 'react-icons/fi';
 
 
 function MyBookings() {
@@ -214,12 +215,12 @@ function MyBookings() {
                             </small>
                         </div>
 
-                        <div>
-                            🕒 {booking.date}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <FiClock /> {booking.date}
                         </div>
 
-                        <div>
-                            📍 {booking.address}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <FiMapPin /> {booking.address}
                         </div>
 
                         <div

@@ -19,7 +19,6 @@ function LandingPage() {
           <span className="brand">COOLING ZONE AIRCON MAINTENANCE SERVICES</span>
         </div>
         <div className="nav-right">
-          <input type="text" placeholder="Search..." className="search" />
           <nav className="nav-links">
             <a href="#home">HOME</a>
             <a href="#about">ABOUT US</a>

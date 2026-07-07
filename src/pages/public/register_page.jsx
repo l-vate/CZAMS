@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { FiClipboard, FiMapPin, FiCreditCard, FiEye, FiEyeOff } from 'react-icons/fi';
 
 function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -48,9 +49,9 @@ function RegisterPage() {
         </div>
 
         <div className="auth-split-features">
-          <div className="auth-feature-item"><span>📋</span> Book services in minutes</div>
-          <div className="auth-feature-item"><span>📍</span> Real-time service tracking</div>
-          <div className="auth-feature-item"><span>💳</span> Flexible payment options</div>
+          <div className="auth-feature-item"><span><FiClipboard /></span> Book services in minutes</div>
+          <div className="auth-feature-item"><span><FiMapPin /></span> Real-time service tracking</div>
+          <div className="auth-feature-item"><span><FiCreditCard /></span> Flexible payment options</div>
         </div>
 
         <p className="auth-split-copy">© 2009 Cooling Zone. All Rights Reserved.</p>
@@ -152,7 +153,7 @@ function RegisterPage() {
                   className="toggle-password"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  {showPassword ? '🙈' : '👁️'}
+                  {showPassword ? <FiEyeOff /> : <FiEye />}
                 </button>
               </div>
             </div>
@@ -174,7 +175,7 @@ function RegisterPage() {
                   className="toggle-password"
                   onClick={() => setShowConfirm(!showConfirm)}
                 >
-                  {showConfirm ? '🙈' : '👁️'}
+                  {showConfirm ? <FiEyeOff /> : <FiEye />}
                 </button>
               </div>
             </div>

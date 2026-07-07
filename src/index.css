@@ -855,6 +855,10 @@ section { padding: 90px 40px; }
   .auth-split-right  { padding: 28px 16px; }
   .auth-split-form-box { padding: 32px 22px; }
   .form-row          { flex-direction: column; }
+  .auth-split-left--register { position: static; height: auto; overflow: visible;}
+  .auth-split-page:has(.auth-split-left--register) .auth-split-right { margin-left: 0; height: auto;
+    overflow-y: visible; align-items: center; padding-top: 28px; padding-bottom: 28px;
+  }
 }
 
 
@@ -4246,29 +4250,73 @@ body *{
 
 /* ---------- RESPONSIVE ---------- */
 
+/* ── Staff & Admin dashboards: same off-canvas drawer as customer ── */
+
+.dashboard-shell.staff-dashboard-shell,
+.dashboard-shell.admin-dashboard-shell {
+  flex-direction: row;
+}
+
+.staff-dashboard-shell .sidebar,
+.admin-dashboard-shell .sidebar {
+  width: 250px;
+  min-width: 250px;
+  transition: left 0.25s ease;
+}
+
 @media (max-width: 900px) {
-  .sidebar {
-    width: 72px;
+  .staff-dashboard-shell,
+  .admin-dashboard-shell {
+    position: relative;
   }
 
-  .sidebar-brand p,
-  .sidebar-brand h1,
-  .sidebar-section-label,
-  .sidebar-link span:last-child,
-  .logout-btn span:last-child {
-    display: none;
+  .staff-dashboard-shell .sidebar,
+  .admin-dashboard-shell .sidebar {
+    position: fixed;
+    top: 0;
+    left: -270px;
+    height: 100vh;
+    width: 250px;
+    min-width: 250px;
+    z-index: 210;
+    box-shadow: 0 0 24px rgba(11,37,69,0.18);
   }
 
-  .stats-grid {
+  .staff-dashboard-shell.sidebar-open .sidebar,
+  .admin-dashboard-shell.sidebar-open .sidebar {
+    left: 0;
+  }
+
+  .staff-dashboard-shell.sidebar-open .sidebar-backdrop,
+  .admin-dashboard-shell.sidebar-open .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(11,37,69,0.35);
+    z-index: 200;
+  }
+
+  .staff-dashboard-shell .stats-grid,
+  .staff-dashboard-shell .tech-stats-grid {
     grid-template-columns: 1fr;
   }
 
-  .calendar-page {
+  .staff-dashboard-shell .calendar-page {
     flex-direction: column;
   }
 
-  .calendar-mini-panel {
+  .staff-dashboard-shell .calendar-mini-panel {
     width: 100%;
+  }
+
+  .staff-dashboard-shell .dashboard-body,
+  .admin-dashboard-shell .dashboard-body {
+    padding: 20px 16px;
+  }
+
+  .staff-dashboard-shell .dashboard-topbar,
+  .admin-dashboard-shell .dashboard-topbar {
+    padding: 12px 16px;
   }
 }
 
@@ -4902,4 +4950,75 @@ body *{
   flex-direction: column;
   gap: 14px;
   max-width: 340px;
+}
+
+/* ── Customer dashboard: scoped overrides so staff-portal CSS
+   (declared later in the file, same class names) can't win ── */
+
+.dashboard-shell.customer-dashboard-shell {
+  flex-direction: row; /* stop the old section-12 rule from stacking us */
+}
+
+.customer-dashboard-shell .sidebar {
+  width: 220px;
+  min-width: 220px;
+  transition: left 0.25s ease;
+}
+
+/* Hamburger toggle — hidden on desktop */
+.sidebar-toggle-btn {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: var(--navy);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  margin-right: 6px;
+}
+
+.sidebar-toggle-btn:hover { background: #f0f4f8; }
+
+.sidebar-backdrop { display: none; }
+
+@media (max-width: 900px) {
+  .sidebar-toggle-btn { display: inline-flex; align-items: center; }
+
+  .customer-dashboard-shell { position: relative; }
+
+  .customer-dashboard-shell .sidebar {
+    position: fixed;
+    top: 0;
+    left: -260px;
+    height: 100vh;
+    width: 240px;
+    min-width: 240px;
+    z-index: 210;
+    box-shadow: 0 0 24px rgba(11,37,69,0.18);
+  }
+
+  .customer-dashboard-shell.sidebar-open .sidebar {
+    left: 0;
+  }
+
+  .customer-dashboard-shell.sidebar-open .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(11,37,69,0.35);
+    z-index: 200;
+  }
+
+  .customer-dashboard-shell .stats-row {
+    grid-template-columns: 1fr;
+  }
+
+  .customer-dashboard-shell .dashboard-body {
+    padding: 20px 16px;
+  }
+
+  .customer-dashboard-shell .dashboard-topbar {
+    padding: 12px 16px;
+  }
 }

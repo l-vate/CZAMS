@@ -66,7 +66,7 @@ function Billings() {
 
   return (
     <CustomerLayout title="Billings">
-      <h1 className="dashboard-welcome">Payment & Billing</h1>
+      
 
       {/* Filters */}
       <div className="billing-toolbar">

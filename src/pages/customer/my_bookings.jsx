@@ -239,7 +239,6 @@ function MyBookings() {
                                     cursor: 'pointer'
                                 }}
                             >
-                                View Details
                             </button>
                         </div>
                     </div>

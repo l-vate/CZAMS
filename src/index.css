@@ -60,8 +60,9 @@ section { padding: 90px 40px; }
 /* ============ 3. SHARED UTILITIES ============ */
 .vent-divider {
   height: 1px;
-  background: var(--mist);
-  margin: 0 64px;
+  border: none;
+  border-top: 1px solid var(--mist);
+  opacity: 0.6;
 }
 
 .section-eyebrow {
@@ -4362,4 +4363,140 @@ body *{
   color: rgba(255,255,255,0.55);
   line-height: 1.7;
   max-width: 220px;
+}
+.billing-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.billing-filter-group {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.billing-filter-pill {
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: 1px solid #1b9ce5;
+  background: #fff;
+  color: #333;
+  cursor: pointer;
+}
+
+.billing-filter-pill.active {
+  background: #1b9ce5;
+  color: #fff;
+}
+
+.billing-search-input {
+  padding: 10px 16px;
+  border-radius: 6px;
+  border: 1px solid #d9d9d9;
+  min-width: 260px;
+}
+
+.billing-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.billing-empty {
+  color: #888;
+  text-align: center;
+  padding: 24px 0;
+}
+
+.billing-card {
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  border-radius: 12px;
+  padding: 18px 20px;
+  display: grid;
+  grid-template-columns: 2fr 1.5fr 1fr 1fr 1fr;
+  align-items: center;
+}
+
+.billing-card-top-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.billing-card-date-label {
+  color: #888;
+}
+
+.billing-status-badge {
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+}
+
+.billing-status-badge.paid {
+  background: #22c55e;
+}
+
+.billing-status-badge.unpaid {
+  background: #f59e0b;
+}
+
+.billing-card-title {
+  margin: 0;
+  font-size: 18px;
+}
+
+.billing-card-subtext {
+  margin: 4px 0;
+  color: #666;
+}
+
+.billing-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.billing-card-invoice {
+  display: flex;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.invoice-link-btn {
+  background: transparent;
+  border: none;
+  color: #333;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.billing-card-action {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.settle-btn {
+  background: #1b9ce5;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
 }

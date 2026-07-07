@@ -9,6 +9,7 @@ function Billings() {
   const [showReceipt, setShowReceipt] = useState(false);
   const [selectedBill, setSelectedBill] = useState(null);
   const [activeFilter, setActiveFilter] = useState('All');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const filters = ['All', 'Paid', 'Unpaid'];
 
@@ -43,17 +44,20 @@ function Billings() {
     },
   ];
 
-  const filteredBills =
-    activeFilter === 'All'
-      ? bills
-      : bills.filter((bill) =>
-          activeFilter === 'Paid' ? bill.paid : !bill.paid
-        );
-
-  const getStatusColor = (bill) => {
-    if (bill.paid) return '#22c55e';
-    return '#f59e0b';
-  };
+  const filteredBills = bills
+    .filter((bill) =>
+      activeFilter === 'All' ? true : activeFilter === 'Paid' ? bill.paid : !bill.paid
+    )
+    .filter((bill) => {
+      if (!searchTerm.trim()) return true;
+      const term = searchTerm.toLowerCase();
+      return (
+        bill.id.toLowerCase().includes(term) ||
+        bill.service.toLowerCase().includes(term) ||
+        bill.customerName.toLowerCase().includes(term) ||
+        bill.address.toLowerCase().includes(term)
+      );
+    });
 
   const handlePaymentSubmit = ({ proof, senior }) => {
     console.log('Payment submitted:', proof, senior);
@@ -65,35 +69,13 @@ function Billings() {
       <h1 className="dashboard-welcome">Payment & Billing</h1>
 
       {/* Filters */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '20px'
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            gap: '12px',
-            flexWrap: 'wrap'
-          }}
-        >
+      <div className="billing-toolbar">
+        <div className="billing-filter-group">
           {filters.map((filter) => (
             <button
               key={filter}
               onClick={() => setActiveFilter(filter)}
-              style={{
-                padding: '10px 18px',
-                borderRadius: '999px',
-                border: '1px solid #1b9ce5',
-                background:
-                  activeFilter === filter ? '#1b9ce5' : '#fff',
-                color:
-                  activeFilter === filter ? '#fff' : '#333',
-                cursor: 'pointer'
-              }}
+              className={`billing-filter-pill ${activeFilter === filter ? 'active' : ''}`}
             >
               {filter}
             </button>
@@ -102,141 +84,71 @@ function Billings() {
 
         <input
           type="search"
-          placeholder="Search..."
-          style={{
-            padding: '10px 16px',
-            borderRadius: '6px',
-            border: '1px solid #d9d9d9'
-          }}
+          placeholder="Search by ID, service, customer, or address..."
+          className="billing-search-input"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
       {/* Billing Cards */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px'
-        }}
-      >
-        {filteredBills.map((bill) => (
-          <div
-            key={bill.id}
-            style={{
-              background: '#fff',
-              border: '1px solid #d9d9d9',
-              borderRadius: '12px',
-              padding: '18px 20px',
-              display: 'grid',
-              gridTemplateColumns: '2fr 1.5fr 1fr 1fr 1fr',
-              alignItems: 'center'
-            }}
-          >
-            <div>
-              <div
-                style={{
-                  display: 'flex',
-                  gap: '10px',
-                  alignItems: 'center',
-                  marginBottom: '8px'
-                }}
-              >
-                <small style={{ color: '#888' }}>{bill.date}</small>
+      <div className="billing-list">
+        {filteredBills.length === 0 ? (
+          <p className="billing-empty">No matching bills found.</p>
+        ) : (
+          filteredBills.map((bill) => (
+            <div key={bill.id} className="billing-card">
+              <div className="billing-card-main">
+                <div className="billing-card-top-row">
+                  <small className="billing-card-date-label">{bill.date}</small>
+                  <span className={`billing-status-badge ${bill.paid ? 'paid' : 'unpaid'}`}>
+                    {bill.status}
+                  </span>
+                </div>
 
-                <span
-                  style={{
-                    background: getStatusColor(bill),
-                    color: '#fff',
-                    padding: '2px 8px',
-                    borderRadius: '999px',
-                    fontSize: '11px'
-                  }}
-                >
-                  {bill.status}
-                </span>
+                <h3 className="billing-card-title">{bill.service.toUpperCase()} TYPE</h3>
+                <p className="billing-card-subtext">Booking ID: {bill.id}</p>
+                <small>Customer: {bill.customerName}</small>
               </div>
 
-              <h3 style={{ margin: 0, fontSize: '18px' }}>
-                {bill.service.toUpperCase()} TYPE
-              </h3>
+              <div className="billing-card-meta">
+                <FiMapPin /> {bill.address}
+              </div>
 
-              <p style={{ margin: '4px 0', color: '#666' }}>
-                Booking ID: {bill.id}
-              </p>
+              <div className="billing-card-meta">
+                <FiClock /> {bill.date}
+              </div>
 
-              <small>Customer: {bill.customerName}</small>
+              <div className="billing-card-invoice">
+                {bill.paid && (
+                  <button
+                    className="invoice-link-btn"
+                    onClick={() => {
+                      setSelectedBill(bill);
+                      setShowReceipt(true);
+                    }}
+                  >
+                    <FiFileText /> Invoice
+                  </button>
+                )}
+              </div>
+
+              <div className="billing-card-action">
+                {!bill.paid && (
+                  <button
+                    className="settle-btn"
+                    onClick={() => {
+                      setSelectedBill(bill);
+                      setShowPayment(true);
+                    }}
+                  >
+                    <FiCreditCard size={13} /> Settle
+                  </button>
+                )}
+              </div>
             </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <FiMapPin /> {bill.address}
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <FiClock /> {bill.date}
-            </div>
-
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'flex-start',
-                gap: '8px'
-              }}
-            >
-              {bill.paid && (
-              <button
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#333',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  fontSize: '13px'
-                }}
-                onClick={() => {
-                  setSelectedBill(bill);
-                  setShowReceipt(true);
-                }}
-              >
-                <FiFileText /> Invoice
-              </button>
-              )}
-            </div>
-
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'flex-end'
-              }}
-            >
-              {!bill.paid && (
-                <button
-                  style={{
-                    background: '#1b9ce5',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '6px',
-                    padding: '6px 10px',
-                    cursor: 'pointer',
-                    fontWeight: '600',
-                    fontSize: '12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    whiteSpace: 'nowrap'
-                  }}
-                  onClick={() => {
-                    setSelectedBill(bill);
-                    setShowPayment(true);
-                  }}
-                >
-                  <FiCreditCard size={13} /> Settle
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       {/* Payment Modal */}

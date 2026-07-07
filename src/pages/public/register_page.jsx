@@ -30,150 +30,167 @@ function RegisterPage() {
   };
 
   return (
-    <div className="auth-page">
+    <div className="auth-split-page">
 
-      {/* Back link */}
-      <Link to="/" className="auth-back-link">← Back</Link>
+      {/* ── Left Panel ── */}
+      <div className="auth-split-left auth-split-left--register">
+        <Link to="/" className="auth-split-back">← Back to site</Link>
 
-      <div className="auth-card">
-
-        {/* Logo + Brand */}
-        <div className="auth-brand">
-          <img src="/images/logo.png" alt="CZAMS Logo" className="auth-logo" />
-          <span className="auth-brand-name">CZAMS</span>
-          <span className="auth-brand-sub">Cooling Zone Aircon Maintenance Services</span>
+        <div className="auth-split-brand">
+          <img src="/images/logo.png" alt="CZAMS Logo" className="auth-split-logo" />
+          <span className="auth-split-brand-name">COOLING ZONE</span>
+          <span className="auth-split-brand-sub">Aircon Maintenance Services</span>
         </div>
 
-        {/* Header */}
-        <div className="auth-card-header">
-          <h2>Create your account</h2>
-          <p>Fill in your details to get started with CZAMS.</p>
+        <div className="auth-split-tagline">
+          <h1>Join us today.</h1>
+          <p>Create an account to book services, track your requests, and stay cool all year round.</p>
         </div>
 
-        {/* Form */}
-        <form className="auth-form" onSubmit={handleSubmit}>
+        <div className="auth-split-features">
+          <div className="auth-feature-item"><span>📋</span> Book services in minutes</div>
+          <div className="auth-feature-item"><span>📍</span> Real-time service tracking</div>
+          <div className="auth-feature-item"><span>💳</span> Flexible payment options</div>
+        </div>
 
-          {/* First + Last name side by side */}
-          <div className="form-row">
+        <p className="auth-split-copy">© 2009 Cooling Zone. All Rights Reserved.</p>
+      </div>
+
+      {/* ── Right Panel ── */}
+      <div className="auth-split-right">
+        <div className="auth-split-form-box">
+
+          <div className="auth-split-header">
+            <h2>Create your account</h2>
+            <p>Fill in your details to get started.</p>
+          </div>
+
+          <form className="auth-form" onSubmit={handleSubmit}>
+
+            {/* First + Last name */}
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="firstName">First Name</label>
+                <input
+                  type="text"
+                  id="firstName"
+                  name="firstName"
+                  placeholder="Juan"
+                  value={formData.firstName}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="lastName">Last Name</label>
+                <input
+                  type="text"
+                  id="lastName"
+                  name="lastName"
+                  placeholder="Dela Cruz"
+                  value={formData.lastName}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+            </div>
+
             <div className="form-group">
-              <label htmlFor="firstName">Full Name</label>
+              <label htmlFor="email">Email address</label>
               <input
-                type="text"
-                id="firstName"
-                name="firstName"
-                placeholder="First"
-                value={formData.firstName}
+                type="email"
+                id="email"
+                name="email"
+                placeholder="you@example.com"
+                value={formData.email}
                 onChange={handleChange}
                 required
               />
             </div>
+
             <div className="form-group">
-              <label htmlFor="lastName">&nbsp;</label>
+              <label htmlFor="phone">Phone number</label>
               <input
-                type="text"
-                id="lastName"
-                name="lastName"
-                placeholder="Last"
-                value={formData.lastName}
+                type="tel"
+                id="phone"
+                name="phone"
+                placeholder="+63 900 000 0000"
+                value={formData.phone}
                 onChange={handleChange}
                 required
               />
             </div>
-          </div>
 
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              placeholder="you@example.com"
-              value={formData.email}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="phone">Phone</label>
-            <input
-              type="tel"
-              id="phone"
-              name="phone"
-              placeholder="+63 900 000 0000"
-              value={formData.phone}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="role">Register as</label>
-            <select
-              id="role"
-              name="role"
-              value={formData.role}
-              onChange={handleChange}
-              className="form-select"
-            >
-              <option value="client">Client</option>
-              <option value="technician">Technician</option>
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <div className="password-wrapper">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                id="password"
-                name="password"
-                placeholder="Min. 8 characters"
-                value={formData.password}
+            <div className="form-group">
+              <label htmlFor="role">Register as</label>
+              <select
+                id="role"
+                name="role"
+                value={formData.role}
                 onChange={handleChange}
-                required
-              />
-              <button
-                type="button"
-                className="toggle-password"
-                onClick={() => setShowPassword(!showPassword)}
+                className="form-select"
               >
-                {showPassword ? '🙈' : '👁️'}
-              </button>
+                <option value="client">Client</option>
+                <option value="technician">Technician</option>
+              </select>
             </div>
-          </div>
 
-          <div className="form-group">
-            <label htmlFor="confirmPassword">Confirm Password</label>
-            <div className="password-wrapper">
-              <input
-                type={showConfirm ? 'text' : 'password'}
-                id="confirmPassword"
-                name="confirmPassword"
-                placeholder="Re-enter your password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                required
-              />
-              <button
-                type="button"
-                className="toggle-password"
-                onClick={() => setShowConfirm(!showConfirm)}
-              >
-                {showConfirm ? '🙈' : '👁️'}
-              </button>
+            <div className="form-group">
+              <label htmlFor="password">Password</label>
+              <div className="password-wrapper">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  id="password"
+                  name="password"
+                  placeholder="Min. 8 characters"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                />
+                <button
+                  type="button"
+                  className="toggle-password"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? '🙈' : '👁️'}
+                </button>
+              </div>
             </div>
-          </div>
 
-          <button type="submit" className="auth-submit-btn">Create Account</button>
+            <div className="form-group">
+              <label htmlFor="confirmPassword">Confirm password</label>
+              <div className="password-wrapper">
+                <input
+                  type={showConfirm ? 'text' : 'password'}
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  placeholder="Re-enter your password"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  required
+                />
+                <button
+                  type="button"
+                  className="toggle-password"
+                  onClick={() => setShowConfirm(!showConfirm)}
+                >
+                  {showConfirm ? '🙈' : '👁️'}
+                </button>
+              </div>
+            </div>
 
-        </form>
+            <button type="submit" className="auth-submit-btn">
+              Create Account
+            </button>
 
-        <p className="auth-switch">
-          Already have an account?{' '}
-          <Link to="/login">Sign in here</Link>
-        </p>
+          </form>
 
+          <p className="auth-switch">
+            Already have an account?{' '}
+            <Link to="/login">Sign in here</Link>
+          </p>
+
+        </div>
       </div>
     </div>
   );

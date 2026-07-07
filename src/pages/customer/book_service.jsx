@@ -19,7 +19,7 @@ const DOWN_PAYMENT_OPTIONS = [
   { label: '50% Down Payment', value: 50 },
   { label: '10% Down Payment', value: 10 },
 ];
-
+const FIRST_PAYMENT_MODES = ['E-Wallet (GCash, Maya...)', 'Bank Transfer'];
 const PAYMENT_MODES = ['Cash', 'E-Wallet (GCash, Maya...)', 'Bank Transfer'];
 
 const TECHNICIANS = {
@@ -282,7 +282,7 @@ function Step4({ form, setForm }) {
               onChange={(e) => setForm({ ...form, paymentMode: e.target.value })}
             >
               <option value="">Select mode</option>
-              {PAYMENT_MODES.map((m) => (
+              {FIRST_PAYMENT_MODES.map((m) => (
                 <option key={m} value={m}>{m}</option>
               ))}
             </select>
@@ -472,7 +472,7 @@ function BookingConfirmation({ form, booking, onReschedule, onCancelClick, onPri
             <div className="summary-row"><span>Payment Mode</span><span>{form.paymentMode || '—'}</span></div>
             <div className="summary-row">
               <span>Proof of Payment</span>
-              <span className="cost-link" onClick={onPrintReceipt}>View attachment</span>
+              <span className="cost-link" >View attachment</span>
             </div>
           </div>
         </div>

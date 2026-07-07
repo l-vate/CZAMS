@@ -90,15 +90,29 @@ function LoginPage() {
         <div className="auth-divider"><span>or continue as</span></div>
 
         <div className="auth-role-btns">
-          <button className="role-btn">👤 Client</button>
+          <button 
+            className="role-btn" 
+            type="button" 
+            onClick={() => navigate('/customer/dashboard')} 
+          >
+            👤 Client
+          </button>
+
           <button
             className="role-btn"
             type="button"
             onClick={() => navigate('/staff/dashboard')}
           >
             🔧 Technician
-        </button>
-          <button className="role-btn">🛡️ Admin</button>
+          </button>
+
+          <button 
+            className="role-btn" 
+            type="button" 
+            onClick={() => navigate('/admin/dashboard')}
+          >
+            🛡️ Admin
+          </button>
         </div>
 
       </div>

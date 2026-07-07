@@ -10,8 +10,20 @@ function Sidebar() {
     <aside className="sidebar">
       <div>
         <div className="sidebar-brand">
-          <h1>Cooling Zone Aircon</h1>
-          <p>Services</p>
+          <img
+            src="/images/logo.png"
+            alt="Cooling Zone Aircon Services"
+            className="sidebar-logo"
+          />
+
+          <div className="sidebar-brand-text">
+            <span className="sidebar-brand-name">
+              Cooling Zone Aircon
+            </span>
+            <span className="sidebar-brand-sub">
+              Services
+            </span>
+          </div>
         </div>
 
         <div className="sidebar-section-label">Technician Portal</div>
@@ -21,7 +33,6 @@ function Sidebar() {
             to="/staff/dashboard"
             className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
           >
-            <span className="sidebar-icon">▦</span>
             Dashboard
           </NavLink>
 
@@ -29,7 +40,6 @@ function Sidebar() {
             to="/staff/my_jobs"
             className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
           >
-            <span className="sidebar-icon">⚙</span>
             My Jobs
           </NavLink>
 
@@ -37,7 +47,6 @@ function Sidebar() {
             to="/staff/calendar"
             className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
           >
-            <span className="sidebar-icon">📅</span>
             Calendar
           </NavLink>
 
@@ -45,7 +54,6 @@ function Sidebar() {
             to="/staff/reports"
             className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
           >
-            <span className="sidebar-icon">▦</span>
             Reports
           </NavLink>
 
@@ -53,20 +61,18 @@ function Sidebar() {
             to="/staff/profile"
             className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
           >
-            <span className="sidebar-icon">👤</span>
             Profile
           </NavLink>
         </nav>
       </div>
 
-      <div className="sidebar-footer">
-       <button
-  className="logout-btn"
-  type="button"
-  onClick={handleLogout}
->
-          <span className="sidebar-icon">⟲</span>
-          Log out
+      <div className="sidebar-logout">
+        <button
+          type="button"
+          className="sidebar-link"
+          onClick={handleLogout}
+        >
+          Log Out
         </button>
       </div>
     </aside>

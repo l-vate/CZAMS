@@ -13,16 +13,46 @@ import {
 function LoginPage() {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // TODO: connect to Express backend
-    console.log('Login submitted:', formData);
+    setError('');
+    setLoading(true);
+
+    try {
+      const res = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message || 'Login failed');
+        setLoading(false);
+        return;
+      }
+
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+
+      if (data.user.role === 'admin') navigate('/admin/dashboard');
+      else if (data.user.role === 'staff') navigate('/staff/dashboard');
+      else navigate('/customer/dashboard');
+
+    } catch (err) {
+      setError('Could not connect to server. Is the backend running?');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -101,12 +131,14 @@ function LoginPage() {
               </div>
             </div>
 
+            {error && <p className="auth-error" style={{ color: 'red', fontSize: '0.9rem' }}>{error}</p>}
+
             <button
               type="submit"
               className="auth-submit-btn"
-              
+              disabled={loading}
             >
-              Sign In
+              {loading ? 'Signing in...' : 'Sign In'}
             </button>
 
           </form>
@@ -115,32 +147,6 @@ function LoginPage() {
             Don't have an account?{' '}
             <Link to="/register">Create one here</Link>
           </p>
-
-          <div className="auth-divider"><span>or sign in as</span></div>
-
-          <div className="auth-role-btns">
-            <button
-              className="role-btn"
-              type="button"
-              onClick={() => navigate('/customer/dashboard')}
-            >
-              <FiUser /> Client
-            </button>
-            <button
-              className="role-btn"
-              type="button"
-              onClick={() => navigate('/staff/dashboard')}
-            >
-              <FiTool /> Technician
-            </button>
-            <button
-              className="role-btn"
-              type="button"
-              onClick={() => navigate('/admin/dashboard')}
-            >
-              <FiShield /> Admin
-            </button>
-          </div>
 
         </div>
       </div>

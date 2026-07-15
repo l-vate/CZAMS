@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
-import { FiUser, FiX } from 'react-icons/fi';
+import { FiUser, FiX, FiCamera } from 'react-icons/fi';
 
 /* ── Change Password Modal ─────────────────────────────── */
 function ChangePasswordModal({ onClose, onSubmit }) {
@@ -132,6 +132,7 @@ function Profile() {
     phone: '+63 912 345 6789',
     address: 'Dasmariñas, Cavite',
     memberSince: 'January 2026',
+    photo: null,
   });
 
   const [isEditing, setIsEditing] = useState(false);
@@ -146,6 +147,16 @@ function Profile() {
 
   const handleEditChange = (e) => {
     setEditForm({ ...editForm, [e.target.name]: e.target.value });
+  };
+
+  const handlePhotoChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setEditForm((prev) => ({ ...prev, photo: reader.result }));
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSaveProfile = () => {
@@ -177,9 +188,58 @@ function Profile() {
         {/* Profile Header */}
         <div className="profile-card">
           <div className="profile-header">
-            <div className="profile-avatar">
-              <FiUser />
-            </div>
+            {isEditing ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                <div className="profile-avatar">
+                  {editForm.photo ? (
+                    <img
+                      src={editForm.photo}
+                      alt="Profile preview"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                    />
+                  ) : (
+                    <FiUser />
+                  )}
+                </div>
+                <label
+                  className="profile-photo-upload-btn"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    color: 'var(--cz-primary, #2563eb)',
+                    border: '1px solid var(--cz-primary, #2563eb)',
+                    borderRadius: '999px',
+                    padding: '6px 14px',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  <FiCamera size={14} />
+                  {editForm.photo ? 'Change Photo' : 'Upload Photo'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoChange}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+              </div>
+            ) : (
+              <div className="profile-avatar">
+                {user.photo ? (
+                  <img
+                    src={user.photo}
+                    alt="Profile"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                  />
+                ) : (
+                  <FiUser />
+                )}
+              </div>
+            )}
 
             <div className="profile-info">
               <h2>

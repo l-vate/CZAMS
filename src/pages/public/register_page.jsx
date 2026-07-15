@@ -28,15 +28,37 @@ function RegisterPage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (formData.password !== formData.confirmPassword) {
-      alert('Passwords do not match.');
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  if (formData.password !== formData.confirmPassword) {
+    alert('Passwords do not match.');
+    return;
+  }
+
+  try {
+    const res = await fetch('http://localhost:5000/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.message || 'Registration failed');
       return;
     }
-    // TODO: connect to Express backend
-    console.log('Register submitted:', formData);
-  };
+
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('user', JSON.stringify(data.user));
+
+    if (data.user.role === 'staff') navigate('/staff/dashboard');
+    else navigate('/customer/dashboard');
+
+  } catch (err) {
+    alert('Could not connect to server. Is the backend running?');
+  }
+};
 
   return (
     <div className="auth-split-page">

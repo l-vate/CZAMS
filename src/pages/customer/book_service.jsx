@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
 import PaymentModal from '../../components/payment_modal';
-import ReceiptModal from '../../components/receipt_modal';
 import {
   FiWind,
   FiTool,
@@ -12,27 +11,40 @@ import {
   FiSunrise,
   FiSunset,
   FiClock,
-  FiMail,
-  FiMessageSquare,
-  FiBell,
-  FiPrinter,
-  FiCalendar,
-  FiMapPin,
-  FiInfo,
-  FiCreditCard,
-  FiUser,
-  FiAlertTriangle,
-  FiX,
   FiArrowLeft,
   FiArrowRight,
 } from 'react-icons/fi';
 
-const SERVICES = [
-  { id: 'cleaning', label: 'Cleaning', desc: 'Deep clean & sanitize', price: 650, icon: <FiWind /> },
-  { id: 'repair', label: 'Repair', desc: 'Diagnose & fix issues', price: 1200, icon: <FiTool /> },
-  { id: 'installation', label: 'Installation', desc: 'Deep clean & fix surroundings', price: 3500, icon: <FiThermometer /> },
-  { id: 'maintenance', label: 'Maintenance', desc: 'Routine check-up', price: 550, icon: <FiSettings /> },
-];
+const ICON_MAP = {
+  FiWind: <FiWind />,
+  FiTool: <FiTool />,
+  FiThermometer: <FiThermometer />,
+  FiSettings: <FiSettings />,
+};
+
+function useServices() {
+  const [services, setServices] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('http://localhost:5000/api/services')
+      .then((res) => res.json())
+      .then((data) => {
+        const mapped = data.map((s) => ({
+          id: s._id,
+          label: s.name,
+          desc: s.description,
+          price: s.price,
+          icon: ICON_MAP[s.icon] || <FiSettings />,
+        }));
+        setServices(mapped);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  return { services, loading };
+}
 
 const UNIT_TYPES = ['Window Type', 'Split Type', 'Floor Mounted', 'Cassette Type', 'Portable'];
 
@@ -45,11 +57,12 @@ const DOWN_PAYMENT_OPTIONS = [
 const FIRST_PAYMENT_MODES = ['E-Wallet (GCash, Maya...)', 'Bank Transfer'];
 const PAYMENT_MODES = ['Cash', 'E-Wallet (GCash, Maya...)', 'Bank Transfer'];
 
-const TECHNICIANS = {
-  tech1: 'Juan Dela Cruz',
-  tech2: 'Pedro Santos',
-  tech3: 'Maria Reyes',
-};
+const TECHNICIANS = [
+  { id: 'tech1', name: 'Juan Dela Cruz' },
+  { id: 'tech2', name: 'Pedro Santos' },
+  { id: 'tech3', name: 'Maria Reyes' },
+];
+const technicianName = (id) => TECHNICIANS.find((t) => t.id === id)?.name || 'No preference';
 
 const TOTAL_STEPS = 5;
 
@@ -60,11 +73,15 @@ function generateBookingId() {
   return `CZ-${year}-${rand}`;
 }
 
-function formatDate(dateStr) {
-  if (!dateStr) return '—';
-  const d = new Date(dateStr);
-  if (isNaN(d)) return dateStr;
-  return d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+// Shared cost breakdown math — used by Step4 and Step5
+function getCostBreakdown(form, services) {
+  const selected = services.find((s) => s.id === form.service);
+  const basePrice = selected?.price || 0;
+  const dpPercent = form.downPaymentPercent ?? 10;
+  const toPayNow = Math.round(basePrice * (dpPercent / 100));
+  const remaining = basePrice - toPayNow;
+  const isFullPay = dpPercent === 100;
+  return { selected, basePrice, dpPercent, toPayNow, remaining, isFullPay };
 }
 
 /* ── Step Indicator ───────────────────────────────────────── */
@@ -91,13 +108,13 @@ function StepIndicator({ current }) {
 }
 
 /* ── Step 1: Choose a Service ─────────────────────────────── */
-function Step1({ form, setForm }) {
+function Step1({ form, setForm, services }) {
   return (
     <div className="bs-card">
       <h3 className="bs-card-title">Choose a Service</h3>
       <p className="bs-card-sub">Base price only. Final cost may vary depending on the scope of work and materials needed.</p>
       <div className="service-grid">
-        {SERVICES.map((s) => (
+        {services.map((s) => (
           <button
             key={s.id}
             type="button"
@@ -218,9 +235,9 @@ function Step3({ form, setForm }) {
           onChange={(e) => setForm({ ...form, technician: e.target.value })}
         >
           <option value="">No preference</option>
-          <option value="tech1">Juan Dela Cruz</option>
-          <option value="tech2">Pedro Santos</option>
-          <option value="tech3">Maria Reyes</option>
+          {TECHNICIANS.map((t) => (
+            <option key={t.id} value={t.id}>{t.name}</option>
+          ))}
         </select>
       </div>
 
@@ -238,20 +255,12 @@ function Step3({ form, setForm }) {
   );
 }
 
-
-
 /* ── Step 4: Payment ──────────────────────────────────────── */
-function Step4({ form, setForm }) {
+function Step4({ form, setForm, services }) {
   const [showModal, setShowModal] = useState(false);
+  const { basePrice, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services);
 
-  const selected = SERVICES.find((s) => s.id === form.service);
-  const basePrice = selected?.price || 0;
-  const dpPercent = form.downPaymentPercent ?? 10;
-  const toPayNow = Math.round(basePrice * (dpPercent / 100));
-  const remaining = basePrice - toPayNow;
-  const isFullPay = dpPercent === 100;
-
-  const handleSubmitPayment = ({ proof, senior }) => {
+  const handleSubmitPayment = ({ proof }) => {
     // TODO: send proof + senior files to Express backend
     setForm({ ...form, paymentStatus: 'Paid', proofFile: proof?.name || null });
     setShowModal(false);
@@ -366,13 +375,8 @@ function Step4({ form, setForm }) {
 }
 
 /* ── Step 5: Booking Summary ──────────────────────────────── */
-function Step5({ form }) {
-  const selected = SERVICES.find((s) => s.id === form.service);
-  const basePrice = selected?.price || 0;
-  const dpPercent = form.downPaymentPercent ?? 10;
-  const toPayNow = Math.round(basePrice * (dpPercent / 100));
-  const remaining = basePrice - toPayNow;
-  const isFullPay = dpPercent === 100;
+function Step5({ form, services }) {
+  const { selected, basePrice, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services);
 
   return (
     <div className="bs-card booking-summary">
@@ -385,7 +389,7 @@ function Step5({ form }) {
           <div className="summary-row"><span>Brand &amp; Model</span><span>{form.brandModel || '—'}</span></div>
           <div className="summary-row"><span>Date &amp; Time</span><span>{form.date ? `${form.date}, ${form.time || ''}` : '—'}</span></div>
           <div className="summary-row"><span>Address</span><span>{form.address || '—'}</span></div>
-          <div className="summary-row"><span>Preferred Tech</span><span>{form.technician ? TECHNICIANS[form.technician] : 'No preference'}</span></div>
+          <div className="summary-row"><span>Preferred Tech</span><span>{form.technician ? technicianName(form.technician) : 'No preference'}</span></div>
         </div>
         <div>
           <p className="summary-section-title">Payment Details</p>
@@ -407,167 +411,11 @@ function Step5({ form }) {
   );
 }
 
-/* ── Booking Confirmation (after booking is submitted) ────── */
-function BookingConfirmation({ form, booking, onReschedule, onCancelClick, onPrintReceipt }) {
-  const selected = SERVICES.find((s) => s.id === form.service);
-  const basePrice = selected?.price || 0;
-  const dpPercent = form.downPaymentPercent ?? 10;
-  const toPayNow = Math.round(basePrice * (dpPercent / 100));
-  const remaining = basePrice - toPayNow;
-  const techName = form.technician ? TECHNICIANS[form.technician] : 'To be assigned';
-
-  return (
-    <div className="confirmation-wrap">
-      <div className="confirmation-heading">
-        <span className="confirmation-check-icon"><FiCheck /></span>
-        <h2>Booking Request Submitted!</h2>
-        <p className="confirmation-id">Booking ID: {booking.id}</p>
-      </div>
-
-      <div className="confirmation-notif-row">
-        <div className="confirmation-notif-card">
-          <p className="confirmation-notif-title"><FiMail /> Email sent</p>
-          <p className="confirmation-notif-sub">{form.email || 'demo.account@gmail.com'}</p>
-        </div>
-        <div className="confirmation-notif-card">
-          <p className="confirmation-notif-title"><FiMessageSquare /> SMS sent</p>
-          <p className="confirmation-notif-sub">{form.contactNumber || '+63 924 567 8910'}</p>
-        </div>
-        <div className="confirmation-notif-card">
-          <p className="confirmation-notif-title"><FiBell /> In-app notification</p>
-          <p className="confirmation-notif-sub">Just now</p>
-        </div>
-      </div>
-
-      <div className="bs-card confirmation-details-card">
-        <div className="confirmation-details-header">
-          <h3 className="bs-card-title">Booking Details</h3>
-          <div className="confirmation-header-right">
-            <button className="receipt-icon-btn" title="Print Receipt" onClick={onPrintReceipt}><FiPrinter /></button>
-            <span className="status-badge pending">Pending</span>
-          </div>
-        </div>
-
-        <div className="confirmation-details-grid">
-          <div>
-            <p className="summary-section-title">{selected?.label || '—'}</p>
-            <p className="confirmation-detail-line">Unit: {(form.unitTypes || []).join(', ') || '—'}</p>
-
-            <div className="confirmation-detail-item">
-              <span className="confirmation-detail-icon"><FiCalendar /></span>
-              <div>
-                <p className="confirmation-detail-label">Date</p>
-                <p className="confirmation-detail-value">{formatDate(form.date)}</p>
-              </div>
-            </div>
-
-            <div className="confirmation-detail-item">
-              <span className="confirmation-detail-icon"><FiClock /></span>
-              <div>
-                <p className="confirmation-detail-label">Time</p>
-                <p className="confirmation-detail-value">{form.time || '—'}</p>
-              </div>
-            </div>
-
-            <div className="confirmation-detail-item">
-              <span className="confirmation-detail-icon"><FiMapPin /></span>
-              <div>
-                <p className="confirmation-detail-label">Address</p>
-                <p className="confirmation-detail-value">{form.address || '—'}</p>
-              </div>
-            </div>
-
-            <div className="confirmation-detail-item">
-              <span className="confirmation-detail-icon"><FiInfo /></span>
-              <div>
-                <p className="confirmation-detail-label">Problem Description</p>
-                <p className="confirmation-detail-value">{form.problemDescription || '—'}</p>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <p className="summary-section-title"><FiCreditCard /> Payment Details</p>
-            <div className="summary-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}</span></div>
-            <div className="summary-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
-            <div className="summary-row"><span>Amount to Pay Now</span><span>₱{toPayNow.toLocaleString()}</span></div>
-            <div className="summary-row"><span>Remaining Balance</span><span>₱{remaining.toLocaleString()}</span></div>
-            <div className="summary-row"><span>Payment Mode</span><span>{form.paymentMode || '—'}</span></div>
-            <div className="summary-row">
-              <span>Proof of Payment</span>
-              <span className="cost-link" >View attachment</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="confirmation-technician-row">
-          <div className="confirmation-technician-avatar"><FiUser /></div>
-          <div>
-            <p className="confirmation-detail-label">Assigned Technician</p>
-            <p className="confirmation-technician-name">{techName}</p>
-          </div>
-        </div>
-
-        <div className="confirmation-actions">
-          <button className="bs-back-btn" onClick={onReschedule}>Reschedule</button>
-          <button className="cancel-booking-btn" onClick={onCancelClick}>Cancel booking</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── Cancel Confirmation Dialog ───────────────────────────── */
-function CancelConfirmDialog({ onKeep, onConfirmCancel }) {
-  return (
-    <div className="modal-overlay" onClick={onKeep}>
-      <div className="modal-card cancel-confirm-card" onClick={(e) => e.stopPropagation()}>
-        <div className="cancel-confirm-icon"><FiAlertTriangle /></div>
-        <h4 className="modal-title cancel-confirm-title">Cancel this booking?</h4>
-        <p className="cancel-confirm-text">
-          This action can't be undone. Your technician assignment and scheduled slot will be released.
-        </p>
-        <div className="cancel-confirm-actions">
-          <button className="bs-back-btn" onClick={onKeep}>Keep booking</button>
-          <button className="cancel-booking-btn" onClick={onConfirmCancel}>Yes, cancel it</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── Booking Cancelled Page ───────────────────────────────── */
-function BookingCancelled({ booking, onBookAgain, onBackToDashboard }) {
-  return (
-    <div className="confirmation-wrap">
-      <div className="confirmation-heading cancelled">
-        <span className="confirmation-cancel-icon"><FiX /></span>
-        <h2>Booking Cancelled</h2>
-        <p className="confirmation-id">Booking ID: {booking.id}</p>
-      </div>
-
-      <div className="bs-card cancelled-card">
-        <p className="cancelled-message">
-          Your booking has been successfully cancelled. No further charges will be made,
-          and any pending downpayment will be reviewed for refund if applicable.
-        </p>
-        <div className="cancelled-actions">
-          <button className="bs-back-btn" onClick={onBackToDashboard}>Back to Dashboard</button>
-          <button className="bs-next-btn" onClick={onBookAgain}>Book Another Service <FiArrowRight /></button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ── Main ─────────────────────────────────────────────────── */
 function BookService() {
+  const { services, loading } = useServices();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
-  const [view, setView] = useState('form'); // 'form' | 'confirmation' | 'cancelled'
-  const [booking, setBooking] = useState(null);
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-  const [showReceipt, setShowReceipt] = useState(false);
 
   const [form, setForm] = useState({
     service: '',
@@ -594,31 +442,8 @@ function BookService() {
   const stepLabels = ['Choose Service', 'Unit Details', 'Location & Schedule', 'Payment', 'Booking Summary'];
 
   const handleConfirmBooking = () => {
-  const newBooking = { id: generateBookingId(), createdAt: new Date().toISOString() };
-  navigate('/customer/book-details', { state: { form, booking: newBooking } });
-};
-
-  const handleReschedule = () => {
-    setView('form');
-    setStep(3);
-  };
-
-  const handleCancelClick = () => setShowCancelConfirm(true);
-
-  const handleConfirmCancel = () => {
-    setShowCancelConfirm(false);
-    setView('cancelled');
-  };
-
-  const handleBookAgain = () => {
-    setForm({
-      service: '', unitTypes: [], brandModel: '', problemDescription: '',
-      date: '', time: '', technician: '', address: '',
-      downPaymentPercent: 10, paymentMode: '', paymentMode2: '',
-    });
-    setBooking(null);
-    setStep(1);
-    setView('form');
+    const newBooking = { id: generateBookingId(), createdAt: new Date().toISOString() };
+    navigate('/customer/book-details', { state: { form, booking: newBooking } });
   };
 
   return (
@@ -627,11 +452,17 @@ function BookService() {
 
       <StepIndicator current={step} />
 
-      {step === 1 && <Step1 form={form} setForm={setForm} />}
-      {step === 2 && <Step2 form={form} setForm={setForm} />}
-      {step === 3 && <Step3 form={form} setForm={setForm} />}
-      {step === 4 && <Step4 form={form} setForm={setForm} />}
-      {step === 5 && <Step5 form={form} />}
+      {loading ? (
+        <p>Loading services...</p>
+      ) : (
+        <>
+          {step === 1 && <Step1 form={form} setForm={setForm} services={services} />}
+          {step === 2 && <Step2 form={form} setForm={setForm} />}
+          {step === 3 && <Step3 form={form} setForm={setForm} />}
+          {step === 4 && <Step4 form={form} setForm={setForm} services={services} />}
+          {step === 5 && <Step5 form={form} services={services} />}
+        </>
+      )}
 
       <div className="bs-nav-row">
         <span className="bs-step-label">
@@ -659,8 +490,6 @@ function BookService() {
           )}
         </div>
       </div>
-
-      
     </CustomerLayout>
   );
 }

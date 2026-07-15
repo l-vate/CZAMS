@@ -9,6 +9,21 @@ import {
   FiUser,
   FiShield,
 } from 'react-icons/fi';
+import '../../css/public.css';
+
+
+/* ── Static Content ─────────────────────────────────────── */
+const FEATURES = [
+  { icon: <FiThermometer />, text: 'Cleaning, repair & installation' },
+  { icon: <FiCalendar />, text: 'Easy online scheduling' },
+  { icon: <FiTool />, text: 'Trusted technicians since 2009' },
+];
+
+const ROLE_BUTTONS = [
+  { icon: <FiUser />, label: 'Client', path: '/customer/dashboard' },
+  { icon: <FiTool />, label: 'Technician', path: '/staff/dashboard' },
+  { icon: <FiShield />, label: 'Admin', path: '/admin/dashboard' },
+];
 
 function LoginPage() {
   const [formData, setFormData] = useState({ email: '', password: '' });
@@ -44,9 +59,11 @@ function LoginPage() {
         </div>
 
         <div className="auth-split-features">
-          <div className="auth-feature-item"><span><FiThermometer /></span> Cleaning, repair & installation</div>
-          <div className="auth-feature-item"><span><FiCalendar /></span> Easy online scheduling</div>
-          <div className="auth-feature-item"><span><FiTool /></span> Trusted technicians since 2009</div>
+          {FEATURES.map((feature) => (
+            <div className="auth-feature-item" key={feature.text}>
+              <span>{feature.icon}</span> {feature.text}
+            </div>
+          ))}
         </div>
 
         <p className="auth-split-copy">© 2009 Cooling Zone. All Rights Reserved.</p>
@@ -61,8 +78,8 @@ function LoginPage() {
             <p>Sign in to your account to continue.</p>
           </div>
 
+          {/* ── Login Form ── */}
           <form className="auth-form" onSubmit={handleSubmit}>
-
             <div className="form-group">
               <label htmlFor="email">Email address</label>
               <input
@@ -101,14 +118,9 @@ function LoginPage() {
               </div>
             </div>
 
-            <button
-              type="submit"
-              className="auth-submit-btn"
-              
-            >
+            <button type="submit" className="auth-submit-btn">
               Sign In
             </button>
-
           </form>
 
           <p className="auth-switch">
@@ -118,28 +130,18 @@ function LoginPage() {
 
           <div className="auth-divider"><span>or sign in as</span></div>
 
+          {/* ── Role Shortcut Buttons ── */}
           <div className="auth-role-btns">
-            <button
-              className="role-btn"
-              type="button"
-              onClick={() => navigate('/customer/dashboard')}
-            >
-              <FiUser /> Client
-            </button>
-            <button
-              className="role-btn"
-              type="button"
-              onClick={() => navigate('/staff/dashboard')}
-            >
-              <FiTool /> Technician
-            </button>
-            <button
-              className="role-btn"
-              type="button"
-              onClick={() => navigate('/admin/dashboard')}
-            >
-              <FiShield /> Admin
-            </button>
+            {ROLE_BUTTONS.map((role) => (
+              <button
+                key={role.label}
+                className="role-btn"
+                type="button"
+                onClick={() => navigate(role.path)}
+              >
+                {role.icon} {role.label}
+              </button>
+            ))}
           </div>
 
         </div>

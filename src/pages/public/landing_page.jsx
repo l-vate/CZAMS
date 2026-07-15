@@ -1,5 +1,72 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import '../../css/public.css';
+
+/* ── Static Content ─────────────────────────────────────── */
+const STATS = [
+  { value: '15+', label: 'Years of Experience' },
+  { value: '2,000+', label: 'Units Serviced' },
+  { value: '500+', label: 'Happy Clients' },
+  { value: '4.9★', label: 'Average Rating' },
+];
+
+const SERVICES = [
+  {
+    image: '/images/services/cleaning.jpg',
+    title: 'Aircon Cleaning',
+    desc: 'Thorough deep-cleaning for fresh, healthy, efficient air circulation.',
+    price: 'From ₱650',
+  },
+  {
+    image: '/images/services/repair.jpg',
+    title: 'Repair & Diagnostics',
+    desc: 'Fast diagnosis and dependable repairs for all unit types and brands.',
+    price: 'From ₱1,200',
+  },
+  {
+    image: '/images/services/installation.jpg',
+    title: 'New Installation',
+    desc: 'Professional installation with proper setup, testing, and cleanup.',
+    price: 'From ₱3,500',
+  },
+  {
+    image: '/images/services/checkup.jpg',
+    title: 'Preventive Check-Up',
+    desc: 'Scheduled maintenance to avoid costly breakdowns before they happen.',
+    price: 'From ₱550',
+  },
+];
+
+const UNIT_TYPES = [
+  { image: '/images/units/window-type.jpg', label: 'Window Type' },
+  { image: '/images/units/split-type.jpg', label: 'Split Type' },
+  { image: '/images/units/inverter.jpg', label: 'Inverter' },
+  { image: '/images/units/cassette.jpg', label: 'Cassette' },
+  { image: '/images/units/floor-mounted.jpg', label: 'Floor Mounted' },
+];
+
+const HOW_IT_WORKS_STEPS = [
+  {
+    number: '01',
+    title: 'Book an Appointment',
+    desc: 'Schedule online in minutes. Choose your service, date, time, and preferred technician.',
+  },
+  {
+    number: '02',
+    title: 'Onsite Assessment',
+    desc: 'Our technician arrives, inspects your unit, and recommends the right solution.',
+  },
+  {
+    number: '03',
+    title: 'Service & Testing',
+    desc: 'We complete the job professionally and test the unit before we leave.',
+  },
+  {
+    number: '04',
+    title: 'Post-Service Support',
+    desc: '30-day service warranty. We stay available after the job is done.',
+  },
+];
 
 function LandingPage() {
   const [current, setCurrent] = useState(0);
@@ -65,23 +132,14 @@ function LandingPage() {
           15 years of experience, we deliver reliable aircon cleaning, repair,
           installation, and preventive maintenance services across Metro Manila.
         </p>
+
         <div className="stats">
-          <div className="stat">
-            <h3>15+</h3>
-            <p>Years of Experience</p>
-          </div>
-          <div className="stat">
-            <h3>2,000+</h3>
-            <p>Units Serviced</p>
-          </div>
-          <div className="stat">
-            <h3>500+</h3>
-            <p>Happy Clients</p>
-          </div>
-          <div className="stat">
-            <h3>4.9★</h3>
-            <p>Average Rating</p>
-          </div>
+          {STATS.map((stat) => (
+            <div className="stat" key={stat.label}>
+              <h3>{stat.value}</h3>
+              <p>{stat.label}</p>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -92,32 +150,18 @@ function LandingPage() {
         <span className="section-eyebrow">What We Offer</span>
         <h2 className="section-title">Our Services</h2>
         <p className="section-subtitle">Base price only — final cost may vary depending on scope and materials.</p>
+
         <div className="cards">
-          <div className="card">
-            <span className="card-icon">🧹</span>
-            <h3>Aircon Cleaning</h3>
-            <p>Thorough deep-cleaning for fresh, healthy, efficient air circulation.</p>
-            <span className="card-price">From ₱650</span>
-          </div>
-          <div className="card">
-            <span className="card-icon">🔧</span>
-            <h3>Repair & Diagnostics</h3>
-            <p>Fast diagnosis and dependable repairs for all unit types and brands.</p>
-            <span className="card-price">From ₱1,200</span>
-          </div>
-          <div className="card">
-            <span className="card-icon">❄️</span>
-            <h3>New Installation</h3>
-            <p>Professional installation with proper setup, testing, and cleanup.</p>
-            <span className="card-price">From ₱3,500</span>
-          </div>
-          <div className="card">
-            <span className="card-icon">🛡️</span>
-            <h3>Preventive Check-Up</h3>
-            <p>Scheduled maintenance to avoid costly breakdowns before they happen.</p>
-            <span className="card-price">From ₱550</span>
-          </div>
+          {SERVICES.map((service) => (
+            <div className="card" key={service.title}>
+              <img src={service.image} alt={service.title} className="card-photo" />
+              <h3>{service.title}</h3>
+              <p>{service.desc}</p>
+              <span className="card-price">{service.price}</span>
+            </div>
+          ))}
         </div>
+
         <div className="services-cta">
           <button className="cta" onClick={() => navigate('/login')}>Book a Service Now</button>
         </div>
@@ -127,14 +171,17 @@ function LandingPage() {
       <section className="units">
         <span className="section-eyebrow">Coverage</span>
         <h2 className="section-title">All Major Unit Types Covered</h2>
+
         <div className="cards">
-          <div className="card">🪟<br />Window Type</div>
-          <div className="card">🔩<br />Split Type</div>
-          <div className="card">⚡<br />Inverter</div>
-          <div className="card">🟦<br />Cassette</div>
-          <div className="card">🏢<br />Floor Mounted</div>
+          {UNIT_TYPES.map((unit) => (
+            <div className="card" key={unit.label}>
+              <img src={unit.image} alt={unit.label} className="card-photo card-photo--unit" />
+              <p>{unit.label}</p>
+            </div>
+          ))}
         </div>
       </section>
+
 
       <div className="vent-divider" />
 
@@ -143,27 +190,15 @@ function LandingPage() {
         <span className="section-eyebrow">The Process</span>
         <h2 className="section-title">How It Works</h2>
         <p className="section-subtitle">From booking to post-service support — we've made it simple.</p>
+
         <div className="steps">
-          <div className="step">
-            <div className="step-number">01</div>
-            <h3>Book an Appointment</h3>
-            <p>Schedule online in minutes. Choose your service, date, time, and preferred technician.</p>
-          </div>
-          <div className="step">
-            <div className="step-number">02</div>
-            <h3>Onsite Assessment</h3>
-            <p>Our technician arrives, inspects your unit, and recommends the right solution.</p>
-          </div>
-          <div className="step">
-            <div className="step-number">03</div>
-            <h3>Service & Testing</h3>
-            <p>We complete the job professionally and test the unit before we leave.</p>
-          </div>
-          <div className="step">
-            <div className="step-number">04</div>
-            <h3>Post-Service Support</h3>
-            <p>30-day service warranty. We stay available after the job is done.</p>
-          </div>
+          {HOW_IT_WORKS_STEPS.map((step) => (
+            <div className="step" key={step.number}>
+              <div className="step-number">{step.number}</div>
+              <h3>{step.title}</h3>
+              <p>{step.desc}</p>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -177,16 +212,19 @@ function LandingPage() {
             </div>
             <p className="footer-brand-desc">Trusted aircon maintenance services since 2009. Serving homes and businesses across Metro Manila.</p>
           </div>
+
           <div>
             <h4>Opening Hours</h4>
             <p>Mon – Sat: 8:00 AM – 6:00 PM</p>
             <p>Sunday: Closed</p>
           </div>
+
           <div>
             <h4>Contact Us</h4>
             <p>📞 +63 900 000 0000</p>
             <p>✉️ info@coolingzone.com</p>
           </div>
+
           <div>
             <h4>Location</h4>
             <p>Metro Manila, Philippines</p>
@@ -198,6 +236,7 @@ function LandingPage() {
             ></iframe>
           </div>
         </div>
+
         <p className="copy">© 2009 Cooling Zone Aircon Maintenance Services. All Rights Reserved.</p>
       </footer>
     </>

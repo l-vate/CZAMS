@@ -10,6 +10,7 @@ import {
   FiUser,
   FiPhone,
 } from 'react-icons/fi';
+import '../../css/staff.css';
 
 const jobs = [
   {

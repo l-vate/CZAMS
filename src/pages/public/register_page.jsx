@@ -1,6 +1,14 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiClipboard, FiMapPin, FiCreditCard, FiEye, FiEyeOff } from 'react-icons/fi';
+import '../../css/public.css';
+
+/* ── Static Content ─────────────────────────────────────── */
+const FEATURES = [
+  { icon: <FiClipboard />, text: 'Book services in minutes' },
+  { icon: <FiMapPin />, text: 'Real-time service tracking' },
+  { icon: <FiCreditCard />, text: 'Flexible payment options' },
+];
 
 function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -49,9 +57,11 @@ function RegisterPage() {
         </div>
 
         <div className="auth-split-features">
-          <div className="auth-feature-item"><span><FiClipboard /></span> Book services in minutes</div>
-          <div className="auth-feature-item"><span><FiMapPin /></span> Real-time service tracking</div>
-          <div className="auth-feature-item"><span><FiCreditCard /></span> Flexible payment options</div>
+          {FEATURES.map((feature) => (
+            <div className="auth-feature-item" key={feature.text}>
+              <span>{feature.icon}</span> {feature.text}
+            </div>
+          ))}
         </div>
 
         <p className="auth-split-copy">© 2009 Cooling Zone. All Rights Reserved.</p>
@@ -66,6 +76,7 @@ function RegisterPage() {
             <p>Fill in your details to get started.</p>
           </div>
 
+          {/* ── Registration Form ── */}
           <form className="auth-form" onSubmit={handleSubmit}>
 
             {/* First + Last name */}
@@ -188,7 +199,7 @@ function RegisterPage() {
 
           <p className="auth-switch">
             Already have an account?{' '}
-            <Link to="/login">Sign in here</Link>
+            <Link to="/register">Sign in here</Link>
           </p>
 
         </div>

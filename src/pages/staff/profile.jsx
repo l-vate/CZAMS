@@ -10,6 +10,7 @@ import {
   FiMapPin,
   FiX,
 } from 'react-icons/fi';
+import '../../css/staff.css';
 
 const scheduledJobs = [
   {

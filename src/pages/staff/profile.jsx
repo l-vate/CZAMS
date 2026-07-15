@@ -11,6 +11,7 @@ import {
   FiX,
   FiCamera,
 } from 'react-icons/fi';
+import '../../css/staff.css';
 
 const scheduledJobs = [
   {

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import StaffLayout from './staff_layout';
 import { FiClock, FiFileText, FiX } from 'react-icons/fi';
+import '../../css/staff.css';
 
 const initialReports = [
   {

@@ -594,9 +594,9 @@ function BookService() {
   const stepLabels = ['Choose Service', 'Unit Details', 'Location & Schedule', 'Payment', 'Booking Summary'];
 
   const handleConfirmBooking = () => {
-    setBooking({ id: generateBookingId(), createdAt: new Date().toISOString() });
-    setView('confirmation');
-  };
+  const newBooking = { id: generateBookingId(), createdAt: new Date().toISOString() };
+  navigate('/customer/book-details', { state: { form, booking: newBooking } });
+};
 
   const handleReschedule = () => {
     setView('form');
@@ -620,41 +620,6 @@ function BookService() {
     setStep(1);
     setView('form');
   };
-
-  if (view === 'confirmation') {
-    return (
-      <CustomerLayout title="Book Service">
-        <BookingConfirmation
-          form={form}
-          booking={booking}
-          onReschedule={handleReschedule}
-          onCancelClick={handleCancelClick}
-          onPrintReceipt={() => setShowReceipt(true)}
-        />
-        {showCancelConfirm && (
-          <CancelConfirmDialog
-            onKeep={() => setShowCancelConfirm(false)}
-            onConfirmCancel={handleConfirmCancel}
-          />
-        )}
-        {showReceipt && (
-          <ReceiptModal form={form} booking={booking} onClose={() => setShowReceipt(false)} />
-        )}
-      </CustomerLayout>
-    );
-  }
-
-  if (view === 'cancelled') {
-    return (
-      <CustomerLayout title="Book Service">
-        <BookingCancelled
-          booking={booking}
-          onBookAgain={handleBookAgain}
-          onBackToDashboard={() => navigate('/customer/dashboard')}
-        />
-      </CustomerLayout>
-    );
-  }
 
   return (
     <CustomerLayout title="Book Service">

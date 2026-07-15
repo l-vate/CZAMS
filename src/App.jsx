@@ -9,6 +9,7 @@ import CustomerBookService from './pages/customer/book_service';
 import CustomerBookings from './pages/customer/my_bookings';
 import CustomerBillings from './pages/customer/billings';
 import CustomerProfile from './pages/customer/profile';
+import CustomerBookDetails from './pages/customer/book_details';
 
 import StaffDashboard from './pages/staff/dashboard';
 import StaffMyJobs from './pages/staff/my_jobs';
@@ -39,6 +40,7 @@ function App() {
         <Route path="/customer/bookings" element={<CustomerBookings />} />
         <Route path="/customer/billings" element={<CustomerBillings />} />
         <Route path="/customer/profile" element={<CustomerProfile />} />
+        <Route path="/customer/book-details" element={<CustomerBookDetails />} />
 
         {/* Staff Pages */}
         <Route path="/staff/dashboard" element={<StaffDashboard />} />

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import CustomerLayout from './customer_layout';
 import { useNavigate } from 'react-router-dom';
-import { FiClock, FiMapPin } from 'react-icons/fi';
+import { FiClock, FiMapPin, FiEye  } from 'react-icons/fi';
 
 
 function MyBookings() {
@@ -231,15 +231,11 @@ function MyBookings() {
                             }}
                         >
                             <button
-                                style={{
-                                    background:
-                                        'transparent',
-                                    border: 'none',
-                                    color: '#333',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                            </button>
+  style={{ background: 'transparent', border: '1px solid #d0dde8', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', color: '#333', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
+  onClick={() => navigate('/customer/book-details', { state: { booking } })}
+>
+  <FiEye size={14} /> View Details
+</button>
                         </div>
                     </div>
                 ))}

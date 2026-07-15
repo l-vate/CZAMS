@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import StaffLayout from './staff_layout';
 import {
   FiChevronDown,
@@ -149,6 +149,7 @@ function MyJobs() {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('newest');
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const sortWrapperRef = useRef(null);
 
   const handleViewDetails = (job) => setSelectedJob(job);
   const handleCloseDetails = () => setSelectedJob(null);
@@ -157,6 +158,20 @@ function MyJobs() {
     setSortBy(value);
     setShowSortMenu(false);
   };
+
+  // Close the sort dropdown when clicking anywhere outside of it.
+  useEffect(() => {
+    if (!showSortMenu) return;
+
+    const handleClickOutside = (event) => {
+      if (sortWrapperRef.current && !sortWrapperRef.current.contains(event.target)) {
+        setShowSortMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showSortMenu]);
 
   const currentSortLabel = SORT_OPTIONS.find((o) => o.value === sortBy)?.label;
 
@@ -175,7 +190,7 @@ function MyJobs() {
       : jobs;
 
     const sorted = [...filtered].sort((a, b) => {
-      const diff = parseJobDate(a.date) - parseJobDate(b.date);
+      const diff = parseJobDate(a.date).getTime() - parseJobDate(b.date).getTime();
       return sortBy === 'newest' ? -diff : diff;
     });
 
@@ -185,13 +200,19 @@ function MyJobs() {
   return (
     <StaffLayout title="My Jobs">
       <div className="tech-jobs-toolbar">
-        <div className="tech-sort-wrapper">
+        <div className="tech-sort-wrapper" ref={sortWrapperRef}>
           <button
             className="tech-sort-btn"
             type="button"
             onClick={() => setShowSortMenu((prev) => !prev)}
           >
-            {currentSortLabel} <FiChevronDown />
+            {currentSortLabel}
+            <FiChevronDown
+              style={{
+                transition: 'transform 0.15s ease',
+                transform: showSortMenu ? 'rotate(180deg)' : 'rotate(0deg)',
+              }}
+            />
           </button>
 
           {showSortMenu && (
@@ -199,6 +220,7 @@ function MyJobs() {
               {SORT_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
+                  type="button"
                   className={`tech-sort-menu-item ${sortBy === opt.value ? 'active' : ''}`}
                   onClick={() => handleSelectSort(opt.value)}
                 >
@@ -225,8 +247,8 @@ function MyJobs() {
         {visibleJobs.length === 0 ? (
           <p className="tech-job-empty">No jobs match your search.</p>
         ) : (
-          visibleJobs.map((job, i) => (
-            <div className="tech-job-card" key={i}>
+          visibleJobs.map((job) => (
+            <div className="tech-job-card" key={job.bookingId}>
               <div className="tech-job-info">
                 <div className="tech-job-top-row">
                   <small className="tech-job-date-label">{job.date}</small>

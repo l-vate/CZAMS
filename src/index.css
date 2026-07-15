@@ -4741,6 +4741,61 @@ body *{
   color: var(--navy);
 }
 
+.tech-sort-wrapper {
+  position: relative;
+}
+
+.tech-sort-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 180px;
+  background: var(--white);
+  border: 1.5px solid var(--mist);
+  border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(11, 37, 69, 0.12);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 20;
+}
+
+.tech-sort-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.tech-sort-menu-item:hover {
+  background: var(--frost);
+  color: var(--navy);
+}
+
+.tech-sort-menu-item.active {
+  background: var(--frost);
+  color: var(--navy);
+  font-weight: 600;
+}
+
+.tech-sort-menu-item.active::after {
+  content: '✓';
+  font-size: 13px;
+  color: var(--navy-soft);
+}
+
 .tech-search-wrapper {
   position: relative;
   flex: 1;

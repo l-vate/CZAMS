@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import StaffLayout from './staff_layout';
 import { FiUser, FiTool, FiCheckCircle, FiFileText, FiStar } from 'react-icons/fi';
 
@@ -8,13 +9,21 @@ const feedbacks = [
 ];
 
 function Dashboard() {
+  const navigate = useNavigate();
+
   return (
     <StaffLayout title="Dashboard">
       <div className="tech-dashboard-welcome-row">
         <h1 className="dashboard-welcome">Welcome, Technician!</h1>
-        <div className="tech-dashboard-avatar">
+        <button
+          type="button"
+          className="tech-dashboard-avatar"
+          onClick={() => navigate('/staff/profile')}
+          style={{ cursor: 'pointer', border: 'none' }}
+          aria-label="Go to profile"
+        >
           <FiUser />
-        </div>
+        </button>
       </div>
 
       <div className="tech-stats-grid">

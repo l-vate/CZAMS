@@ -125,15 +125,30 @@ function DeleteAccountDialog({ onKeep, onConfirmDelete }) {
 function Profile() {
   const navigate = useNavigate();
 
-  const [user, setUser] = useState({
-    firstName: 'John',
-    lastName: 'Doe',
-    email: 'john.doe@email.com',
-    phone: '+63 912 345 6789',
-    address: 'Dasmariñas, Cavite',
-    memberSince: 'January 2026',
-    photo: null,
-  });
+  function loadUserFromStorage() {
+  const stored = localStorage.getItem('user');
+  if (!stored) {
+    return { firstName: '', lastName: '', email: '', phone: '', address: '', memberSince: '', photo: null };
+  }
+  const parsed = JSON.parse(stored);
+  const nameParts = (parsed.name || '').split(' ');
+  const firstName = nameParts[0] || '';
+  const lastName = nameParts.slice(1).join(' ') || '';
+
+  return {
+    firstName,
+    lastName,
+    email: parsed.email || '',
+    phone: parsed.phone || '',
+    address: parsed.address || '',
+    memberSince: parsed.createdAt
+      ? new Date(parsed.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+      : '',
+    photo: parsed.profileImage || null,
+  };
+}
+
+const [user, setUser] = useState(loadUserFromStorage);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState(user);
@@ -149,21 +164,89 @@ function Profile() {
     setEditForm({ ...editForm, [e.target.name]: e.target.value });
   };
 
-  const handlePhotoChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setEditForm((prev) => ({ ...prev, photo: reader.result }));
-    };
-    reader.readAsDataURL(file);
-  };
+  const handlePhotoChange = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
 
-  const handleSaveProfile = () => {
-    // TODO: connect to Express backend
-    setUser(editForm);
-    setIsEditing(false);
+  // instant local preview
+  const reader = new FileReader();
+  reader.onload = () => {
+    setEditForm((prev) => ({ ...prev, photo: reader.result }));
   };
+  reader.readAsDataURL(file);
+
+  // upload to backend
+  try {
+    const token = localStorage.getItem('token');
+    const formData = new FormData();
+    formData.append('photo', file);
+
+    const res = await fetch('http://localhost:5000/api/auth/profile/photo', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.message || 'Failed to upload photo');
+      return;
+    }
+
+    localStorage.setItem('user', JSON.stringify(data.user));
+    setEditForm((prev) => ({ ...prev, photo: `http://localhost:5000${data.user.profileImage}` }));
+  } catch (err) {
+    alert('Could not connect to server for photo upload.');
+  }
+};
+
+
+  const handleSaveProfile = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const res = await fetch('http://localhost:5000/api/auth/profile', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        firstName: editForm.firstName,
+        lastName: editForm.lastName,
+        email: editForm.email,
+        phone: editForm.phone,
+        address: editForm.address,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.message || 'Failed to update profile');
+      return;
+    }
+
+    localStorage.setItem('user', JSON.stringify(data.user));
+
+    const nameParts = (data.user.name || '').split(' ');
+    setUser({
+      firstName: nameParts[0] || '',
+      lastName: nameParts.slice(1).join(' ') || '',
+      email: data.user.email || '',
+      phone: data.user.phone || '',
+      address: data.user.address || '',
+      memberSince: data.user.createdAt
+        ? new Date(data.user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+        : '',
+      photo: data.user.profileImage || null,
+    });
+
+    setIsEditing(false);
+  } catch (err) {
+    alert('Could not connect to server. Is the backend running?');
+  }
+};
 
   const handleCancelEdit = () => {
     setIsEditing(false);
@@ -231,7 +314,7 @@ function Profile() {
               <div className="profile-avatar">
                 {user.photo ? (
                   <img
-                    src={user.photo}
+                    src={user.photo.startsWith('data:') ? user.photo : `http://localhost:5000${user.photo}`}
                     alt="Profile"
                     style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
                   />

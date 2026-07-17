@@ -9,12 +9,17 @@ function Dashboard() {
     ongoing: 0,
     completed: 0,
   };
+  const storedUser = localStorage.getItem('user');
+  const firstName = storedUser
+    ? (JSON.parse(storedUser).name || '').split(' ')[0]
+    : 'User';
+
 
   return (
     <CustomerLayout title="Dashboard">
       {/* Welcome */}
       <h1 className="dashboard-welcome">
-        Welcome, User!
+        Welcome, {firstName}!
       </h1>
 
       {/* Book Service Banner */}

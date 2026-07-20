@@ -12,11 +12,11 @@ function Billings() {
   const [searchTerm, setSearchTerm] = useState('');
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [paymentType, setPaymentType] = useState('downpayment'); // 'downpayment' | 'balance'
 
   const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
 
-  const filters = ['All', 'Paid', 'Unpaid'];
-
+  const filters = ['All', 'Paid', 'Partially Paid', 'Unpaid'];
   const fetchBookings = () => {
     const token = localStorage.getItem('token');
     fetch('http://localhost:5000/api/bookings/mine', {
@@ -24,21 +24,41 @@ function Billings() {
     })
       .then((res) => res.json())
       .then((data) => {
-        const mapped = (Array.isArray(data) ? data : []).map((b) => ({
-          id: b.bookingId,
-          service: b.service?.name || b.service?.category || '—',
-          customerName: storedUser.name || '—',
-          address: b.address,
-          contactNumber: storedUser.phone || '—',
-          paymentMode: b.paymentMode,
-          paymentStatus: b.paymentStatus,
-          downPaymentPercent: b.downPaymentPercent,
-          createdAt: b.createdAt,
-          paid: b.paymentStatus === 'Paid',
-          status: b.paymentStatus === 'Paid' ? 'Fully Paid' : 'To Verify',
-          date: new Date(b.createdAt).toLocaleDateString('en-US'),
-          raw: b,
-        }));
+        const mapped = (Array.isArray(data) ? data : []).map((b) => {
+          const isFullyPaid = b.paymentStatus === 'Paid' && (b.downPaymentPercent === 100 || b.balancePaid);
+          const isPartiallyPaid = b.paymentStatus === 'Paid' && b.downPaymentPercent < 100 && !b.balancePaid;
+
+          let status = 'To Verify';
+          if (isFullyPaid) status = 'Fully Paid';
+          else if (isPartiallyPaid) status = `${b.downPaymentPercent}% Paid`;
+
+          const basePrice = b.service?.price || 0;
+          const dpPercent = b.downPaymentPercent ?? 10;
+          const toPayNow = Math.round(basePrice * (dpPercent / 100));
+          const remaining = basePrice - toPayNow;
+
+          return {
+            id: b.bookingId,
+            service: b.service?.name || b.service?.category || '—',
+            customerName: storedUser.name || '—',
+            address: b.address,
+            contactNumber: storedUser.phone || '—',
+            paymentMode: b.paymentMode,
+            paymentStatus: b.paymentStatus,
+            downPaymentPercent: dpPercent,
+            balancePaid: b.balancePaid,
+            createdAt: b.createdAt,
+            paid: b.paymentStatus === 'Paid',
+            isFullyPaid,
+            isPartiallyPaid,
+            status,
+            date: new Date(b.createdAt).toLocaleDateString('en-US'),
+            basePrice,
+            toPayNow,
+            remaining,
+            raw: b,
+          };
+        });
         setBills(mapped);
         setLoading(false);
       })
@@ -50,9 +70,13 @@ function Billings() {
   }, []);
 
   const filteredBills = bills
-    .filter((bill) =>
-      activeFilter === 'All' ? true : activeFilter === 'Paid' ? bill.paid : !bill.paid
-    )
+    .filter((bill) => {
+      if (activeFilter === 'All') return true;
+      if (activeFilter === 'Paid') return bill.isFullyPaid;
+      if (activeFilter === 'Partially Paid') return bill.isPartiallyPaid;
+      if (activeFilter === 'Unpaid') return !bill.paid;
+      return true;
+    })
     .filter((bill) => {
       if (!searchTerm.trim()) return true;
       const term = searchTerm.toLowerCase();
@@ -83,7 +107,32 @@ function Billings() {
       }
 
       setShowPayment(false);
-      fetchBookings(); // refresh list so status updates
+      fetchBookings();
+    } catch (err) {
+      alert('Could not connect to server.');
+    }
+  };
+
+  const handleBalancePaymentSubmit = async ({ proof }) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:5000/api/bookings/${selectedBill.id}/pay-balance`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ proofFile: proof?.name || null }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.message || 'Failed to submit payment');
+        return;
+      }
+
+      setShowPayment(false);
+      fetchBookings();
     } catch (err) {
       alert('Could not connect to server.');
     }
@@ -125,12 +174,15 @@ function Billings() {
               <div className="billing-card-main">
                 <div className="billing-card-top-row">
                   <small className="billing-card-date-label">{bill.date}</small>
-                  <span className={`billing-status-badge ${bill.paid ? 'paid' : 'unpaid'}`}>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <h3 className="billing-card-title" style={{ margin: 0 }}>{bill.service.toUpperCase()}</h3>
+                  <span className={`billing-status-badge ${bill.isFullyPaid ? 'paid' : bill.isPartiallyPaid ? 'partial' : 'unpaid'}`}>
                     {bill.status}
                   </span>
                 </div>
 
-                <h3 className="billing-card-title">{bill.service.toUpperCase()}</h3>
                 <p className="billing-card-subtext">Booking ID: {bill.id}</p>
                 <small>Customer: {bill.customerName}</small>
               </div>
@@ -144,7 +196,7 @@ function Billings() {
               </div>
 
               <div className="billing-card-invoice">
-                {bill.paid && (
+                {bill.isFullyPaid && (
                   <button
                     className="invoice-link-btn"
                     onClick={() => {
@@ -163,10 +215,23 @@ function Billings() {
                     className="settle-btn"
                     onClick={() => {
                       setSelectedBill(bill);
+                      setPaymentType('downpayment');
                       setShowPayment(true);
                     }}
                   >
                     <FiCreditCard size={13} /> Settle
+                  </button>
+                )}
+                {bill.isPartiallyPaid && (
+                  <button
+                    className="settle-btn"
+                    onClick={() => {
+                      setSelectedBill(bill);
+                      setPaymentType('balance');
+                      setShowPayment(true);
+                    }}
+                  >
+                    <FiCreditCard size={13} /> Pay Remaining Balance
                   </button>
                 )}
               </div>
@@ -178,8 +243,9 @@ function Billings() {
       {showPayment && selectedBill && (
         <PaymentModal
           form={selectedBill}
+          paymentType={paymentType}
           onClose={() => setShowPayment(false)}
-          onSubmit={handlePaymentSubmit}
+          onSubmit={paymentType === 'balance' ? handleBalancePaymentSubmit : handlePaymentSubmit}
         />
       )}
 

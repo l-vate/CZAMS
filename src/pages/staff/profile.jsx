@@ -13,6 +13,8 @@ import {
 } from 'react-icons/fi';
 import '../../css/staff.css';
 
+const API_BASE = 'http://localhost:5000';
+
 const scheduledJobs = [
   {
     date: '07-09-26',
@@ -39,6 +41,17 @@ const scheduledJobs = [
     customerName: 'Mark Villanueva',
   },
 ];
+
+/* ── helper: build a profile object from the stored user ── */
+function buildProfileFromUser(user) {
+  return {
+    name: user?.name || 'Technician',
+    companyId: user?.id || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    photo: user?.profileImage ? `${API_BASE}${user.profileImage}` : null,
+  };
+}
 
 /* ── Scheduled Job Details Modal ───────────────────────── */
 function ScheduledJobModal({ job, onClose }) {
@@ -93,19 +106,20 @@ function ScheduledJobModal({ job, onClose }) {
 function Profile() {
   const [selectedJob, setSelectedJob] = useState(null);
 
-  const [profile, setProfile] = useState({
-    name: 'JOHN TECHNICIAN',
-    companyId: 'CZ-TECH-0182',
-    email: 'cza-john@mail.com',
-    phone: '0917 234 5678',
-    photo: null,
-  });
+  // pull the logged-in user from localStorage instead of hardcoding
+  const storedUser = JSON.parse(localStorage.getItem('user'));
 
+  const [profile, setProfile] = useState(buildProfileFromUser(storedUser));
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState(profile);
+  const [photoFile, setPhotoFile] = useState(null); // actual File for upload
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   const handleEditClick = () => {
     setEditForm(profile);
+    setPhotoFile(null);
+    setSaveError('');
     setIsEditing(true);
   };
 
@@ -116,6 +130,7 @@ function Profile() {
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    setPhotoFile(file);
     const reader = new FileReader();
     reader.onload = () => {
       setEditForm((prev) => ({ ...prev, photo: reader.result }));
@@ -123,13 +138,63 @@ function Profile() {
     reader.readAsDataURL(file);
   };
 
-  const handleSave = () => {
-    // TODO: connect to Express backend
-    setProfile(editForm);
-    setIsEditing(false);
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveError('');
+    const token = localStorage.getItem('token');
+
+    try {
+      let latestUser = JSON.parse(localStorage.getItem('user'));
+
+      // 1) upload new photo first, if one was picked
+      if (photoFile) {
+        const formData = new FormData();
+        formData.append('photo', photoFile);
+
+        const photoRes = await fetch(`${API_BASE}/api/auth/profile/photo`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        });
+        const photoData = await photoRes.json();
+        if (!photoRes.ok) throw new Error(photoData.message || 'Photo upload failed');
+        latestUser = photoData.user;
+      }
+
+      // 2) save name/email/phone
+      const [firstName, ...rest] = editForm.name.trim().split(' ');
+      const lastName = rest.join(' ');
+
+      const infoRes = await fetch(`${API_BASE}/api/auth/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          email: editForm.email,
+          phone: editForm.phone,
+        }),
+      });
+      const infoData = await infoRes.json();
+      if (!infoRes.ok) throw new Error(infoData.message || 'Update failed');
+
+      latestUser = infoData.user;
+
+      localStorage.setItem('user', JSON.stringify(latestUser));
+      setProfile(buildProfileFromUser(latestUser));
+      setIsEditing(false);
+    } catch (err) {
+      setSaveError(err.message || 'Could not save changes.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {
+    setSaveError('');
     setIsEditing(false);
   };
 
@@ -226,12 +291,18 @@ function Profile() {
               />
             </div>
 
+            {saveError && (
+              <p className="auth-error" style={{ color: 'red', fontSize: '0.9rem' }}>
+                {saveError}
+              </p>
+            )}
+
             <div className="cancel-confirm-actions">
-              <button type="button" className="bs-back-btn" onClick={handleCancel}>
+              <button type="button" className="bs-back-btn" onClick={handleCancel} disabled={saving}>
                 Cancel
               </button>
-              <button type="button" className="bs-next-btn" onClick={handleSave}>
-                Save Changes
+              <button type="button" className="bs-next-btn" onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>

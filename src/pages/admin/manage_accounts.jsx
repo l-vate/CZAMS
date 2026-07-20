@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import AdminLayout from './admin_layout';
-import '../../css/admin.css';
 
 /* ── Mock Data ─────────────────────────────────────────────
    TODO: replace with data fetched from the backend            */

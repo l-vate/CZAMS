@@ -1,5 +1,4 @@
 import AdminLayout from './admin_layout';
-import '../../css/admin.css';
 
 function ServiceRequests() {
     return (

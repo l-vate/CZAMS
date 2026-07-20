@@ -9,7 +9,6 @@ import {
   FiUser,
   FiShield,
 } from 'react-icons/fi';
-import '../../css/public.css';
 
 
 /* ── Static Content ─────────────────────────────────────── */

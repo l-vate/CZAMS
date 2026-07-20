@@ -1,5 +1,5 @@
 import AdminLayout from './admin_layout';
-import '../../css/admin.css';
+
 import {
   FiClipboard,
   FiClock,

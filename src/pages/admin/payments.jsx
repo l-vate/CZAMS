@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
   import AdminLayout from './admin_layout';
-  import '../../css/admin.css';
-
+  
   const FILTERS = [
     { key: 'all', label: 'All' },
     { key: 'to_verify', label: 'To Verify' },

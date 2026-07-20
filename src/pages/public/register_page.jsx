@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiClipboard, FiMapPin, FiCreditCard, FiEye, FiEyeOff } from 'react-icons/fi';
-import '../../css/public.css';
 
 /* ── Static Content ─────────────────────────────────────── */
 const FEATURES = [

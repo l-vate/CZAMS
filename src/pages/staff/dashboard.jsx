@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import StaffLayout from './staff_layout';
 import { FiUser, FiTool, FiCheckCircle, FiFileText, FiStar } from 'react-icons/fi';
-import '../../css/staff.css';
 
 const feedbacks = [
   { name: 'Jereign', text: 'Amazing work!', rating: 5 },

@@ -11,7 +11,6 @@ import {
   FiX,
   FiCamera,
 } from 'react-icons/fi';
-import '../../css/staff.css';
 
 const API_BASE = 'http://localhost:5000';
 

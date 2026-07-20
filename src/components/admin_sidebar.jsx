@@ -1,7 +1,14 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { NavLink, useNavigate, useLocation } from "react-router-dom"; 
 
 function AdminSidebar({ onNavigate }) {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Keep the dropdown open automatically if we're already on a services sub-route
+  const [servicesOpen, setServicesOpen] = useState(
+    location.pathname.startsWith("/admin/services")
+  );
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -11,6 +18,9 @@ function AdminSidebar({ onNavigate }) {
   };
 
   const linkClass = ({ isActive }) => (isActive ? "sidebar-link active" : "sidebar-link");
+
+  const subLinkClass = ({ isActive }) =>
+    isActive ? "sidebar-sublink active" : "sidebar-sublink";
 
   return (
     <aside className="sidebar">
@@ -42,9 +52,57 @@ function AdminSidebar({ onNavigate }) {
           <NavLink to="/admin/manage_accounts" className={linkClass} onClick={onNavigate}>
             Manage Accounts
           </NavLink>
-          <NavLink to="/admin/services" className={linkClass} onClick={onNavigate}>
-            Services
-          </NavLink>
+
+          {/* ── Services dropdown ───────────────────────── */}
+          <div className="sidebar-dropdown">
+            <button
+              type="button"
+              className={`sidebar-link sidebar-dropdown-toggle ${
+                location.pathname.startsWith("/admin/services") ? "active" : ""
+              }`}
+              onClick={() => setServicesOpen((prev) => !prev)}
+            >
+              <span>Services</span>
+              <svg
+                className={`sidebar-dropdown-icon ${servicesOpen ? "open" : ""}`}
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+
+            <div className={`sidebar-submenu ${servicesOpen ? "open" : ""}`}>
+              <NavLink
+                to="/admin/services/manage"
+                className={subLinkClass}
+                onClick={onNavigate}
+              >
+                Manage Services
+              </NavLink>
+              <NavLink
+                to="/admin/services/requests"
+                className={subLinkClass}
+                onClick={onNavigate}
+              >
+                Service Requests
+              </NavLink>
+              <NavLink
+                to="/admin/services/reports"
+                className={subLinkClass}
+                onClick={onNavigate}
+              >
+                Service Reports
+              </NavLink>
+            </div>
+          </div>
+
           <NavLink to="/admin/payments" className={linkClass} onClick={onNavigate}>
             Payments
           </NavLink>

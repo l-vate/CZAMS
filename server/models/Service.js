@@ -7,7 +7,7 @@ const serviceSchema = new mongoose.Schema({
   price: Number,
   durationMinutes: Number,
   category: String,
-  icon: String, // stores icon name as string, e.g. "FiWind"
+  icon: String,
   isActive: { type: Boolean, default: true },
 }, { timestamps: true, collection: 'services' });
 

@@ -1,4 +1,4 @@
-/* ============ 4. NAVBAR ============ */
+/* ============ NAVBAR ============ */
 .navbar {
   display: flex;
   justify-content: space-between;
@@ -95,8 +95,7 @@
   transform: translateY(-1px);
 }
 
-
-/* ============ 5. LANDING — HERO ============ */
+/* ============ LANDING — HERO ============ */
 .hero {
   position: relative;
   height: 85vh;
@@ -132,8 +131,7 @@
 
 .slide-1 {
   background:
-    linear-gradient(155deg, var(--navy) 0%, var(--navy-soft) 55%, var(--navy
-) 100%),
+    linear-gradient(155deg, var(--navy) 0%, var(--navy-soft) 55%, var(--navy) 100%),
     url('/images/hero-aircon.jpg') center/cover no-repeat;
 }
 
@@ -161,8 +159,28 @@
   margin-bottom: 12px;
 }
 
-.cta {
+.slide-eyebrow {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.7);
+  background: rgba(255,255,255,0.12);
+  border-radius: 20px;
+  padding: 5px 14px;
+  margin-bottom: 20px;
+}
+
+.slide-cta-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  justify-content: center;
   margin-top: 24px;
+}
+
+.cta {
   background: var(--coral);
   color: white;
   padding: 15px 34px;
@@ -179,6 +197,21 @@
 .cta:hover {
   background: var(--coral-dark);
   transform: translateY(-2px);
+}
+
+.cta-ghost {
+  color: rgba(255,255,255,0.85);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255,255,255,0.4);
+  padding-bottom: 2px;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.cta-ghost:hover {
+  color: white;
+  border-color: white;
 }
 
 .next-btn {
@@ -199,12 +232,13 @@
 
 .next-btn:hover { background: rgba(255,255,255,0.32); }
 
-
-/* ============ 6. LANDING — ABOUT ============ */
+/* ============ LANDING — ABOUT ============ */
 .about {
   text-align: center;
   background: var(--white);
 }
+
+.about h2 { margin-bottom: 16px; }
 
 .about p {
   max-width: 760px;
@@ -243,8 +277,7 @@
   font-weight: 500;
 }
 
-
-/* ============ 7. LANDING — SERVICES / UNITS / HOW IT WORKS ============ */
+/* ============ LANDING — SERVICES / UNITS / HOW IT WORKS ============ */
 .services,
 .units,
 .how {
@@ -275,6 +308,22 @@
   box-shadow: 0 14px 30px rgba(14,140,140,0.18);
 }
 
+.card-photo {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 10px;
+  background: var(--mist);
+  margin-bottom: 14px;
+  display: block;
+}
+
+.card-photo--unit {
+  height: 200px;
+  margin-bottom: 10px;
+}
+
 .card-icon {
   font-size: 28px;
   margin-bottom: 14px;
@@ -292,6 +341,24 @@
   color: var(--ink-soft);
   font-size: 14px;
   line-height: 1.6;
+}
+
+.card-price {
+  display: inline-block;
+  margin-top: 14px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--teal, #0e8c8c);
+  background: rgba(14,140,140,0.08);
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+
+.services-cta {
+  margin-top: 40px;
+  display: flex;
+  justify-content: center;
 }
 
 .units { background: var(--mist); }
@@ -345,8 +412,7 @@
   line-height: 1.6;
 }
 
-
-/* ============ 8. LANDING — FOOTER ============ */
+/* ============ LANDING — FOOTER ============ */
 .footer {
   background: var(--navy);
   color: white;
@@ -376,6 +442,36 @@
   margin-bottom: 40px;
 }
 
+.footer-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.footer-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+  opacity: 0.85;
+}
+
+.footer-brand-name {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: 14px;
+  color: white;
+  letter-spacing: 0.05em;
+}
+
+.footer-brand-desc {
+  font-size: 13px;
+  color: rgba(255,255,255,0.55);
+  line-height: 1.7;
+  max-width: 220px;
+}
+
 .map {
   width: 100%;
   height: 160px;
@@ -392,15 +488,12 @@
   color: rgba(255,255,255,0.45);
 }
 
-
-/* ============ 9. AUTH PAGES (Login + Register) ============ */
-
+/* ============ AUTH PAGES (Login + Register) ============ */
 .auth-split-page {
   display: flex;
   min-height: 100vh;
 }
 
-/* ── Left panel ── */
 .auth-split-left {
   width: 500px;
   min-width: 500px;
@@ -421,13 +514,6 @@
   overflow: hidden;
 }
 
-.auth-split-page:has(.auth-split-left--register) .auth-split-right {
-  margin-left: 420px;
-  overflow-y: auto;
-  height: 100vh;
-}
-
-/* teal glow blob bottom-right */
 .auth-split-left::after {
   content: '';
   position: absolute;
@@ -530,9 +616,6 @@
   z-index: 1;
 }
 
-/* ── Right panel ── */
-
-
 .auth-split-right {
   flex: 1;
   background: #f0f4f8;
@@ -579,7 +662,6 @@
   color: var(--ink-soft);
 }
 
-/* ── Shared form elements ── */
 .auth-form {
   display: flex;
   flex-direction: column;
@@ -750,127 +832,17 @@
   color: var(--navy);
 }
 
-/* Responsive */
 @media (max-width: 860px) {
-  .auth-split-page   { flex-direction: column; }
-  .auth-split-left   { width: 100%; min-width: unset; padding: 32px 28px; min-height: 220px; }
+  .navbar { flex-wrap: wrap; padding: 14px 22px; gap: 12px; }
+  .nav-links { order: 3; width: 100%; display: flex; justify-content: center; }
+  .slide-content h1, .slide-content h2 { font-size: 32px; }
+  .footer { padding: 40px 22px 20px; }
+  .auth-split-page { flex-direction: column; }
+  .auth-split-left { width: 100%; min-width: unset; padding: 32px 28px; min-height: 220px; }
   .auth-split-tagline h1 { font-size: 30px; }
-  .auth-split-right  { padding: 28px 16px; }
+  .auth-split-right { padding: 28px 16px; }
   .auth-split-form-box { padding: 32px 22px; }
-  .form-row          { flex-direction: column; }
+  .form-row { flex-direction: column; }
   .auth-split-left--register { position: static; height: auto; overflow: visible;}
-  .auth-split-page:has(.auth-split-left--register) .auth-split-right { margin-left: 0; height: auto;
-    overflow-y: visible; align-items: center; padding-top: 28px; padding-bottom: 28px;
-  }
-}
-
-/* ── Landing page additions ───────────────────────────────── */
-
-/* Hero eyebrow + ghost CTA */
-.slide-eyebrow {
-  display: inline-block;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.7);
-  background: rgba(255,255,255,0.12);
-  border-radius: 20px;
-  padding: 5px 14px;
-  margin-bottom: 20px;
-}
-
-.slide-cta-row {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  justify-content: center;
-  margin-top: 24px;
-}
-
-.cta-ghost {
-  color: rgba(255,255,255,0.85);
-  font-size: 15px;
-  font-weight: 600;
-  text-decoration: none;
-  border-bottom: 1px solid rgba(255,255,255,0.4);
-  padding-bottom: 2px;
-  transition: color 0.2s ease, border-color 0.2s ease;
-}
-
-.cta-ghost:hover {
-  color: white;
-  border-color: white;
-}
-
-/* About section — heading */
-.about h2 { margin-bottom: 16px; }
-
-/* Service card price tag */
-.card-price {
-  display: inline-block;
-  margin-top: 14px;
-  font-family: 'Outfit', sans-serif;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--teal);
-  background: rgba(14,140,140,0.08);
-  padding: 4px 12px;
-  border-radius: 20px;
-}
-
-/* Services section CTA button */
-.services-cta {
-  margin-top: 40px;
-  display: flex;
-  justify-content: center;
-}
-
-/* ── Placeholder photos for service/unit cards ─────────── */
-.card-photo {
-  width: 100%;
-  height: 200px;
-  object-fit: cover;
-  object-position: center;
-  border-radius: 10px;
-  background: var(--mist);
-  margin-bottom: 14px;
-  display: block;
-}
-
-.card-photo--unit {
-  height: 200px;
-  margin-bottom: 10px;
-}
-
-
-/* Footer brand row */
-.footer-brand-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.footer-logo {
-  width: 32px;
-  height: 32px;
-  object-fit: contain;
-  filter: brightness(0) invert(1);
-  opacity: 0.85;
-}
-
-.footer-brand-name {
-  font-family: 'Outfit', sans-serif;
-  font-weight: 800;
-  font-size: 14px;
-  color: white;
-  letter-spacing: 0.05em;
-}
-
-.footer-brand-desc {
-  font-size: 13px;
-  color: rgba(255,255,255,0.55);
-  line-height: 1.7;
-  max-width: 220px;
+  .auth-split-page:has(.auth-split-left--register) .auth-split-right { margin-left: 0; height: auto; overflow-y: visible; align-items: center; padding-top: 28px; padding-bottom: 28px; }
 }

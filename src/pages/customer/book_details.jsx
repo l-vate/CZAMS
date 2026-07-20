@@ -77,6 +77,22 @@ function BookDetails() {
   const dpPercent = booking.downPaymentPercent ?? 10;
   const toPayNow = Math.round(basePrice * (dpPercent / 100));
   const remaining = basePrice - toPayNow;
+
+  const isFullyPaid = booking.paymentStatus === 'Paid' && (dpPercent === 100 || booking.balancePaid);
+
+  const receiptForm = {
+    id: booking.bookingId,
+    createdAt: booking.createdAt,
+    customerName: storedUser.name || '—',
+    address: booking.address,
+    contactNumber: storedUser.phone || '—',
+    service: booking.service?.name || '—',
+    basePrice,
+    toPayNow,
+    downPaymentPercent: dpPercent,
+    paymentMode: booking.paymentMode,
+    isFullyPaid,
+  };
   const techName = booking.technician
     ? (TECHNICIANS[booking.technician] || booking.technician)
     : 'To be assigned';
@@ -127,7 +143,11 @@ function BookDetails() {
       )}
 
       {showReceipt && (
-        <ReceiptModal booking={booking} onClose={() => setShowReceipt(false)} />
+        <ReceiptModal
+          form={receiptForm}
+          booking={booking}
+          onClose={() => setShowReceipt(false)}
+        />
       )}
 
       <div className="confirmation-wrap">
@@ -138,19 +158,19 @@ function BookDetails() {
         </div>
 
         <div className="confirmation-notif-row">
-  <div className="confirmation-notif-card">
-    <p className="confirmation-notif-title"><FiMail /> Email sent</p>
-    <p className="confirmation-notif-sub">{storedUser.email || '—'}</p>
-  </div>
-  <div className="confirmation-notif-card">
-    <p className="confirmation-notif-title"><FiMessageSquare /> SMS sent</p>
-    <p className="confirmation-notif-sub">{storedUser.phone || '—'}</p>
-  </div>
-  <div className="confirmation-notif-card">
-    <p className="confirmation-notif-title"><FiBell /> In-app notification</p>
-    <p className="confirmation-notif-sub">Just now</p>
-  </div>
-</div>
+          <div className="confirmation-notif-card">
+            <p className="confirmation-notif-title"><FiMail /> Email sent</p>
+            <p className="confirmation-notif-sub">{storedUser.email || '—'}</p>
+          </div>
+          <div className="confirmation-notif-card">
+            <p className="confirmation-notif-title"><FiMessageSquare /> SMS sent</p>
+            <p className="confirmation-notif-sub">{storedUser.phone || '—'}</p>
+          </div>
+          <div className="confirmation-notif-card">
+            <p className="confirmation-notif-title"><FiBell /> In-app notification</p>
+            <p className="confirmation-notif-sub">Just now</p>
+          </div>
+        </div>
 
         <div className="bs-card confirmation-details-card">
           <div className="confirmation-details-header">

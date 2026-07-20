@@ -3621,6 +3621,11 @@ body *{
   background: #f59e0b;
 }
 
+.billing-status-badge.partial {
+  background-color: #fef3c7;
+  color: #b45309;
+}
+
 .billing-card-title {
   margin: 0;
   font-size: 18px;

@@ -82,4 +82,23 @@ router.patch('/:bookingId/cancel', auth, async (req, res) => {
   }
 });
 
+// Pay remaining balance
+router.patch('/:bookingId/pay-balance', auth, async (req, res) => {
+  try {
+    const { proofFile } = req.body;
+
+    const booking = await Booking.findOneAndUpdate(
+      { bookingId: req.params.bookingId, customer: req.userId },
+      { balancePaid: true, balanceProofFile: proofFile || undefined },
+      { new: true }
+    ).populate('service');
+
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    res.json(booking);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

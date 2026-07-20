@@ -12,10 +12,13 @@ const feedbacks = [
 function Dashboard() {
   const navigate = useNavigate();
 
+  const user = JSON.parse(localStorage.getItem('user'));
+  const firstName = user?.name?.split(' ')[0] || 'Technician';
+
   return (
     <StaffLayout title="Dashboard">
       <div className="tech-dashboard-welcome-row">
-        <h1 className="dashboard-welcome">Welcome, Technician!</h1>
+        <h1 className="dashboard-welcome">Welcome, {firstName}!</h1>
         <button
           type="button"
           className="tech-dashboard-avatar"
@@ -75,7 +78,7 @@ function Dashboard() {
             <div className="tech-feedback-right">
               <div className="tech-stars">
                 {Array.from({ length: f.rating }, (_, i) => (
-                  <FiStar key={i}  fill="currentColor"/>
+                  <FiStar key={i} fill="currentColor" />
                 ))}
               </div>
               <a href="#" className="tech-view-details-link">

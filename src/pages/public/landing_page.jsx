@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
+import '../../css/public.css'
 /* ── Static Content ─────────────────────────────────────── */
 const STATS = [
   { value: '15+', label: 'Years of Experience' },

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import CustomerLayout from './customer_layout';
 import PaymentModal from '../../components/payment_modal';
 import ReceiptModal from '../../components/receipt_modal';
@@ -10,39 +10,44 @@ function Billings() {
   const [selectedBill, setSelectedBill] = useState(null);
   const [activeFilter, setActiveFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
+  const [bills, setBills] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
 
   const filters = ['All', 'Paid', 'Unpaid'];
 
-  const bills = [
-    {
-      id: 'CZ-2026-7395',
-      service: 'cleaning',
-      customerName: 'Juan Dela Cruz',
-      address: 'San Fernando, Pampanga',
-      contactNumber: '09123456789',
-      paymentMode: 'GCash',
-      paymentStatus: 'Paid',
-      downPaymentPercent: 30,
-      createdAt: '2026-07-06',
-      paid: true,
-      status: 'Fully Paid',
-      date: '07/06/2026',
-    },
-    {
-      id: 'CZ-2026-7401',
-      service: 'repair',
-      customerName: 'Maria Santos',
-      address: 'Angeles City',
-      contactNumber: '09998887777',
-      paymentMode: 'Bank Transfer',
-      paymentStatus: 'Unpaid',
-      downPaymentPercent: 10,
-      createdAt: '2026-07-10',
-      paid: false,
-      status: 'To Verify',
-      date: '07/10/2026',
-    },
-  ];
+  const fetchBookings = () => {
+    const token = localStorage.getItem('token');
+    fetch('http://localhost:5000/api/bookings/mine', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        const mapped = (Array.isArray(data) ? data : []).map((b) => ({
+          id: b.bookingId,
+          service: b.service?.name || b.service?.category || '—',
+          customerName: storedUser.name || '—',
+          address: b.address,
+          contactNumber: storedUser.phone || '—',
+          paymentMode: b.paymentMode,
+          paymentStatus: b.paymentStatus,
+          downPaymentPercent: b.downPaymentPercent,
+          createdAt: b.createdAt,
+          paid: b.paymentStatus === 'Paid',
+          status: b.paymentStatus === 'Paid' ? 'Fully Paid' : 'To Verify',
+          date: new Date(b.createdAt).toLocaleDateString('en-US'),
+          raw: b,
+        }));
+        setBills(mapped);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchBookings();
+  }, []);
 
   const filteredBills = bills
     .filter((bill) =>
@@ -59,16 +64,34 @@ function Billings() {
       );
     });
 
-  const handlePaymentSubmit = ({ proof, senior }) => {
-    console.log('Payment submitted:', proof, senior);
-    setShowPayment(false);
+  const handlePaymentSubmit = async ({ proof }) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:5000/api/bookings/${selectedBill.id}/pay`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ proofFile: proof?.name || null }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.message || 'Failed to submit payment');
+        return;
+      }
+
+      setShowPayment(false);
+      fetchBookings(); // refresh list so status updates
+    } catch (err) {
+      alert('Could not connect to server.');
+    }
   };
 
   return (
     <CustomerLayout title="Billings">
-      
 
-      {/* Filters */}
       <div className="billing-toolbar">
         <div className="billing-filter-group">
           {filters.map((filter) => (
@@ -91,9 +114,10 @@ function Billings() {
         />
       </div>
 
-      {/* Billing Cards */}
       <div className="billing-list">
-        {filteredBills.length === 0 ? (
+        {loading ? (
+          <p className="billing-empty">Loading bills...</p>
+        ) : filteredBills.length === 0 ? (
           <p className="billing-empty">No matching bills found.</p>
         ) : (
           filteredBills.map((bill) => (
@@ -106,7 +130,7 @@ function Billings() {
                   </span>
                 </div>
 
-                <h3 className="billing-card-title">{bill.service.toUpperCase()} TYPE</h3>
+                <h3 className="billing-card-title">{bill.service.toUpperCase()}</h3>
                 <p className="billing-card-subtext">Booking ID: {bill.id}</p>
                 <small>Customer: {bill.customerName}</small>
               </div>
@@ -151,7 +175,6 @@ function Billings() {
         )}
       </div>
 
-      {/* Payment Modal */}
       {showPayment && selectedBill && (
         <PaymentModal
           form={selectedBill}
@@ -160,7 +183,6 @@ function Billings() {
         />
       )}
 
-      {/* Receipt Modal */}
       {showReceipt && selectedBill && (
         <ReceiptModal
           form={selectedBill}

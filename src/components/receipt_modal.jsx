@@ -1,12 +1,5 @@
 import { useEffect } from 'react';
 
-const SERVICES = [
-  { id: 'cleaning', label: 'Cleaning', price: 650 },
-  { id: 'repair', label: 'Repair', price: 1200 },
-  { id: 'installation', label: 'Installation', price: 3500 },
-  { id: 'maintenance', label: 'Maintenance', price: 550 },
-];
-
 function formatDate(dateStr) {
   if (!dateStr) return '—';
   const d = new Date(dateStr);
@@ -19,10 +12,10 @@ function formatDate(dateStr) {
 }
 
 function ReceiptModal({ form, booking, onClose }) {
-  const selected = SERVICES.find((s) => s.id === form.service);
-  const basePrice = selected?.price || 0;
+  const basePrice = form.basePrice || 0;
   const dpPercent = form.downPaymentPercent ?? 10;
-  const toPayNow = Math.round(basePrice * (dpPercent / 100));
+  const toPayNow = form.toPayNow ?? Math.round(basePrice * (dpPercent / 100));
+  const isFullyPaid = form.isFullyPaid;
 
   useEffect(() => {
     document.body.classList.add('printing-receipt-active');
@@ -51,16 +44,16 @@ function ReceiptModal({ form, booking, onClose }) {
             </div>
             <div className="receipt-invoice-meta">
               <p className="receipt-invoice-title">Invoice</p>
-              <p>Invoice No.: {booking.id}</p>
-              <p>Date: {formatDate(booking.createdAt)}</p>
+              <p>Invoice No.: {booking?.id || form.id}</p>
+              <p>Date: {formatDate(booking?.createdAt || form.createdAt)}</p>
             </div>
           </div>
 
           <div className="receipt-section">
             <p className="receipt-section-title">Customer Information</p>
-            <div className="receipt-info-row"><span>Customer Name:</span><span>{form.customerName || 'John Doe'}</span></div>
+            <div className="receipt-info-row"><span>Customer Name:</span><span>{form.customerName || '—'}</span></div>
             <div className="receipt-info-row"><span>Address:</span><span>{form.address || '—'}</span></div>
-            <div className="receipt-info-row"><span>Contact Number:</span><span>{form.contactNumber || '+63 924 567 8910'}</span></div>
+            <div className="receipt-info-row"><span>Contact Number:</span><span>{form.contactNumber || '—'}</span></div>
           </div>
 
           <div className="receipt-section">
@@ -75,7 +68,7 @@ function ReceiptModal({ form, booking, onClose }) {
               </thead>
               <tbody>
                 <tr>
-                  <td>{selected?.label || '—'}</td>
+                  <td>{form.service || '—'}</td>
                   <td>1</td>
                   <td>₱{basePrice.toLocaleString()}</td>
                 </tr>
@@ -92,7 +85,7 @@ function ReceiptModal({ form, booking, onClose }) {
 
             <div className="receipt-info-row">
               <span>Amount Paid</span>
-              <span>₱{toPayNow.toLocaleString()}</span>
+              <span>₱{basePrice.toLocaleString()}</span>
             </div>
 
             <div className="receipt-info-row">
@@ -103,9 +96,7 @@ function ReceiptModal({ form, booking, onClose }) {
             <div className="receipt-info-row">
               <span>Status</span>
               <span className="receipt-status-paid">
-                {form.paymentStatus === 'Paid'
-                  ? `${dpPercent}% Paid`
-                  : 'Unpaid'}
+                {isFullyPaid ? 'Fully Paid' : `${dpPercent}% Paid`}
               </span>
             </div>
 

@@ -441,10 +441,30 @@ function BookService() {
 
   const stepLabels = ['Choose Service', 'Unit Details', 'Location & Schedule', 'Payment', 'Booking Summary'];
 
-  const handleConfirmBooking = () => {
-    const newBooking = { id: generateBookingId(), createdAt: new Date().toISOString() };
-    navigate('/customer/book-details', { state: { form, booking: newBooking } });
-  };
+  const handleConfirmBooking = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const res = await fetch('http://localhost:5000/api/bookings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(form),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.message || 'Failed to create booking');
+      return;
+    }
+
+    navigate('/customer/book-details', { state: { booking: data } });
+  } catch (err) {
+    alert('Could not connect to server. Is the backend running?');
+  }
+};
 
   return (
     <CustomerLayout title="Book Service">

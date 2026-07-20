@@ -8,18 +8,13 @@ import {
   FiUser, FiAlertTriangle, FiX, FiArrowRight,
 } from 'react-icons/fi';
 
-const SERVICES = [
-  { id: 'cleaning',     label: 'Cleaning',     price: 650  },
-  { id: 'repair',       label: 'Repair',        price: 1200 },
-  { id: 'installation', label: 'Installation',  price: 3500 },
-  { id: 'maintenance',  label: 'Maintenance',   price: 550  },
-];
-
 const TECHNICIANS = {
   tech1: 'Juan Dela Cruz',
   tech2: 'Pedro Santos',
   tech3: 'Maria Reyes',
 };
+
+const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
 
 function formatDate(dateStr) {
   if (!dateStr) return '—';
@@ -28,7 +23,6 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
 }
 
-/* ── Cancel Confirm Dialog ────────────────────────────────── */
 function CancelConfirmDialog({ onKeep, onConfirmCancel }) {
   return (
     <div className="modal-overlay" onClick={onKeep}>
@@ -47,7 +41,6 @@ function CancelConfirmDialog({ onKeep, onConfirmCancel }) {
   );
 }
 
-/* ── Booking Cancelled ────────────────────────────────────── */
 function BookingCancelled({ bookingId, onBookAgain, onBackToDashboard }) {
   return (
     <div className="confirmation-wrap">
@@ -70,37 +63,69 @@ function BookingCancelled({ bookingId, onBookAgain, onBackToDashboard }) {
   );
 }
 
-/* ── Main: Book Details ───────────────────────────────────── */
 function BookDetails() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Works from both book_service (has form) and my_bookings (has booking only)
-  const form    = location.state?.form    || {};
-  const booking = location.state?.booking || {};
+  const [booking, setBooking] = useState(location.state?.booking || {});
+  const [cancelled, setCancelled] = useState(booking.status === 'Cancelled');
+  const [showCancelConfirm, setShowCancel] = useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
-  const [cancelled, setCancelled]           = useState(false);
-  const [showCancelConfirm, setShowCancel]  = useState(false);
-  const [showReceipt, setShowReceipt]       = useState(false);
+  const basePrice = booking.service?.price || 0;
+  const dpPercent = booking.downPaymentPercent ?? 10;
+  const toPayNow = Math.round(basePrice * (dpPercent / 100));
+  const remaining = basePrice - toPayNow;
 
-  // Derive payment info — falls back gracefully for my_bookings simple data
-  const selected   = SERVICES.find((s) => s.id === form.service);
-  const basePrice  = selected?.price || 0;
-  const dpPercent  = form.downPaymentPercent ?? 10;
-  const toPayNow   = Math.round(basePrice * (dpPercent / 100));
-  const remaining  = basePrice - toPayNow;
-  const techName   = form.technician
-    ? (TECHNICIANS[form.technician] || form.technician)
-    : (booking.technician || 'To be assigned');
+  const isFullyPaid = booking.paymentStatus === 'Paid' && (dpPercent === 100 || booking.balancePaid);
 
-  const bookingId  = booking.id || '—';
-  const service    = selected?.label || booking.service || '—';
+  const receiptForm = {
+    id: booking.bookingId,
+    createdAt: booking.createdAt,
+    customerName: storedUser.name || '—',
+    address: booking.address,
+    contactNumber: storedUser.phone || '—',
+    service: booking.service?.name || '—',
+    basePrice,
+    toPayNow,
+    downPaymentPercent: dpPercent,
+    paymentMode: booking.paymentMode,
+    isFullyPaid,
+  };
+  const techName = booking.technician
+    ? (TECHNICIANS[booking.technician] || booking.technician)
+    : 'To be assigned';
+
+  const handleConfirmCancel = async () => {
+    setCancelling(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:5000/api/bookings/${booking.bookingId}/cancel`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || 'Failed to cancel booking');
+        setCancelling(false);
+        return;
+      }
+      setBooking(data);
+      setShowCancel(false);
+      setCancelled(true);
+    } catch (err) {
+      alert('Could not connect to server.');
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   if (cancelled) {
     return (
       <CustomerLayout title="Book Service">
         <BookingCancelled
-          bookingId={bookingId}
+          bookingId={booking.bookingId}
           onBookAgain={() => navigate('/customer/book_service')}
           onBackToDashboard={() => navigate('/customer/dashboard')}
         />
@@ -110,40 +135,36 @@ function BookDetails() {
 
   return (
     <CustomerLayout title="Booking Details">
-
       {showCancelConfirm && (
         <CancelConfirmDialog
           onKeep={() => setShowCancel(false)}
-          onConfirmCancel={() => { setShowCancel(false); setCancelled(true); }}
+          onConfirmCancel={handleConfirmCancel}
         />
       )}
 
       {showReceipt && (
         <ReceiptModal
-          form={form}
+          form={receiptForm}
           booking={booking}
           onClose={() => setShowReceipt(false)}
         />
       )}
 
       <div className="confirmation-wrap">
-
-        {/* ── Submitted header ── */}
         <div className="confirmation-heading">
           <span className="confirmation-check-icon"><FiCheck /></span>
           <h2>Booking Request Submitted!</h2>
-          <p className="confirmation-id">Booking ID: {bookingId}</p>
+          <p className="confirmation-id">Booking ID: {booking.bookingId}</p>
         </div>
 
-        {/* ── Notification cards ── */}
         <div className="confirmation-notif-row">
           <div className="confirmation-notif-card">
             <p className="confirmation-notif-title"><FiMail /> Email sent</p>
-            <p className="confirmation-notif-sub">{form.email || 'demo.account@gmail.com'}</p>
+            <p className="confirmation-notif-sub">{storedUser.email || '—'}</p>
           </div>
           <div className="confirmation-notif-card">
             <p className="confirmation-notif-title"><FiMessageSquare /> SMS sent</p>
-            <p className="confirmation-notif-sub">{form.contactNumber || '+63 924 567 8910'}</p>
+            <p className="confirmation-notif-sub">{storedUser.phone || '—'}</p>
           </div>
           <div className="confirmation-notif-card">
             <p className="confirmation-notif-title"><FiBell /> In-app notification</p>
@@ -151,7 +172,6 @@ function BookDetails() {
           </div>
         </div>
 
-        {/* ── Booking details card ── */}
         <div className="bs-card confirmation-details-card">
           <div className="confirmation-details-header">
             <h3 className="bs-card-title">Booking Details</h3>
@@ -164,19 +184,17 @@ function BookDetails() {
           </div>
 
           <div className="confirmation-details-grid">
-
-            {/* Left — service info */}
             <div>
-              <p className="summary-section-title">{service}</p>
+              <p className="summary-section-title">{booking.service?.name || '—'}</p>
               <p className="confirmation-detail-line">
-                Unit: {(form.unitTypes || []).join(', ') || '—'}
+                Unit: {(booking.unitTypes || []).join(', ') || '—'}
               </p>
 
               <div className="confirmation-detail-item">
                 <span className="confirmation-detail-icon"><FiCalendar /></span>
                 <div>
                   <p className="confirmation-detail-label">Date</p>
-                  <p className="confirmation-detail-value">{formatDate(form.date || booking.date)}</p>
+                  <p className="confirmation-detail-value">{formatDate(booking.date)}</p>
                 </div>
               </div>
 
@@ -184,7 +202,7 @@ function BookDetails() {
                 <span className="confirmation-detail-icon"><FiClock /></span>
                 <div>
                   <p className="confirmation-detail-label">Time</p>
-                  <p className="confirmation-detail-value">{form.time || '—'}</p>
+                  <p className="confirmation-detail-value">{booking.time || '—'}</p>
                 </div>
               </div>
 
@@ -192,7 +210,7 @@ function BookDetails() {
                 <span className="confirmation-detail-icon"><FiMapPin /></span>
                 <div>
                   <p className="confirmation-detail-label">Address</p>
-                  <p className="confirmation-detail-value">{form.address || booking.address || '—'}</p>
+                  <p className="confirmation-detail-value">{booking.address || '—'}</p>
                 </div>
               </div>
 
@@ -200,28 +218,25 @@ function BookDetails() {
                 <span className="confirmation-detail-icon"><FiInfo /></span>
                 <div>
                   <p className="confirmation-detail-label">Problem Description</p>
-                  <p className="confirmation-detail-value">{form.problemDescription || '—'}</p>
+                  <p className="confirmation-detail-value">{booking.problemDescription || '—'}</p>
                 </div>
               </div>
             </div>
 
-            {/* Right — payment */}
             <div>
               <p className="summary-section-title"><FiCreditCard /> Payment Details</p>
               <div className="summary-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}</span></div>
               <div className="summary-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
               <div className="summary-row"><span>Amount to Pay Now</span><span>₱{toPayNow.toLocaleString()}</span></div>
               <div className="summary-row"><span>Remaining Balance</span><span>₱{remaining.toLocaleString()}</span></div>
-              <div className="summary-row"><span>Payment Mode</span><span>{form.paymentMode || '—'}</span></div>
+              <div className="summary-row"><span>Payment Mode</span><span>{booking.paymentMode || '—'}</span></div>
               <div className="summary-row">
                 <span>Proof of Payment</span>
-                <span className="cost-link">View attachment</span>
+                <span className="cost-link">{booking.proofFile || 'None'}</span>
               </div>
             </div>
-
           </div>
 
-          {/* Technician */}
           <div className="confirmation-technician-row">
             <div className="confirmation-technician-avatar"><FiUser /></div>
             <div>
@@ -230,16 +245,16 @@ function BookDetails() {
             </div>
           </div>
 
-          {/* Actions */}
           <div className="confirmation-actions">
-            <button className="bs-back-btn" onClick={() => navigate('/customer/book_service', { state: { reschedule: true, form } })}>
+            <button className="bs-back-btn" onClick={() => navigate('/customer/book_service')}>
               Reschedule
             </button>
-            <button className="cancel-booking-btn" onClick={() => setShowCancel(true)}>
-              Cancel booking
-            </button>
+            {booking.status !== 'Cancelled' && booking.status !== 'Completed' && (
+              <button className="cancel-booking-btn" onClick={() => setShowCancel(true)} disabled={cancelling}>
+                Cancel booking
+              </button>
+            )}
           </div>
-
         </div>
       </div>
     </CustomerLayout>

@@ -101,4 +101,24 @@ router.patch('/:bookingId/pay', auth, async (req, res) => {
   }
 });
 
+// Get ALL bookings (admin only)
+router.get('/', auth, async (req, res) => {
+  try {
+    
+    if (req.userRole !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const bookings = await Booking.find()
+      .populate('service')
+      .populate('customer', 'name email') // adjust fields to what User has
+      .sort({ createdAt: -1 });
+
+    res.json(bookings);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

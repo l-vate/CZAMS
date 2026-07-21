@@ -1009,3 +1009,132 @@
 @media (max-width: 560px) {
   .payment-card { grid-template-columns: 1fr; }
 }
+
+/* ============ SERVICE REQUESTS / BOOKINGS LIST ============ */
+.req-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.req-filters { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.req-filter-pill {
+  padding: 10px 20px;
+  border-radius: 999px;
+  border: 1px solid #1b9ce5;
+  background: #fff;
+  color: #1b9ce5;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.req-filter-pill.active { background: #1b9ce5; color: #fff; }
+
+.req-new-btn {
+  background: #1b9ce5;
+  color: #fff;
+  border: none;
+  padding: 12px 22px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.req-new-btn:hover { background: #1584c4; }
+
+.req-list { display: flex; flex-direction: column; gap: 14px; }
+
+.req-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 20px 24px;
+  flex-wrap: wrap;
+  transition: box-shadow 0.15s ease;
+}
+
+.req-card:hover { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); }
+
+.req-card-left { min-width: 180px; }
+
+.req-card-top { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+
+.req-date { font-size: 12px; color: #9aa1ac; font-weight: 600; }
+
+.req-status-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  padding: 3px 12px;
+  border-radius: 999px;
+  text-transform: capitalize;
+}
+
+.req-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--navy);
+  margin: 0 0 2px;
+}
+
+.req-id { font-size: 12.5px; color: #9aa1ac; margin: 0 0 2px; }
+.req-tech { font-size: 12.5px; color: #6b7280; margin: 0; }
+
+.req-card-mid {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  flex-wrap: wrap;
+  flex: 1;
+  justify-content: center;
+}
+
+.req-info-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  color: #4a5160;
+  font-weight: 500;
+}
+
+.req-info-icon { color: #9aa1ac; flex-shrink: 0; }
+
+.req-view-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  border: 1px solid #d7dbe0;
+  color: #1f2430;
+  padding: 9px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+
+.req-view-btn:hover { background: #f3f4f6; }
+
+.req-empty { text-align: center; color: #9aa1ac; padding: 40px 0; font-size: 14px; }
+
+@media (max-width: 700px) {
+  .req-card { flex-direction: column; align-items: flex-start; }
+  .req-card-mid { justify-content: flex-start; gap: 20px; }
+  .req-view-btn { align-self: flex-start; }
+}

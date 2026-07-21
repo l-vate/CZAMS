@@ -194,10 +194,17 @@ function Step2({ form, setForm }) {
 
 /* ── Step 3: Location & Schedule ──────────────────────────── */
 function Step3({ form, setForm }) {
-  return (
+  const minDate = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 5);
+    return d.toISOString().split('T')[0]; // YYYY-MM-DD for <input type="date">
+  })();
+  
+   return (
     <div className="bs-card">
       <h3 className="bs-card-title">Location &amp; Schedule</h3>
       <p className="bs-card-sub">When and where should we send our technician?</p>
+
 
       <div className="bs-two-col">
         <div className="bs-field-group">
@@ -205,9 +212,13 @@ function Step3({ form, setForm }) {
           <input
             type="date"
             className="bs-input"
+            min={minDate}
             value={form.date || ''}
             onChange={(e) => setForm({ ...form, date: e.target.value })}
           />
+          <p style={{ fontSize: '12px', color: 'var(--ink-soft)', marginTop: '4px' }}>
+            Earliest available date is {new Date(minDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.
+          </p>
         </div>
 
         <div className="bs-field-group">
@@ -270,7 +281,13 @@ function Step4({ form, setForm, services }) {
     <>
       {showModal && (
         <PaymentModal
-          form={form}
+          form={{
+            ...form,
+            basePrice,
+            downPaymentPercent: dpPercent,
+            toPayNow,
+            remaining,
+          }}
           onClose={() => setShowModal(false)}
           onSubmit={handleSubmitPayment}
         />
@@ -367,6 +384,13 @@ function Step4({ form, setForm, services }) {
           >
             Pay Downpayment
           </button>
+
+           {form.paymentStatus !== 'Paid' && (
+            <p style={{ fontSize: '12px', color: '#e05a5a', marginTop: '10px', textAlign: 'center' }}>
+              Please complete payment and upload proof before continuing.
+            </p>
+          )}
+
         </div>
 
       </div>
@@ -434,8 +458,15 @@ function BookService() {
   const canNext = () => {
     if (step === 1) return !!form.service;
     if (step === 2) return (form.unitTypes || []).length > 0;
-    if (step === 3) return !!form.date && !!form.time && !!form.address;
-    if (step === 4) return !!form.paymentMode;
+    if (step === 3) {
+      if (!form.date || !form.time || !form.address) return false;
+      const minDate = new Date();
+      minDate.setDate(minDate.getDate() + 5);
+      minDate.setHours(0, 0, 0, 0);
+      const selected = new Date(form.date);
+      return selected >= minDate;
+    }
+    if (step === 4) return form.paymentStatus === 'Paid';
     return true;
   };
 
@@ -460,7 +491,7 @@ function BookService() {
       return;
     }
 
-    navigate('/customer/book-details', { state: { booking: data } });
+    navigate(`/customer/book_details/${data.bookingId}`, { state: { booking: data } });
   } catch (err) {
     alert('Could not connect to server. Is the backend running?');
   }
@@ -504,7 +535,8 @@ function BookService() {
               {step === 4 ? <>Book <FiArrowRight /></> : <>Next <FiArrowRight /></>}
             </button>
           ) : (
-            <button className="bs-next-btn" onClick={handleConfirmBooking}>
+            <button className="bs-next-btn" onClick={handleConfirmBooking}
+            >
               Confirm <FiCheck />
             </button>
           )}

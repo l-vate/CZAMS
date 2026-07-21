@@ -43,7 +43,7 @@ function App() {
         <Route path="/customer/bookings" element={<CustomerBookings />} />
         <Route path="/customer/billings" element={<CustomerBillings />} />
         <Route path="/customer/profile" element={<CustomerProfile />} />
-        <Route path="/customer/book-details" element={<CustomerBookDetails />} />
+        <Route path="/customer/book_details/:bookingId" element={<CustomerBookDetails />} />
 
         {/* Staff Pages */}
         <Route path="/staff/dashboard" element={<StaffDashboard />} />

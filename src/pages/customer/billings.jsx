@@ -17,6 +17,7 @@ function Billings() {
   const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
 
   const filters = ['All', 'Paid', 'Partially Paid', 'Unpaid'];
+
   const fetchBookings = () => {
     const token = localStorage.getItem('token');
     fetch('http://localhost:5000/api/bookings/mine', {
@@ -28,7 +29,7 @@ function Billings() {
           const isFullyPaid = b.paymentStatus === 'Paid' && (b.downPaymentPercent === 100 || b.balancePaid);
           const isPartiallyPaid = b.paymentStatus === 'Paid' && b.downPaymentPercent < 100 && !b.balancePaid;
 
-          let status = 'To Verify';
+          let status = 'Unpaid';
           if (isFullyPaid) status = 'Fully Paid';
           else if (isPartiallyPaid) status = `${b.downPaymentPercent}% Paid`;
 
@@ -88,6 +89,25 @@ function Billings() {
       );
     });
 
+    const BILL_STATUS_ORDER = { unpaid: 0, partial: 1, paid: 2 };
+  const sortedBills = [...filteredBills].sort((a, b) => {
+    const rankOf = (bill) => {
+      if (bill.isFullyPaid) return BILL_STATUS_ORDER.paid;
+      if (bill.isPartiallyPaid) return BILL_STATUS_ORDER.partial;
+      return BILL_STATUS_ORDER.unpaid;
+    };
+    const rankA = rankOf(a);
+    const rankB = rankOf(b);
+    if (rankA !== rankB) return rankA - rankB;
+    return new Date(b.createdAt) - new Date(a.createdAt); // newest first within same group
+  });
+
+  const getStatusColor = (bill) => {
+    if (bill.isFullyPaid) return '#22c55e';
+    if (bill.isPartiallyPaid) return '#f59e0b';
+    return '#ef4444';
+  };
+
   const handlePaymentSubmit = async ({ proof }) => {
     try {
       const token = localStorage.getItem('token');
@@ -140,14 +160,17 @@ function Billings() {
 
   return (
     <CustomerLayout title="Billings">
-
-      <div className="billing-toolbar">
-        <div className="billing-filter-group">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           {filters.map((filter) => (
             <button
               key={filter}
               onClick={() => setActiveFilter(filter)}
-              className={`billing-filter-pill ${activeFilter === filter ? 'active' : ''}`}
+              style={{
+                padding: '10px 18px', borderRadius: '999px', border: '1px solid #1b9ce5',
+                background: activeFilter === filter ? '#1b9ce5' : '#fff',
+                color: activeFilter === filter ? '#fff' : '#333', cursor: 'pointer',
+              }}
             >
               {filter}
             </button>
@@ -156,89 +179,95 @@ function Billings() {
 
         <input
           type="search"
-          placeholder="Search by ID, service, customer, or address..."
-          className="billing-search-input"
+          placeholder="Search by ID, service, or address..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
+          style={{
+            padding: '10px 16px', borderRadius: '8px', border: '1px solid #d9d9d9',
+            minWidth: '260px', fontSize: '14px',
+          }}
         />
       </div>
 
-      <div className="billing-list">
-        {loading ? (
-          <p className="billing-empty">Loading bills...</p>
-        ) : filteredBills.length === 0 ? (
-          <p className="billing-empty">No matching bills found.</p>
-        ) : (
-          filteredBills.map((bill) => (
-            <div key={bill.id} className="billing-card">
-              <div className="billing-card-main">
-                <div className="billing-card-top-row">
-                  <small className="billing-card-date-label">{bill.date}</small>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <h3 className="billing-card-title" style={{ margin: 0 }}>{bill.service.toUpperCase()}</h3>
-                  <span className={`billing-status-badge ${bill.isFullyPaid ? 'paid' : bill.isPartiallyPaid ? 'partial' : 'unpaid'}`}>
+      {loading ? (
+        <p>Loading bills...</p>
+      ) : sortedBills.length === 0 ? (
+        <p style={{ color: '#666' }}>No matching bills found.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {filteredBills.map((bill) => (
+            <div
+              key={bill.id}
+              style={{
+                background: '#fff', border: '1px solid #d9d9d9', borderRadius: '12px',
+                padding: '18px 20px', display: 'grid', gridTemplateColumns: '2fr 1.5fr 1.5fr 1.2fr',
+                alignItems: 'center',
+              }}
+            >
+              <div>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
+                  <small style={{ color: '#888' }}>{bill.date}</small>
+                  <span style={{ background: getStatusColor(bill), color: '#fff', padding: '2px 8px', borderRadius: '999px', fontSize: '11px' }}>
                     {bill.status}
                   </span>
                 </div>
 
-                <p className="billing-card-subtext">Booking ID: {bill.id}</p>
-                <small>Customer: {bill.customerName}</small>
+                <h3 style={{ margin: 0, fontSize: '18px' }}>{bill.service}</h3>
+                <p style={{ margin: '4px 0', color: '#666' }}>{bill.id}</p>
+                
               </div>
 
-              <div className="billing-card-meta">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <FiMapPin /> {bill.address}
               </div>
 
-              <div className="billing-card-meta">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <FiClock /> {bill.date}
               </div>
 
-              <div className="billing-card-invoice">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
                 {bill.isFullyPaid && (
                   <button
-                    className="invoice-link-btn"
+                    style={{ background: 'transparent', border: '1px solid #d0dde8', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', color: '#333', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
                     onClick={() => {
                       setSelectedBill(bill);
                       setShowReceipt(true);
                     }}
                   >
-                    <FiFileText /> Invoice
+                    <FiFileText size={14} /> Invoice
                   </button>
                 )}
-              </div>
 
-              <div className="billing-card-action">
                 {!bill.paid && (
                   <button
-                    className="settle-btn"
+                    style={{ background: '#1b9ce5', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
                     onClick={() => {
                       setSelectedBill(bill);
                       setPaymentType('downpayment');
                       setShowPayment(true);
                     }}
                   >
-                    <FiCreditCard size={13} /> Settle
+                    <FiCreditCard size={14} /> Settle
                   </button>
                 )}
+
                 {bill.isPartiallyPaid && (
                   <button
-                    className="settle-btn"
+                    style={{ background: '#1b9ce5', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
                     onClick={() => {
                       setSelectedBill(bill);
                       setPaymentType('balance');
                       setShowPayment(true);
                     }}
                   >
-                    <FiCreditCard size={13} /> Pay Remaining Balance
+                    <FiCreditCard size={14} /> Pay Balance
                   </button>
                 )}
               </div>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
       {showPayment && selectedBill && (
         <PaymentModal

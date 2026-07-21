@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
 import ReceiptModal from '../../components/receipt_modal';
 import {
@@ -21,6 +21,75 @@ function formatDate(dateStr) {
   const d = new Date(dateStr);
   if (isNaN(d)) return dateStr;
   return d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+}
+
+function RescheduleModal({ booking, onClose, onSubmit, submitting }) {
+  const [date, setDate] = useState(booking.date || '');
+  const [time, setTime] = useState(booking.time || '');
+  const needsApproval = ['Approved', 'In Progress'].includes(booking.status);
+
+  const minDate = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 5);
+    return d.toISOString().split('T')[0];
+  })();
+
+  const isDateValid = date >= minDate;
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+        <h4 className="modal-title">Reschedule Booking</h4>
+        {needsApproval && (
+          <p className="cancel-confirm-text">
+            This booking is already {booking.status.toLowerCase()}, so your new date/time
+            will need admin approval before it's confirmed.
+          </p>
+        )}
+
+        <div className="bs-field-group">
+          <label className="bs-label">New Date</label>
+          <input
+            type="date"
+            className="bs-input"
+            min={minDate}
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+          <p style={{ fontSize: '12px', color: 'var(--ink-soft)', marginTop: '4px' }}>
+            Earliest available date is {new Date(minDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.
+          </p>
+        </div>
+
+        <div className="bs-field-group">
+          <label className="bs-label">New Time</label>
+          <div className="time-toggle">
+            {['Morning', 'Afternoon'].map((t) => (
+              <button
+                key={t}
+                type="button"
+                className={`time-btn ${time === t ? 'selected' : ''}`}
+                onClick={() => setTime(t)}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="cancel-confirm-actions">
+          <button className="bs-back-btn" onClick={onClose}>Cancel</button>
+          <button
+            className="bs-next-btn"
+            disabled={!date || !time || !isDateValid || submitting}
+            onClick={() => onSubmit({ date, time })}
+          >
+            {needsApproval ? 'Submit Request' : 'Confirm Reschedule'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function CancelConfirmDialog({ onKeep, onConfirmCancel }) {
@@ -64,14 +133,48 @@ function BookingCancelled({ bookingId, onBookAgain, onBackToDashboard }) {
 }
 
 function BookDetails() {
+  const { bookingId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
 
-  const [booking, setBooking] = useState(location.state?.booking || {});
-  const [cancelled, setCancelled] = useState(booking.status === 'Cancelled');
+  const [booking, setBooking] = useState(location.state?.booking || null);
+  const [loading, setLoading] = useState(!location.state?.booking);
   const [showCancelConfirm, setShowCancel] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
+  const [showReschedule, setShowReschedule] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [rescheduling, setRescheduling] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    fetch(`http://localhost:5000/api/bookings/${bookingId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setBooking(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [bookingId]);
+
+  if (loading) {
+    return (
+      <CustomerLayout title="Booking Details">
+        <p>Loading booking...</p>
+      </CustomerLayout>
+    );
+  }
+
+  if (!booking) {
+    return (
+      <CustomerLayout title="Booking Details">
+        <p style={{ color: '#666' }}>Booking not found.</p>
+      </CustomerLayout>
+    );
+  }
+
+  const cancelled = booking.status === 'Cancelled';
 
   const basePrice = booking.service?.price || 0;
   const dpPercent = booking.downPaymentPercent ?? 10;
@@ -93,9 +196,12 @@ function BookDetails() {
     paymentMode: booking.paymentMode,
     isFullyPaid,
   };
+
   const techName = booking.technician
     ? (TECHNICIANS[booking.technician] || booking.technician)
     : 'To be assigned';
+
+  const rescheduleStatus = booking.rescheduleRequest?.status || 'None';
 
   const handleConfirmCancel = async () => {
     setCancelling(true);
@@ -113,11 +219,37 @@ function BookDetails() {
       }
       setBooking(data);
       setShowCancel(false);
-      setCancelled(true);
     } catch (err) {
       alert('Could not connect to server.');
     } finally {
       setCancelling(false);
+    }
+  };
+
+  const handleRescheduleSubmit = async ({ date, time }) => {
+    setRescheduling(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:5000/api/bookings/${booking.bookingId}/reschedule`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ date, time }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || 'Failed to submit reschedule');
+        setRescheduling(false);
+        return;
+      }
+      setBooking(data);
+      setShowReschedule(false);
+    } catch (err) {
+      alert('Could not connect to server.');
+    } finally {
+      setRescheduling(false);
     }
   };
 
@@ -139,6 +271,15 @@ function BookDetails() {
         <CancelConfirmDialog
           onKeep={() => setShowCancel(false)}
           onConfirmCancel={handleConfirmCancel}
+        />
+      )}
+
+      {showReschedule && (
+        <RescheduleModal
+          booking={booking}
+          onClose={() => setShowReschedule(false)}
+          onSubmit={handleRescheduleSubmit}
+          submitting={rescheduling}
         />
       )}
 
@@ -245,14 +386,30 @@ function BookDetails() {
             </div>
           </div>
 
+          {rescheduleStatus === 'Denied' && (
+            <div className="cancel-confirm-text" style={{ margin: '12px 0', color: '#b91c1c' }}>
+              Your reschedule request was denied by the admin. Please pick a new date/time,
+              or cancel this booking instead.
+            </div>
+          )}
+
           <div className="confirmation-actions">
-            <button className="bs-back-btn" onClick={() => navigate('/customer/book_service')}>
-              Reschedule
-            </button>
             {booking.status !== 'Cancelled' && booking.status !== 'Completed' && (
-              <button className="cancel-booking-btn" onClick={() => setShowCancel(true)} disabled={cancelling}>
-                Cancel booking
-              </button>
+              <>
+                {rescheduleStatus === 'Pending' ? (
+                  <button className="bs-back-btn" disabled>
+                    Reschedule Pending Approval
+                  </button>
+                ) : (
+                  <button className="bs-back-btn" onClick={() => setShowReschedule(true)}>
+                    {rescheduleStatus === 'Denied' ? 'Pick New Date' : 'Reschedule'}
+                  </button>
+                )}
+
+                <button className="cancel-booking-btn" onClick={() => setShowCancel(true)} disabled={cancelling}>
+                  Cancel booking
+                </button>
+              </>
             )}
           </div>
         </div>

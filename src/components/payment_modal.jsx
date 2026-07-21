@@ -25,10 +25,16 @@ function PaymentModal({ form, paymentType = 'downpayment', onClose, onSubmit }) 
         <div className="modal-cost-rows">
           <div className="modal-cost-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}.00</span></div>
           <div className="modal-cost-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
-          {!isBalance && (
-            <div className="modal-cost-row"><span>Amount to Pay Now</span><span>₱{toPayNow.toLocaleString()}.00</span></div>
+
+          {isBalance ? (
+            <div className="modal-cost-row"><span>Remaining Balance Due</span><span>₱{amountDue.toLocaleString()}.00</span></div>
+          ) : (
+            <>
+              <div className="modal-cost-row"><span>Amount to Pay Now</span><span>₱{toPayNow.toLocaleString()}.00</span></div>
+              <div className="modal-cost-row"><span>Balance</span><span>₱{remaining.toLocaleString()}.00</span></div>
+            </>
           )}
-          <div className="modal-cost-row"><span>{amountLabel}</span><span>₱{amountDue.toLocaleString()}.00</span></div>
+
           <div className="modal-cost-row"><span>Payment Mode</span><span>{form.paymentMode || '—'}</span></div>
         </div>
 
@@ -53,6 +59,11 @@ function PaymentModal({ form, paymentType = 'downpayment', onClose, onSubmit }) 
               onChange={(e) => setProof(e.target.files[0] || null)}
             />
           </label>
+          {!proof && (
+            <p style={{ fontSize: '11px', color: '#e05a5a', marginTop: '2px' }}>
+              Proof of payment is required to submit.
+            </p>
+          )}
         </div>
 
         {!isBalance && (
@@ -75,6 +86,7 @@ function PaymentModal({ form, paymentType = 'downpayment', onClose, onSubmit }) 
         <button
           className="modal-submit-btn"
           onClick={() => onSubmit({ proof, senior })}
+          disabled={!proof}
         >
           SUBMIT
         </button>

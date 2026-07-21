@@ -9,6 +9,19 @@ function generateBookingId() {
   return `CZ-${year}-${rand}`;
 }
 
+function isDateAllowed(dateStr) {
+  if (!dateStr) return false;
+  const minDate = new Date();
+  minDate.setDate(minDate.getDate() + 5);
+  minDate.setHours(0, 0, 0, 0);
+
+  const selected = new Date(dateStr);
+  if (isNaN(selected)) return false;
+  selected.setHours(0, 0, 0, 0);
+
+  return selected >= minDate;
+}
+
 // Create a booking
 router.post('/', auth, async (req, res) => {
   try {
@@ -18,6 +31,10 @@ router.post('/', auth, async (req, res) => {
       downPaymentPercent, paymentMode, paymentMode2,
       paymentStatus, proofFile,
     } = req.body;
+
+    if (!isDateAllowed(date)) {
+      return res.status(400).json({ message: 'Selected date must be at least 5 days from today.' });
+    }
 
     const booking = await Booking.create({
       bookingId: generateBookingId(),
@@ -101,20 +118,90 @@ router.patch('/:bookingId/pay', auth, async (req, res) => {
   }
 });
 
-// Get ALL bookings (admin only)
-router.get('/', auth, async (req, res) => {
+// Pay remaining balance
+router.patch('/:bookingId/pay-balance', auth, async (req, res) => {
   try {
-    
-    if (req.userRole !== 'admin') {
-      return res.status(403).json({ message: 'Forbidden' });
+    const { proofFile } = req.body;
+
+    const booking = await Booking.findOneAndUpdate(
+      { bookingId: req.params.bookingId, customer: req.userId },
+      { balancePaid: true, balanceProofFile: proofFile || undefined },
+      { new: true }
+    ).populate('service');
+
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    res.json(booking);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Request a reschedule (or apply directly if still Pending)
+router.patch('/:bookingId/reschedule', auth, async (req, res) => {
+  try {
+    const { date, time } = req.body;
+
+    if (!isDateAllowed(date)) {
+      return res.status(400).json({ message: 'New date must be at least 5 days from today.' });
     }
 
-    const bookings = await Booking.find()
-      .populate('service')
-      .populate('customer', 'name email') // adjust fields to what User has
-      .sort({ createdAt: -1 });
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId, customer: req.userId });
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
-    res.json(bookings);
+    if (booking.status === 'Pending') {
+      // No approval needed yet — apply immediately
+      booking.date = date;
+      booking.time = time;
+      booking.rescheduleRequest = { requestedDate: null, requestedTime: null, status: 'None' };
+    } else if (['Approved', 'In Progress'].includes(booking.status)) {
+      // Needs admin approval
+      booking.rescheduleRequest = { requestedDate: date, requestedTime: time, status: 'Pending' };
+    } else {
+      return res.status(400).json({ message: 'This booking can no longer be rescheduled.' });
+    }
+
+    await booking.save();
+    const populated = await booking.populate('service');
+    res.json(populated);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: approve a pending reschedule request
+router.patch('/:bookingId/reschedule/approve', auth, async (req, res) => {
+  try {
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId });
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    if (booking.rescheduleRequest?.status !== 'Pending') {
+      return res.status(400).json({ message: 'No pending reschedule request.' });
+    }
+    booking.date = booking.rescheduleRequest.requestedDate;
+    booking.time = booking.rescheduleRequest.requestedTime;
+    booking.rescheduleRequest = { requestedDate: null, requestedTime: null, status: 'Approved' };
+    await booking.save();
+    const populated = await booking.populate('service');
+    res.json(populated);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: deny a pending reschedule request
+router.patch('/:bookingId/reschedule/deny', auth, async (req, res) => {
+  try {
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId });
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    if (booking.rescheduleRequest?.status !== 'Pending') {
+      return res.status(400).json({ message: 'No pending reschedule request.' });
+    }
+    booking.rescheduleRequest.status = 'Denied';
+    await booking.save();
+    const populated = await booking.populate('service');
+    res.json(populated);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });

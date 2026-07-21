@@ -22,6 +22,11 @@ const bookingSchema = new mongoose.Schema({
         enum: ['Pending', 'Approved', 'In Progress', 'Completed', 'Cancelled'],
         default: 'Pending',
     },
+    rescheduleRequest: {
+        requestedDate: String,
+        requestedTime: String,
+        status: { type: String, enum: ['None', 'Pending', 'Approved', 'Denied'], default: 'None' },
+    },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Booking', bookingSchema);

@@ -60,7 +60,6 @@ function Dashboard() {
   // Recent activity: most recently updated bookings, newest first
   const recentActivity = [...bookings]
     .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
-    .slice(0, 5);
 
   const activityLabel = (b) => {
     switch (b.status) {
@@ -142,7 +141,7 @@ function Dashboard() {
         </div>
         <div className="info-card-body">
           {recentActivity.length > 0 ? (
-            <ul className="recent-activity-list">
+            <ul className="recent-activity-list" style={{ maxHeight: '320px', overflowY: 'auto' }}>
               {recentActivity.map((b) => (
                 <li key={b.bookingId} className="recent-activity-item">
                   <span className="recent-activity-icon">

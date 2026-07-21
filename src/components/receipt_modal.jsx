@@ -85,7 +85,12 @@ function ReceiptModal({ form, booking, onClose }) {
 
             <div className="receipt-info-row">
               <span>Amount Paid</span>
-              <span>₱{basePrice.toLocaleString()}</span>
+              <span>₱{toPayNow.toLocaleString()}</span>
+            </div>
+
+            <div className="receipt-info-row">
+              <span>Balance</span>
+              <span>₱{(basePrice - toPayNow).toLocaleString()}</span>
             </div>
 
             <div className="receipt-info-row">

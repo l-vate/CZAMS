@@ -29,6 +29,23 @@ function MyBookings() {
       ? bookings
       : bookings.filter((b) => b.status === activeFilter);
 
+       // Sort: Pending first, then active statuses, then Completed, Cancelled always last
+  const STATUS_ORDER = { Pending: 0, Approved: 1, 'In Progress': 1, Completed: 2, Cancelled: 3 };
+  const sortedBookings = [...filteredBookings].sort((a, b) => {
+    const rankA = STATUS_ORDER[a.status] ?? 1;
+    const rankB = STATUS_ORDER[b.status] ?? 1;
+    if (rankA !== rankB) return rankA - rankB;
+    return new Date(b.createdAt) - new Date(a.createdAt); // newest first within same group
+  });
+
+  const lastNonCancelledIndex = (() => {
+    let idx = -1;
+    sortedBookings.forEach((b, i) => {
+      if (b.status !== 'Cancelled') idx = i;
+    });
+    return idx;
+  })();
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'Completed': return '#22c55e';
@@ -72,45 +89,59 @@ function MyBookings() {
         <p style={{ color: '#666' }}>No bookings found. <a href="/customer/book_service">Book one now</a></p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {filteredBookings.map((booking) => (
-            <div
-              key={booking._id}
-              style={{
-                background: '#fff', border: '1px solid #d9d9d9', borderRadius: '12px',
-                padding: '18px 20px', display: 'grid', gridTemplateColumns: '2fr 1.5fr 1.5fr 1fr',
-                alignItems: 'center',
-              }}
-            >
-              <div>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
-                  <small style={{ color: '#888' }}>
-                    {new Date(booking.createdAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })}
-                  </small>
-                  <span style={{ background: getStatusColor(booking.status), color: '#fff', padding: '2px 8px', borderRadius: '999px', fontSize: '11px' }}>
-                    {booking.status}
-                  </span>
+          {sortedBookings.map((booking, i) => (
+            <div key={booking._id}>
+              {i === lastNonCancelledIndex + 1 && booking.status === 'Cancelled' && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '10px',
+                  margin: '8px 0 4px', color: '#999', fontSize: '12px', fontWeight: '600',
+                }}>
+                  <div style={{ flex: 1, height: '1px', background: '#e5e5e5' }} />
+                  CANCELLED
+                  <div style={{ flex: 1, height: '1px', background: '#e5e5e5' }} />
+                </div>
+              )}
+
+              <div
+                style={{
+                  background: '#fff', border: '1px solid #d9d9d9', borderRadius: '12px',
+                  padding: '18px 20px', display: 'grid', gridTemplateColumns: '2fr 1.5fr 1.5fr 1fr',
+                  alignItems: 'center',
+                  opacity: booking.status === 'Cancelled' ? 0.6 : 1,
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
+                    <small style={{ color: '#888' }}>
+                      {new Date(booking.createdAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })}
+                    </small>
+                    <span style={{ background: getStatusColor(booking.status), color: '#fff', padding: '2px 8px', borderRadius: '999px', fontSize: '11px' }}>
+                      {booking.status}
+                    </span>
+                  </div>
+
+                  <h3 style={{ margin: 0, fontSize: '18px' }}>{booking.service?.name || '—'}</h3>
+                  <p style={{ margin: '4px 0', color: '#666' }}>{booking.bookingId}</p>
+                  <small>Technician: {booking.technician || 'Not Assigned'}</small>
                 </div>
 
-                <h3 style={{ margin: 0, fontSize: '18px' }}>{booking.service?.name || '—'}</h3>
-                <p style={{ margin: '4px 0', color: '#666' }}>{booking.bookingId}</p>
-                <small>Technician: {booking.technician || 'Not Assigned'}</small>
-              </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <FiClock /> {booking.date}
+                </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <FiClock /> {booking.date}
-              </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <FiMapPin /> {booking.address}
+                </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <FiMapPin /> {booking.address}
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button
-                  style={{ background: 'transparent', border: '1px solid #d0dde8', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', color: '#333', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
-                  onClick={() => navigate('/customer/book-details', { state: { booking } })}
-                >
-                  <FiEye size={14} /> View Details
-                </button>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button
+                  type="button"
+                    style={{ background: 'transparent', border: '1px solid #d0dde8', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', color: '#333', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    onClick={() => navigate(`/customer/book_details/${booking.bookingId}`, { state: { booking } })}
+                  >
+                    <FiEye size={14} /> View Details
+                  </button>
+                </div>
               </div>
             </div>
           ))}

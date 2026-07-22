@@ -8,12 +8,6 @@ import {
   FiUser, FiAlertTriangle, FiX, FiArrowRight,
 } from 'react-icons/fi';
 
-const TECHNICIANS = {
-  tech1: 'Juan Dela Cruz',
-  tech2: 'Pedro Santos',
-  tech3: 'Maria Reyes',
-};
-
 const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
 
 function formatDate(dateStr) {
@@ -197,9 +191,7 @@ function BookDetails() {
     isFullyPaid,
   };
 
-  const techName = booking.technician
-    ? (TECHNICIANS[booking.technician] || booking.technician)
-    : 'To be assigned';
+  const techName = booking.technician?.name || 'To be assigned';
 
   const rescheduleStatus = booking.rescheduleRequest?.status || 'None';
 

@@ -9,7 +9,7 @@ const bookingSchema = new mongoose.Schema({
     problemDescription: String,
     date: String,
     time: String,
-    technician: String,
+    technician: { type: String, ref: 'User' },
     address: { type: String, required: true },
     downPaymentPercent: Number,
     paymentMode: String,
@@ -27,6 +27,17 @@ const bookingSchema = new mongoose.Schema({
         requestedDate: String,
         requestedTime: String,
         status: { type: String, enum: ['None', 'Pending', 'Approved', 'Denied'], default: 'None' },
+    },
+    report: {
+        workSummary: String,
+        partsUsed: String,
+        recommendations: String,
+        submittedAt: Date,
+    },
+    feedback: {
+        text: String,
+        rating: Number,
+        submittedAt: Date,
     },
 }, { timestamps: true });
 

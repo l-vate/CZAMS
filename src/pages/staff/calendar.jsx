@@ -2,103 +2,36 @@ import { useEffect, useState } from "react";
 import StaffLayout from "./staff_layout";
 import CalendarView from "../../components/calendar_view";
 
-// Replace with your real auth/user context
-const CURRENT_STAFF_NAME = "Juan Dela Cruz";
+const API_BASE = 'http://localhost:5000';
 
-async function fetchMyJobs(staffName) {
-  const allJobs = [
-{
-    id: "job-1",
-    title: "Cleaning - Carrier 1HP Split Type",
-    customer: "Juan Dela Cruz",
-    assignedTo: "Juan Dela Cruz",
-    date: "2026-07-08",
-    startHour: 8,
-    endHour: 9.5,
-    status: "confirmed",
-  },
-  {
-    id: "job-2",
-    title: "Repair - Panasonic Window Type",
-    customer: "Maria Santos",
-    assignedTo: "Pedro Santos",
-    date: "2026-07-08",
-    startHour: 10,
-    endHour: 12,
-    status: "pending",
-  },
-  {
-    id: "job-3",
-    title: "Maintenance - LG Split Type",
-    customer: "Carlos Reyes",
-    assignedTo: "Maria Reyes",
-    date: "2026-07-08",
-    startHour: 13,
-    endHour: 14,
-    status: "completed",
-  },
-  {
-    id: "job-5",
-    title: "Cleaning - Samsung Cassette Type",
-    customer: "Mark Villanueva",
-    assignedTo: "Pedro Santos",
-    date: "2026-07-09",
-    startHour: 9,
-    endHour: 10.5,
-    status: "confirmed",
-  },
-  {
-    id: "job-6",
-    title: "Repair - Carrier Floor Mounted",
-    customer: "Elaine Garcia",
-    assignedTo: "Maria Reyes",
-    date: "2026-07-09",
-    startHour: 14,
-    endHour: 16,
-    status: "pending",
-  },
-  {
-    id: "job-7",
-    title: "Maintenance - Panasonic Split Type",
-    customer: "Robert Lim",
-    assignedTo: "Juan Dela Cruz",
-    date: "2026-07-10",
-    startHour: 8,
-    endHour: 9,
-    status: "completed",
-  },
-  {
-    id: "job-8",
-    title: "Cleaning - Portable Aircon",
-    customer: "Grace Mendoza",
-    assignedTo: "Pedro Santos",
-    date: "2026-07-10",
-    startHour: 10,
-    endHour: 11,
-    status: "confirmed",
-  },
-  {
-    id: "job-9",
-    title: "Installation - TCL Window Type",
-    customer: "John Bautista",
-    assignedTo: "Maria Reyes",
-    date: "2026-07-10",
-    startHour: 13,
-    endHour: 16,
-    status: "confirmed",
-  },
-  {
-    id: "job-10",
-    title: "Maintenance - Carrier Split Type",
-    customer: "Patricia Torres",
-    assignedTo: "Juan Dela Cruz",
-    date: "2026-07-11",
-    startHour: 9,
-    endHour: 10,
-    status: "pending",
-  },
-  ];
-  return allJobs.filter((j) => j.assignedTo === staffName);
+// "9:00 AM" -> 9, "1:30 PM" -> 13.5
+function timeToHour(timeStr) {
+  if (!timeStr) return 0;
+  const [time, period] = timeStr.trim().split(' ');
+  let [h, m] = time.split(':').map(Number);
+  if (period?.toUpperCase() === 'PM' && h !== 12) h += 12;
+  if (period?.toUpperCase() === 'AM' && h === 12) h = 0;
+  return h + (m || 0) / 60;
+}
+
+// booking.time is a single string, e.g. "9:00 AM - 11:00 AM"
+function splitTimeRange(timeStr) {
+  if (!timeStr) return { start: null, end: null };
+  const [start, end] = timeStr.split('-').map((s) => s.trim());
+  return { start, end };
+}
+
+function toCalendarJob(booking) {
+  const { start, end } = splitTimeRange(booking.time);
+  return {
+    id: booking._id,
+    title: `${booking.service?.name || 'Service'}${booking.unitTypes?.length ? ' - ' + booking.unitTypes.join(', ') : ''}`,
+    customer: booking.customer?.name || 'Customer',
+    date: booking.date,
+    startHour: timeToHour(start),
+    endHour: timeToHour(end),
+    status: booking.status,
+  };
 }
 
 function Calendar() {
@@ -106,8 +39,13 @@ function Calendar() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchMyJobs(CURRENT_STAFF_NAME)
-      .then(setJobs)
+    const token = localStorage.getItem('token');
+    fetch(`${API_BASE}/api/bookings/technician/mine`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => setJobs(Array.isArray(data) ? data.map(toCalendarJob) : []))
+      .catch((err) => console.error('Failed to load jobs', err))
       .finally(() => setLoading(false));
   }, []);
 

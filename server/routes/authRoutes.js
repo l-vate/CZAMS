@@ -209,4 +209,15 @@ router.post('/profile/photo', auth, upload.single('photo'), async (req, res) => 
   }
 });
 
+// GET all active technicians (for client-side booking dropdown)
+router.get('/technicians', async (req, res) => {
+  try {
+    const technicians = await User.find({ role: 'staff', isActive: true }).select('_id name');
+    res.json(technicians);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

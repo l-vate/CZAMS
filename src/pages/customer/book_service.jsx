@@ -272,8 +272,7 @@ function Step4({ form, setForm, services }) {
   const { basePrice, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services);
 
   const handleSubmitPayment = ({ proof }) => {
-    // TODO: send proof + senior files to Express backend
-    setForm({ ...form, paymentStatus: 'Paid', proofFile: proof?.name || null });
+    setForm({ ...form, paymentStatus: 'Paid', proofFile: proof?.name || null, proofFileObj: proof || null });
     setShowModal(false);
   };
 
@@ -472,30 +471,43 @@ function BookService() {
 
   const stepLabels = ['Choose Service', 'Unit Details', 'Location & Schedule', 'Payment', 'Booking Summary'];
 
-  const handleConfirmBooking = async () => {
-  try {
-    const token = localStorage.getItem('token');
-    const res = await fetch('http://localhost:5000/api/bookings', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(form),
-    });
+ const handleConfirmBooking = async () => {
+    try {
+      const token = localStorage.getItem('token');
 
-    const data = await res.json();
+      const formData = new FormData();
+      formData.append('service', form.service);
+      (form.unitTypes || []).forEach((u) => formData.append('unitTypes', u));
+      formData.append('brandModel', form.brandModel || '');
+      formData.append('problemDescription', form.problemDescription || '');
+      formData.append('date', form.date);
+      formData.append('time', form.time);
+      formData.append('technician', form.technician || '');
+      formData.append('address', form.address);
+      formData.append('downPaymentPercent', form.downPaymentPercent);
+      formData.append('paymentMode', form.paymentMode || '');
+      formData.append('paymentMode2', form.paymentMode2 || '');
+      formData.append('paymentStatus', form.paymentStatus || 'Unpaid');
+      if (form.proofFileObj) formData.append('proof', form.proofFileObj);
 
-    if (!res.ok) {
-      alert(data.message || 'Failed to create booking');
-      return;
+      const res = await fetch('http://localhost:5000/api/bookings', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }, // no Content-Type for FormData
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.message || 'Failed to create booking');
+        return;
+      }
+
+      navigate(`/customer/book_details/${data.bookingId}`, { state: { booking: data } });
+    } catch (err) {
+      alert('Could not connect to server. Is the backend running?');
     }
-
-    navigate(`/customer/book_details/${data.bookingId}`, { state: { booking: data } });
-  } catch (err) {
-    alert('Could not connect to server. Is the backend running?');
-  }
-};
+  };
 
   return (
     <CustomerLayout title="Book Service">

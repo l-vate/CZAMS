@@ -17,6 +17,7 @@ const bookingSchema = new mongoose.Schema({
     paymentStatus: { type: String, default: 'Unpaid' },
     balancePaid: { type: Boolean, default: false },
     proofFile: String,
+    balanceProofFile: String,
     status: {
         type: String,
         enum: ['Pending', 'Approved', 'In Progress', 'Completed', 'Cancelled'],

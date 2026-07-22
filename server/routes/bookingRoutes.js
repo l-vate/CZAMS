@@ -1,7 +1,29 @@
+const multer = require('multer')
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const Booking = require('../models/Booking');
+const path = require('path');
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, '../uploads/proofs'));
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const id = req.generatedBookingId || req.params.bookingId || 'unknown';
+    cb(null, `${id}-${Date.now()}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') cb(null, true);
+    else cb(new Error('Only image or PDF files are allowed'));
+  },
+});
 
 function generateBookingId() {
   const year = new Date().getFullYear();
@@ -23,21 +45,26 @@ function isDateAllowed(dateStr) {
 }
 
 // Create a booking
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, (req, res, next) => {
+  req.generatedBookingId = generateBookingId();
+  next();
+}, upload.single('proof'), async (req, res) => {
   try {
     const {
       service, unitTypes, brandModel, problemDescription,
       date, time, technician, address,
       downPaymentPercent, paymentMode, paymentMode2,
-      paymentStatus, proofFile,
+      paymentStatus,
     } = req.body;
 
     if (!isDateAllowed(date)) {
       return res.status(400).json({ message: 'Selected date must be at least 5 days from today.' });
     }
 
+    const proofFile = req.file ? `/uploads/proofs/${req.file.filename}` : undefined;
+
     const booking = await Booking.create({
-      bookingId: generateBookingId(),
+      bookingId: req.generatedBookingId,
       customer: req.userId,
       service, unitTypes, brandModel, problemDescription,
       date, time, technician, address,
@@ -100,13 +127,17 @@ router.patch('/:bookingId/cancel', auth, async (req, res) => {
 });
 
 // Settle/pay a booking
-router.patch('/:bookingId/pay', auth, async (req, res) => {
+router.patch('/:bookingId/pay', auth, upload.single('proof'), async (req, res) => {
+  console.log('=== PAY ROUTE HIT ===');
+  console.log('req.file:', req.file);
+  console.log('req.body:', req.body);
   try {
-    const { proofFile } = req.body;
+    const proofFile = req.file ? `/uploads/proofs/${req.file.filename}` : undefined;
+    console.log('computed proofFile:', proofFile);
 
     const booking = await Booking.findOneAndUpdate(
       { bookingId: req.params.bookingId, customer: req.userId },
-      { paymentStatus: 'Paid', proofFile: proofFile || undefined },
+      { paymentStatus: 'Paid', proofFile },
       { new: true }
     ).populate('service');
 
@@ -118,14 +149,13 @@ router.patch('/:bookingId/pay', auth, async (req, res) => {
   }
 });
 
-// Pay remaining balance
-router.patch('/:bookingId/pay-balance', auth, async (req, res) => {
+router.patch('/:bookingId/pay-balance', auth, upload.single('proof'), async (req, res) => {
   try {
-    const { proofFile } = req.body;
+    const balanceProofFile = req.file ? `/uploads/proofs/${req.file.filename}` : undefined;
 
     const booking = await Booking.findOneAndUpdate(
       { bookingId: req.params.bookingId, customer: req.userId },
-      { balancePaid: true, balanceProofFile: proofFile || undefined },
+      { balancePaid: true, balanceProofFile },
       { new: true }
     ).populate('service');
 

@@ -373,8 +373,38 @@ function BookDetails() {
               <div className="summary-row"><span>Payment Mode</span><span>{booking.paymentMode || '—'}</span></div>
               <div className="summary-row">
                 <span>Proof of Payment</span>
-                <span className="cost-link">{booking.proofFile || 'None'}</span>
+                <span className="cost-link">
+                  {booking.proofFile ? (
+                    
+                      <a href={`http://localhost:5000${booking.proofFile}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View File
+                    </a>
+                  ) : (
+                    'None'
+                  )}
+                </span>
               </div>
+              {booking.balancePaid && (
+                <div className="summary-row">
+                  <span>Balance Proof of Payment</span>
+                  <span className="cost-link">
+                    {booking.balanceProofFile ? (
+                      
+                        <a href={`http://localhost:5000${booking.balanceProofFile}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        View File
+                      </a>
+                    ) : (
+                      'None'
+                    )}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 

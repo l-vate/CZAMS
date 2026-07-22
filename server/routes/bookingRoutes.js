@@ -208,4 +208,23 @@ router.patch('/:bookingId/reschedule/deny', auth, async (req, res) => {
   }
 });
 
+router.get('/', auth, async (req, res) => {
+  try {
+
+    if (req.userRole !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const bookings = await Booking.find()
+      .populate('service')
+      .populate('customer', 'name email')
+      .sort({ createdAt: -1 });
+
+    res.json(bookings);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});  
+
 module.exports = router;

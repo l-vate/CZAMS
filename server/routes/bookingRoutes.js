@@ -238,4 +238,18 @@ router.patch('/:bookingId/reschedule/deny', auth, async (req, res) => {
   }
 });
 
+// Handle multer errors (file too large, wrong type) with friendly messages
+router.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ message: 'File is too large. Max size is 5MB.' });
+    }
+    return res.status(400).json({ message: 'File upload error: ' + err.message });
+  }
+  if (err.message === 'Only image or PDF files are allowed') {
+    return res.status(400).json({ message: err.message });
+  }
+  next(err);
+});
+
 module.exports = router;

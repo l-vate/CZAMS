@@ -1,48 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import StaffLayout from './staff_layout';
 import { FiClock, FiFileText, FiX } from 'react-icons/fi';
 
-const initialReports = [
-  {
-    bookingId: 'CZ-2026-7402',
-    service: 'AIRCON REPAIR',
-    dueDate: '07-09-26',
-    status: 'Pending',
-    report: null,
-  },
-  {
-    bookingId: 'CZ-2026-7395',
-    service: 'AIRCON CLEANING',
-    dueDate: '07-07-26',
-    status: 'Completed',
-    report: {
-      workSummary: 'Performed full coil and filter cleaning, flushed drain line.',
-      partsUsed: 'None',
-      recommendations: 'Schedule next cleaning in 3 months.',
-      submittedAt: '07-07-26',
-    },
-  },
-  {
-    bookingId: 'CZ-2026-7381',
-    service: 'PREVENTIVE MAINTENANCE',
-    dueDate: '07-05-26',
-    status: 'Completed',
-    report: {
-      workSummary: 'Checked refrigerant levels, tightened electrical connections.',
-      partsUsed: '1x capacitor',
-      recommendations: 'Unit in good condition, no further action needed.',
-      submittedAt: '07-05-26',
-    },
-  },
-];
+const API_BASE = 'http://localhost:5000';
 
-/* ── Submit Report Modal ───────────────────────────────── */
-function SubmitReportModal({ reportItem, onClose, onSubmit }) {
-  const [form, setForm] = useState({
-    workSummary: '',
-    partsUsed: '',
-    recommendations: '',
-  });
+function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
+  const [form, setForm] = useState({ workSummary: '', partsUsed: '', recommendations: '' });
   const [error, setError] = useState('');
 
   const handleChange = (e) => {
@@ -56,15 +19,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit }) {
       setError('Please provide a summary of the work done.');
       return;
     }
-    // TODO: connect to Express backend
-    onSubmit({
-      ...form,
-      submittedAt: new Date().toLocaleDateString('en-US', {
-        month: '2-digit',
-        day: '2-digit',
-        year: '2-digit',
-      }),
-    });
+    onSubmit(form);
   };
 
   return (
@@ -72,63 +27,45 @@ function SubmitReportModal({ reportItem, onClose, onSubmit }) {
       <div className="modal-card tech-job-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h4 className="modal-title">Submit Report</h4>
-          <button className="modal-close-btn" onClick={onClose}>
-            <FiX />
-          </button>
+          <button className="modal-close-btn" onClick={onClose}><FiX /></button>
         </div>
 
-        <p className="tech-job-detail-booking">
-          {reportItem.service} · {reportItem.bookingId}
-        </p>
+        <p className="tech-job-detail-booking">{reportItem.service} · {reportItem.bookingId}</p>
 
         <form onSubmit={handleSubmit} className="auth-form" style={{ gap: '14px' }}>
           <div className="form-group">
             <label htmlFor="workSummary">Work Summary</label>
             <textarea
-              id="workSummary"
-              name="workSummary"
-              className="bs-textarea"
-              rows={3}
+              id="workSummary" name="workSummary" className="bs-textarea" rows={3}
               placeholder="Describe the work performed..."
-              value={form.workSummary}
-              onChange={handleChange}
+              value={form.workSummary} onChange={handleChange}
             />
           </div>
 
           <div className="form-group">
             <label htmlFor="partsUsed">Parts Used <span className="bs-label-hint">(Optional)</span></label>
             <input
-              type="text"
-              id="partsUsed"
-              name="partsUsed"
-              className="bs-input"
+              type="text" id="partsUsed" name="partsUsed" className="bs-input"
               placeholder="e.g. 1x capacitor, refrigerant top-up"
-              value={form.partsUsed}
-              onChange={handleChange}
+              value={form.partsUsed} onChange={handleChange}
             />
           </div>
 
           <div className="form-group">
             <label htmlFor="recommendations">Recommendations <span className="bs-label-hint">(Optional)</span></label>
             <textarea
-              id="recommendations"
-              name="recommendations"
-              className="bs-textarea"
-              rows={2}
+              id="recommendations" name="recommendations" className="bs-textarea" rows={2}
               placeholder="Any follow-up recommendations for the customer..."
-              value={form.recommendations}
-              onChange={handleChange}
+              value={form.recommendations} onChange={handleChange}
             />
           </div>
 
           {error && <p style={{ color: '#ef4444', fontSize: '13px', margin: 0 }}>{error}</p>}
 
           <div className="cancel-confirm-actions">
-            <button type="button" className="bs-back-btn" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="submit" className="bs-next-btn">
-              Submit Report
+            <button type="button" className="bs-back-btn" onClick={onClose} disabled={submitting}>Cancel</button>
+            <button type="submit" className="bs-next-btn" disabled={submitting}>
+              {submitting ? 'Submitting...' : 'Submit Report'}
             </button>
           </div>
         </form>
@@ -137,23 +74,17 @@ function SubmitReportModal({ reportItem, onClose, onSubmit }) {
   );
 }
 
-/* ── View Report Modal ─────────────────────────────────── */
 function ViewReportModal({ reportItem, onClose }) {
   const { report } = reportItem;
-
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card tech-job-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h4 className="modal-title">Service Report</h4>
-          <button className="modal-close-btn" onClick={onClose}>
-            <FiX />
-          </button>
+          <button className="modal-close-btn" onClick={onClose}><FiX /></button>
         </div>
 
-        <p className="tech-job-detail-booking">
-          {reportItem.service} · {reportItem.bookingId}
-        </p>
+        <p className="tech-job-detail-booking">{reportItem.service} · {reportItem.bookingId}</p>
 
         <div className="tech-job-detail-cell tech-job-detail-full">
           <span className="confirmation-detail-icon"><FiFileText /></span>
@@ -183,7 +114,9 @@ function ViewReportModal({ reportItem, onClose }) {
           <span className="confirmation-detail-icon"><FiClock /></span>
           <div>
             <p className="confirmation-detail-label">Submitted On</p>
-            <p className="confirmation-detail-value">{report.submittedAt}</p>
+            <p className="confirmation-detail-value">
+              {report.submittedAt ? new Date(report.submittedAt).toLocaleDateString() : '—'}
+            </p>
           </div>
         </div>
 
@@ -195,14 +128,42 @@ function ViewReportModal({ reportItem, onClose }) {
   );
 }
 
+function toReportItem(booking) {
+  return {
+    _id: booking._id,
+    bookingId: booking.bookingId,
+    service: booking.service?.name || 'Service',
+    dueDate: booking.date,
+    status: booking.report?.submittedAt ? 'Completed' : 'Pending',
+    report: booking.report?.submittedAt ? booking.report : null,
+  };
+}
+
 function Reports() {
-  const [reports, setReports] = useState(initialReports);
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('Pending');
   const [activeReport, setActiveReport] = useState(null);
-  const [modalMode, setModalMode] = useState(null); // 'submit' | 'view' | null
+  const [modalMode, setModalMode] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const visibleReports =
-    filter === 'All' ? reports : reports.filter((r) => r.status === filter);
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    fetch(`${API_BASE}/api/bookings/technician/mine`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        const completedJobs = Array.isArray(data)
+          ? data.filter((b) => b.status === 'Completed' || b.report?.submittedAt)
+          : [];
+        setReports(completedJobs.map(toReportItem));
+      })
+      .catch((err) => console.error('Failed to load reports', err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const visibleReports = filter === 'All' ? reports : reports.filter((r) => r.status === filter);
 
   const handleOpenReport = (reportItem) => {
     setActiveReport(reportItem);
@@ -214,15 +175,30 @@ function Reports() {
     setModalMode(null);
   };
 
-  const handleSubmitReport = (reportData) => {
-    setReports((prev) =>
-      prev.map((r) =>
-        r.bookingId === activeReport.bookingId
-          ? { ...r, status: 'Completed', report: reportData }
-          : r
-      )
-    );
-    handleClose();
+  const handleSubmitReport = async (form) => {
+    setSubmitting(true);
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_BASE}/api/bookings/${activeReport.bookingId}/report`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to submit report');
+
+      setReports((prev) =>
+        prev.map((r) => (r._id === activeReport._id ? toReportItem(data) : r))
+      );
+      handleClose();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -241,7 +217,9 @@ function Reports() {
       </div>
 
       <div className="tech-job-list">
-        {visibleReports.length === 0 ? (
+        {loading ? (
+          <p className="tech-job-empty">Loading reports...</p>
+        ) : visibleReports.length === 0 ? (
           <p className="tech-job-empty">No reports in this category.</p>
         ) : (
           visibleReports.map((r, i) => (
@@ -249,20 +227,14 @@ function Reports() {
               <div className="tech-job-info">
                 <div className="tech-job-service">
                   {r.service}{' '}
-                  <span
-                    className="tech-job-detail-link"
-                    onClick={() => handleOpenReport(r)}
-                    style={{ cursor: 'pointer' }}
-                  >
+                  <span className="tech-job-detail-link" onClick={() => handleOpenReport(r)} style={{ cursor: 'pointer' }}>
                     · Detail
                   </span>
                 </div>
                 <small className="tech-job-booking">{r.bookingId}</small>
               </div>
 
-              <div className="tech-job-meta">
-                <FiClock /> Complete on {r.dueDate}
-              </div>
+              <div className="tech-job-meta"><FiClock /> Complete on {r.dueDate}</div>
 
               <button
                 className="tech-job-view-link"
@@ -277,11 +249,7 @@ function Reports() {
       </div>
 
       {modalMode === 'submit' && activeReport && (
-        <SubmitReportModal
-          reportItem={activeReport}
-          onClose={handleClose}
-          onSubmit={handleSubmitReport}
-        />
+        <SubmitReportModal reportItem={activeReport} onClose={handleClose} onSubmit={handleSubmitReport} submitting={submitting} />
       )}
 
       {modalMode === 'view' && activeReport && (

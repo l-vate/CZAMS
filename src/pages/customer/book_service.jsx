@@ -46,6 +46,23 @@ function useServices() {
   return { services, loading };
 }
 
+function useTechnicians() {
+  const [technicians, setTechnicians] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('http://localhost:5000/api/auth/technicians')
+      .then((res) => res.json())
+      .then((data) => {
+        setTechnicians(Array.isArray(data) ? data : []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  return { technicians, loading };
+}
+
 const UNIT_TYPES = ['Window Type', 'Split Type', 'Floor Mounted', 'Cassette Type', 'Portable'];
 
 const DOWN_PAYMENT_OPTIONS = [
@@ -56,13 +73,6 @@ const DOWN_PAYMENT_OPTIONS = [
 ];
 const FIRST_PAYMENT_MODES = ['E-Wallet (GCash, Maya...)', 'Bank Transfer'];
 const PAYMENT_MODES = ['Cash', 'E-Wallet (GCash, Maya...)', 'Bank Transfer'];
-
-const TECHNICIANS = [
-  { id: 'tech1', name: 'Juan Dela Cruz' },
-  { id: 'tech2', name: 'Pedro Santos' },
-  { id: 'tech3', name: 'Maria Reyes' },
-];
-const technicianName = (id) => TECHNICIANS.find((t) => t.id === id)?.name || 'No preference';
 
 const TOTAL_STEPS = 5;
 
@@ -193,7 +203,7 @@ function Step2({ form, setForm }) {
 }
 
 /* ── Step 3: Location & Schedule ──────────────────────────── */
-function Step3({ form, setForm }) {
+function Step3({ form, setForm, technicians }) {
   const minDate = (() => {
     const d = new Date();
     d.setDate(d.getDate() + 5);
@@ -246,8 +256,8 @@ function Step3({ form, setForm }) {
           onChange={(e) => setForm({ ...form, technician: e.target.value })}
         >
           <option value="">No preference</option>
-          {TECHNICIANS.map((t) => (
-            <option key={t.id} value={t.id}>{t.name}</option>
+          {technicians.map((t) => (
+            <option key={t._id} value={t._id}>{t.name}</option>
           ))}
         </select>
       </div>
@@ -272,8 +282,7 @@ function Step4({ form, setForm, services }) {
   const { basePrice, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services);
 
   const handleSubmitPayment = ({ proof }) => {
-    // TODO: send proof + senior files to Express backend
-    setForm({ ...form, paymentStatus: 'Paid', proofFile: proof?.name || null });
+    setForm({ ...form, paymentStatus: 'Paid', proofFile: proof?.name || null, proofFileObj: proof || null });
     setShowModal(false);
   };
 
@@ -399,8 +408,9 @@ function Step4({ form, setForm, services }) {
 }
 
 /* ── Step 5: Booking Summary ──────────────────────────────── */
-function Step5({ form, services }) {
+function Step5({ form, services, technicians }) {
   const { selected, basePrice, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services);
+  const techName = technicians.find((t) => t._id === form.technician)?.name || 'No preference';
 
   return (
     <div className="bs-card booking-summary">
@@ -413,7 +423,7 @@ function Step5({ form, services }) {
           <div className="summary-row"><span>Brand &amp; Model</span><span>{form.brandModel || '—'}</span></div>
           <div className="summary-row"><span>Date &amp; Time</span><span>{form.date ? `${form.date}, ${form.time || ''}` : '—'}</span></div>
           <div className="summary-row"><span>Address</span><span>{form.address || '—'}</span></div>
-          <div className="summary-row"><span>Preferred Tech</span><span>{form.technician ? technicianName(form.technician) : 'No preference'}</span></div>
+          <div className="summary-row"><span>Preferred Tech</span><span>{techName}</span></div>
         </div>
         <div>
           <p className="summary-section-title">Payment Details</p>
@@ -438,6 +448,7 @@ function Step5({ form, services }) {
 /* ── Main ─────────────────────────────────────────────────── */
 function BookService() {
   const { services, loading } = useServices();
+  const { technicians } = useTechnicians();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
 
@@ -472,30 +483,43 @@ function BookService() {
 
   const stepLabels = ['Choose Service', 'Unit Details', 'Location & Schedule', 'Payment', 'Booking Summary'];
 
-  const handleConfirmBooking = async () => {
-  try {
-    const token = localStorage.getItem('token');
-    const res = await fetch('http://localhost:5000/api/bookings', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(form),
-    });
+ const handleConfirmBooking = async () => {
+    try {
+      const token = localStorage.getItem('token');
 
-    const data = await res.json();
+      const formData = new FormData();
+      formData.append('service', form.service);
+      (form.unitTypes || []).forEach((u) => formData.append('unitTypes', u));
+      formData.append('brandModel', form.brandModel || '');
+      formData.append('problemDescription', form.problemDescription || '');
+      formData.append('date', form.date);
+      formData.append('time', form.time);
+      formData.append('technician', form.technician || '');
+      formData.append('address', form.address);
+      formData.append('downPaymentPercent', form.downPaymentPercent);
+      formData.append('paymentMode', form.paymentMode || '');
+      formData.append('paymentMode2', form.paymentMode2 || '');
+      formData.append('paymentStatus', form.paymentStatus || 'Unpaid');
+      if (form.proofFileObj) formData.append('proof', form.proofFileObj);
 
-    if (!res.ok) {
-      alert(data.message || 'Failed to create booking');
-      return;
+      const res = await fetch('http://localhost:5000/api/bookings', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }, // no Content-Type for FormData
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.message || 'Failed to create booking');
+        return;
+      }
+
+      navigate(`/customer/book_details/${data.bookingId}`, { state: { booking: data } });
+    } catch (err) {
+      alert('Could not connect to server. Is the backend running?');
     }
-
-    navigate(`/customer/book_details/${data.bookingId}`, { state: { booking: data } });
-  } catch (err) {
-    alert('Could not connect to server. Is the backend running?');
-  }
-};
+  };
 
   return (
     <CustomerLayout title="Book Service">
@@ -509,9 +533,9 @@ function BookService() {
         <>
           {step === 1 && <Step1 form={form} setForm={setForm} services={services} />}
           {step === 2 && <Step2 form={form} setForm={setForm} />}
-          {step === 3 && <Step3 form={form} setForm={setForm} />}
+          {step === 3 && <Step3 form={form} setForm={setForm} technicians={technicians} />}
           {step === 4 && <Step4 form={form} setForm={setForm} services={services} />}
-          {step === 5 && <Step5 form={form} services={services} />}
+          {step === 5 && <Step5 form={form} services={services} technicians={technicians} />}
         </>
       )}
 

@@ -27,6 +27,3 @@ dist-ssr
 .env
 server/.env
 client/.env
-
-# Uploaded files (local only)
-server/uploads/

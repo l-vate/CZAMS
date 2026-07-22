@@ -4,7 +4,7 @@ import CustomerLayout from './customer_layout';
 import { FiUser, FiX, FiCamera } from 'react-icons/fi';
 
 /* ── Change Password Modal ─────────────────────────────── */
-function ChangePasswordModal({ onClose, onSubmit }) {
+function ChangePasswordModal({ onClose, onSubmit, submitting, serverError }) {
   const [form, setForm] = useState({
     currentPassword: '',
     newPassword: '',
@@ -31,7 +31,6 @@ function ChangePasswordModal({ onClose, onSubmit }) {
       setError('New passwords do not match.');
       return;
     }
-    // TODO: connect to Express backend
     onSubmit(form);
   };
 
@@ -82,14 +81,16 @@ function ChangePasswordModal({ onClose, onSubmit }) {
             />
           </div>
 
-          {error && <p style={{ color: '#ef4444', fontSize: '13px', margin: '4px 0' }}>{error}</p>}
+          {(error || serverError) && (
+            <p style={{ color: '#ef4444', fontSize: '13px', margin: '4px 0' }}>{error || serverError}</p>
+          )}
 
           <div className="cancel-confirm-actions">
-            <button type="button" className="bs-back-btn" onClick={onClose}>
+            <button type="button" className="bs-back-btn" onClick={onClose} disabled={submitting}>
               Cancel
             </button>
-            <button type="submit" className="bs-next-btn">
-              Update Password
+            <button type="submit" className="bs-next-btn" disabled={submitting}>
+              {submitting ? 'Updating...' : 'Update Password'}
             </button>
           </div>
         </form>
@@ -99,7 +100,7 @@ function ChangePasswordModal({ onClose, onSubmit }) {
 }
 
 /* ── Delete Account Confirm Dialog ─────────────────────── */
-function DeleteAccountDialog({ onKeep, onConfirmDelete }) {
+function DeleteAccountDialog({ onKeep, onConfirmDelete, deleting }) {
   return (
     <div className="modal-overlay" onClick={onKeep}>
       <div className="modal-card cancel-confirm-card" onClick={(e) => e.stopPropagation()}>
@@ -109,11 +110,11 @@ function DeleteAccountDialog({ onKeep, onConfirmDelete }) {
           personal information will be permanently removed.
         </p>
         <div className="cancel-confirm-actions">
-          <button className="bs-back-btn" onClick={onKeep}>
+          <button className="bs-back-btn" onClick={onKeep} disabled={deleting}>
             Keep account
           </button>
-          <button className="cancel-booking-btn" onClick={onConfirmDelete}>
-            Yes, delete it
+          <button className="cancel-booking-btn" onClick={onConfirmDelete} disabled={deleting}>
+            {deleting ? 'Deleting...' : 'Yes, delete it'}
           </button>
         </div>
       </div>
@@ -154,6 +155,9 @@ const [user, setUser] = useState(loadUserFromStorage);
   const [editForm, setEditForm] = useState(user);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [passwordSubmitting, setPasswordSubmitting] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   const handleEditClick = () => {
     setEditForm(user);
@@ -252,16 +256,62 @@ const [user, setUser] = useState(loadUserFromStorage);
     setIsEditing(false);
   };
 
-  const handlePasswordSubmit = (form) => {
-    // TODO: connect to Express backend
-    console.log('Password change submitted:', form);
-    setShowChangePassword(false);
+  const handlePasswordSubmit = async (form) => {
+    setPasswordSubmitting(true);
+    setPasswordError('');
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/auth/change-password', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          currentPassword: form.currentPassword,
+          newPassword: form.newPassword,
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setPasswordError(data.message || 'Failed to update password');
+        setPasswordSubmitting(false);
+        return;
+      }
+
+      setShowChangePassword(false);
+    } catch (err) {
+      setPasswordError('Could not connect to server.');
+    } finally {
+      setPasswordSubmitting(false);
+    }
   };
 
-  const handleConfirmDelete = () => {
-    // TODO: connect to Express backend to actually delete the account
-    setShowDeleteConfirm(false);
-    navigate('/register');
+  const handleConfirmDelete = async () => {
+    setDeleting(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/auth/account', {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.message || 'Failed to delete account');
+        setDeleting(false);
+        return;
+      }
+
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setShowDeleteConfirm(false);
+      navigate('/register');
+    } catch (err) {
+      alert('Could not connect to server.');
+      setDeleting(false);
+    }
   };
 
   return (
@@ -474,6 +524,8 @@ const [user, setUser] = useState(loadUserFromStorage);
         <ChangePasswordModal
           onClose={() => setShowChangePassword(false)}
           onSubmit={handlePasswordSubmit}
+          submitting={passwordSubmitting}
+          serverError={passwordError}
         />
       )}
 
@@ -481,6 +533,7 @@ const [user, setUser] = useState(loadUserFromStorage);
         <DeleteAccountDialog
           onKeep={() => setShowDeleteConfirm(false)}
           onConfirmDelete={handleConfirmDelete}
+          deleting={deleting}
         />
       )}
     </CustomerLayout>

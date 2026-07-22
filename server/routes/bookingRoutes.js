@@ -1,7 +1,29 @@
+const multer = require('multer')
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const Booking = require('../models/Booking');
+const path = require('path');
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, '../uploads/proofs'));
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const id = req.generatedBookingId || req.params.bookingId || 'unknown';
+    cb(null, `${id}-${Date.now()}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') cb(null, true);
+    else cb(new Error('Only image or PDF files are allowed'));
+  },
+});
 
 function generateBookingId() {
   const year = new Date().getFullYear();
@@ -23,21 +45,26 @@ function isDateAllowed(dateStr) {
 }
 
 // Create a booking
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, (req, res, next) => {
+  req.generatedBookingId = generateBookingId();
+  next();
+}, upload.single('proof'), async (req, res) => {
   try {
     const {
       service, unitTypes, brandModel, problemDescription,
       date, time, technician, address,
       downPaymentPercent, paymentMode, paymentMode2,
-      paymentStatus, proofFile,
+      paymentStatus,
     } = req.body;
 
     if (!isDateAllowed(date)) {
       return res.status(400).json({ message: 'Selected date must be at least 5 days from today.' });
     }
 
+    const proofFile = req.file ? `/uploads/proofs/${req.file.filename}` : undefined;
+
     const booking = await Booking.create({
-      bookingId: generateBookingId(),
+      bookingId: req.generatedBookingId,
       customer: req.userId,
       service, unitTypes, brandModel, problemDescription,
       date, time, technician, address,
@@ -53,12 +80,65 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// Get logged-in user's bookings
+// Get logged-in user's bookings (customer side)
 router.get('/mine', auth, async (req, res) => {
   try {
     const bookings = await Booking.find({ customer: req.userId })
       .populate('service')
+      .populate('technician', 'name')
       .sort({ createdAt: -1 });
+    res.json(bookings);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET jobs assigned to the logged-in technician
+router.get('/technician/mine', auth, async (req, res) => {
+  try {
+    const jobs = await Booking.find({ technician: req.userId })
+      .populate('service')
+      .populate('customer', 'name phone')
+      .sort({ date: -1 });
+    res.json(jobs);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET dashboard stats for the logged-in technician
+router.get('/technician/mine/stats', auth, async (req, res) => {
+  try {
+    const jobs = await Booking.find({ technician: req.userId }).populate('customer', 'name');
+    const ongoing = jobs.filter(j => ['Approved', 'In Progress'].includes(j.status)).length;
+    const completed = jobs.filter(j => j.status === 'Completed').length;
+    const pendingReports = jobs.filter(j => j.status === 'Completed' && !j.report?.submittedAt).length;
+    const feedbacks = jobs
+      .filter(j => j.feedback?.text)
+      .map(j => ({ name: j.customer?.name || 'Customer', text: j.feedback.text, rating: j.feedback.rating }));
+
+    res.json({ ongoing, completed, pendingReports, feedbacks });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: get all bookings
+router.get('/', auth, async (req, res) => {
+  try {
+    if (req.userRole !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const bookings = await Booking.find()
+      .populate('service')
+      .populate('customer', 'name email')
+      .populate('technician', 'name')
+      .sort({ createdAt: -1 });
+
     res.json(bookings);
   } catch (err) {
     console.error(err);
@@ -72,7 +152,7 @@ router.get('/:bookingId', auth, async (req, res) => {
     const booking = await Booking.findOne({
       bookingId: req.params.bookingId,
       customer: req.userId,
-    }).populate('service');
+    }).populate('service').populate('technician', 'name');
 
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
     res.json(booking);
@@ -100,13 +180,13 @@ router.patch('/:bookingId/cancel', auth, async (req, res) => {
 });
 
 // Settle/pay a booking
-router.patch('/:bookingId/pay', auth, async (req, res) => {
+router.patch('/:bookingId/pay', auth, upload.single('proof'), async (req, res) => {
   try {
-    const { proofFile } = req.body;
+    const proofFile = req.file ? `/uploads/proofs/${req.file.filename}` : undefined;
 
     const booking = await Booking.findOneAndUpdate(
       { bookingId: req.params.bookingId, customer: req.userId },
-      { paymentStatus: 'Paid', proofFile: proofFile || undefined },
+      { paymentStatus: 'Paid', proofFile },
       { new: true }
     ).populate('service');
 
@@ -119,13 +199,13 @@ router.patch('/:bookingId/pay', auth, async (req, res) => {
 });
 
 // Pay remaining balance
-router.patch('/:bookingId/pay-balance', auth, async (req, res) => {
+router.patch('/:bookingId/pay-balance', auth, upload.single('proof'), async (req, res) => {
   try {
-    const { proofFile } = req.body;
+    const balanceProofFile = req.file ? `/uploads/proofs/${req.file.filename}` : undefined;
 
     const booking = await Booking.findOneAndUpdate(
       { bookingId: req.params.bookingId, customer: req.userId },
-      { balancePaid: true, balanceProofFile: proofFile || undefined },
+      { balancePaid: true, balanceProofFile },
       { new: true }
     ).populate('service');
 
@@ -208,23 +288,40 @@ router.patch('/:bookingId/reschedule/deny', auth, async (req, res) => {
   }
 });
 
-router.get('/', auth, async (req, res) => {
+// PATCH submit a report (technician marks job complete)
+router.patch('/:bookingId/report', auth, async (req, res) => {
   try {
-
-    if (req.userRole !== 'admin') {
-      return res.status(403).json({ message: 'Forbidden' });
+    const { workSummary, partsUsed, recommendations } = req.body;
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId });
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    if (booking.technician !== req.userId) {
+      return res.status(403).json({ message: 'Not your booking' });
     }
 
-    const bookings = await Booking.find()
-      .populate('service')
-      .populate('customer', 'name email')
-      .sort({ createdAt: -1 });
+    booking.report = { workSummary, partsUsed, recommendations, submittedAt: new Date() };
+    booking.status = 'Completed';
+    await booking.save();
 
-    res.json(bookings);
+    const populated = await booking.populate('service');
+    res.json(populated);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
   }
-});  
+});
+
+// Handle multer errors (file too large, wrong type) with friendly messages
+router.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ message: 'File is too large. Max size is 5MB.' });
+    }
+    return res.status(400).json({ message: 'File upload error: ' + err.message });
+  }
+  if (err.message === 'Only image or PDF files are allowed') {
+    return res.status(400).json({ message: err.message });
+  }
+  next(err);
+});
 
 module.exports = router;

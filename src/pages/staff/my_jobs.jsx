@@ -1,58 +1,17 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import StaffLayout from './staff_layout';
 import {
-  FiChevronDown,
-  FiSearch,
-  FiClock,
-  FiMapPin,
-  FiX,
-  FiInfo,
-  FiUser,
-  FiPhone,
+  FiChevronDown, FiSearch, FiClock, FiMapPin, FiX, FiInfo, FiUser, FiPhone,
 } from 'react-icons/fi';
 
-const jobs = [
-  {
-    date: '07-08-26',
-    status: 'In Progress',
-    bookingId: 'CZ-2026-7402',
-    service: 'AIRCON REPAIR',
-    address: 'Tagum City',
-    time: '9:00 AM – 11:00 AM',
-    customerName: 'Pedro Santos',
-    contactNumber: '09998887777',
-    unitType: 'Split Type',
-    problemDescription: 'Unit not cooling, makes rattling noise.',
-  },
-  {
-    date: '07-06-26',
-    status: 'Completed',
-    bookingId: 'CZ-2026-7395',
-    service: 'AIRCON CLEANING',
-    address: 'San Fernando, Pampanga',
-    time: '1:00 PM – 2:30 PM',
-    customerName: 'Juan Dela Cruz',
-    contactNumber: '09123456789',
-    unitType: 'Window Type',
-    problemDescription: 'Routine deep cleaning requested.',
-  },
-  {
-    date: '07-04-26',
-    status: 'Completed',
-    bookingId: 'CZ-2026-7381',
-    service: 'PREVENTIVE MAINTENANCE',
-    address: 'Panabo City',
-    time: '10:00 AM – 11:00 AM',
-    customerName: 'Maria Reyes',
-    contactNumber: '09171234567',
-    unitType: 'Cassette Type',
-    problemDescription: 'Scheduled quarterly check-up.',
-  },
-];
+const API_BASE = 'http://localhost:5000';
 
 const statusClass = {
+  'Pending': 'tech-status-pending',
+  'Approved': 'tech-status-confirmed',
   'In Progress': 'tech-status-in-progress',
-  Completed: 'tech-status-completed',
+  'Completed': 'tech-status-completed',
+  'Cancelled': 'tech-status-cancelled',
 };
 
 const SORT_OPTIONS = [
@@ -60,29 +19,28 @@ const SORT_OPTIONS = [
   { value: 'oldest', label: 'Oldest first' },
 ];
 
-/* ── Helper: parse mm-dd-yy into a real Date for sorting ── */
 function parseJobDate(dateStr) {
-  const [mm, dd, yy] = dateStr.split('-').map(Number);
-  return new Date(2000 + yy, mm - 1, dd);
+  if (!dateStr) return new Date(0);
+  // handles "07-08-26" (mm-dd-yy) or an ISO date string
+  if (dateStr.includes('-') && dateStr.length <= 8) {
+    const [mm, dd, yy] = dateStr.split('-').map(Number);
+    return new Date(2000 + yy, mm - 1, dd);
+  }
+  return new Date(dateStr);
 }
 
-/* ── Job Details Modal ─────────────────────────────────── */
 function JobDetailsModal({ job, onClose }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card tech-job-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h4 className="modal-title">Job Details</h4>
-          <button className="modal-close-btn" onClick={onClose}>
-            <FiX />
-          </button>
+          <button className="modal-close-btn" onClick={onClose}><FiX /></button>
         </div>
 
         <div className="tech-job-detail-top">
           <span className="tech-job-detail-service">{job.service}</span>
-          <span className={`tech-job-status-badge ${statusClass[job.status]}`}>
-            {job.status}
-          </span>
+          <span className={`tech-job-status-badge ${statusClass[job.status] || ''}`}>{job.status}</span>
         </div>
         <p className="tech-job-detail-booking">Booking ID: {job.bookingId}</p>
 
@@ -115,7 +73,7 @@ function JobDetailsModal({ job, onClose }) {
             <span className="confirmation-detail-icon"><FiPhone /></span>
             <div>
               <p className="confirmation-detail-label">Contact Number</p>
-              <p className="confirmation-detail-value">{job.contactNumber}</p>
+              <p className="confirmation-detail-value">{job.contactNumber || '—'}</p>
             </div>
           </div>
 
@@ -123,7 +81,7 @@ function JobDetailsModal({ job, onClose }) {
             <span className="confirmation-detail-icon"><FiInfo /></span>
             <div>
               <p className="confirmation-detail-label">Unit Type</p>
-              <p className="confirmation-detail-value">{job.unitType}</p>
+              <p className="confirmation-detail-value">{job.unitType || '—'}</p>
             </div>
           </div>
         </div>
@@ -132,7 +90,7 @@ function JobDetailsModal({ job, onClose }) {
           <span className="confirmation-detail-icon"><FiInfo /></span>
           <div>
             <p className="confirmation-detail-label">Problem Description</p>
-            <p className="confirmation-detail-value">{job.problemDescription}</p>
+            <p className="confirmation-detail-value">{job.problemDescription || '—'}</p>
           </div>
         </div>
 
@@ -144,31 +102,52 @@ function JobDetailsModal({ job, onClose }) {
   );
 }
 
+function toViewJob(booking) {
+  return {
+    date: booking.date,
+    status: booking.status,
+    bookingId: booking.bookingId,
+    service: booking.service?.name || 'Service',
+    address: booking.address,
+    time: booking.time,
+    customerName: booking.customer?.name || 'Customer',
+    contactNumber: booking.customer?.phone || '',
+    unitType: booking.unitTypes?.join(', '),
+    problemDescription: booking.problemDescription,
+  };
+}
+
 function MyJobs() {
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selectedJob, setSelectedJob] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('newest');
   const [showSortMenu, setShowSortMenu] = useState(false);
   const sortWrapperRef = useRef(null);
 
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    fetch(`${API_BASE}/api/bookings/technician/mine`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => setJobs(Array.isArray(data) ? data.map(toViewJob) : []))
+      .catch((err) => console.error('Failed to load jobs', err))
+      .finally(() => setLoading(false));
+  }, []);
+
   const handleViewDetails = (job) => setSelectedJob(job);
   const handleCloseDetails = () => setSelectedJob(null);
+  const handleSelectSort = (value) => { setSortBy(value); setShowSortMenu(false); };
 
-  const handleSelectSort = (value) => {
-    setSortBy(value);
-    setShowSortMenu(false);
-  };
-
-  // Close the sort dropdown when clicking anywhere outside of it.
   useEffect(() => {
     if (!showSortMenu) return;
-
     const handleClickOutside = (event) => {
       if (sortWrapperRef.current && !sortWrapperRef.current.contains(event.target)) {
         setShowSortMenu(false);
       }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showSortMenu]);
@@ -177,44 +156,31 @@ function MyJobs() {
 
   const visibleJobs = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-
     const filtered = term
       ? jobs.filter(
           (job) =>
-            job.service.toLowerCase().includes(term) ||
-            job.bookingId.toLowerCase().includes(term) ||
-            job.address.toLowerCase().includes(term) ||
-            job.customerName.toLowerCase().includes(term) ||
-            job.status.toLowerCase().includes(term)
+            job.service?.toLowerCase().includes(term) ||
+            job.bookingId?.toLowerCase().includes(term) ||
+            job.address?.toLowerCase().includes(term) ||
+            job.customerName?.toLowerCase().includes(term) ||
+            job.status?.toLowerCase().includes(term)
         )
       : jobs;
 
-    const sorted = [...filtered].sort((a, b) => {
+    return [...filtered].sort((a, b) => {
       const diff = parseJobDate(a.date).getTime() - parseJobDate(b.date).getTime();
       return sortBy === 'newest' ? -diff : diff;
     });
-
-    return sorted;
-  }, [searchTerm, sortBy]);
+  }, [jobs, searchTerm, sortBy]);
 
   return (
     <StaffLayout title="My Jobs">
       <div className="tech-jobs-toolbar">
         <div className="tech-sort-wrapper" ref={sortWrapperRef}>
-          <button
-            className="tech-sort-btn"
-            type="button"
-            onClick={() => setShowSortMenu((prev) => !prev)}
-          >
+          <button className="tech-sort-btn" type="button" onClick={() => setShowSortMenu((prev) => !prev)}>
             {currentSortLabel}
-            <FiChevronDown
-              style={{
-                transition: 'transform 0.15s ease',
-                transform: showSortMenu ? 'rotate(180deg)' : 'rotate(0deg)',
-              }}
-            />
+            <FiChevronDown style={{ transition: 'transform 0.15s ease', transform: showSortMenu ? 'rotate(180deg)' : 'rotate(0deg)' }} />
           </button>
-
           {showSortMenu && (
             <div className="tech-sort-menu">
               {SORT_OPTIONS.map((opt) => (
@@ -244,7 +210,9 @@ function MyJobs() {
       </div>
 
       <div className="tech-job-list">
-        {visibleJobs.length === 0 ? (
+        {loading ? (
+          <p className="tech-job-empty">Loading jobs...</p>
+        ) : visibleJobs.length === 0 ? (
           <p className="tech-job-empty">No jobs match your search.</p>
         ) : (
           visibleJobs.map((job) => (
@@ -252,31 +220,19 @@ function MyJobs() {
               <div className="tech-job-info">
                 <div className="tech-job-top-row">
                   <small className="tech-job-date-label">{job.date}</small>
-                  <span className={`tech-job-status-badge ${statusClass[job.status]}`}>
-                    {job.status}
-                  </span>
+                  <span className={`tech-job-status-badge ${statusClass[job.status] || ''}`}>{job.status}</span>
                 </div>
-
                 <div className="tech-job-service">
                   {job.service}{' '}
-                  <span
-                    className="tech-job-detail-link"
-                    onClick={() => handleViewDetails(job)}
-                    style={{ cursor: 'pointer' }}
-                  >
+                  <span className="tech-job-detail-link" onClick={() => handleViewDetails(job)} style={{ cursor: 'pointer' }}>
                     · Detail
                   </span>
                 </div>
                 <small className="tech-job-booking">{job.bookingId}</small>
               </div>
 
-              <div className="tech-job-meta">
-                <FiClock /> {job.time}
-              </div>
-
-              <div className="tech-job-meta">
-                <FiMapPin /> {job.address}
-              </div>
+              <div className="tech-job-meta"><FiClock /> {job.time}</div>
+              <div className="tech-job-meta"><FiMapPin /> {job.address}</div>
 
               <button
                 className="tech-job-view-link"
@@ -290,9 +246,7 @@ function MyJobs() {
         )}
       </div>
 
-      {selectedJob && (
-        <JobDetailsModal job={selectedJob} onClose={handleCloseDetails} />
-      )}
+      {selectedJob && <JobDetailsModal job={selectedJob} onClose={handleCloseDetails} />}
     </StaffLayout>
   );
 }

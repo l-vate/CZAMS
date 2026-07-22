@@ -12,7 +12,31 @@ function PaymentModal({ form, paymentType = 'downpayment', onClose, onSubmit }) 
 
   const [proof, setProof] = useState(null);
   const [senior, setSenior] = useState(null);
+  const [fileError, setFileError] = useState('');
 
+  const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+
+  const handleProofChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) {
+      setProof(null);
+      setFileError('');
+      return;
+    }
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      setFileError('Only images (JPG, PNG) or PDF files are allowed.');
+      setProof(null);
+      return;
+    }
+    if (file.size > MAX_SIZE) {
+      setFileError('File is too large. Max size is 5MB.');
+      setProof(null);
+      return;
+    }
+    setFileError('');
+    setProof(file);
+  };
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
@@ -56,10 +80,15 @@ function PaymentModal({ form, paymentType = 'downpayment', onClose, onSubmit }) 
               type="file"
               accept="image/*,.pdf"
               style={{ display: 'none' }}
-              onChange={(e) => setProof(e.target.files[0] || null)}
+              onChange={handleProofChange}
             />
           </label>
-          {!proof && (
+          {fileError && (
+            <p style={{ fontSize: '11px', color: '#e05a5a', marginTop: '2px' }}>
+              {fileError}
+            </p>
+          )}
+          {!proof && !fileError && (
             <p style={{ fontSize: '11px', color: '#e05a5a', marginTop: '2px' }}>
               Proof of payment is required to submit.
             </p>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import StaffLayout from './staff_layout';
 import {
   FiUser,
@@ -14,34 +14,6 @@ import {
 
 const API_BASE = 'http://localhost:5000';
 
-const scheduledJobs = [
-  {
-    date: '07-09-26',
-    time: '9:00 AM – 11:00 AM',
-    bookingId: 'CZ-2026-7402',
-    service: 'AIRCON REPAIR',
-    address: 'Tagum City',
-    customerName: 'Pedro Santos',
-  },
-  {
-    date: '07-11-26',
-    time: '1:00 PM – 2:30 PM',
-    bookingId: 'CZ-2026-7410',
-    service: 'AIRCON CLEANING',
-    address: 'Dasmariñas, Cavite',
-    customerName: 'Ana Lopez',
-  },
-  {
-    date: '07-13-26',
-    time: '10:00 AM – 11:00 AM',
-    bookingId: 'CZ-2026-7415',
-    service: 'NEW INSTALLATION',
-    address: 'Bacoor City',
-    customerName: 'Mark Villanueva',
-  },
-];
-
-/* ── helper: build a profile object from the stored user ── */
 function buildProfileFromUser(user) {
   return {
     name: user?.name || 'Technician',
@@ -52,7 +24,6 @@ function buildProfileFromUser(user) {
   };
 }
 
-/* ── Scheduled Job Details Modal ───────────────────────── */
 function ScheduledJobModal({ job, onClose }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -105,15 +76,42 @@ function ScheduledJobModal({ job, onClose }) {
 function Profile() {
   const [selectedJob, setSelectedJob] = useState(null);
 
-  // pull the logged-in user from localStorage instead of hardcoding
   const storedUser = JSON.parse(localStorage.getItem('user'));
 
   const [profile, setProfile] = useState(buildProfileFromUser(storedUser));
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState(profile);
-  const [photoFile, setPhotoFile] = useState(null); // actual File for upload
+  const [photoFile, setPhotoFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+
+  const [scheduledJobs, setScheduledJobs] = useState([]);
+  const [jobsLoading, setJobsLoading] = useState(true);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    fetch(`${API_BASE}/api/bookings/technician/mine`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        const upcoming = Array.isArray(data)
+          ? data
+              .filter((b) => ['Pending', 'Approved', 'In Progress'].includes(b.status))
+              .map((b) => ({
+                date: b.date,
+                time: b.time,
+                bookingId: b.bookingId,
+                service: b.service?.name || 'Service',
+                address: b.address,
+                customerName: b.customer?.name || 'Customer',
+              }))
+          : [];
+        setScheduledJobs(upcoming);
+      })
+      .catch((err) => console.error('Failed to load scheduled jobs', err))
+      .finally(() => setJobsLoading(false));
+  }, []);
 
   const handleEditClick = () => {
     setEditForm(profile);
@@ -145,7 +143,6 @@ function Profile() {
     try {
       let latestUser = JSON.parse(localStorage.getItem('user'));
 
-      // 1) upload new photo first, if one was picked
       if (photoFile) {
         const formData = new FormData();
         formData.append('photo', photoFile);
@@ -160,7 +157,6 @@ function Profile() {
         latestUser = photoData.user;
       }
 
-      // 2) save name/email/phone
       const [firstName, ...rest] = editForm.name.trim().split(' ');
       const lastName = rest.join(' ');
 
@@ -350,40 +346,46 @@ function Profile() {
 
       <h2 className="section-title">Scheduled Jobs</h2>
       <div className="tech-job-list">
-        {scheduledJobs.map((job, i) => (
-          <div className="tech-job-card tech-scheduled-card" key={i}>
-            <div className="tech-job-info">
-              <small className="tech-job-date-label">{job.date}</small>
-              <div className="tech-job-service">
-                {job.service}{' '}
-                <span
-                  className="tech-job-detail-link"
-                  onClick={() => setSelectedJob(job)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  · Detail
-                </span>
+        {jobsLoading ? (
+          <p className="tech-job-empty">Loading...</p>
+        ) : scheduledJobs.length === 0 ? (
+          <p className="tech-job-empty">No upcoming jobs.</p>
+        ) : (
+          scheduledJobs.map((job, i) => (
+            <div className="tech-job-card tech-scheduled-card" key={i}>
+              <div className="tech-job-info">
+                <small className="tech-job-date-label">{job.date}</small>
+                <div className="tech-job-service">
+                  {job.service}{' '}
+                  <span
+                    className="tech-job-detail-link"
+                    onClick={() => setSelectedJob(job)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    · Detail
+                  </span>
+                </div>
+                <small className="tech-job-booking">{job.bookingId}</small>
               </div>
-              <small className="tech-job-booking">{job.bookingId}</small>
-            </div>
 
-            <div className="tech-job-meta">
-              <FiClock /> {job.time}
-            </div>
+              <div className="tech-job-meta">
+                <FiClock /> {job.time}
+              </div>
 
-            <div className="tech-job-meta">
-              <FiMapPin /> {job.address}
-            </div>
+              <div className="tech-job-meta">
+                <FiMapPin /> {job.address}
+              </div>
 
-            <button
-              className="tech-job-view-link"
-              onClick={() => setSelectedJob(job)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-            >
-              <FiClock /> View Details
-            </button>
-          </div>
-        ))}
+              <button
+                className="tech-job-view-link"
+                onClick={() => setSelectedJob(job)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                <FiClock /> View Details
+              </button>
+            </div>
+          ))
+        )}
       </div>
 
       {selectedJob && (

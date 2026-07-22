@@ -45,6 +45,9 @@ function Billings() {
             address: b.address,
             contactNumber: storedUser.phone || '—',
             paymentMode: b.paymentMode,
+            paymentMode2: b.paymentMode2,
+            proofFile: b.proofFile,
+            balanceProofFile: b.balanceProofFile,
             paymentStatus: b.paymentStatus,
             downPaymentPercent: dpPercent,
             balancePaid: b.balancePaid,
@@ -111,13 +114,13 @@ function Billings() {
   const handlePaymentSubmit = async ({ proof }) => {
     try {
       const token = localStorage.getItem('token');
+      const formData = new FormData();
+      if (proof) formData.append('proof', proof);
+
       const res = await fetch(`http://localhost:5000/api/bookings/${selectedBill.id}/pay`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ proofFile: proof?.name || null }),
+        headers: { Authorization: `Bearer ${token}` }, // no Content-Type — browser sets it for FormData
+        body: formData,
       });
 
       if (!res.ok) {
@@ -136,13 +139,13 @@ function Billings() {
   const handleBalancePaymentSubmit = async ({ proof }) => {
     try {
       const token = localStorage.getItem('token');
+      const formData = new FormData();
+      if (proof) formData.append('proof', proof);
+
       const res = await fetch(`http://localhost:5000/api/bookings/${selectedBill.id}/pay-balance`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ proofFile: proof?.name || null }),
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
       });
 
       if (!res.ok) {

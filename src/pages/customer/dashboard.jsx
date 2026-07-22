@@ -139,9 +139,10 @@ function Dashboard() {
         <div className="info-card-header">
           <h4>Recent activity</h4>
         </div>
+
         <div className="info-card-body">
           {recentActivity.length > 0 ? (
-            <ul className="recent-activity-list" style={{ maxHeight: '320px', overflowY: 'auto' }}>
+            <ul className="recent-activity-list" style={{ maxHeight: '340px', overflowY: 'auto' }}>
               {recentActivity.map((b) => (
                 <li key={b.bookingId} className="recent-activity-item">
                   <span className="recent-activity-icon">

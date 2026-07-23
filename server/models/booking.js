@@ -41,17 +41,45 @@ const bookingSchema = new mongoose.Schema({
         requestedTime: String,
         status: { type: String, enum: ['None', 'Pending', 'Approved', 'Denied'], default: 'None' },
     },
+    
+    // Reference to report (separate collection)
+    reportId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Report',
+        default: null
+    },
+    reportSubmitted: {
+        type: Boolean,
+        default: false
+    },
+    
+    // Deprecated: Keeping for backward compatibility, but will be moved to reports collection
     report: {
         workSummary: String,
         partsUsed: String,
         recommendations: String,
         submittedAt: Date,
+        laborHours: Number,
+        issueResolution: String,
+        followUpRequired: Boolean,
+        followUpDate: Date,
+        notes: String,
+        submittedBy: String,
     },
+    
     feedback: {
         text: String,
         rating: Number,
         createdAt: Date,
     },
+    
+    completedAt: Date,
 }, { timestamps: true });
+
+// Add index for efficient queries
+// REMOVED: bookingSchema.index({ bookingId: 1 }); // <-- This is the duplicate!
+// Keep only these additional indexes
+bookingSchema.index({ technician: 1, status: 1 });
+bookingSchema.index({ customer: 1 });
 
 module.exports = mongoose.model('Booking', bookingSchema);

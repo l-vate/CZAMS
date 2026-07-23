@@ -44,7 +44,9 @@ function isDateAllowed(dateStr) {
   return selected >= minDate;
 }
 
-// Create a booking
+// Create a booking (initial submission with proof).
+// paymentStatus is derived server-side from whether proof was attached —
+// never trust a client-supplied paymentStatus for a brand-new booking.
 router.post('/', auth, (req, res, next) => {
   req.generatedBookingId = generateBookingId();
   next();
@@ -54,7 +56,6 @@ router.post('/', auth, (req, res, next) => {
       service, unitTypes, brandModel, problemDescription,
       date, time, technician, address,
       downPaymentPercent, paymentMode, paymentMode2,
-      paymentStatus,
     } = req.body;
 
     if (!isDateAllowed(date)) {
@@ -62,6 +63,7 @@ router.post('/', auth, (req, res, next) => {
     }
 
     const proofFile = req.file ? `/uploads/proofs/${req.file.filename}` : undefined;
+    const paymentStatus = proofFile ? 'to_verify' : 'Unpaid';
 
     const booking = await Booking.create({
       bookingId: req.generatedBookingId,
@@ -126,20 +128,22 @@ router.get('/technician/mine/stats', auth, async (req, res) => {
   }
 });
 
-// Admin: get all bookings
-router.get('/', auth, async (req, res) => {
+// GET busy technicians for a specific date (Placed above catch-all /:bookingId)
+router.get('/busy-technicians', auth, async (req, res) => {
   try {
-    if (req.userRole !== 'admin') {
-      return res.status(403).json({ message: 'Forbidden' });
-    }
+    const { date } = req.query;
+    if (!date) return res.status(400).json({ message: 'Date is required' });
 
-    const bookings = await Booking.find()
-      .populate('service')
-      .populate('customer', 'name email')
-      .populate('technician', 'name')
-      .sort({ createdAt: -1 });
+    const busyBookings = await Booking.find({
+      date,
+      status: { $in: ['Pending', 'Approved', 'In Progress'] }
+    });
 
-    res.json(bookings);
+    const busyTechIds = busyBookings
+        .map(b => b.technician?.toString())
+        .filter(Boolean);
+
+    res.json({ busyTechIds });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -156,6 +160,26 @@ router.get('/:bookingId', auth, async (req, res) => {
 
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
     res.json(booking);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: list all bookings
+router.get('/', auth, async (req, res) => {
+  try {
+    if (req.userRole !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const bookings = await Booking.find()
+      .populate('service')
+      .populate('customer', 'name email')
+      .populate('technician', 'name')
+      .sort({ createdAt: -1 });
+
+    res.json(bookings);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -179,14 +203,17 @@ router.patch('/:bookingId/cancel', auth, async (req, res) => {
   }
 });
 
-// Settle/pay a booking
+// Customer: Submit/upload initial down payment proof (handles resubmission after rejection)
 router.patch('/:bookingId/pay', auth, upload.single('proof'), async (req, res) => {
   try {
     const proofFile = req.file ? `/uploads/proofs/${req.file.filename}` : undefined;
 
+    const updateData = { paymentStatus: 'to_verify' };
+    if (proofFile) updateData.proofFile = proofFile;
+
     const booking = await Booking.findOneAndUpdate(
       { bookingId: req.params.bookingId, customer: req.userId },
-      { paymentStatus: 'Paid', proofFile },
+      updateData,
       { new: true }
     ).populate('service');
 
@@ -198,14 +225,17 @@ router.patch('/:bookingId/pay', auth, upload.single('proof'), async (req, res) =
   }
 });
 
-// Pay remaining balance
+// Customer: Submit/upload final balance payment proof (handles resubmission after rejection)
 router.patch('/:bookingId/pay-balance', auth, upload.single('proof'), async (req, res) => {
   try {
-    const balanceProofFile = req.file ? `/uploads/proofs/${req.file.filename}` : undefined;
+    const proofFile = req.file ? `/uploads/proofs/${req.file.filename}` : undefined;
+
+    const updateData = { balancePaymentStatus: 'to_verify' };
+    if (proofFile) updateData.balanceProofFile = proofFile;
 
     const booking = await Booking.findOneAndUpdate(
       { bookingId: req.params.bookingId, customer: req.userId },
-      { balancePaid: true, balanceProofFile },
+      updateData,
       { new: true }
     ).populate('service');
 
@@ -230,12 +260,10 @@ router.patch('/:bookingId/reschedule', auth, async (req, res) => {
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
     if (booking.status === 'Pending') {
-      // No approval needed yet — apply immediately
       booking.date = date;
       booking.time = time;
       booking.rescheduleRequest = { requestedDate: null, requestedTime: null, status: 'None' };
     } else if (['Approved', 'In Progress'].includes(booking.status)) {
-      // Needs admin approval
       booking.rescheduleRequest = { requestedDate: date, requestedTime: time, status: 'Pending' };
     } else {
       return res.status(400).json({ message: 'This booking can no longer be rescheduled.' });
@@ -303,6 +331,79 @@ router.patch('/:bookingId/report', auth, async (req, res) => {
     await booking.save();
 
     const populated = await booking.populate('service');
+    res.json(populated);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: assign a technician and/or review payment verification (down payment and/or balance).
+// Rejecting either track clears that track's proof file so the customer must resubmit —
+// the two tracks (paymentStatus / balancePaymentStatus) are updated independently and
+// never overwrite each other.
+router.patch('/:bookingId/admin-update', auth, async (req, res) => {
+  try {
+    if (req.userRole !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const { technician, status, paymentStatus, balancePaymentStatus, balancePaid } = req.body;
+    const allowedStatuses = ['Pending', 'Approved', 'In Progress', 'Completed', 'Cancelled'];
+
+    if (status && !allowedStatuses.includes(status)) {
+      return res.status(400).json({ message: 'Invalid status' });
+    }
+
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId });
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    if (booking.status === 'Cancelled') {
+      return res.status(400).json({ message: 'This booking is cancelled and can no longer be edited.' });
+    }
+
+    if (technician !== undefined) {
+      booking.technician = technician || undefined;
+    }
+
+    if (status === 'Approved' && !booking.technician) {
+      return res.status(400).json({ message: 'Assign a technician before approving.' });
+    }
+
+    if (status) booking.status = status;
+
+    // ── Down payment track ──
+    if (paymentStatus === 'rejected') {
+      booking.paymentStatus = 'rejected';
+      booking.proofFile = undefined; // Clears the proof file upon rejection so it can't be re-approved as-is
+    } else if (paymentStatus) {
+      booking.paymentStatus = paymentStatus;
+    }
+
+    // ── Balance payment track (independent of the down payment track above) ──
+    if (balancePaymentStatus === 'rejected') {
+      booking.balancePaymentStatus = 'rejected';
+      booking.balanceProofFile = undefined; // Clears the balance proof file upon rejection
+    } else if (balancePaymentStatus) {
+      booking.balancePaymentStatus = balancePaymentStatus;
+    }
+
+    if (balancePaid !== undefined) {
+      booking.balancePaid = balancePaid;
+      if (balancePaid) {
+        booking.balancePaymentStatus = 'paid';
+        // The balance being settled means the booking as a whole is fully paid —
+        // this is the single source of truth other views should check first.
+        booking.paymentStatus = 'fully_paid';
+      }
+    }
+
+    await booking.save();
+
+    const populated = await booking.populate([
+      { path: 'service' },
+      { path: 'customer', select: 'name email' },
+      { path: 'technician', select: 'name' },
+    ]);
     res.json(populated);
   } catch (err) {
     console.error(err);

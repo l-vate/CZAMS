@@ -16,7 +16,7 @@ function Billings() {
 
   const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
 
-  const filters = ['All', 'Paid', 'Partially Paid', 'Unpaid'];
+  const filters = ['All', 'To Verify', 'Partially Paid', 'Fully Paid', 'Unpaid'];
 
   const fetchBookings = () => {
     const token = localStorage.getItem('token');
@@ -26,12 +26,38 @@ function Billings() {
       .then((res) => res.json())
       .then((data) => {
         const mapped = (Array.isArray(data) ? data : []).map((b) => {
-          const isFullyPaid = b.paymentStatus === 'Paid' && (b.downPaymentPercent === 100 || b.balancePaid);
-          const isPartiallyPaid = b.paymentStatus === 'Paid' && b.downPaymentPercent < 100 && !b.balancePaid;
+
+          const isPartiallyPaid = b.paymentStatus === 'partially_paid';
+          const isToVerify = b.paymentStatus === 'to_verify';
+          const isRejected = b.paymentStatus === 'rejected' || b.paymentStatus === 'Rejected';
+
+          // Balance-track status is tracked independently of the down-payment paymentStatus above.
+          const isBalanceToVerify = b.balancePaymentStatus === 'to_verify';
+          const isBalanceRejected = b.balancePaymentStatus === 'rejected';
+          const isBalancePaid = b.balancePaymentStatus === 'paid' || b.balancePaid;
+
+          // A booking is fully paid once paymentStatus says so directly, OR once the down
+          // payment was accepted and the balance has separately been settled — this second
+          // check is a safety net for records saved before paymentStatus was also bumped
+          // to 'fully_paid' on balance approval.
+          const isFullyPaid = b.paymentStatus === 'fully_paid' || b.paymentStatus === 'Paid' || (isPartiallyPaid && isBalancePaid);
 
           let status = 'Unpaid';
           if (isFullyPaid) status = 'Fully Paid';
-          else if (isPartiallyPaid) status = `${b.downPaymentPercent}% Paid`;
+          else if (isPartiallyPaid) status = 'Partially Paid';
+          else if (isToVerify) status = 'To Verify';
+          else if (isRejected) status = 'Rejected';
+
+          // A small secondary note describing where the balance payment stands,
+          // shown alongside the main status once the down payment has been accepted.
+          let balanceNote = null;
+          if (isBalanceRejected) {
+            balanceNote = { text: 'Balance Rejected — please resubmit', color: '#ef4444' };
+          } else if (isBalanceToVerify) {
+            balanceNote = { text: 'Balance: To Verify', color: '#1b9ce5' };
+          }
+
+          const paid = isFullyPaid || isPartiallyPaid || isToVerify;
 
           const basePrice = b.service?.price || 0;
           const dpPercent = b.downPaymentPercent ?? 10;
@@ -49,12 +75,19 @@ function Billings() {
             proofFile: b.proofFile,
             balanceProofFile: b.balanceProofFile,
             paymentStatus: b.paymentStatus,
+            balancePaymentStatus: b.balancePaymentStatus,
             downPaymentPercent: dpPercent,
             balancePaid: b.balancePaid,
             createdAt: b.createdAt,
-            paid: b.paymentStatus === 'Paid',
+            paid,
             isFullyPaid,
             isPartiallyPaid,
+            isToVerify,
+            isRejected,
+            isBalanceToVerify,
+            isBalanceRejected,
+            isBalancePaid,
+            balanceNote,
             status,
             date: new Date(b.createdAt).toLocaleDateString('en-US'),
             basePrice,
@@ -76,9 +109,10 @@ function Billings() {
   const filteredBills = bills
     .filter((bill) => {
       if (activeFilter === 'All') return true;
-      if (activeFilter === 'Paid') return bill.isFullyPaid;
+      if (activeFilter === 'To Verify') return bill.isToVerify || bill.isBalanceToVerify;
+      if (activeFilter === 'Fully Paid') return bill.isFullyPaid;
       if (activeFilter === 'Partially Paid') return bill.isPartiallyPaid;
-      if (activeFilter === 'Unpaid') return !bill.paid;
+      if (activeFilter === 'Unpaid') return bill.paymentStatus === 'Unpaid' || bill.isRejected;
       return true;
     })
     .filter((bill) => {
@@ -92,7 +126,7 @@ function Billings() {
       );
     });
 
-    const BILL_STATUS_ORDER = { unpaid: 0, partial: 1, paid: 2 };
+  const BILL_STATUS_ORDER = { unpaid: 0, partial: 1, paid: 2 };
   const sortedBills = [...filteredBills].sort((a, b) => {
     const rankOf = (bill) => {
       if (bill.isFullyPaid) return BILL_STATUS_ORDER.paid;
@@ -108,6 +142,7 @@ function Billings() {
   const getStatusColor = (bill) => {
     if (bill.isFullyPaid) return '#22c55e';
     if (bill.isPartiallyPaid) return '#f59e0b';
+    if (bill.isToVerify) return '#1b9ce5';
     return '#ef4444';
   };
 
@@ -208,16 +243,26 @@ function Billings() {
               }}
             >
               <div>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap' }}>
                   <small style={{ color: '#888' }}>{bill.date}</small>
                   <span style={{ background: getStatusColor(bill), color: '#fff', padding: '2px 8px', borderRadius: '999px', fontSize: '11px' }}>
                     {bill.status}
                   </span>
+                  {bill.balanceNote && (
+                    <span style={{ color: bill.balanceNote.color, fontSize: '11px', fontWeight: 600 }}>
+                      {bill.balanceNote.text}
+                    </span>
+                  )}
                 </div>
 
                 <h3 style={{ margin: 0, fontSize: '18px' }}>{bill.service}</h3>
                 <p style={{ margin: '4px 0', color: '#666' }}>{bill.id}</p>
-                
+                {bill.isRejected && (
+                  <p style={{ margin: '4px 0', color: '#ef4444', fontSize: '13px' }}>
+                    Rejected — please resubmit
+                  </p>
+                )}
+
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -250,11 +295,11 @@ function Billings() {
                       setShowPayment(true);
                     }}
                   >
-                    <FiCreditCard size={14} /> Settle
+                    <FiCreditCard size={14} /> {bill.isRejected ? 'Resubmit' : 'Settle'}
                   </button>
                 )}
 
-                {bill.isPartiallyPaid && (
+                {bill.isPartiallyPaid && !bill.isBalancePaid && (
                   <button
                     style={{ background: '#1b9ce5', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
                     onClick={() => {
@@ -262,8 +307,9 @@ function Billings() {
                       setPaymentType('balance');
                       setShowPayment(true);
                     }}
+                    disabled={bill.isBalanceToVerify}
                   >
-                    <FiCreditCard size={14} /> Pay Balance
+                    <FiCreditCard size={14} /> {bill.isBalanceRejected ? 'Resubmit Balance' : 'Pay Balance'}
                   </button>
                 )}
               </div>

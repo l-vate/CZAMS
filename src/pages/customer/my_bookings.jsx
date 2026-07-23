@@ -24,18 +24,44 @@ function MyBookings() {
       .catch(() => setLoading(false));
   }, []);
 
+  // Helper functions to safely render potential object fields
+  const formatAddress = (address) => {
+    if (!address) return 'N/A';
+    if (typeof address === 'string') return address;
+    if (typeof address === 'object') {
+      return address.fullAddress || address.street || address.city || JSON.stringify(address);
+    }
+    return String(address);
+  };
+
+  const formatTechnician = (tech) => {
+    if (!tech) return 'Not Assigned';
+    if (typeof tech === 'string') return tech;
+    if (typeof tech === 'object') {
+      return tech.name || `${tech.firstName || ''} ${tech.lastName || ''}`.trim() || 'Assigned';
+    }
+    return String(tech);
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const parsed = new Date(dateString);
+    if (isNaN(parsed.getTime())) return String(dateString);
+    return parsed.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
+  };
+
   const filteredBookings =
     activeFilter === 'All'
       ? bookings
       : bookings.filter((b) => b.status === activeFilter);
 
-       // Sort: Pending first, then active statuses, then Completed, Cancelled always last
+  // Sort: Pending first, then active statuses, then Completed, Cancelled always last
   const STATUS_ORDER = { Pending: 0, Approved: 1, 'In Progress': 1, Completed: 2, Cancelled: 3 };
   const sortedBookings = [...filteredBookings].sort((a, b) => {
     const rankA = STATUS_ORDER[a.status] ?? 1;
     const rankB = STATUS_ORDER[b.status] ?? 1;
     if (rankA !== rankB) return rankA - rankB;
-    return new Date(b.createdAt) - new Date(a.createdAt); // newest first within same group
+    return new Date(b.createdAt || 0) - new Date(a.createdAt || 0); // newest first within same group
   });
 
   const lastNonCancelledIndex = (() => {
@@ -90,7 +116,7 @@ function MyBookings() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {sortedBookings.map((booking, i) => (
-            <div key={booking._id}>
+            <div key={booking._id || i}>
               {i === lastNonCancelledIndex + 1 && booking.status === 'Cancelled' && (
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: '10px',
@@ -113,7 +139,7 @@ function MyBookings() {
                 <div>
                   <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
                     <small style={{ color: '#888' }}>
-                      {new Date(booking.createdAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })}
+                      {formatDate(booking.createdAt)}
                     </small>
                     <span style={{ background: getStatusColor(booking.status), color: '#fff', padding: '2px 8px', borderRadius: '999px', fontSize: '11px' }}>
                       {booking.status}
@@ -122,20 +148,20 @@ function MyBookings() {
 
                   <h3 style={{ margin: 0, fontSize: '18px' }}>{booking.service?.name || '—'}</h3>
                   <p style={{ margin: '4px 0', color: '#666' }}>{booking.bookingId}</p>
-                  <small>Technician: {booking.technician || 'Not Assigned'}</small>
+                  <small>Technician: {formatTechnician(booking.technician)}</small>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <FiClock /> {booking.date}
+                  <FiClock /> {typeof booking.date === 'string' ? booking.date : JSON.stringify(booking.date || 'N/A')}
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <FiMapPin /> {booking.address}
+                  <FiMapPin /> {formatAddress(booking.address)}
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <button
-                  type="button"
+                    type="button"
                     style={{ background: 'transparent', border: '1px solid #d0dde8', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', color: '#333', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
                     onClick={() => navigate(`/customer/book_details/${booking.bookingId}`, { state: { booking } })}
                   >

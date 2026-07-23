@@ -746,268 +746,150 @@
 .svc-btn-ghost { background: #f1f5f9; color: #475569; }
 .svc-btn-danger { background: #fef2f2; color: #dc2626; }
 
-/* ============ PAYMENTS / BILLING ============ */
+/* ============ PAYMENTS TOOLBAR ============ */
 .payments-toolbar {
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
   flex-wrap: wrap;
-  gap: 12px;
-  margin: 20px 0 24px;
 }
 
-.payments-filters { display: flex; gap: 8px; flex-wrap: wrap; }
+.payments-filters {
+  display: flex;
+  gap: 8px;
+}
 
 .filter-pill {
-  border: 1px solid #d7dbe0;
-  background: #ffffff;
-  color: #4a5160;
+  padding: 8px 16px;
   border-radius: 999px;
-  padding: 8px 18px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: all 0.2s ease;
 }
 
-.filter-pill:hover { border-color: #b7c6f2; }
-.filter-pill--active { background: #2e6bf2; border-color: #2e6bf2; color: #ffffff; }
+.filter-pill--active,
+.filter-pill:hover {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+}
 
 .payments-search {
   display: flex;
   align-items: center;
   gap: 8px;
   background: #ffffff;
-  border: 1px solid #d7dbe0;
-  border-radius: 999px;
-  padding: 8px 16px;
-  color: #9aa1ac;
-  min-width: 240px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 8px 14px;
+  width: 280px;
 }
 
 .payments-search input {
-  border: none; outline: none;
-  font-size: 13px; color: #33394a;
-  width: 100%; background: transparent;
+  border: none;
+  outline: none;
+  width: 100%;
+  font-size: 13.5px;
+  color: #0f172a;
 }
 
-.payments-search input::placeholder { color: #9aa1ac; }
-
-.payments-list { display: flex; flex-direction: column; gap: 14px; }
+/* ============ PAYMENT CARDS & STATUS PILLS ============ */
+.payments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
 
 .payment-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 18px 22px;
   display: grid;
-  grid-template-columns: 1.6fr 1fr 1fr 0.6fr;
+  grid-template-columns: 2fr 1fr 1fr auto;
   align-items: center;
   gap: 16px;
-  background: #eef0f3;
-  border-radius: 14px;
-  padding: 20px 24px;
+  transition: box-shadow 0.2s ease;
 }
 
-.payment-card__header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
-.payment-card__client { font-size: 13px; color: #6b7280; }
-.payment-card__dash { color: #b6bcc6; }
+.payment-card:hover {
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+}
+
+.payment-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.payment-card__client {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 15px;
+}
+
+.payment-card__service-type {
+  font-size: 13px;
+  color: #475569;
+  font-weight: 500;
+}
+
+.payment-card__booking {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.payment-card__technician {
+  font-size: 12.5px;
+  color: #64748b;
+}
 
 .status-pill {
-  border-radius: 999px;
-  padding: 3px 12px;
   font-size: 11px;
-  font-weight: 600;
-  color: #ffffff;
-}
-
-.status-pill--verify  { background: #7c5cf0; }
-.status-pill--partial { background: #f5a524; }
-.status-pill--full    { background: #2fb872; }
-
-.payment-card__service { font-size: 15px; font-weight: 700; color: #1f2430; margin-bottom: 2px; }
-.payment-card__service-type { text-transform: uppercase; }
-.payment-card__dot { margin: 0 6px; color: #b6bcc6; font-weight: 400; }
-.payment-card__detail { font-weight: 500; color: #6b7280; }
-.payment-card__booking { font-size: 12px; color: #9aa1ac; margin-bottom: 4px; }
-.payment-card__technician { font-size: 12px; color: #4a5160; }
-
-.payment-card__datetime, .payment-card__attachment {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: #4a5160;
-}
-
-.icon-clock { color: #9aa1ac; flex-shrink: 0; }
-
-.payment-card__link {
-  color: #1f2430;
-  text-decoration: underline;
-  font-size: 13px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-}
-
-.payment-card__link--muted { color: #9aa1ac; text-decoration: none; cursor: default; }
-.payment-card__review-btn { font-weight: 600; justify-self: end; }
-.payments-empty { text-align: center; color: #9aa1ac; padding: 40px 0; font-size: 14px; }
-
-.billing-page { padding: 30px; }
-
-.billing-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 25px;
-}
-
-.billing-header h2 { font-size: 26px; font-weight: 700; color: #0B2545; }
-.billing-tools { display: flex; gap: 12px; }
-
-.billing-tools select, .billing-tools input {
-  height: 38px;
-  border: 1px solid #D8E3EC;
-  border-radius: 8px;
-  padding: 0 14px;
-  background: #fff;
-  outline: none;
-}
-
-.billing-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.billing-filter-group { display: flex; gap: 12px; flex-wrap: wrap; }
-
-.billing-filter-pill {
-  padding: 10px 18px;
+  font-weight: 700;
+  padding: 3px 10px;
   border-radius: 999px;
-  border: 1px solid #1b9ce5;
-  background: #fff;
-  color: #333;
-  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
-.billing-filter-pill.active { background: #1b9ce5; color: #fff; }
+.status-pill--verify { background: #fef3c7; color: #d97706; }
+.status-pill--partial { background: #e0f2fe; color: #0284c7; }
+.status-pill--full { background: #dcfce7; color: #15803d; }
+.status-pill--rejected { background: #fee2e2; color: #dc2626; }
 
-.billing-search-input {
-  padding: 10px 16px;
-  border-radius: 6px;
-  border: 1px solid #d9d9d9;
-  min-width: 260px;
-}
-
-.billing-list { display: flex; flex-direction: column; gap: 12px; }
-.billing-empty { color: #888; text-align: center; padding: 24px 0; }
-
-.billing-card {
-  background: #fff;
-  border: 1px solid #d9d9d9;
-  border-radius: 12px;
-  padding: 18px 20px;
-  display: grid;
-  grid-template-columns: 2fr 1.5fr 1fr 1fr 1fr;
-  align-items: center;
-  box-shadow: 0 4px 12px rgba(0,0,0,.05);
-  transition: .2s;
-}
-
-.billing-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0,0,0,.08); }
-.billing-left { width: 220px; }
-.billing-left h3 { font-size: 15px; margin-bottom: 3px; color: #0B2545; }
-.billing-left p { font-size: 12px; color: #7A8797; }
-
-.billing-date {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #5D6978;
-  min-width: 160px;
-  font-size: 14px;
-}
-
-.billing-card-top-row { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
-.billing-card-date-label { color: #888; }
-
-.billing-status-badge { color: #fff; padding: 2px 8px; border-radius: 999px; font-size: 11px; }
-.billing-status-badge.paid   { background: #22c55e; }
-.billing-status-badge.unpaid { background: #f59e0b; }
-
-.billing-card-title { margin: 0; font-size: 18px; }
-.billing-card-subtext { margin: 4px 0; color: #666; }
-.billing-card-meta { display: flex; align-items: center; gap: 6px; }
-.billing-card-invoice { display: flex; justify-content: flex-start; gap: 8px; }
-
-.invoice-link-btn, .invoice-btn, .payment-btn {
-  background: transparent;
+.payment-card__review-btn {
+  padding: 8px 14px;
+  background: #f1f5f9;
+  color: #2563eb;
   border: none;
-  color: #333;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 13px;
-}
-
-.invoice-btn:hover, .payment-btn:hover { color: #0E8C8C; }
-.billing-card-action { display: flex; justify-content: flex-end; }
-
-.settle-btn {
-  background: #1b9ce5;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  padding: 6px 10px;
-  cursor: pointer;
+  border-radius: 8px;
   font-weight: 600;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  white-space: nowrap;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s ease;
 }
 
-.status { margin-left: auto; padding: 6px 14px; border-radius: 30px; font-size: 12px; font-weight: 600; }
-.status.paid { background: #DCFCE7; color: #15803D; }
-.status.verify { background: #EDE9FE; color: #7C3AED; }
-
-.admin-dashboard-shell { flex-direction: row; }
-.admin-dashboard-shell .sidebar { width: 250px; min-width: 250px; transition: left 0.25s ease; }
-
-@media (max-width: 900px) {
-  .admin-dashboard-shell { position: relative; }
-  .admin-dashboard-shell .sidebar {
-    position: fixed; top: 0; left: -270px;
-    height: 100vh; width: 250px; min-width: 250px;
-    z-index: 210; box-shadow: 0 0 24px rgba(11,37,69,0.18);
-  }
-  .admin-dashboard-shell.sidebar-open .sidebar { left: 0; }
-  .admin-dashboard-shell.sidebar-open .sidebar-backdrop {
-    display: block; position: fixed; inset: 0;
-    background: rgba(11,37,69,0.35); z-index: 200;
-  }
-  .admin-dashboard-shell .dashboard-body { padding: 20px 16px; }
-  .admin-dashboard-shell .dashboard-topbar { padding: 12px 16px; }
-  .payment-card { grid-template-columns: 1fr 1fr; row-gap: 10px; }
-  .payment-card__action, .payment-card__review-btn { justify-self: start; }
+.payment-card__review-btn:hover {
+  background: #eff6ff;
+  color: #1d4ed8;
 }
 
-@media (max-width: 768px) {
-  .analytics-page { padding: 15px; }
-  .analytics-section { overflow-x: auto; }
-  .analytics-table { min-width: 700px; }
-  .dashboard-welcome { font-size: 1.6rem; }
-  .analytics-card p { font-size: 1.6rem; }
-  .svc-menu-row, .svc-manage-grid { grid-template-columns: 1fr; }
-}
-
-@media (max-width: 560px) {
-  .payment-card { grid-template-columns: 1fr; }
+.payments-empty {
+  text-align: center;
+  padding: 40px;
+  color: #64748b;
+  font-size: 14px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px dashed #cbd5e1;
 }
 
 /* ============ SERVICE REQUESTS / BOOKINGS LIST ============ */
@@ -1050,26 +932,35 @@
 
 .req-new-btn:hover { background: #1584c4; }
 
-.req-list { display: flex; flex-direction: column; gap: 14px; }
+/* Grid container layout replacing row flex layout */
+.req-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
 
 .req-card {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   justify-content: space-between;
-  gap: 20px;
   background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 14px;
-  padding: 20px 24px;
-  flex-wrap: wrap;
-  transition: box-shadow 0.15s ease;
+  padding: 20px;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
 
-.req-card:hover { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); }
+.req-card:hover {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
 
-.req-card-left { min-width: 180px; }
-
-.req-card-top { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.req-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
 
 .req-date { font-size: 12px; color: #9aa1ac; font-weight: 600; }
 
@@ -1082,6 +973,13 @@
   text-transform: capitalize;
 }
 
+.req-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
 .req-title {
   font-family: 'Outfit', sans-serif;
   font-size: 16px;
@@ -1091,16 +989,7 @@
 }
 
 .req-id { font-size: 12.5px; color: #9aa1ac; margin: 0 0 2px; }
-.req-tech { font-size: 12.5px; color: #6b7280; margin: 0; }
-
-.req-card-mid {
-  display: flex;
-  align-items: center;
-  gap: 32px;
-  flex-wrap: wrap;
-  flex: 1;
-  justify-content: center;
-}
+.req-tech { font-size: 12.5px; color: #6b7280; margin: 0 0 6px; }
 
 .req-info-item {
   display: flex;
@@ -1109,14 +998,23 @@
   font-size: 13.5px;
   color: #4a5160;
   font-weight: 500;
+  margin-top: 4px;
 }
 
 .req-info-icon { color: #9aa1ac; flex-shrink: 0; }
 
+.req-card-bottom {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid #f0f4f8;
+}
+
 .req-view-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  width: 100%;
   background: #fff;
   border: 1px solid #d7dbe0;
   color: #1f2430;
@@ -1132,9 +1030,3 @@
 .req-view-btn:hover { background: #f3f4f6; }
 
 .req-empty { text-align: center; color: #9aa1ac; padding: 40px 0; font-size: 14px; }
-
-@media (max-width: 700px) {
-  .req-card { flex-direction: column; align-items: flex-start; }
-  .req-card-mid { justify-content: flex-start; gap: 20px; }
-  .req-view-btn { align-self: flex-start; }
-}

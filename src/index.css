@@ -1,18 +1,48 @@
-/* ============ 1. FONTS & VARIABLES ============ */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+/* ==========================================================================
+   1. FONTS & ROOT DESIGN SYSTEM
+   ========================================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  --navy:       #0b2545;
-  --navy-soft:  #143a63;
-  --coral:      #ff6b4a;
-  --coral-dark: #e8512f;
-  --frost:      #f5fbfc;
-  --mist:       #ddeef0;
-  --ink-soft:   #4a6178;
-  --white:      #ffffff;
+  /* Brand Colors */
+  --navy:          #0b2545;
+  --navy-soft:     #143a63;
+  --teal:          #0e8c8c;
+  --coral:         #ff6b4a;
+  --coral-dark:    #e8512f;
+  
+  /* Neutral Surfaces & Grays */
+  --frost:         #f5fbfc;
+  --mist:          #ddeef0;
+  --bg-main:       #f0f4f8;
+  --ink-soft:      #4a6178;
+  --border-subtle: #e2eaf1;
+  --white:         #ffffff;
+
+  /* Status Colors */
+  --status-pending-bg:   #fef3c7;
+  --status-pending-txt:  #b45309;
+  --status-approved-bg:  #dbeafe;
+  --status-approved-txt: #1d4ed8;
+  --status-progress-bg:  #e0e7ff;
+  --status-progress-txt: #4338ca;
+  --status-complete-bg:  #dcfce7;
+  --status-complete-txt: #15803d;
+  --status-cancel-bg:    #fee2e2;
+  --status-cancel-txt:   #b91c1c;
+
+  /* Global Metrics & Animation */
+  --radius-sm:        8px;
+  --radius-md:        12px;
+  --radius-lg:        16px;
+  --radius-full:      999px;
+  --transition-fast:  0.15s ease;
+  --transition-base:  0.2s ease;
 }
 
-/* ============ 2. GLOBAL RESET ============ */
+/* ==========================================================================
+   2. GLOBAL RESET & BASE TYPOGRAPHY
+   ========================================================================== */
 * {
   margin: 0;
   padding: 0;
@@ -26,12 +56,13 @@ html {
 body {
   background: var(--frost);
   color: var(--navy);
-  font-family: 'Inter', Helvetica, Arial, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 16px;
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3, h4 {
+h1, h2, h3, h4, h5, h6 {
   font-family: 'Outfit', 'Inter', sans-serif;
   color: var(--navy);
   letter-spacing: -0.01em;
@@ -41,7 +72,9 @@ section {
   padding: 90px 40px; 
 }
 
-/* ============ 3. SHARED UTILITIES & LAYOUT SHELLS ============ */
+/* ==========================================================================
+   3. SHARED UTILITIES & COMPONENTS
+   ========================================================================== */
 .vent-divider {
   height: 1px;
   border: none;
@@ -56,9 +89,9 @@ section {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--navy-soft);
-  background: rgba(14,140,140,0.1);
-  border-radius: 20px;
-  padding: 5px 14px;
+  background: rgba(14, 140, 140, 0.1);
+  border-radius: var(--radius-full);
+  padding: 6px 14px;
   margin-bottom: 14px;
 }
 
@@ -71,25 +104,76 @@ section {
 }
 
 .section-subtitle {
-  font-size: 17px;
+  font-size: 16px;
   color: var(--ink-soft);
   max-width: 600px;
   margin: 0 auto 48px;
-  line-height: 1.7;
+  line-height: 1.6;
 }
 
-/* Shared Dashboard Shell Layouts */
+/* Status Badges */
+.status-badge, 
+.svc-badge, 
+.status-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  text-transform: capitalize;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.status-badge.pending, 
+.svc-badge-pending, 
+.status-pill--verify {
+  background-color: var(--status-pending-bg);
+  color: var(--status-pending-txt);
+}
+
+.status-badge.approved, 
+.svc-badge-approved, 
+.status-pill--partial {
+  background-color: var(--status-approved-bg);
+  color: var(--status-approved-txt);
+}
+
+.status-badge.in-progress, 
+.svc-badge-in-progress {
+  background-color: var(--status-progress-bg);
+  color: var(--status-progress-txt);
+}
+
+.status-badge.completed, 
+.svc-badge-completed, 
+.status-pill--full {
+  background-color: var(--status-complete-bg);
+  color: var(--status-complete-txt);
+}
+
+.status-badge.cancelled, 
+.svc-badge-cancelled, 
+.status-pill--rejected {
+  background-color: var(--status-cancel-bg);
+  color: var(--status-cancel-txt);
+}
+
+/* ==========================================================================
+   4. SHARED DASHBOARD SHELL & SIDEBAR NAVIGATION
+   ========================================================================== */
 .dashboard-shell {
   display: flex;
   min-height: 100vh;
-  background: #f0f4f8;
+  background: var(--bg-main);
 }
 
 .sidebar {
-  width: 220px;
-  min-width: 220px;
+  width: 240px;
+  min-width: 240px;
   background: var(--white);
-  border-right: 1px solid #e2eaf1;
+  border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -98,14 +182,15 @@ section {
   top: 0;
   height: 100vh;
   overflow-y: auto;
+  transition: transform var(--transition-base), left var(--transition-base);
 }
 
 .sidebar-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 18px 18px 14px;
-  border-bottom: 1px solid #e2eaf1;
+  gap: 12px;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .sidebar-logo {
@@ -115,12 +200,15 @@ section {
   flex-shrink: 0;
 }
 
-.sidebar-brand-text { display: flex; flex-direction: column; }
+.sidebar-brand-text { 
+  display: flex; 
+  flex-direction: column; 
+}
 
 .sidebar-brand-name {
   font-family: 'Outfit', sans-serif;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--navy);
   line-height: 1.2;
 }
@@ -135,23 +223,24 @@ section {
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #a0b4c4;
-  padding: 18px 18px 8px;
+  color: var(--ink-soft);
+  opacity: 0.8;
+  padding: 20px 18px 8px;
 }
 
 .sidebar-nav {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 0 10px;
+  gap: 4px;
+  padding: 0 12px;
 }
 
 .sidebar-link {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 8px;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
   font-size: 14px;
   font-weight: 500;
   color: var(--ink-soft);
@@ -161,13 +250,16 @@ section {
   background: none;
   width: 100%;
   text-align: left;
-  transition: background 0.18s ease, color 0.18s ease;
+  transition: background var(--transition-fast), color var(--transition-fast);
 }
 
-.sidebar-link:hover { background: #f0f7fa; color: var(--navy); }
+.sidebar-link:hover { 
+  background: rgba(14, 140, 140, 0.05); 
+  color: var(--navy); 
+}
 
 .sidebar-link.active {
-  background: rgba(14,140,140,0.1);
+  background: rgba(14, 140, 140, 0.1);
   color: var(--navy);
   font-weight: 600;
 }
@@ -179,10 +271,74 @@ section {
   flex-shrink: 0;
 }
 
-.sidebar-logout { padding: 0 10px; }
-.sidebar-logout .sidebar-link { color: #e05a5a; }
-.sidebar-logout .sidebar-link:hover { background: #fff0f0; color: #c43a3a; }
+.sidebar-dropdown-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
 
+.sidebar-dropdown-icon {
+  transition: transform var(--transition-base);
+  flex-shrink: 0;
+}
+
+.sidebar-dropdown-icon.open {
+  transform: rotate(180deg);
+}
+
+.sidebar-submenu {
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 14px;
+  margin-top: 2px;
+  margin-bottom: 4px;
+}
+
+.sidebar-submenu.open {
+  display: flex;
+}
+
+.sidebar-sublink {
+  display: block;
+  padding: 8px 12px 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast), color var(--transition-fast);
+  border-left: 2px solid var(--border-subtle);
+}
+
+.sidebar-sublink:hover {
+  background: rgba(14, 140, 140, 0.05);
+  color: var(--navy);
+  border-left-color: var(--navy-soft);
+}
+
+.sidebar-sublink.active {
+  background: rgba(14, 140, 140, 0.1);
+  color: var(--navy);
+  font-weight: 600;
+  border-left-color: var(--navy);
+}
+
+.sidebar-logout { 
+  padding: 0 12px; 
+}
+
+.sidebar-logout .sidebar-link { 
+  color: var(--status-cancel-txt); 
+}
+
+.sidebar-logout .sidebar-link:hover { 
+  background: var(--status-cancel-bg); 
+  color: var(--status-cancel-txt); 
+}
+
+/* Dashboard Content View Area */
 .dashboard-main {
   flex: 1;
   display: flex;
@@ -192,8 +348,8 @@ section {
 
 .dashboard-topbar {
   background: var(--white);
-  border-bottom: 1px solid #e2eaf1;
-  padding: 14px 32px;
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 16px 32px;
   font-size: 14px;
   color: var(--ink-soft);
   font-weight: 500;
@@ -214,81 +370,65 @@ section {
   font-size: 20px;
   color: var(--navy);
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 6px;
-  margin-right: 6px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  margin-right: 8px;
+  transition: background var(--transition-fast);
 }
 
-.sidebar-toggle-btn:hover { background: #f0f4f8; }
+.sidebar-toggle-btn:hover { 
+  background: var(--bg-main); 
+}
 
-.sidebar-backdrop { display: none; }
+.sidebar-backdrop { 
+  display: none; 
+}
 
-/* Global Responsive Adjustments for Sections */
+/* Responsive Rules for Dashboard Frame */
+@media (max-width: 900px) {
+  .sidebar-toggle-btn { 
+    display: inline-flex; 
+    align-items: center; 
+  }
+  
+  .dashboard-shell { 
+    position: relative; 
+  }
+  
+  .sidebar {
+    position: fixed;
+    top: 0; 
+    left: -260px;
+    height: 100vh; 
+    width: 240px; 
+    min-width: 240px;
+    z-index: 210;
+    box-shadow: 0 0 24px rgba(11, 37, 69, 0.18);
+  }
+  
+  .dashboard-shell.sidebar-open .sidebar { 
+    left: 0; 
+  }
+  
+  .dashboard-shell.sidebar-open .sidebar-backdrop {
+    display: block; 
+    position: fixed; 
+    inset: 0;
+    background: rgba(11, 37, 69, 0.35); 
+    z-index: 200;
+  }
+}
+
 @media (max-width: 768px) {
-  section { padding: 60px 22px; }
-  .dashboard-shell { flex-direction: column; }
-  .sidebar { width: 100%; height: auto; position: static; border-right: none; border-bottom: 1px solid #e2eaf1; }
-  .dashboard-body { padding: 20px 16px; }
-  .dashboard-topbar { padding: 12px 16px; }
+  section { 
+    padding: 60px 20px; 
+  }
+  
+  .dashboard-body { 
+    padding: 20px 16px; 
+  }
+  
+  .dashboard-topbar { 
+    padding: 12px 16px; 
+  }
 }
-
-/* ============ SIDEBAR DROPDOWN & SUBMENU STYLES ============ */
-
-/* Align button elements so text and chevron align horizontally */
-.sidebar-dropdown-toggle {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-}
-
-/* Chevron Icon Animation */
-.sidebar-dropdown-icon {
-  transition: transform 0.2s ease;
-  flex-shrink: 0;
-}
-
-.sidebar-dropdown-icon.open {
-  transform: rotate(180deg);
-}
-
-/* Submenu Accordion Container */
-.sidebar-submenu {
-  display: none;
-  flex-direction: column;
-  gap: 2px;
-  padding-left: 12px; /* Indent sub-items */
-  margin-top: 2px;
-  margin-bottom: 4px;
-}
-
-.sidebar-submenu.open {
-  display: flex;
-}
-
-/* Submenu Links */
-.sidebar-sublink {
-  display: block;
-  padding: 8px 12px 8px 16px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--ink-soft);
-  text-decoration: none;
-  border-radius: 6px;
-  transition: background 0.18s ease, color 0.18s ease;
-  border-left: 2px solid #e2eaf1; /* Visual tree guide */
-}
-
-.sidebar-sublink:hover {
-  background: #f0f7fa;
-  color: var(--navy);
-  border-left-color: var(--navy-soft);
-}
-
-.sidebar-sublink.active {
-  background: rgba(14, 140, 140, 0.1);
-  color: var(--navy);
-  font-weight: 600;
-  border-left-color: var(--navy);
-}
-

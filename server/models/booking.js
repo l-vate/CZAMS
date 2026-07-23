@@ -14,10 +14,23 @@ const bookingSchema = new mongoose.Schema({
     downPaymentPercent: Number,
     paymentMode: String,
     paymentMode2: String,
-    paymentStatus: { type: String, default: 'Unpaid' },
+
+    paymentStatus: { 
+        type: String, 
+        enum: ['Unpaid', 'to_verify', 'partially_paid', 'fully_paid', 'rejected'], 
+        default: 'Unpaid' 
+    },
+    
     balancePaid: { type: Boolean, default: false },
+    balancePaymentStatus: { 
+        type: String, 
+        enum: ['None', 'to_verify', 'paid', 'rejected'], 
+        default: 'None' 
+    },
+    
     proofFile: String,
     balanceProofFile: String,
+    
     status: {
         type: String,
         enum: ['Pending', 'Approved', 'In Progress', 'Completed', 'Cancelled'],
@@ -37,7 +50,7 @@ const bookingSchema = new mongoose.Schema({
     feedback: {
         text: String,
         rating: Number,
-        submittedAt: Date,
+        createdAt: Date,
     },
 }, { timestamps: true });
 

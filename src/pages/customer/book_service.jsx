@@ -281,8 +281,8 @@ function Step4({ form, setForm, services }) {
   const [showModal, setShowModal] = useState(false);
   const { basePrice, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services);
 
-  const handleSubmitPayment = ({ proof }) => {
-    setForm({ ...form, paymentStatus: 'Paid', proofFile: proof?.name || null, proofFileObj: proof || null });
+const handleSubmitPayment = ({ proof }) => {
+    setForm({ ...form, paymentStatus: 'to_verify', proofFile: proof?.name || null, proofFileObj: proof || null });
     setShowModal(false);
   };
 
@@ -466,7 +466,7 @@ function BookService() {
     paymentMode2: '',
   });
 
-  const canNext = () => {
+const canNext = () => {
     if (step === 1) return !!form.service;
     if (step === 2) return (form.unitTypes || []).length > 0;
     if (step === 3) {
@@ -477,7 +477,7 @@ function BookService() {
       const selected = new Date(form.date);
       return selected >= minDate;
     }
-    if (step === 4) return form.paymentStatus === 'Paid';
+    if (step === 4) return form.paymentStatus === 'to_verify' || form.paymentStatus === 'fully_paid';
     return true;
   };
 

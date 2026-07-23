@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FiMenu, FiX } from 'react-icons/fi';
-import Sidebar from '../../components/customer_sidebar';
+import Sidebar from '../../components/sidebars/customer_sidebar';
 
 function CustomerLayout({ title, children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);

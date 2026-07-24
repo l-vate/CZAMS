@@ -419,7 +419,7 @@ function ViewReportModal({ reportItem, onClose }) {
   );
 }
 
-function toReportItem(booking) {
+function toReportItem(booking, reportData) {
   return {
     _id: booking._id,
     bookingId: booking.bookingId,
@@ -430,8 +430,8 @@ function toReportItem(booking) {
       ? new Date(booking.date).toLocaleDateString()
       : 'Date not available',
     dueDate: booking.date,
-    status: booking.report?.submittedAt ? 'Completed' : 'Pending',
-    report: booking.report || null,
+    status: reportData ? 'Completed' : 'Pending',
+    report: reportData || null,
   };
 }
 
@@ -444,19 +444,58 @@ function Reports() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    fetch(`${API_BASE}/api/bookings/technician/mine`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        const completedJobs = Array.isArray(data)
-          ? data.filter((b) => b.status === 'Completed' || b.report?.submittedAt)
-          : [];
-        setReports(completedJobs.map(toReportItem));
-      })
-      .catch((err) => console.error('Failed to load reports', err))
-      .finally(() => setLoading(false));
+    const fetchData = async () => {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      
+      try {
+        // First, get all bookings assigned to the technician
+        const bookingsRes = await fetch(`${API_BASE}/api/bookings/technician/mine`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const bookingsData = await bookingsRes.json();
+        
+        if (!Array.isArray(bookingsData)) {
+          setReports([]);
+          return;
+        }
+
+        // Get completed bookings (status is 'Completed')
+        const completedBookings = bookingsData.filter(b => b.status === 'Completed');
+        
+        // For each completed booking, fetch its report from the reports collection
+        const reportPromises = completedBookings.map(async (booking) => {
+          try {
+            const reportRes = await fetch(`${API_BASE}/api/reports/booking/${booking.bookingId}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            
+            if (reportRes.ok) {
+              const reportData = await reportRes.json();
+              return toReportItem(booking, reportData);
+            } else {
+              // No report found, but booking is completed
+              // You might want to handle this case - maybe the report was created differently
+              return toReportItem(booking, null);
+            }
+          } catch (err) {
+            console.error(`Error fetching report for booking ${booking.bookingId}:`, err);
+            return toReportItem(booking, null);
+          }
+        });
+
+        const reportItems = await Promise.all(reportPromises);
+        setReports(reportItems);
+        
+      } catch (err) {
+        console.error('Failed to load reports', err);
+        setReports([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, []);
 
   const visibleReports =

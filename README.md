@@ -1,16 +1,118 @@
-# React + Vite
+# CZAMS — Cooling Zone Aircon Management System
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A web-based service and technician management system developed for **Cooling Zone Aircon Services**.
 
-Currently, two official plugins are available:
+## Tech Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+* **Frontend:** React + Vite
+* **Backend:** Node.js + Express
+* **Database:** MongoDB
+* **Styling:** CSS + Bootstrap
+* **Version Control:** Git + GitHub
 
-## React Compiler
+## Project Structure
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```text
+CZAMS/
+├── src/              # React frontend
+├── public/            # Public assets
+├── server/            # Node.js/Express backend
+├── package.json
+└── README.md
+```
 
-## Expanding the ESLint configuration
+## Setup
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### 1. Clone the repository
+
+```bash
+git clone <REPOSITORY-URL>
+cd CZAMS
+```
+
+### 2. Install frontend dependencies
+
+```bash
+npm install
+```
+
+### 3. Install backend dependencies
+
+```bash
+cd server
+npm install
+cd ..
+```
+
+### 4. Configure environment variables
+
+Create a `.env` file inside the `server/` directory.
+
+```env
+PORT=5000
+MONGODB_URI=your_mongodb_connection_string
+JWT_SECRET=your_secret_key
+```
+
+> Do not commit `.env` to GitHub.
+
+## Running the Project
+
+The frontend and backend run separately.
+
+### Frontend
+
+From the project root:
+
+```bash
+npm run dev
+```
+
+Usually available at:
+
+```text
+http://localhost:5173
+```
+
+### Backend
+
+Open a second terminal:
+
+```bash
+cd server
+npm start
+```
+
+Usually available at:
+
+```text
+http://localhost:5000
+```
+
+## Deployment
+
+The recommended deployment setup is:
+
+* **Frontend:** Vercel
+* **Backend:** Render
+* **Database:** MongoDB Atlas
+
+For production, configure the appropriate environment variables on the hosting platforms and update the frontend API URL to point to the deployed backend.
+
+## Git Workflow
+
+Create a branch before making changes:
+
+```bash
+git checkout -b feature/your-feature
+```
+
+Commit and push:
+
+```bash
+git add .
+git commit -m "Describe your changes"
+git push -u origin feature/your-feature
+```
+
+Submit changes through a **Pull Request**.

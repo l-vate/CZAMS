@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import StaffLayout from './staff_layout';
+import StaffLayout from '../../components/layouts/staff_layout';
 import {
   FiUser,
   FiEdit2,

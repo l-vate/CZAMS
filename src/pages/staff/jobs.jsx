@@ -1,11 +1,12 @@
 import StaffLayout from '../../components/layouts/staff_layout';
 
-function Calendar() {
+function Jobs() {
+ 
   return (
-    <StaffLayout title="Calendar">
+    <StaffLayout title="My Jobs">
 
     </StaffLayout>
   );
 }
 
-export default Calendar;
+export default Jobs;

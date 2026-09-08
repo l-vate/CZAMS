@@ -31,8 +31,8 @@ function Sidebar({ onNavigate }) {
           <NavLink to="/staff/dashboard" className={linkClass} onClick={onNavigate}>
             Dashboard
           </NavLink>
-          <NavLink to="/staff/my_jobs" className={linkClass} onClick={onNavigate}>
-            My Jobs
+          <NavLink to="/staff/jobs" className={linkClass} onClick={onNavigate}>
+            Jobs
           </NavLink>
           <NavLink to="/staff/calendar" className={linkClass} onClick={onNavigate}>
             Calendar

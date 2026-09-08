@@ -1,12 +1,12 @@
-
 import CustomerLayout from '../../components/layouts/customer_layout';
 
-function Dashboard() {
+function MyBookings() {
+  
   return (
-    <CustomerLayout title="Dashboard">
-      
+    <CustomerLayout title="My Bookings">
+
     </CustomerLayout>
   );
 }
 
-export default Dashboard;
+export default MyBookings;

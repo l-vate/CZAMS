@@ -34,7 +34,7 @@ function CustomerSidebar({ onNavigate }) {
           <NavLink to="/customer/dashboard" className={linkClass} onClick={onNavigate}>
             Dashboard
           </NavLink>
-          <NavLink to="/customer/book_service" className={linkClass} onClick={onNavigate}>
+          <NavLink to="/customer/book" className={linkClass} onClick={onNavigate}>
             Book Service
           </NavLink>
           <NavLink to="/customer/bookings" className={linkClass} onClick={onNavigate}>

@@ -13,29 +13,6 @@ function generateUserId(role) {
   return `${prefix}${random}`;
 }
 
-//profile pics
-const multer = require('multer');
-const path = require('path');
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '../uploads/profile-images'));
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `${req.userId}-${Date.now()}${ext}`);
-  },
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) cb(null, true);
-    else cb(new Error('Only image files are allowed'));
-  },
-});
-
 router.post('/register', async (req, res) => {
   try {
     const { firstName, lastName, email, phone, role, password } = req.body;
@@ -129,91 +106,6 @@ router.post('/login', async (req, res) => {
     createdAt: user.createdAt,
   },
     });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-router.put('/profile', auth, async (req, res) => {
-  try {
-    const { firstName, lastName, email, phone, address } = req.body;
-
-    const user = await User.findById(req.userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    if (email && email !== user.email) {
-      const existing = await User.findOne({ email });
-      if (existing) {
-        return res.status(400).json({ message: 'Email already in use' });
-      }
-    }
-
-    user.name = `${firstName} ${lastName}`.trim();
-    user.email = email || user.email;
-    user.phone = phone || user.phone;
-    user.address = address || user.address;
-
-    await user.save();
-
-    res.json({
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        phone: user.phone,
-        address: user.address,
-        profileImage: user.profileImage,
-        createdAt: user.createdAt,
-      },
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-router.post('/profile/photo', auth, upload.single('photo'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'No file uploaded' });
-    }
-
-    const user = await User.findById(req.userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    const imageUrl = `/uploads/profile-images/${req.file.filename}`;
-    user.profileImage = imageUrl;
-    await user.save();
-
-    res.json({
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        phone: user.phone,
-        address: user.address,
-        profileImage: user.profileImage,
-        createdAt: user.createdAt,
-      },
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// GET all active technicians (for client-side booking dropdown)
-router.get('/technicians', async (req, res) => {
-  try {
-    const technicians = await User.find({ role: 'staff', isActive: true }).select('_id name');
-    res.json(technicians);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });

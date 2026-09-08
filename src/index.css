@@ -161,184 +161,15 @@ section {
 }
 
 /* ==========================================================================
-   4. SHARED DASHBOARD SHELL & SIDEBAR NAVIGATION
+   4. DASHBOARD SHELL
    ========================================================================== */
+
 .dashboard-shell {
   display: flex;
   min-height: 100vh;
   background: var(--bg-main);
 }
 
-.sidebar {
-  width: 240px;
-  min-width: 240px;
-  background: var(--white);
-  border-right: 1px solid var(--border-subtle);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 0 0 20px 0;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  overflow-y: auto;
-  transition: transform var(--transition-base), left var(--transition-base);
-}
-
-.sidebar-brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 20px 20px 16px;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.sidebar-logo {
-  width: 36px;
-  height: 36px;
-  object-fit: contain;
-  flex-shrink: 0;
-}
-
-.sidebar-brand-text { 
-  display: flex; 
-  flex-direction: column; 
-}
-
-.sidebar-brand-name {
-  font-family: 'Outfit', sans-serif;
-  font-weight: 700;
-  font-size: 14px;
-  color: var(--navy);
-  line-height: 1.2;
-}
-
-.sidebar-brand-sub {
-  font-size: 11px;
-  color: var(--ink-soft);
-}
-
-.sidebar-section-label {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-  opacity: 0.8;
-  padding: 20px 18px 8px;
-}
-
-.sidebar-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 0 12px;
-}
-
-.sidebar-link {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--ink-soft);
-  text-decoration: none;
-  cursor: pointer;
-  border: none;
-  background: none;
-  width: 100%;
-  text-align: left;
-  transition: background var(--transition-fast), color var(--transition-fast);
-}
-
-.sidebar-link:hover { 
-  background: rgba(14, 140, 140, 0.05); 
-  color: var(--navy); 
-}
-
-.sidebar-link.active {
-  background: rgba(14, 140, 140, 0.1);
-  color: var(--navy);
-  font-weight: 600;
-}
-
-.sidebar-link .link-icon {
-  font-size: 16px;
-  width: 20px;
-  text-align: center;
-  flex-shrink: 0;
-}
-
-.sidebar-dropdown-toggle {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-}
-
-.sidebar-dropdown-icon {
-  transition: transform var(--transition-base);
-  flex-shrink: 0;
-}
-
-.sidebar-dropdown-icon.open {
-  transform: rotate(180deg);
-}
-
-.sidebar-submenu {
-  display: none;
-  flex-direction: column;
-  gap: 2px;
-  padding-left: 14px;
-  margin-top: 2px;
-  margin-bottom: 4px;
-}
-
-.sidebar-submenu.open {
-  display: flex;
-}
-
-.sidebar-sublink {
-  display: block;
-  padding: 8px 12px 8px 16px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--ink-soft);
-  text-decoration: none;
-  border-radius: var(--radius-sm);
-  transition: background var(--transition-fast), color var(--transition-fast);
-  border-left: 2px solid var(--border-subtle);
-}
-
-.sidebar-sublink:hover {
-  background: rgba(14, 140, 140, 0.05);
-  color: var(--navy);
-  border-left-color: var(--navy-soft);
-}
-
-.sidebar-sublink.active {
-  background: rgba(14, 140, 140, 0.1);
-  color: var(--navy);
-  font-weight: 600;
-  border-left-color: var(--navy);
-}
-
-.sidebar-logout { 
-  padding: 0 12px; 
-}
-
-.sidebar-logout .sidebar-link { 
-  color: var(--status-cancel-txt); 
-}
-
-.sidebar-logout .sidebar-link:hover { 
-  background: var(--status-cancel-bg); 
-  color: var(--status-cancel-txt); 
-}
-
-/* Dashboard Content View Area */
 .dashboard-main {
   flex: 1;
   display: flex;
@@ -376,59 +207,43 @@ section {
   transition: background var(--transition-fast);
 }
 
-.sidebar-toggle-btn:hover { 
-  background: var(--bg-main); 
+.sidebar-toggle-btn:hover {
+  background: var(--bg-main);
 }
 
-.sidebar-backdrop { 
-  display: none; 
+.sidebar-backdrop {
+  display: none;
 }
 
-/* Responsive Rules for Dashboard Frame */
 @media (max-width: 900px) {
-  .sidebar-toggle-btn { 
-    display: inline-flex; 
-    align-items: center; 
+  .sidebar-toggle-btn {
+    display: inline-flex;
+    align-items: center;
   }
-  
-  .dashboard-shell { 
-    position: relative; 
+
+  .dashboard-shell {
+    position: relative;
   }
-  
-  .sidebar {
-    position: fixed;
-    top: 0; 
-    left: -260px;
-    height: 100vh; 
-    width: 240px; 
-    min-width: 240px;
-    z-index: 210;
-    box-shadow: 0 0 24px rgba(11, 37, 69, 0.18);
-  }
-  
-  .dashboard-shell.sidebar-open .sidebar { 
-    left: 0; 
-  }
-  
+
   .dashboard-shell.sidebar-open .sidebar-backdrop {
-    display: block; 
-    position: fixed; 
+    display: block;
+    position: fixed;
     inset: 0;
-    background: rgba(11, 37, 69, 0.35); 
+    background: rgba(11, 37, 69, 0.35);
     z-index: 200;
   }
 }
 
 @media (max-width: 768px) {
-  section { 
-    padding: 60px 20px; 
+  section {
+    padding: 60px 20px;
   }
-  
-  .dashboard-body { 
-    padding: 20px 16px; 
+
+  .dashboard-body {
+    padding: 20px 16px;
   }
-  
-  .dashboard-topbar { 
-    padding: 12px 16px; 
+
+  .dashboard-topbar {
+    padding: 12px 16px;
   }
 }

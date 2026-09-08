@@ -1,26 +1,37 @@
 import { useState } from "react";
-import { NavLink, useNavigate, useLocation } from "react-router-dom"; 
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 
 function AdminSidebar({ onNavigate }) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Keep the dropdown open automatically if we're already on a services sub-route
+  // Handle logout
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+
+    if (onNavigate) {
+      onNavigate();
+    }
+
+    navigate("/login");
+  };
+
+  // Keep the dropdown open when on a services sub-route
   const [servicesOpen, setServicesOpen] = useState(
     location.pathname.startsWith("/admin/services")
   );
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    if (onNavigate) onNavigate();
-    navigate("/login");
-  };
-
-  const linkClass = ({ isActive }) => (isActive ? "sidebar-link active" : "sidebar-link");
+  const linkClass = ({ isActive }) =>
+    isActive ? "sidebar-link active" : "sidebar-link";
 
   const subLinkClass = ({ isActive }) =>
     isActive ? "sidebar-sublink active" : "sidebar-sublink";
+
+  const handleServicesClick = (event) => {
+    event.preventDefault();
+    setServicesOpen((prev) => !prev);
+  };
 
   return (
     <aside className="sidebar">
@@ -31,6 +42,7 @@ function AdminSidebar({ onNavigate }) {
             alt="Cooling Zone Aircon Services"
             className="sidebar-logo"
           />
+
           <div className="sidebar-brand-text">
             <span className="sidebar-brand-name">Cooling Zone Aircon</span>
             <span className="sidebar-brand-sub">Services</span>
@@ -40,32 +52,42 @@ function AdminSidebar({ onNavigate }) {
         <p className="sidebar-section-label">Admin Portal</p>
 
         <nav className="sidebar-nav">
-          <NavLink to="/admin/dashboard" className={linkClass} onClick={onNavigate}>
+          <NavLink
+            to="/admin/dashboard"
+            className={linkClass}
+            onClick={onNavigate}
+          >
             Dashboard
           </NavLink>
-          <NavLink to="/admin/analytics" className={linkClass} onClick={onNavigate}>
-            Analytics
-          </NavLink>
-          <NavLink to="/admin/calendar" className={linkClass} onClick={onNavigate}>
+
+          <NavLink
+            to="/admin/calendar"
+            className={linkClass}
+            onClick={onNavigate}
+          >
             Calendar
           </NavLink>
-          <NavLink to="/admin/manage_accounts" className={linkClass} onClick={onNavigate}>
-            Manage Accounts
-          </NavLink>
 
-          {/* ── Services dropdown ───────────────────────── */}
           <div className="sidebar-dropdown">
-            <button
-              type="button"
-              className={`sidebar-link sidebar-dropdown-toggle ${
-                location.pathname.startsWith("/admin/services") ? "active" : ""
-              }`}
-              onClick={() => setServicesOpen((prev) => !prev)}
+            <NavLink
+              to="/admin/services"
+              className={() =>
+                `sidebar-link ${
+                  location.pathname.startsWith("/admin/services")
+                    ? "active"
+                    : ""
+                }`
+              }
+              onClick={handleServicesClick}
             >
               <span>Services</span>
-            </button>
+            </NavLink>
 
-            <div className={`sidebar-submenu ${servicesOpen ? "open" : ""}`}>
+            <div
+              className={`sidebar-submenu ${
+                servicesOpen ? "open" : ""
+              }`}
+            >
               <NavLink
                 to="/admin/services/manage"
                 className={subLinkClass}
@@ -73,6 +95,7 @@ function AdminSidebar({ onNavigate }) {
               >
                 Manage Services
               </NavLink>
+
               <NavLink
                 to="/admin/services/requests"
                 className={subLinkClass}
@@ -80,6 +103,7 @@ function AdminSidebar({ onNavigate }) {
               >
                 Service Requests
               </NavLink>
+
               <NavLink
                 to="/admin/services/reports"
                 className={subLinkClass}
@@ -90,14 +114,38 @@ function AdminSidebar({ onNavigate }) {
             </div>
           </div>
 
-          <NavLink to="/admin/payments" className={linkClass} onClick={onNavigate}>
+          <NavLink
+            to="/admin/manage_accounts"
+            className={linkClass}
+            onClick={onNavigate}
+          >
+            Manage Accounts
+          </NavLink>
+
+          <NavLink
+            to="/admin/analytics"
+            className={linkClass}
+            onClick={onNavigate}
+          >
+            Analytics
+          </NavLink>
+
+          <NavLink
+            to="/admin/payments"
+            className={linkClass}
+            onClick={onNavigate}
+          >
             Payments
           </NavLink>
         </nav>
       </div>
 
       <div className="sidebar-logout">
-        <button type="button" className="sidebar-link" onClick={handleLogout}>
+        <button
+          type="button"
+          className="sidebar-link"
+          onClick={handleLogout}
+        >
           Log Out
         </button>
       </div>

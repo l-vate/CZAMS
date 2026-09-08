@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FiMenu, FiX } from 'react-icons/fi';
-import Sidebar from '../../components/sidebars/staff_sidebar';
+import Sidebar from '../sidebars/staff_sidebar';
 
 function StaffLayout({ title, children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);

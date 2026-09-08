@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FiMenu, FiX } from 'react-icons/fi';
-import Sidebar from '../../components/sidebars/admin_sidebar';
+import Sidebar from '../sidebars/admin_sidebar';
 
 function AdminLayout({ title, children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);

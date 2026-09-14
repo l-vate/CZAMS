@@ -42,8 +42,18 @@ function Billings() {
           // to 'fully_paid' on balance approval.
           const isFullyPaid = b.paymentStatus === 'fully_paid' || b.paymentStatus === 'Paid' || (isPartiallyPaid && isBalancePaid);
 
+          // Once a booking is cancelled, paymentStatus reflects whatever it happened
+          // to be right before cancellation and no longer means what it used to — a
+          // processed refund or the cancellation itself overrides it below.
+          const isRefunded = b.refund?.status === 'Processed';
+          const isCancelled = b.status === 'Cancelled';
+          const isRefundPending = isCancelled && b.refund?.status === 'Pending';
+
           let status = 'Unpaid';
-          if (isFullyPaid) status = 'Fully Paid';
+          if (isRefunded) status = 'Refunded';
+          else if (isRefundPending) status = 'Cancelled – Refund Pending';
+          else if (isCancelled) status = 'Cancelled';
+          else if (isFullyPaid) status = 'Fully Paid';
           else if (isPartiallyPaid) status = 'Partially Paid';
           else if (isToVerify) status = 'To Verify';
           else if (isRejected) status = 'Rejected';
@@ -87,6 +97,9 @@ function Billings() {
             isBalanceToVerify,
             isBalanceRejected,
             isBalancePaid,
+            isRefunded,
+            isCancelled,
+            isRefundPending,
             balanceNote,
             status,
             date: new Date(b.createdAt).toLocaleDateString('en-US'),
@@ -109,6 +122,7 @@ function Billings() {
   const filteredBills = bills
     .filter((bill) => {
       if (activeFilter === 'All') return true;
+      if (bill.isCancelled) return false; // cancelled/refunded bookings only show under "All" — their old paymentStatus no longer applies
       if (activeFilter === 'To Verify') return bill.isToVerify || bill.isBalanceToVerify;
       if (activeFilter === 'Fully Paid') return bill.isFullyPaid;
       if (activeFilter === 'Partially Paid') return bill.isPartiallyPaid;
@@ -140,6 +154,8 @@ function Billings() {
   });
 
   const getStatusColor = (bill) => {
+    if (bill.isRefunded) return '#0e7490';
+    if (bill.isCancelled) return '#64748b';
     if (bill.isFullyPaid) return '#22c55e';
     if (bill.isPartiallyPaid) return '#f59e0b';
     if (bill.isToVerify) return '#1b9ce5';
@@ -257,7 +273,7 @@ function Billings() {
 
                 <h3 style={{ margin: 0, fontSize: '18px' }}>{bill.service}</h3>
                 <p style={{ margin: '4px 0', color: '#666' }}>{bill.id}</p>
-                {bill.isRejected && (
+                {bill.isRejected && !bill.isCancelled && (
                   <p style={{ margin: '4px 0', color: '#ef4444', fontSize: '13px' }}>
                     Rejected — please resubmit
                   </p>
@@ -274,7 +290,7 @@ function Billings() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
-                {bill.isFullyPaid && (
+                {bill.isFullyPaid && !bill.isCancelled && (
                   <button
                     style={{ background: 'transparent', border: '1px solid #d0dde8', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', color: '#333', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
                     onClick={() => {
@@ -286,7 +302,7 @@ function Billings() {
                   </button>
                 )}
 
-                {!bill.paid && (
+                {!bill.paid && !bill.isCancelled && (
                   <button
                     style={{ background: '#1b9ce5', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
                     onClick={() => {
@@ -299,7 +315,7 @@ function Billings() {
                   </button>
                 )}
 
-                {bill.isPartiallyPaid && !bill.isBalancePaid && (
+                {bill.isPartiallyPaid && !bill.isBalancePaid && !bill.isCancelled && (
                   <button
                     style={{ background: '#1b9ce5', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
                     onClick={() => {

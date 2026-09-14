@@ -87,7 +87,6 @@ function buildTechnicianStats(bookings, reports) {
 function Analytics() {
     const [bookings, setBookings] = useState([]);
     const [reports, setReports] = useState([]);
-    const [customers, setCustomers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeClientType, setActiveClientType] = useState('all');
 
@@ -98,15 +97,13 @@ function Analytics() {
                 const token = localStorage.getItem('token');
                 const headers = { Authorization: `Bearer ${token}` };
 
-                const [bookingsRes, reportsRes, customersRes] = await Promise.all([
+                const [bookingsRes, reportsRes] = await Promise.all([
                     fetch(`${API_BASE}/api/bookings`, { headers }),
                     fetch(`${API_BASE}/api/reports`, { headers }),
-                    fetch(`${API_BASE}/api/users?role=customer`, { headers }),
                 ]);
 
                 setBookings(bookingsRes.ok ? await bookingsRes.json() : []);
                 setReports(reportsRes.ok ? await reportsRes.json() : []);
-                setCustomers(customersRes.ok ? await customersRes.json() : []);
             } catch (err) {
                 console.error('Error loading analytics data:', err);
             } finally {
@@ -128,11 +125,6 @@ function Analytics() {
             (r) => (r.bookingDetails?.customer?.clientType || 'Residential') === activeClientType
         );
     }, [reports, activeClientType]);
-
-    const filteredCustomers = useMemo(() => {
-        if (activeClientType === 'all') return customers;
-        return customers.filter((c) => (c.clientType || 'Residential') === activeClientType);
-    }, [customers, activeClientType]);
 
     // ── Service Request Analytics ──
     const serviceAnalytics = useMemo(() => {
@@ -168,8 +160,25 @@ function Analytics() {
     );
 
     // ── Customer Analytics ──
-    const newCustomerCount = filteredCustomers.filter((c) => c.classification === 'Regular').length;
-    const returningCustomerCount = filteredCustomers.filter((c) => c.classification === 'Return').length;
+    // New vs. Returning is deliberately independent of the Customer Classification
+    // Module (User.manualClassification / the 4-visits-in-12-months perk threshold) —
+    // that field answers a different question and would call a genuinely returning
+    // customer "new" until they cross that count. Here: total completed bookings per
+    // customer, 1 = New, 2+ = Returning. A customer with 0 completed bookings hasn't
+    // been served yet and isn't counted as either.
+    const customerCompletedCounts = useMemo(() => {
+        const counts = {};
+        filteredBookings.forEach((b) => {
+            if (b.status !== 'Completed') return;
+            const id = b.customer?._id;
+            if (!id) return;
+            counts[id] = (counts[id] || 0) + 1;
+        });
+        return counts;
+    }, [filteredBookings]);
+
+    const newCustomerCount = Object.values(customerCompletedCounts).filter((c) => c === 1).length;
+    const returningCustomerCount = Object.values(customerCompletedCounts).filter((c) => c >= 2).length;
 
     const ratedBookings = useMemo(
         () => filteredBookings.filter((b) => typeof b.feedback?.rating === 'number'),

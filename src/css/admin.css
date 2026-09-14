@@ -878,6 +878,8 @@
 .status-pill--partial { background: #e0f2fe; color: #0284c7; }
 .status-pill--full { background: #dcfce7; color: #15803d; }
 .status-pill--rejected { background: #fee2e2; color: #dc2626; }
+.status-pill--refunded { background: #cffafe; color: #0e7490; }
+.status-pill--cancelled { background: #e2e8f0; color: #475569; }
 
 .payment-card__review-btn {
   padding: 8px 14px;

@@ -75,7 +75,18 @@ const PAYMENT_STATUS_META = {
   fully_paid: { label: 'Fully Paid', className: 'status-pill status-pill--full' },
   rejected: { label: 'Rejected', className: 'status-pill status-pill--rejected' },
   balance_rejected: { label: 'Balance Rejected', className: 'status-pill status-pill--rejected' },
+  // Once a booking is cancelled, paymentStatus reflects whatever it happened to be
+  // right before cancellation and no longer means what it used to — these three
+  // override it so the badge reflects the booking's actual current state instead.
+  refunded: { label: 'Refunded', className: 'status-pill status-pill--refunded' },
+  cancelled: { label: 'Cancelled', className: 'status-pill status-pill--cancelled' },
+  cancelled_refund_pending: { label: 'Cancelled – Refund Pending', className: 'status-pill status-pill--cancelled' },
 };
+
+// Terminal states where there's nothing left to review — reviewing/approving a
+// cancelled booking's stale payment proof would either error out server-side
+// (admin-update blocks edits on cancelled bookings) or be actively misleading.
+const TERMINAL_PAYMENT_STATUSES = ['cancelled', 'cancelled_refund_pending', 'refunded'];
 
 /* ── Review Request Modal ──────────────────────────────── */
 function ReviewRequestModal({ payment, onClose, onSuccess }) {
@@ -316,13 +327,15 @@ function PaymentCard({ payment, onReviewRequest }) {
       </div>
 
       <div className="payment-card__action">
-        <button
-          type="button"
-          className="payment-card__link payment-card__review-btn"
-          onClick={() => onReviewRequest(payment)}
-        >
-          Review Request
-        </button>
+        {!TERMINAL_PAYMENT_STATUSES.includes(payment.status) && (
+          <button
+            type="button"
+            className="payment-card__link payment-card__review-btn"
+            onClick={() => onReviewRequest(payment)}
+          >
+            Review Request
+          </button>
+        )}
       </div>
     </div>
   );
@@ -366,7 +379,11 @@ function PaymentsPanel() {
       const basePrice = b.service?.price || b.basePrice || 0;
 
       let status = 'unpaid';
-      if (b.paymentStatus === 'rejected') {
+      if (b.refund?.status === 'Processed') {
+        status = 'refunded';
+      } else if (b.status === 'Cancelled') {
+        status = b.refund?.status === 'Pending' ? 'cancelled_refund_pending' : 'cancelled';
+      } else if (b.paymentStatus === 'rejected') {
         status = 'rejected';
       } else if (b.paymentStatus === 'fully_paid' || b.balancePaid || b.balancePaymentStatus === 'paid') {
         status = 'fully_paid';

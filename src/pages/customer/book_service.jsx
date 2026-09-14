@@ -39,6 +39,7 @@ export function useServices() {
           desc: s.description,
           price: s.price,
           icon: ICON_MAP[s.icon] || <FiSettings />,
+          serviceType: s.serviceType,
         }));
         setServices(mapped);
         setLoading(false);
@@ -158,7 +159,15 @@ export function Step1({ form, setForm, services }) {
             key={s.id}
             type="button"
             className={`service-option ${form.service === s.id ? 'selected' : ''}`}
-            onClick={() => setForm({ ...form, service: s.id })}
+            onClick={() => setForm({
+              ...form,
+              service: s.id,
+              // A different service may not be Installation at all, or may need
+              // the unit-source question re-asked — don't carry stale answers over.
+              clientSuppliedUnit: false,
+              unitWaiverAcknowledged: false,
+              unitWaiverName: '',
+            })}
           >
             <div className="service-option-left">
               <span className="service-icon">{s.icon}</span>
@@ -176,13 +185,25 @@ export function Step1({ form, setForm, services }) {
 }
 
 /* ── Step 2: Unit Details ─────────────────────────────────── */
-export function Step2({ form, setForm }) {
+export function Step2({ form, setForm, services = [] }) {
   const toggleUnit = (type) => {
     const current = form.unitTypes || [];
     const updated = current.includes(type)
       ? current.filter((t) => t !== type)
       : [...current, type];
     setForm({ ...form, unitTypes: updated });
+  };
+
+  const selectedService = services.find((s) => s.id === form.service);
+  const isInstallation = selectedService?.serviceType === 'Installation';
+
+  const setClientSuppliedUnit = (clientSupplied) => {
+    setForm({
+      ...form,
+      clientSuppliedUnit: clientSupplied,
+      unitWaiverAcknowledged: false,
+      unitWaiverName: '',
+    });
   };
 
   return (
@@ -216,6 +237,55 @@ export function Step2({ form, setForm }) {
           onChange={(e) => setForm({ ...form, brandModel: e.target.value })}
         />
       </div>
+
+      {isInstallation && (
+        <div className="bs-field-group">
+          <label className="bs-label">Unit Source</label>
+          <div className="time-toggle">
+            <button
+              type="button"
+              className={`time-btn ${!form.clientSuppliedUnit ? 'selected' : ''}`}
+              onClick={() => setClientSuppliedUnit(false)}
+            >
+              CZA-Supplied Unit
+            </button>
+            <button
+              type="button"
+              className={`time-btn ${form.clientSuppliedUnit ? 'selected' : ''}`}
+              onClick={() => setClientSuppliedUnit(true)}
+            >
+              My Own Unit
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isInstallation && form.clientSuppliedUnit && (
+        <div className="bs-field-group waiver-box">
+          <label className="bs-label">Unit Warranty Waiver</label>
+          <p className="bs-card-sub">
+            Since this unit wasn't purchased through Cooling Zone, our Unit Warranty (compressor
+            and parts coverage) does not apply to it. Installation workmanship is still covered
+            for 3 months.
+          </p>
+          <label className="waiver-checkbox-label">
+            <input
+              type="checkbox"
+              checked={form.unitWaiverAcknowledged || false}
+              onChange={(e) => setForm({ ...form, unitWaiverAcknowledged: e.target.checked })}
+            />
+            I confirm this unit was not purchased through Cooling Zone Aircon Services, and
+            understand the Unit Warranty does not apply to it.
+          </label>
+          <input
+            type="text"
+            className="bs-input"
+            placeholder="Type your full name to confirm"
+            value={form.unitWaiverName || ''}
+            onChange={(e) => setForm({ ...form, unitWaiverName: e.target.value })}
+          />
+        </div>
+      )}
 
       <div className="bs-field-group">
         <label className="bs-label">Problem Description <span className="bs-label-hint">(Optional)</span></label>
@@ -468,6 +538,12 @@ export function Step5({ form, services, technicians }) {
           <div className="summary-row"><span>Date &amp; Time</span><span>{form.date ? `${form.date}, ${form.time || ''}` : '—'}</span></div>
           <div className="summary-row"><span>Address</span><span>{form.address || '—'}</span></div>
           <div className="summary-row"><span>Preferred Tech</span><span>{techName}</span></div>
+          {selected?.serviceType === 'Installation' && (
+            <div className="summary-row">
+              <span>Unit Source</span>
+              <span>{form.clientSuppliedUnit ? 'My Own Unit (waiver signed)' : 'CZA-Supplied Unit'}</span>
+            </div>
+          )}
         </div>
         <div>
           <p className="summary-section-title">Payment Details</p>
@@ -514,7 +590,15 @@ function BookService() {
 
 const canNext = () => {
     if (step === 1) return !!form.service;
-    if (step === 2) return (form.unitTypes || []).length > 0;
+    if (step === 2) {
+      if ((form.unitTypes || []).length === 0) return false;
+      const selectedService = services.find((s) => s.id === form.service);
+      const isInstallation = selectedService?.serviceType === 'Installation';
+      if (isInstallation && form.clientSuppliedUnit) {
+        return !!form.unitWaiverAcknowledged && !!(form.unitWaiverName || '').trim();
+      }
+      return true;
+    }
     if (step === 3) {
       if (!form.date || !form.time || !form.address) return false;
       const minDate = new Date();
@@ -546,6 +630,11 @@ const canNext = () => {
       formData.append('time', form.time);
       formData.append('technician', form.technician || '');
       formData.append('address', form.address);
+      formData.append('clientSuppliedUnit', form.clientSuppliedUnit || false);
+      if (form.clientSuppliedUnit) {
+        formData.append('unitWaiverAcknowledged', form.unitWaiverAcknowledged || false);
+        formData.append('unitWaiverName', form.unitWaiverName || '');
+      }
       formData.append('downPaymentPercent', form.downPaymentPercent);
       formData.append('paymentMode', form.paymentMode || '');
       formData.append('paymentMode2', form.paymentMode2 || '');
@@ -582,7 +671,7 @@ const canNext = () => {
       ) : (
         <>
           {step === 1 && <Step1 form={form} setForm={setForm} services={services} />}
-          {step === 2 && <Step2 form={form} setForm={setForm} />}
+          {step === 2 && <Step2 form={form} setForm={setForm} services={services} />}
           {step === 3 && <Step3 form={form} setForm={setForm} technicians={technicians} />}
           {step === 4 && <Step4 form={form} setForm={setForm} services={services} isReturnCustomer={isReturnCustomer} />}
           {step === 5 && <Step5 form={form} services={services} technicians={technicians} />}

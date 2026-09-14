@@ -26,7 +26,7 @@ import AdminServiceRequests from './pages/admin/service_requests';
 import AdminWalkInBooking from './pages/admin/walk_in_booking';
 import AdminServiceReports from './pages/admin/service_reports';
 import AdminPayments from './pages/admin/payments';
-import AdminRefunds from './pages/admin/refunds';
+import AdminBackJobs from './pages/admin/back_jobs';
 import AdminAnalytics from './pages/admin/analytics';
 
 function App() {
@@ -64,7 +64,7 @@ function App() {
         <Route path="/admin/services/requests/new" element={<AdminWalkInBooking />} />
         <Route path="/admin/services/reports" element={<AdminServiceReports />} />
         <Route path="/admin/payments" element={<AdminPayments />} />
-        <Route path="/admin/refunds" element={<AdminRefunds />} />
+        <Route path="/admin/back-jobs" element={<AdminBackJobs />} />
         <Route path="/admin/analytics" element={<AdminAnalytics />} />
 
       </Routes>

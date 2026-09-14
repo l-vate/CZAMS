@@ -2,13 +2,31 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
 import ReceiptModal from '../../components/receipt_modal';
+import FeedbackModal from '../../components/feedback_modal';
 import {
   FiCheck, FiMail, FiMessageSquare, FiBell, FiPrinter,
   FiCalendar, FiClock, FiMapPin, FiInfo, FiCreditCard,
-  FiUser, FiAlertTriangle, FiX, FiArrowRight,
+  FiUser, FiAlertTriangle, FiX, FiArrowRight, FiStar,
 } from 'react-icons/fi';
 
 const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+
+const FEEDBACK_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+// 'create' if no feedback yet, 'edit' within the 24h window, 'view' (read-only) after it, or null if not eligible
+function getFeedbackAction(booking) {
+  if (booking.status !== 'Completed') return null;
+  const fb = booking.feedback;
+  if (!fb?.rating) return 'create';
+  const submittedAt = fb.createdAt ? new Date(fb.createdAt).getTime() : 0;
+  return Date.now() - submittedAt <= FEEDBACK_EDIT_WINDOW_MS ? 'edit' : 'view';
+}
+
+const FEEDBACK_ACTION_LABEL = {
+  create: 'Leave Feedback',
+  edit: 'Edit Feedback',
+  view: 'View Feedback',
+};
 
 function formatDate(dateStr) {
   if (!dateStr) return '—';
@@ -24,7 +42,7 @@ function RescheduleModal({ booking, onClose, onSubmit, submitting }) {
 
   const minDate = (() => {
     const d = new Date();
-    d.setDate(d.getDate() + 5);
+    d.setDate(d.getDate() + 3);
     return d.toISOString().split('T')[0];
   })();
 
@@ -104,7 +122,47 @@ function CancelConfirmDialog({ onKeep, onConfirmCancel }) {
   );
 }
 
-function BookingCancelled({ bookingId, onBookAgain, onBackToDashboard }) {
+function RefundStatusMessage({ refund }) {
+  if (!refund || refund.status === 'None') {
+    return (
+      <p className="cancelled-message">
+        Your booking has been successfully cancelled. No down payment was on file for
+        this booking, so there's nothing to refund.
+      </p>
+    );
+  }
+
+  if (refund.status === 'Processed') {
+    return (
+      <p className="cancelled-message">
+        Your booking has been successfully cancelled. Your refund of{' '}
+        <strong>₱{refund.refundableAmount?.toLocaleString()}</strong> has been processed.
+      </p>
+    );
+  }
+
+  // Pending
+  if (refund.isSameDay) {
+    return (
+      <p className="cancelled-message">
+        Your booking has been successfully cancelled. Since this was cancelled on the
+        same day as your scheduled service, a dispatch/transportation cost will be
+        deducted from your down payment of <strong>₱{refund.downPaymentAmount?.toLocaleString()}</strong>{' '}
+        before it's refunded. Our admin team will review this and process your refund shortly.
+      </p>
+    );
+  }
+
+  return (
+    <p className="cancelled-message">
+      Your booking has been successfully cancelled. Your down payment of{' '}
+      <strong>₱{refund.downPaymentAmount?.toLocaleString()}</strong> is being reviewed
+      for a refund by our admin team.
+    </p>
+  );
+}
+
+function BookingCancelled({ bookingId, refund, onBookAgain, onBackToDashboard }) {
   return (
     <div className="confirmation-wrap">
       <div className="confirmation-heading">
@@ -113,10 +171,7 @@ function BookingCancelled({ bookingId, onBookAgain, onBackToDashboard }) {
         <p className="confirmation-id">Booking ID: {bookingId}</p>
       </div>
       <div className="bs-card cancelled-card">
-        <p className="cancelled-message">
-          Your booking has been successfully cancelled. No further charges will be made,
-          and any pending downpayment will be reviewed for refund if applicable.
-        </p>
+        <RefundStatusMessage refund={refund} />
         <div className="cancelled-actions">
           <button className="bs-back-btn" onClick={onBackToDashboard}>Back to Dashboard</button>
           <button className="bs-next-btn" onClick={onBookAgain}>Book Another Service <FiArrowRight /></button>
@@ -138,6 +193,8 @@ function BookDetails() {
   const [showReschedule, setShowReschedule] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [rescheduling, setRescheduling] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -245,11 +302,38 @@ function BookDetails() {
     }
   };
 
+  const handleFeedbackSubmit = async ({ rating, text }) => {
+    setSubmittingFeedback(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:5000/api/bookings/${booking.bookingId}/feedback`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ rating, text }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || 'Failed to submit feedback');
+        return;
+      }
+      setBooking(data);
+      setShowFeedback(false);
+    } catch (err) {
+      alert('Could not connect to server.');
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
+
   if (cancelled) {
     return (
       <CustomerLayout title="Book Service">
         <BookingCancelled
           bookingId={booking.bookingId}
+          refund={booking.refund}
           onBookAgain={() => navigate('/customer/book_service')}
           onBackToDashboard={() => navigate('/customer/dashboard')}
         />
@@ -280,6 +364,16 @@ function BookDetails() {
           form={receiptForm}
           booking={booking}
           onClose={() => setShowReceipt(false)}
+        />
+      )}
+
+      {showFeedback && (
+        <FeedbackModal
+          booking={booking}
+          readOnly={getFeedbackAction(booking) === 'view'}
+          onClose={() => setShowFeedback(false)}
+          onSubmit={handleFeedbackSubmit}
+          submitting={submittingFeedback}
         />
       )}
 
@@ -432,6 +526,12 @@ function BookDetails() {
                   Cancel booking
                 </button>
               </>
+            )}
+
+            {getFeedbackAction(booking) && (
+              <button className="bs-back-btn" onClick={() => setShowFeedback(true)}>
+                <FiStar /> {FEEDBACK_ACTION_LABEL[getFeedbackAction(booking)]}
+              </button>
             )}
           </div>
         </div>

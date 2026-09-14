@@ -153,7 +153,10 @@ function ManageAccounts() {
 
   const fetchAllUsers = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/users');
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/users', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (response.ok) {
         const data = await response.json();
         setUsers(Array.isArray(data) ? data : []);
@@ -167,9 +170,13 @@ function ManageAccounts() {
 
   const handleRegisterSubmit = async (values) => {
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch('http://localhost:5000/api/users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           name: values.name.trim(),
           email: values.email.trim(),

@@ -72,7 +72,21 @@ const bookingSchema = new mongoose.Schema({
         rating: Number,
         createdAt: Date,
     },
-    
+
+    // Down-payment refund on a cancelled booking. Only set when the booking actually
+    // had a down payment on file at cancellation time (see /:bookingId/cancel) — a
+    // cleaning booking with no down payment simply stays 'None'.
+    refund: {
+        status: { type: String, enum: ['None', 'Pending', 'Processed'], default: 'None' },
+        isSameDay: { type: Boolean, default: false },
+        downPaymentAmount: Number,
+        dispatchDeduction: Number,
+        refundableAmount: Number,
+        requestedAt: Date,
+        processedAt: Date,
+        processedBy: String,
+    },
+
     completedAt: Date,
 }, { timestamps: true });
 

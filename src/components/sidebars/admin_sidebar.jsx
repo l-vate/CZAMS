@@ -106,6 +106,9 @@ function AdminSidebar({ onNavigate }) {
           <NavLink to="/admin/payments" className={linkClass} onClick={onNavigate}>
             Payments
           </NavLink>
+          <NavLink to="/admin/refunds" className={linkClass} onClick={onNavigate}>
+            Refunds
+          </NavLink>
         </nav>
       </div>
 

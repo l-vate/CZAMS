@@ -1411,6 +1411,259 @@
   font-size: 14px;
 }
 
+/* ============ WALK-IN BOOKING (Customer Selection Step) ============ */
+.walkin-mode-toggle {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.walkin-mode-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 16px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #475569;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.walkin-mode-btn.selected {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.walkin-customer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.walkin-customer-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 12px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s ease, background 0.2s ease;
+  width: 100%;
+}
+
+.walkin-customer-row:hover {
+  border-color: #2563eb;
+  background: #f8fafc;
+}
+
+.walkin-customer-row-name {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.walkin-customer-row-meta {
+  font-size: 12.5px;
+  color: #64748b;
+}
+
+.walkin-selected-customer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.walkin-selected-customer-name {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 15px;
+  margin: 0 0 4px;
+}
+
+.walkin-selected-customer-meta {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}
+
+/* ============ REFUNDS ============ */
+.refunds-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.refunds-filters {
+  display: flex;
+  gap: 8px;
+}
+
+.refunds-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 8px 14px;
+  width: 280px;
+}
+
+.refunds-search input {
+  border: none;
+  outline: none;
+  width: 100%;
+  font-size: 13.5px;
+  color: #0f172a;
+  background: transparent;
+}
+
+.refunds-search .icon-search {
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.refunds-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.refunds-empty {
+  text-align: center;
+  padding: 40px;
+  color: #64748b;
+  font-size: 14px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px dashed #cbd5e1;
+}
+
+.refund-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 18px 22px;
+  display: grid;
+  grid-template-columns: 2fr 1fr auto;
+  align-items: center;
+  gap: 16px;
+  transition: box-shadow 0.2s ease;
+}
+
+.refund-card:hover {
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+}
+
+.refund-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.refund-card__client {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 15px;
+}
+
+.refund-card__dot {
+  color: #94a3b8;
+}
+
+.refund-card__same-day-tag {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.refund-card__service {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.refund-card__service-type {
+  font-size: 13px;
+  color: #475569;
+  font-weight: 500;
+}
+
+.refund-card__detail {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.refund-card__amount {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.refund-card__amount-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+}
+
+.refund-card__amount-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.refund-card__action {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.refund-card__review-btn {
+  padding: 8px 14px;
+  background: #f1f5f9;
+  color: #2563eb;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.refund-card__review-btn:hover {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
 /* ============ RESPONSIVE ============ */
 @media (max-width: 768px) {
   .report-card {
@@ -1452,5 +1705,32 @@
   .report-view-submitted-info {
     grid-template-columns: 1fr;
     gap: 8px;
+  }
+
+  .refund-card {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .refund-card__action {
+    justify-content: stretch;
+  }
+
+  .refund-card__review-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .refunds-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .refunds-search {
+    width: 100%;
+  }
+
+  .refunds-filters {
+    flex-wrap: wrap;
   }
 }

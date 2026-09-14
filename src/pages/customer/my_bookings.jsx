@@ -1,17 +1,38 @@
 import { useState, useEffect } from 'react';
 import CustomerLayout from './customer_layout';
 import { useNavigate } from 'react-router-dom';
-import { FiClock, FiMapPin, FiEye } from 'react-icons/fi';
+import { FiClock, FiMapPin, FiEye, FiStar } from 'react-icons/fi';
+import FeedbackModal from '../../components/feedback_modal';
+
+const FEEDBACK_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+// 'create' if no feedback yet, 'edit' within the 24h window, 'view' (read-only) after it, or null if not eligible
+function getFeedbackAction(booking) {
+  if (booking.status !== 'Completed') return null;
+  const fb = booking.feedback;
+  if (!fb?.rating) return 'create';
+  const submittedAt = fb.createdAt ? new Date(fb.createdAt).getTime() : 0;
+  return Date.now() - submittedAt <= FEEDBACK_EDIT_WINDOW_MS ? 'edit' : 'view';
+}
+
+const FEEDBACK_ACTION_LABEL = {
+  create: 'Leave Feedback',
+  edit: 'Edit Feedback',
+  view: 'View Feedback',
+};
 
 function MyBookings() {
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState('All');
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [feedbackBooking, setFeedbackBooking] = useState(null);
+  const [feedbackAction, setFeedbackAction] = useState(null);
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
   const filters = ['All', 'Pending', 'Approved', 'In Progress', 'Completed', 'Cancelled'];
 
-  useEffect(() => {
+  const fetchBookings = () => {
     const token = localStorage.getItem('token');
     fetch('http://localhost:5000/api/bookings/mine', {
       headers: { Authorization: `Bearer ${token}` },
@@ -22,7 +43,42 @@ function MyBookings() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchBookings();
   }, []);
+
+  const handleOpenFeedback = (booking, action) => {
+    setFeedbackBooking(booking);
+    setFeedbackAction(action);
+  };
+
+  const handleFeedbackSubmit = async ({ rating, text }) => {
+    setSubmittingFeedback(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:5000/api/bookings/${feedbackBooking.bookingId}/feedback`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ rating, text }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || 'Failed to submit feedback');
+        return;
+      }
+      setFeedbackBooking(null);
+      fetchBookings();
+    } catch (err) {
+      alert('Could not connect to server.');
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
 
   // Helper functions to safely render potential object fields
   const formatAddress = (address) => {
@@ -159,7 +215,7 @@ function MyBookings() {
                   <FiMapPin /> {formatAddress(booking.address)}
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
                   <button
                     type="button"
                     style={{ background: 'transparent', border: '1px solid #d0dde8', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', color: '#333', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
@@ -167,11 +223,31 @@ function MyBookings() {
                   >
                     <FiEye size={14} /> View Details
                   </button>
+
+                  {getFeedbackAction(booking) && (
+                    <button
+                      type="button"
+                      style={{ background: 'transparent', border: '1px solid #d0dde8', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', color: '#333', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
+                      onClick={() => handleOpenFeedback(booking, getFeedbackAction(booking))}
+                    >
+                      <FiStar size={14} /> {FEEDBACK_ACTION_LABEL[getFeedbackAction(booking)]}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
           ))}
         </div>
+      )}
+
+      {feedbackBooking && (
+        <FeedbackModal
+          booking={feedbackBooking}
+          readOnly={feedbackAction === 'view'}
+          onClose={() => setFeedbackBooking(null)}
+          onSubmit={handleFeedbackSubmit}
+          submitting={submittingFeedback}
+        />
       )}
     </CustomerLayout>
   );

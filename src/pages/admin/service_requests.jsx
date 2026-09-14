@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AdminLayout from './admin_layout';
 import AdminServiceDetailsModal from '../../components/admin_service_details_modal';
 
 function ServiceRequests() {
+    const navigate = useNavigate();
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeFilter, setActiveFilter] = useState('All');
@@ -69,7 +71,12 @@ function ServiceRequests() {
                             </button>
                         ))}
                     </div>
-                    <button className="req-new-btn">+ New Booking</button>
+                    <button
+                        className="req-new-btn"
+                        onClick={() => navigate('/admin/services/requests/new')}
+                    >
+                        + New Booking
+                    </button>
                 </div>
 
                 {loading ? (

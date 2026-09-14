@@ -4,6 +4,7 @@ const router = express.Router();
 const path = require('path');
 const auth = require('../middleware/auth');
 const Booking = require('../models/Booking');
+const User = require('../models/User');
 
 // ============================================
 // 1. CONFIGURATION & HELPERS
@@ -40,12 +41,12 @@ function generateBookingId() {
   return `CZ-${year}-${rand}`;
 }
 
-// Validate date (must be at least 5 days from today)
+// Validate date (must be at least 3 days from today)
 function isDateAllowed(dateStr) {
   if (!dateStr) return false;
-  
+
   const minDate = new Date();
-  minDate.setDate(minDate.getDate() + 5);
+  minDate.setDate(minDate.getDate() + 3);
   minDate.setHours(0, 0, 0, 0);
 
   const selected = new Date(dateStr);
@@ -55,11 +56,51 @@ function isDateAllowed(dateStr) {
   return selected >= minDate;
 }
 
+// Local YYYY-MM-DD for today, for same-day-cancellation comparisons against booking.date
+function todayDateString() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+// Opens a refund request on a booking that's about to be cancelled, but only if a
+// down payment was actually on file (cleaning bookings with no down payment simply
+// stay 'None'). Shared by the customer-initiated /cancel route and the admin-initiated
+// /admin-update route so both cancellation paths open refunds the same way. Requires
+// booking.service to already be populated (needed for the price).
+function openRefundIfEligible(booking) {
+  const hasDownPaymentOnFile =
+    booking.downPaymentPercent > 0 &&
+    !['Unpaid', 'rejected'].includes(booking.paymentStatus);
+
+  if (!hasDownPaymentOnFile) return;
+
+  const basePrice = booking.service?.price || 0;
+  const downPaymentAmount = Math.round(basePrice * (booking.downPaymentPercent / 100));
+  const isSameDay = booking.date === todayDateString();
+
+  booking.refund = {
+    status: 'Pending',
+    isSameDay,
+    downPaymentAmount,
+    // Same-day: the dispatch/transportation deduction isn't known until admin
+    // reviews it, so the refundable amount stays unset until then.
+    dispatchDeduction: isSameDay ? undefined : 0,
+    refundableAmount: isSameDay ? undefined : downPaymentAmount,
+    requestedAt: new Date(),
+  };
+}
+
 // ============================================
 // 2. CUSTOMER ROUTES (Booking Management)
 // ============================================
 
-// Create a booking (initial submission with proof)
+// Create a booking (initial submission with proof). Normally the caller is the
+// customer themselves; an admin creating a walk-in/phone-in booking on someone
+// else's behalf may pass `customer` to book it under that customer's account
+// instead — only admins can do this, everyone else always books under their own id.
 router.post('/', auth, (req, res, next) => {
   req.generatedBookingId = generateBookingId();
   next();
@@ -69,20 +110,47 @@ router.post('/', auth, (req, res, next) => {
       service, unitTypes, brandModel, problemDescription,
       date, time, technician, address,
       downPaymentPercent, paymentMode, paymentMode2,
+      customer,
     } = req.body;
 
     if (!isDateAllowed(date)) {
-      return res.status(400).json({ 
-        message: 'Selected date must be at least 5 days from today.' 
+      return res.status(400).json({
+        message: 'Selected date must be at least 3 days from today.'
       });
     }
 
+    let bookingCustomerId = req.userId;
+    let isAdminWalkIn = false;
+    if (req.userRole === 'admin' && customer) {
+      const targetCustomer = await User.findById(customer);
+      if (!targetCustomer) {
+        return res.status(400).json({ message: 'Selected customer account not found.' });
+      }
+      bookingCustomerId = customer;
+      isAdminWalkIn = true;
+    }
+
     const proofFile = req.file ? `/uploads/proofs/${req.file.filename}` : undefined;
-    const paymentStatus = proofFile ? 'to_verify' : 'Unpaid';
+
+    // A walk-in booking's admin is physically/verbally confirming payment on the
+    // spot, so with no proof to check it's marked paid immediately instead of
+    // sitting in the Payments queue looking like an unresolved to-verify item with
+    // nothing to review. If the admin did attach proof (e.g. a GCash screenshot),
+    // it still goes through the normal to_verify review like any other booking.
+    // A 0% down payment (the Customer Classification return-customer perk) is the
+    // one case where nothing was actually collected, so it stays 'Unpaid' either way.
+    let paymentStatus;
+    if (proofFile) {
+      paymentStatus = 'to_verify';
+    } else if (isAdminWalkIn && Number(downPaymentPercent) > 0) {
+      paymentStatus = Number(downPaymentPercent) >= 100 ? 'fully_paid' : 'partially_paid';
+    } else {
+      paymentStatus = 'Unpaid';
+    }
 
     const booking = await Booking.create({
       bookingId: req.generatedBookingId,
-      customer: req.userId,
+      customer: bookingCustomerId,
       service, unitTypes, brandModel, problemDescription,
       date, time, technician, address,
       downPaymentPercent, paymentMode, paymentMode2,
@@ -127,17 +195,33 @@ router.get('/:bookingId', auth, async (req, res) => {
   }
 });
 
-// Cancel a booking
+// Cancel a booking. If a down payment was actually on file, this also opens a
+// refund request (Cancellation, Rescheduling, and Refund Module) — same-day
+// cancellations get flagged so the dispatch/transportation cost can be deducted
+// before an admin processes it; pre-service cancellations refund in full.
 router.patch('/:bookingId/cancel', auth, async (req, res) => {
   try {
-    const booking = await Booking.findOneAndUpdate(
-      { bookingId: req.params.bookingId, customer: req.userId },
-      { status: 'Cancelled' },
-      { new: true }
-    ).populate('service');
+    const booking = await Booking.findOne({
+      bookingId: req.params.bookingId,
+      customer: req.userId,
+    }).populate('service');
 
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
-    res.json(booking);
+
+    if (!['Pending', 'Approved', 'In Progress'].includes(booking.status)) {
+      return res.status(400).json({ message: 'This booking can no longer be cancelled.' });
+    }
+
+    openRefundIfEligible(booking);
+
+    booking.status = 'Cancelled';
+    await booking.save();
+
+    const populated = await booking.populate([
+      { path: 'service' },
+      { path: 'technician', select: 'name' },
+    ]);
+    res.json(populated);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -194,8 +278,8 @@ router.patch('/:bookingId/reschedule', auth, async (req, res) => {
     const { date, time } = req.body;
 
     if (!isDateAllowed(date)) {
-      return res.status(400).json({ 
-        message: 'New date must be at least 5 days from today.' 
+      return res.status(400).json({
+        message: 'New date must be at least 3 days from today.'
       });
     }
 
@@ -227,7 +311,56 @@ router.patch('/:bookingId/reschedule', auth, async (req, res) => {
     }
 
     await booking.save();
-    const populated = await booking.populate('service');
+    const populated = await booking.populate([
+      { path: 'service' },
+      { path: 'technician', select: 'name' },
+    ]);
+    res.json(populated);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Submit or edit feedback for a completed booking (customer)
+const FEEDBACK_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+router.patch('/:bookingId/feedback', auth, async (req, res) => {
+  try {
+    const { rating, text } = req.body;
+    const parsedRating = Number(rating);
+
+    if (!parsedRating || parsedRating < 1 || parsedRating > 5) {
+      return res.status(400).json({ message: 'A rating from 1 to 5 is required.' });
+    }
+
+    const booking = await Booking.findOne({
+      bookingId: req.params.bookingId,
+      customer: req.userId,
+    });
+
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    if (booking.status !== 'Completed') {
+      return res.status(400).json({ message: 'Feedback can only be left once the service is completed.' });
+    }
+
+    const previouslySubmittedAt = booking.feedback?.createdAt;
+    if (previouslySubmittedAt && Date.now() - new Date(previouslySubmittedAt).getTime() > FEEDBACK_EDIT_WINDOW_MS) {
+      return res.status(400).json({ message: 'Feedback can no longer be edited (24-hour window has passed).' });
+    }
+
+    booking.feedback = {
+      text: text?.trim() || '',
+      rating: parsedRating,
+      createdAt: previouslySubmittedAt || new Date(),
+    };
+
+    await booking.save();
+    const populated = await booking.populate([
+      { path: 'service' },
+      { path: 'technician', select: 'name' },
+    ]);
     res.json(populated);
   } catch (err) {
     console.error(err);
@@ -448,15 +581,15 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
       return res.status(400).json({ message: 'Invalid status' });
     }
 
-    const booking = await Booking.findOne({ 
-      bookingId: req.params.bookingId 
-    });
-    
+    const booking = await Booking.findOne({
+      bookingId: req.params.bookingId
+    }).populate('service');
+
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
-    
+
     if (booking.status === 'Cancelled') {
-      return res.status(400).json({ 
-        message: 'This booking is cancelled and can no longer be edited.' 
+      return res.status(400).json({
+        message: 'This booking is cancelled and can no longer be edited.'
       });
     }
 
@@ -467,9 +600,19 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
 
     // Validate technician assignment before approving
     if (status === 'Approved' && !booking.technician) {
-      return res.status(400).json({ 
-        message: 'Assign a technician before approving.' 
+      return res.status(400).json({
+        message: 'Assign a technician before approving.'
       });
+    }
+
+    // Admin-initiated cancellation opens the same refund request the customer's own
+    // /cancel route would, and is bound by the same rule: only bookings still
+    // Pending/Approved/In Progress can be cancelled (never a Completed one).
+    if (status === 'Cancelled') {
+      if (!['Pending', 'Approved', 'In Progress'].includes(booking.status)) {
+        return res.status(400).json({ message: 'This booking can no longer be cancelled.' });
+      }
+      openRefundIfEligible(booking);
     }
 
     // Update status
@@ -508,6 +651,50 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
       { path: 'technician', select: 'name' },
     ]);
     
+    res.json(populated);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: process a pending refund. Same-day cancellations require a dispatch/
+// transportation deduction before the refundable amount is finalized; pre-service
+// cancellations refund the down payment in full.
+router.patch('/:bookingId/refund', auth, async (req, res) => {
+  try {
+    if (req.userRole !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId });
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    if (booking.refund?.status !== 'Pending') {
+      return res.status(400).json({ message: 'No pending refund for this booking.' });
+    }
+
+    if (booking.refund.isSameDay) {
+      const dispatchDeduction = Number(req.body.dispatchDeduction);
+      if (isNaN(dispatchDeduction) || dispatchDeduction < 0) {
+        return res.status(400).json({ message: 'A valid dispatch/transportation deduction amount is required for a same-day cancellation.' });
+      }
+      booking.refund.dispatchDeduction = dispatchDeduction;
+      booking.refund.refundableAmount = Math.max(booking.refund.downPaymentAmount - dispatchDeduction, 0);
+    }
+
+    booking.refund.status = 'Processed';
+    booking.refund.processedAt = new Date();
+    booking.refund.processedBy = req.userId;
+
+    await booking.save();
+
+    const populated = await booking.populate([
+      { path: 'service' },
+      { path: 'customer', select: 'name email' },
+      { path: 'technician', select: 'name' },
+    ]);
+
     res.json(populated);
   } catch (err) {
     console.error(err);

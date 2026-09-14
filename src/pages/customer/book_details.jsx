@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
 import ReceiptModal from '../../components/receipt_modal';
 import FeedbackModal from '../../components/feedback_modal';
+import BackJobModal from '../../components/back_job_modal';
 import {
   FiCheck, FiMail, FiMessageSquare, FiBell, FiPrinter,
   FiCalendar, FiClock, FiMapPin, FiInfo, FiCreditCard,
@@ -162,7 +163,95 @@ function RefundStatusMessage({ refund }) {
   );
 }
 
-function BookingCancelled({ bookingId, refund, onBookAgain, onBackToDashboard }) {
+// Lets a customer flag a refund that hasn't come through — a single message +
+// status, not a ticketing thread. Only shown once there's an actual refund case.
+function RefundFlagForm({ bookingId, refund, onFlagged }) {
+  const [showForm, setShowForm] = useState(false);
+  const [message, setMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const isFlaggedUnresolved = refund.customerFlag?.flagged && !refund.customerFlag?.resolved;
+
+  if (isFlaggedUnresolved) {
+    return (
+      <p className="cancelled-message" style={{ fontSize: '13px', marginTop: '10px' }}>
+        You flagged this refund on {formatDate(refund.customerFlag.flaggedAt)} — our team will follow up with you.
+      </p>
+    );
+  }
+
+  const handleSubmit = async () => {
+    if (!message.trim()) {
+      setError('Please describe what happened.');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:5000/api/bookings/${bookingId}/refund/flag`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ message: message.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.message || 'Failed to submit report.');
+        return;
+      }
+      onFlagged(data);
+      setShowForm(false);
+      setMessage('');
+    } catch (err) {
+      setError('Could not connect to server.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!showForm) {
+    return (
+      <button
+        type="button"
+        className="bs-back-btn"
+        style={{ marginTop: '10px' }}
+        onClick={() => setShowForm(true)}
+      >
+        This refund hasn't come through?
+      </button>
+    );
+  }
+
+  return (
+    <div className="bs-field-group" style={{ marginTop: '10px' }}>
+      <label className="bs-label">Tell us what happened</label>
+      <textarea
+        className="bs-textarea"
+        rows={3}
+        placeholder="e.g. It's been marked processed but I haven't received the refund..."
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+      />
+      {error && (
+        <p style={{ fontSize: '12px', color: '#e05a5a' }}>{error}</p>
+      )}
+      <div className="cancel-confirm-actions">
+        <button type="button" className="bs-back-btn" onClick={() => setShowForm(false)} disabled={submitting}>
+          Cancel
+        </button>
+        <button type="button" className="bs-next-btn" onClick={handleSubmit} disabled={submitting}>
+          {submitting ? 'Submitting...' : 'Submit'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function BookingCancelled({ bookingId, refund, onBookAgain, onBackToDashboard, onRefundFlagged }) {
   return (
     <div className="confirmation-wrap">
       <div className="confirmation-heading">
@@ -172,6 +261,9 @@ function BookingCancelled({ bookingId, refund, onBookAgain, onBackToDashboard })
       </div>
       <div className="bs-card cancelled-card">
         <RefundStatusMessage refund={refund} />
+        {refund && refund.status !== 'None' && (
+          <RefundFlagForm bookingId={bookingId} refund={refund} onFlagged={onRefundFlagged} />
+        )}
         <div className="cancelled-actions">
           <button className="bs-back-btn" onClick={onBackToDashboard}>Back to Dashboard</button>
           <button className="bs-next-btn" onClick={onBookAgain}>Book Another Service <FiArrowRight /></button>
@@ -195,6 +287,10 @@ function BookDetails() {
   const [rescheduling, setRescheduling] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [showBackJob, setShowBackJob] = useState(false);
+  const [submittingBackJob, setSubmittingBackJob] = useState(false);
+  const [backJob, setBackJob] = useState(null);
+  const [bookingNotification, setBookingNotification] = useState(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -207,6 +303,34 @@ function BookDetails() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+  }, [bookingId]);
+
+  // Check whether an issue was already reported for this booking (Back Job Handling)
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    fetch(`http://localhost:5000/api/backjobs/booking/${bookingId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setBackJob(data))
+      .catch(() => {});
+  }, [bookingId]);
+
+  // Real in-app notification created alongside this booking (Notification Sender) —
+  // the confirmation screen's "In-app notification" card reflects this, not a static label.
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    fetch('http://localhost:5000/api/notifications', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        const match = (Array.isArray(data) ? data : []).find(
+          (n) => n.relatedBookingId === bookingId && n.type === 'booking_created'
+        );
+        setBookingNotification(match || null);
+      })
+      .catch(() => {});
   }, [bookingId]);
 
   if (loading) {
@@ -328,6 +452,31 @@ function BookDetails() {
     }
   };
 
+  const handleBackJobSubmit = async ({ issueDescription }) => {
+    setSubmittingBackJob(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/backjobs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ bookingId: booking.bookingId, issueDescription }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || 'Failed to submit report');
+        return;
+      }
+      setBackJob(data);
+    } catch (err) {
+      alert('Could not connect to server.');
+    } finally {
+      setSubmittingBackJob(false);
+    }
+  };
+
   if (cancelled) {
     return (
       <CustomerLayout title="Book Service">
@@ -336,6 +485,7 @@ function BookDetails() {
           refund={booking.refund}
           onBookAgain={() => navigate('/customer/book_service')}
           onBackToDashboard={() => navigate('/customer/dashboard')}
+          onRefundFlagged={(data) => setBooking(data)}
         />
       </CustomerLayout>
     );
@@ -377,6 +527,16 @@ function BookDetails() {
         />
       )}
 
+      {showBackJob && (
+        <BackJobModal
+          booking={booking}
+          existingBackJob={backJob}
+          onClose={() => setShowBackJob(false)}
+          onSubmit={handleBackJobSubmit}
+          submitting={submittingBackJob}
+        />
+      )}
+
       <div className="confirmation-wrap">
         <div className="confirmation-heading">
           <span className="confirmation-check-icon"><FiCheck /></span>
@@ -385,17 +545,19 @@ function BookDetails() {
         </div>
 
         <div className="confirmation-notif-row">
-          <div className="confirmation-notif-card">
-            <p className="confirmation-notif-title"><FiMail /> Email sent</p>
-            <p className="confirmation-notif-sub">{storedUser.email || '—'}</p>
+          <div className="confirmation-notif-card confirmation-notif-card--disabled">
+            <p className="confirmation-notif-title"><FiMail /> Email notification</p>
+            <p className="confirmation-notif-sub">Coming soon</p>
           </div>
-          <div className="confirmation-notif-card">
-            <p className="confirmation-notif-title"><FiMessageSquare /> SMS sent</p>
-            <p className="confirmation-notif-sub">{storedUser.phone || '—'}</p>
+          <div className="confirmation-notif-card confirmation-notif-card--disabled">
+            <p className="confirmation-notif-title"><FiMessageSquare /> SMS notification</p>
+            <p className="confirmation-notif-sub">Coming soon</p>
           </div>
           <div className="confirmation-notif-card">
             <p className="confirmation-notif-title"><FiBell /> In-app notification</p>
-            <p className="confirmation-notif-sub">Just now</p>
+            <p className="confirmation-notif-sub">
+              {bookingNotification ? formatDate(bookingNotification.createdAt) : 'Sent'}
+            </p>
           </div>
         </div>
 
@@ -502,6 +664,49 @@ function BookDetails() {
             </div>
           </div>
 
+          {booking.isBackJob && (
+            <p className="cancelled-message" style={{ marginTop: '12px' }}>
+              This is a free warranty repair visit — no payment is required for this booking.
+            </p>
+          )}
+
+          {booking.warranty?.applicable && (
+            <>
+              <div className="cost-divider" />
+              <p className="summary-section-title">Warranty Status</p>
+              <div className="summary-row"><span>Coverage Type</span><span>{booking.warranty.type}</span></div>
+              <div className="summary-row"><span>Scope</span><span>{booking.warranty.scope}</span></div>
+              <div className="summary-row">
+                <span>Workmanship Warranty</span>
+                <span className={booking.warranty.workmanship.active ? 'cost-status-paid' : 'cost-status-unpaid'}>
+                  {booking.warranty.workmanship.active ? 'Active' : 'Expired'} — until {formatDate(booking.warranty.workmanship.expiresAt)}
+                </span>
+              </div>
+              {booking.warranty.unit && (
+                <>
+                  <div className="summary-row">
+                    <span>Compressor Warranty</span>
+                    <span className={booking.warranty.unit.compressorActive ? 'cost-status-paid' : 'cost-status-unpaid'}>
+                      {booking.warranty.unit.compressorActive ? 'Active' : 'Expired'} — until {formatDate(booking.warranty.unit.compressorExpiresAt)}
+                    </span>
+                  </div>
+                  <div className="summary-row">
+                    <span>Minor Parts Warranty</span>
+                    <span className={booking.warranty.unit.minorPartsActive ? 'cost-status-paid' : 'cost-status-unpaid'}>
+                      {booking.warranty.unit.minorPartsActive ? 'Active' : 'Expired'} — until {formatDate(booking.warranty.unit.minorPartsExpiresAt)}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '11px', color: 'var(--ink-soft)' }}>Excludes: {booking.warranty.unit.excludes}</p>
+                </>
+              )}
+              {booking.unitWaiver?.acknowledged && (
+                <p style={{ fontSize: '11px', color: 'var(--ink-soft)', marginTop: '6px' }}>
+                  Unit Warranty Waiver signed by {booking.unitWaiver.customerName} on {formatDate(booking.unitWaiver.acknowledgedAt)}.
+                </p>
+              )}
+            </>
+          )}
+
           {rescheduleStatus === 'Denied' && (
             <div className="cancel-confirm-text" style={{ margin: '12px 0', color: '#b91c1c' }}>
               Your reschedule request was denied by the admin. Please pick a new date/time,
@@ -531,6 +736,12 @@ function BookDetails() {
             {getFeedbackAction(booking) && (
               <button className="bs-back-btn" onClick={() => setShowFeedback(true)}>
                 <FiStar /> {FEEDBACK_ACTION_LABEL[getFeedbackAction(booking)]}
+              </button>
+            )}
+
+            {booking.status === 'Completed' && (
+              <button className="bs-back-btn" onClick={() => setShowBackJob(true)}>
+                <FiAlertTriangle /> {backJob ? 'View Reported Issue' : 'Report an Issue'}
               </button>
             )}
           </div>

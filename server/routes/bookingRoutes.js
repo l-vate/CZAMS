@@ -5,6 +5,17 @@ const path = require('path');
 const auth = require('../middleware/auth');
 const Booking = require('../models/Booking');
 const User = require('../models/User');
+const { getWarrantyStatus } = require('../utils/warranty');
+const { sendNotification } = require('../utils/notifications');
+
+// Every route that returns a booking should include its computed warranty status,
+// otherwise the admin/customer detail views lose that section the moment any other
+// field gets updated (same class of bug as Customer Classification's PUT /:id fix).
+function withWarranty(booking) {
+  const obj = booking.toObject();
+  obj.warranty = getWarrantyStatus(booking);
+  return obj;
+}
 
 // ============================================
 // 1. CONFIGURATION & HELPERS
@@ -110,12 +121,22 @@ router.post('/', auth, (req, res, next) => {
       service, unitTypes, brandModel, problemDescription,
       date, time, technician, address,
       downPaymentPercent, paymentMode, paymentMode2,
-      customer,
+      customer, clientSuppliedUnit, unitWaiverAcknowledged, unitWaiverName,
     } = req.body;
 
     if (!isDateAllowed(date)) {
       return res.status(400).json({
         message: 'Selected date must be at least 3 days from today.'
+      });
+    }
+
+    // Warranty Tracking Module: a client-supplied unit on an installation booking
+    // has no Unit Warranty, so a signed waiver acknowledging that is required.
+    const isClientSuppliedUnit = clientSuppliedUnit === 'true' || clientSuppliedUnit === true;
+    const isWaiverAcknowledged = unitWaiverAcknowledged === 'true' || unitWaiverAcknowledged === true;
+    if (isClientSuppliedUnit && (!isWaiverAcknowledged || !unitWaiverName?.trim())) {
+      return res.status(400).json({
+        message: 'A signed waiver is required when the client supplies their own unit.'
       });
     }
 
@@ -155,10 +176,24 @@ router.post('/', auth, (req, res, next) => {
       date, time, technician, address,
       downPaymentPercent, paymentMode, paymentMode2,
       paymentStatus, proofFile,
+      clientSuppliedUnit: isClientSuppliedUnit,
+      unitWaiver: isClientSuppliedUnit ? {
+        acknowledged: true,
+        customerName: unitWaiverName.trim(),
+        acknowledgedAt: new Date(),
+      } : undefined,
     });
 
     const populated = await booking.populate('service');
-    res.status(201).json(populated);
+
+    await sendNotification(
+      bookingCustomerId,
+      'booking_created',
+      `Your booking ${populated.bookingId} for ${populated.service?.name || 'a service'} has been submitted and is pending confirmation.`,
+      { booking: populated }
+    );
+
+    res.status(201).json(withWarranty(populated));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -172,7 +207,13 @@ router.get('/mine', auth, async (req, res) => {
       .populate('service')
       .populate('technician', 'name')
       .sort({ createdAt: -1 });
-    res.json(bookings);
+
+    const enriched = bookings.map((b) => {
+      const obj = b.toObject();
+      obj.warranty = getWarrantyStatus(b);
+      return obj;
+    });
+    res.json(enriched);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -188,7 +229,10 @@ router.get('/:bookingId', auth, async (req, res) => {
     }).populate('service').populate('technician', 'name');
 
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
-    res.json(booking);
+
+    const obj = booking.toObject();
+    obj.warranty = getWarrantyStatus(booking);
+    res.json(obj);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -221,7 +265,7 @@ router.patch('/:bookingId/cancel', auth, async (req, res) => {
       { path: 'service' },
       { path: 'technician', select: 'name' },
     ]);
-    res.json(populated);
+    res.json(withWarranty(populated));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -243,7 +287,7 @@ router.patch('/:bookingId/pay', auth, upload.single('proof'), async (req, res) =
     ).populate('service');
 
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
-    res.json(booking);
+    res.json(withWarranty(booking));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -265,7 +309,7 @@ router.patch('/:bookingId/pay-balance', auth, upload.single('proof'), async (req
     ).populate('service');
 
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
-    res.json(booking);
+    res.json(withWarranty(booking));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -315,7 +359,7 @@ router.patch('/:bookingId/reschedule', auth, async (req, res) => {
       { path: 'service' },
       { path: 'technician', select: 'name' },
     ]);
-    res.json(populated);
+    res.json(withWarranty(populated));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -361,7 +405,7 @@ router.patch('/:bookingId/feedback', auth, async (req, res) => {
       { path: 'service' },
       { path: 'technician', select: 'name' },
     ]);
-    res.json(populated);
+    res.json(withWarranty(populated));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -481,8 +525,90 @@ router.patch('/:bookingId/report', auth, async (req, res) => {
 
     // Return fully populated booking with all related data
     const populated = await booking.populate(['service', 'customer', 'technician']);
-    
-    res.json(populated);
+
+    res.json(withWarranty(populated));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Technician: report a disruption on a job that's underway (interrupted, or
+// running longer than scheduled). This only records the report — admin reschedules
+// separately (see /:bookingId/disruption/reschedule below), which is when both
+// parties actually get notified.
+router.patch('/:bookingId/disruption/report', auth, async (req, res) => {
+  try {
+    const { reason } = req.body;
+    if (!reason?.trim()) {
+      return res.status(400).json({ message: 'Please describe what happened.' });
+    }
+
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId });
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    if (booking.technician !== req.userId) {
+      return res.status(403).json({ message: 'Not your booking' });
+    }
+
+    if (booking.status !== 'In Progress') {
+      return res.status(400).json({ message: 'A disruption can only be reported on a job that is in progress.' });
+    }
+
+    if (booking.disruption?.status === 'Reported') {
+      return res.status(400).json({ message: 'A disruption has already been reported for this booking.' });
+    }
+
+    booking.disruption = {
+      status: 'Reported',
+      reason: reason.trim(),
+      reportedAt: new Date(),
+      reportedBy: req.userId,
+    };
+
+    await booking.save();
+    const populated = await booking.populate(['service', 'technician']);
+    res.json(withWarranty(populated));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Technician: request an extra day to finish a job that's underway — this isn't
+// automatic, admin has to approve it (see /:bookingId/extension/approve|deny below).
+router.patch('/:bookingId/extension/request', auth, async (req, res) => {
+  try {
+    const { reason } = req.body;
+    if (!reason?.trim()) {
+      return res.status(400).json({ message: 'Please describe why more time is needed.' });
+    }
+
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId });
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    if (booking.technician !== req.userId) {
+      return res.status(403).json({ message: 'Not your booking' });
+    }
+
+    if (booking.status !== 'In Progress') {
+      return res.status(400).json({ message: 'An extension can only be requested on a job that is in progress.' });
+    }
+
+    if (booking.extensionRequest?.status === 'Pending') {
+      return res.status(400).json({ message: 'An extension request is already pending for this booking.' });
+    }
+
+    booking.extensionRequest = {
+      status: 'Pending',
+      reason: reason.trim(),
+      requestedAt: new Date(),
+      requestedBy: req.userId,
+    };
+
+    await booking.save();
+    const populated = await booking.populate(['service', 'technician']);
+    res.json(withWarranty(populated));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -502,11 +628,16 @@ router.get('/', auth, async (req, res) => {
 
     const bookings = await Booking.find()
       .populate('service')
-      .populate('customer', 'name email')
+      .populate('customer', 'name email clientType')
       .populate('technician', 'name')
       .sort({ createdAt: -1 });
 
-    res.json(bookings);
+    const enriched = bookings.map((b) => {
+      const obj = b.toObject();
+      obj.warranty = getWarrantyStatus(b);
+      return obj;
+    });
+    res.json(enriched);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -536,7 +667,7 @@ router.patch('/:bookingId/reschedule/approve', auth, async (req, res) => {
     
     await booking.save();
     const populated = await booking.populate('service');
-    res.json(populated);
+    res.json(withWarranty(populated));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -560,7 +691,7 @@ router.patch('/:bookingId/reschedule/deny', auth, async (req, res) => {
     await booking.save();
     
     const populated = await booking.populate('service');
-    res.json(populated);
+    res.json(withWarranty(populated));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -574,7 +705,7 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const { technician, status, paymentStatus, balancePaymentStatus, balancePaid } = req.body;
+    const { technician, status, paymentStatus, balancePaymentStatus, balancePaid, technicianInstructions } = req.body;
     const allowedStatuses = ['Pending', 'Approved', 'In Progress', 'Completed', 'Cancelled'];
 
     if (status && !allowedStatuses.includes(status)) {
@@ -598,6 +729,11 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
       booking.technician = technician || undefined;
     }
 
+    // Pre-service technician instructions (Service Report Module)
+    if (technicianInstructions !== undefined) {
+      booking.technicianInstructions = technicianInstructions;
+    }
+
     // Validate technician assignment before approving
     if (status === 'Approved' && !booking.technician) {
       return res.status(400).json({
@@ -613,6 +749,13 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
         return res.status(400).json({ message: 'This booking can no longer be cancelled.' });
       }
       openRefundIfEligible(booking);
+    }
+
+    // Admin Dashboard + Analytics Module: capture the first time this booking is
+    // approved (for the "average response time" metric) — never overwritten on
+    // later edits, so re-approving after a status change doesn't reset it.
+    if (status === 'Approved' && !booking.approvedAt) {
+      booking.approvedAt = new Date();
     }
 
     // Update status
@@ -650,18 +793,20 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
       { path: 'customer', select: 'name email' },
       { path: 'technician', select: 'name' },
     ]);
-    
-    res.json(populated);
+
+    res.json(withWarranty(populated));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Admin: process a pending refund. Same-day cancellations require a dispatch/
-// transportation deduction before the refundable amount is finalized; pre-service
-// cancellations refund the down payment in full.
-router.patch('/:bookingId/refund', auth, async (req, res) => {
+// Admin: process a pending refund. Requires proof the money was actually sent back
+// (same upload mechanism as customer proof-of-payment) before it can be marked
+// Processed. Same-day cancellations also require a dispatch/transportation
+// deduction before the refundable amount is finalized; pre-service cancellations
+// refund the down payment in full.
+router.patch('/:bookingId/refund', auth, upload.single('proof'), async (req, res) => {
   try {
     if (req.userRole !== 'admin') {
       return res.status(403).json({ message: 'Forbidden' });
@@ -674,6 +819,10 @@ router.patch('/:bookingId/refund', auth, async (req, res) => {
       return res.status(400).json({ message: 'No pending refund for this booking.' });
     }
 
+    if (!req.file) {
+      return res.status(400).json({ message: 'Proof that the refund was sent is required before marking it processed.' });
+    }
+
     if (booking.refund.isSameDay) {
       const dispatchDeduction = Number(req.body.dispatchDeduction);
       if (isNaN(dispatchDeduction) || dispatchDeduction < 0) {
@@ -683,6 +832,7 @@ router.patch('/:bookingId/refund', auth, async (req, res) => {
       booking.refund.refundableAmount = Math.max(booking.refund.downPaymentAmount - dispatchDeduction, 0);
     }
 
+    booking.refund.proofFile = `/uploads/proofs/${req.file.filename}`;
     booking.refund.status = 'Processed';
     booking.refund.processedAt = new Date();
     booking.refund.processedBy = req.userId;
@@ -695,7 +845,233 @@ router.patch('/:bookingId/refund', auth, async (req, res) => {
       { path: 'technician', select: 'name' },
     ]);
 
-    res.json(populated);
+    res.json(withWarranty(populated));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Customer: flag a refund that hasn't come through (e.g. marked Processed but
+// never actually received). Single message + status, not a ticketing thread —
+// admin just needs to see it and mark it addressed once followed up outside the system.
+router.patch('/:bookingId/refund/flag', auth, async (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message?.trim()) {
+      return res.status(400).json({ message: 'Please describe the issue.' });
+    }
+
+    const booking = await Booking.findOne({
+      bookingId: req.params.bookingId,
+      customer: req.userId,
+    });
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    if (!booking.refund || booking.refund.status === 'None') {
+      return res.status(400).json({ message: 'There is no refund on this booking to flag.' });
+    }
+
+    if (booking.refund.customerFlag?.flagged && !booking.refund.customerFlag?.resolved) {
+      return res.status(400).json({ message: "You've already flagged this refund — our team will follow up." });
+    }
+
+    booking.refund.customerFlag = {
+      flagged: true,
+      message: message.trim(),
+      flaggedAt: new Date(),
+      resolved: false,
+    };
+
+    await booking.save();
+
+    const populated = await booking.populate([
+      { path: 'service' },
+      { path: 'technician', select: 'name' },
+    ]);
+
+    res.json(withWarranty(populated));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: mark a customer's refund flag as addressed (followed up outside the
+// system — a phone call, etc.) so it stops showing as needing attention.
+router.patch('/:bookingId/refund/flag/resolve', auth, async (req, res) => {
+  try {
+    if (req.userRole !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId });
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    if (!booking.refund?.customerFlag?.flagged) {
+      return res.status(400).json({ message: 'This refund has no flag to resolve.' });
+    }
+
+    booking.refund.customerFlag.resolved = true;
+    booking.refund.customerFlag.resolvedAt = new Date();
+    booking.refund.customerFlag.resolvedBy = req.userId;
+
+    await booking.save();
+
+    const populated = await booking.populate([
+      { path: 'service' },
+      { path: 'customer', select: 'name email' },
+      { path: 'technician', select: 'name' },
+    ]);
+
+    res.json(withWarranty(populated));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: reschedule a booking that had a disruption reported on it. This is the
+// exact hook point Notification Sender was built for — both the client and the
+// assigned technician are notified right away as part of this action.
+router.patch('/:bookingId/disruption/reschedule', auth, async (req, res) => {
+  try {
+    if (req.userRole !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const { date, time } = req.body;
+    if (!date || !time) {
+      return res.status(400).json({ message: 'A new date and time are required.' });
+    }
+
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId }).populate('service');
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    if (booking.disruption?.status !== 'Reported') {
+      return res.status(400).json({ message: 'No reported disruption for this booking.' });
+    }
+
+    booking.date = date;
+    booking.time = time;
+    // Nobody is actively working on it during the gap until the new date — back to
+    // 'Approved' (scheduled, not in progress) rather than leaving it looking active.
+    booking.status = 'Approved';
+    booking.disruption.status = 'Rescheduled';
+    booking.disruption.rescheduledAt = new Date();
+
+    await booking.save();
+
+    const message = `Booking ${booking.bookingId} (${booking.service?.name || 'service'}) was interrupted and has been rescheduled to ${date}, ${time}.`;
+    await sendNotification(booking.customer, 'disruption_rescheduled', message, { booking });
+    if (booking.technician) {
+      await sendNotification(booking.technician, 'disruption_rescheduled', message, { booking });
+    }
+
+    const populated = await booking.populate([
+      { path: 'service' },
+      { path: 'customer', select: 'name email' },
+      { path: 'technician', select: 'name' },
+    ]);
+
+    res.json(withWarranty(populated));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: approve a pending extension request — grants the extra day. Notifies the
+// requesting technician and the client, whose completion timeline just changed.
+router.patch('/:bookingId/extension/approve', auth, async (req, res) => {
+  try {
+    if (req.userRole !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId });
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    if (booking.extensionRequest?.status !== 'Pending') {
+      return res.status(400).json({ message: 'No pending extension request for this booking.' });
+    }
+
+    booking.extensionRequest.status = 'Approved';
+    booking.extensionRequest.decidedAt = new Date();
+    booking.extensionRequest.decidedBy = req.userId;
+
+    await booking.save();
+
+    if (booking.technician) {
+      await sendNotification(
+        booking.technician,
+        'extension_approved',
+        `Your extension request for booking ${booking.bookingId} has been approved.`,
+        { booking }
+      );
+    }
+    await sendNotification(
+      booking.customer,
+      'extension_approved',
+      `Your technician requested an extra day to finish booking ${booking.bookingId} — this has been approved, so completion will take a bit longer than originally scheduled.`,
+      { booking }
+    );
+
+    const populated = await booking.populate([
+      { path: 'service' },
+      { path: 'customer', select: 'name email' },
+      { path: 'technician', select: 'name' },
+    ]);
+
+    res.json(withWarranty(populated));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: deny a pending extension request. Notifies the requesting technician and the client.
+router.patch('/:bookingId/extension/deny', auth, async (req, res) => {
+  try {
+    if (req.userRole !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId });
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    if (booking.extensionRequest?.status !== 'Pending') {
+      return res.status(400).json({ message: 'No pending extension request for this booking.' });
+    }
+
+    booking.extensionRequest.status = 'Denied';
+    booking.extensionRequest.decidedAt = new Date();
+    booking.extensionRequest.decidedBy = req.userId;
+
+    await booking.save();
+
+    if (booking.technician) {
+      await sendNotification(
+        booking.technician,
+        'extension_denied',
+        `Your extension request for booking ${booking.bookingId} was not approved.`,
+        { booking }
+      );
+    }
+    await sendNotification(
+      booking.customer,
+      'extension_denied',
+      `Your technician's request for extra time on booking ${booking.bookingId} was not approved — your original schedule stands.`,
+      { booking }
+    );
+
+    const populated = await booking.populate([
+      { path: 'service' },
+      { path: 'customer', select: 'name email' },
+      { path: 'technician', select: 'name' },
+    ]);
+
+    res.json(withWarranty(populated));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });

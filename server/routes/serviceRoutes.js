@@ -46,7 +46,7 @@ router.post('/', auth, async (req, res) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const { name, description, price, durationMinutes, category, icon, isActive } = req.body;
+    const { name, description, price, durationMinutes, category, icon, isActive, serviceType } = req.body;
 
     if (!name || !name.trim()) {
       return res.status(400).json({ message: 'Name is required' });
@@ -64,6 +64,7 @@ router.post('/', auth, async (req, res) => {
       category: category || '',
       icon: icon || '',
       isActive: isActive !== undefined ? isActive : true,
+      serviceType: serviceType || 'Other',
     });
 
     res.status(201).json(service);
@@ -79,7 +80,7 @@ router.put('/:id', auth, async (req, res) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const { name, description, price, durationMinutes, category, icon, isActive } = req.body;
+    const { name, description, price, durationMinutes, category, icon, isActive, serviceType } = req.body;
 
     if (name !== undefined && !name.trim()) {
       return res.status(400).json({ message: 'Name cannot be empty' });
@@ -96,6 +97,7 @@ router.put('/:id', auth, async (req, res) => {
     if (category !== undefined) update.category = category;
     if (icon !== undefined) update.icon = icon;
     if (isActive !== undefined) update.isActive = isActive;
+    if (serviceType !== undefined) update.serviceType = serviceType;
 
     const service = await Service.findByIdAndUpdate(req.params.id, update, {
       new: true,

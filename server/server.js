@@ -1,7 +1,7 @@
 const dns = require('dns');
 dns.setServers(['8.8.8.8', '8.8.4.4']);
 
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
@@ -17,7 +17,12 @@ app.use('/api/services', require('./routes/serviceRoutes'));
 app.use('/api/bookings', require('./routes/bookingRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/reports', require('./routes/reportRoutes'));
+app.use('/api/backjobs', require('./routes/backJobRoutes'));
+app.use('/api/service-reminders', require('./routes/serviceReminderRoutes'));
+app.use('/api/notifications', require('./routes/notificationRoutes'));
 
+const { startServiceReminderSchedule } = require('./jobs/serviceReminderJob');
+startServiceReminderSchedule();
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

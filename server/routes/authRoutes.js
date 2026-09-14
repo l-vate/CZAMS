@@ -38,7 +38,7 @@ const upload = multer({
 
 router.post('/register', async (req, res) => {
   try {
-    const { firstName, lastName, email, phone, role, password } = req.body;
+    const { firstName, lastName, email, phone, role, password, clientType } = req.body;
 
     const existing = await User.findOne({ email });
     if (existing) {
@@ -59,6 +59,9 @@ router.post('/register', async (req, res) => {
       password: hashedPassword,
       role: mappedRole,
       isActive: true,
+      // Only meaningful for customer accounts — staff/admin registrations ignore it
+      // and keep the schema default.
+      ...(mappedRole === 'customer' && clientType === 'Commercial' ? { clientType: 'Commercial' } : {}),
     });
 
     const token = jwt.sign(
@@ -77,6 +80,7 @@ router.post('/register', async (req, res) => {
     phone: user.phone,
     address: user.address,
     profileImage: user.profileImage,
+    clientType: user.clientType,
     createdAt: user.createdAt,
   },
     });

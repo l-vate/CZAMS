@@ -40,6 +40,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
     role: 'customer',
     isActive: true,
     classificationChoice: '', // '' = auto-computed, else a manual override ('Regular' | 'Return')
+    clientType: 'Residential',
   });
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -55,6 +56,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
         role: user.role || 'customer',
         isActive: user.isActive !== undefined ? user.isActive : true,
         classificationChoice: user.manualClassification || '',
+        clientType: user.clientType || 'Residential',
       });
       setIsEditing(false);
     }
@@ -270,6 +272,27 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
                   )}
                 </div>
               </div>
+
+              {user.role === 'customer' && (
+                <div className="sdm-row">
+                  <div className="sdm-row-icon"><Icon name="pin" /></div>
+                  <div>
+                    <span className="sdm-row-label">CLIENT TYPE</span>
+                    {isEditing ? (
+                      <select
+                        className="sdm-tech-select"
+                        value={formData.clientType}
+                        onChange={(e) => setFormData({ ...formData, clientType: e.target.value })}
+                      >
+                        <option value="Residential">Residential</option>
+                        <option value="Commercial">Commercial</option>
+                      </select>
+                    ) : (
+                      <p className="sdm-row-value">{formData.clientType}</p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {user.role === 'customer' && (
                 <div className="sdm-row">

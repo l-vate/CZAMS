@@ -357,7 +357,15 @@ function WalkInBooking() {
   const canNext = () => {
     if (step === 1) return !!customer;
     if (step === 2) return !!form.service;
-    if (step === 3) return (form.unitTypes || []).length > 0;
+    if (step === 3) {
+      if ((form.unitTypes || []).length === 0) return false;
+      const selectedService = services.find((s) => s.id === form.service);
+      const isInstallation = selectedService?.serviceType === 'Installation';
+      if (isInstallation && form.clientSuppliedUnit) {
+        return !!form.unitWaiverAcknowledged && !!(form.unitWaiverName || '').trim();
+      }
+      return true;
+    }
     if (step === 4) {
       if (!form.date || !form.time || !form.address) return false;
       const minDate = new Date();
@@ -388,6 +396,11 @@ function WalkInBooking() {
       formData.append('time', form.time);
       formData.append('technician', form.technician || '');
       formData.append('address', form.address);
+      formData.append('clientSuppliedUnit', form.clientSuppliedUnit || false);
+      if (form.clientSuppliedUnit) {
+        formData.append('unitWaiverAcknowledged', form.unitWaiverAcknowledged || false);
+        formData.append('unitWaiverName', form.unitWaiverName || '');
+      }
       formData.append('downPaymentPercent', form.downPaymentPercent);
       formData.append('paymentMode', form.paymentMode || '');
       formData.append('paymentMode2', form.paymentMode2 || '');
@@ -436,7 +449,7 @@ function WalkInBooking() {
         ) : (
           <>
             {step === 2 && <Step1 form={form} setForm={setForm} services={services} />}
-            {step === 3 && <Step2 form={form} setForm={setForm} />}
+            {step === 3 && <Step2 form={form} setForm={setForm} services={services} />}
             {step === 4 && <Step3 form={form} setForm={setForm} technicians={technicians} />}
             {step === 5 && (
               <WalkInPaymentStep

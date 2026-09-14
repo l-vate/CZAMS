@@ -40,6 +40,10 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
     const [isReassigning, setIsReassigning] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+    const [disruptionDate, setDisruptionDate] = useState('');
+    const [disruptionTime, setDisruptionTime] = useState('');
+    const [instructionsDraft, setInstructionsDraft] = useState(booking?.technicianInstructions || '');
+    const [editingInstructions, setEditingInstructions] = useState(false);
 
     useEffect(() => {
         fetchTechnicians();
@@ -48,6 +52,8 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
     useEffect(() => {
         setSelectedTechnician(booking?.technician?._id || '');
         setIsReassigning(false); // Reset reassignment state when booking changes
+        setInstructionsDraft(booking?.technicianInstructions || '');
+        setEditingInstructions(false);
         fetchBusyTechs();
     }, [booking]);
 
@@ -123,9 +129,73 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
         patchBooking(body);
     };
 
+    const handleSaveInstructions = async () => {
+        const success = await patchBooking({ technicianInstructions: instructionsDraft });
+        if (success) {
+            setEditingInstructions(false);
+        }
+    };
+
     const handleCancel = () => {
         if (window.confirm('Cancel this booking? This cannot be undone.')) {
             patchBooking({ status: 'Cancelled' });
+        }
+    };
+
+    const handleDisruptionReschedule = async () => {
+        if (!disruptionDate || !disruptionTime) return;
+        setSaving(true);
+        setError('');
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(
+                `http://localhost:5000/api/bookings/${booking.bookingId}/disruption/reschedule`,
+                {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({ date: disruptionDate, time: disruptionTime }),
+                }
+            );
+            const data = await response.json();
+            if (!response.ok) {
+                setError(data.message || 'Failed to reschedule.');
+                return;
+            }
+            onUpdated?.(data);
+        } catch (err) {
+            console.error('Error rescheduling after disruption:', err);
+            setError('Network error. Please try again.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleExtensionDecision = async (decision) => {
+        setSaving(true);
+        setError('');
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(
+                `http://localhost:5000/api/bookings/${booking.bookingId}/extension/${decision}`,
+                {
+                    method: 'PATCH',
+                    headers: { Authorization: `Bearer ${token}` },
+                }
+            );
+            const data = await response.json();
+            if (!response.ok) {
+                setError(data.message || 'Failed to update extension request.');
+                return;
+            }
+            onUpdated?.(data);
+        } catch (err) {
+            console.error('Error updating extension request:', err);
+            setError('Network error. Please try again.');
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -166,6 +236,12 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                             {booking.status}
                         </span>
                     </div>
+
+                    {booking.isBackJob && (
+                        <div className="sdm-notice">
+                            Back Job — free of charge (warranty repair visit for booking {booking.backJobId ? `linked to ${booking.backJobId}` : ''}). No payment is expected on this booking.
+                        </div>
+                    )}
 
                     {error && <div className="sdm-error">{error}</div>}
 
@@ -217,10 +293,102 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                 </div>
                             </div>
 
+                            <div className="sdm-row">
+                                <div className="sdm-row-icon"><Icon name="file" /></div>
+                                <div style={{ flex: 1 }}>
+                                    <span className="sdm-row-label">TECHNICIAN INSTRUCTIONS</span>
+                                    {editingInstructions ? (
+                                        <>
+                                            <textarea
+                                                className="ma-textarea"
+                                                rows={3}
+                                                placeholder="Care requirements, access instructions, client-specific handling..."
+                                                value={instructionsDraft}
+                                                onChange={(e) => setInstructionsDraft(e.target.value)}
+                                                style={{ width: '100%', marginTop: '4px' }}
+                                            />
+                                            <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                                                <button
+                                                    className="sdm-btn sdm-btn-outline"
+                                                    onClick={() => {
+                                                        setEditingInstructions(false);
+                                                        setInstructionsDraft(booking.technicianInstructions || '');
+                                                    }}
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    className="sdm-btn sdm-btn-primary"
+                                                    onClick={handleSaveInstructions}
+                                                    disabled={saving}
+                                                >
+                                                    Save Instructions
+                                                </button>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p className="sdm-row-value">{booking.technicianInstructions || '—'}</p>
+                                            <button
+                                                className="sdm-btn sdm-btn-outline"
+                                                style={{ marginTop: '4px' }}
+                                                onClick={() => setEditingInstructions(true)}
+                                            >
+                                                {booking.technicianInstructions ? 'Edit' : 'Add'} Instructions
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+
                             {booking.rescheduleRequest?.status === 'Pending' && (
                                 <div className="sdm-notice">
                                     Reschedule requested: {booking.rescheduleRequest.requestedDate} at{' '}
                                     {booking.rescheduleRequest.requestedTime}
+                                </div>
+                            )}
+
+                            {booking.disruption?.status === 'Reported' && (
+                                <div className="sdm-notice">
+                                    <p style={{ margin: '0 0 8px', fontWeight: 600 }}>Disruption reported by technician:</p>
+                                    <p style={{ margin: '0 0 10px' }}>"{booking.disruption.reason}"</p>
+                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                                        <div>
+                                            <label className="sdm-row-label" style={{ display: 'block', marginBottom: '4px' }}>New Date</label>
+                                            <input
+                                                type="date"
+                                                className="ma-input"
+                                                value={disruptionDate}
+                                                onChange={(e) => setDisruptionDate(e.target.value)}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="sdm-row-label" style={{ display: 'block', marginBottom: '4px' }}>New Time</label>
+                                            <select
+                                                className="sdm-tech-select"
+                                                value={disruptionTime}
+                                                onChange={(e) => setDisruptionTime(e.target.value)}
+                                            >
+                                                <option value="">Select</option>
+                                                <option value="Morning">Morning</option>
+                                                <option value="Afternoon">Afternoon</option>
+                                            </select>
+                                        </div>
+                                        <button
+                                            className="sdm-btn sdm-btn-primary"
+                                            onClick={handleDisruptionReschedule}
+                                            disabled={saving || !disruptionDate || !disruptionTime}
+                                        >
+                                            Reschedule &amp; Notify
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {booking.disruption?.status === 'Rescheduled' && (
+                                <div className="sdm-notice">
+                                    Disruption resolved — rescheduled on{' '}
+                                    {new Date(booking.disruption.rescheduledAt).toLocaleDateString()}.
                                 </div>
                             )}
                         </div>
@@ -300,6 +468,91 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                         <div className="sdm-list-row sdm-list-row-block">
                                             <span>Recommendations</span>
                                             <p className="sdm-list-value">{booking.report.recommendations || 'N/A'}</p>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+
+                            {booking.warranty?.applicable && (
+                                <>
+                                    <h5 className="sdm-col-heading sdm-col-heading-spaced">
+                                        <Icon name="info" /> WARRANTY STATUS
+                                    </h5>
+                                    <div className="sdm-list">
+                                        <div className="sdm-list-row">
+                                            <span>Coverage Type</span>
+                                            <span className="sdm-list-value">{booking.warranty.type}</span>
+                                        </div>
+                                        <div className="sdm-list-row">
+                                            <span>Workmanship</span>
+                                            <span className="sdm-list-value" style={{ color: booking.warranty.workmanship.active ? '#22c55e' : '#ef4444' }}>
+                                                {booking.warranty.workmanship.active ? 'Active' : 'Expired'} — until {new Date(booking.warranty.workmanship.expiresAt).toLocaleDateString()}
+                                            </span>
+                                        </div>
+                                        {booking.warranty.unit && (
+                                            <>
+                                                <div className="sdm-list-row">
+                                                    <span>Compressor</span>
+                                                    <span className="sdm-list-value" style={{ color: booking.warranty.unit.compressorActive ? '#22c55e' : '#ef4444' }}>
+                                                        {booking.warranty.unit.compressorActive ? 'Active' : 'Expired'} — until {new Date(booking.warranty.unit.compressorExpiresAt).toLocaleDateString()}
+                                                    </span>
+                                                </div>
+                                                <div className="sdm-list-row">
+                                                    <span>Minor Parts</span>
+                                                    <span className="sdm-list-value" style={{ color: booking.warranty.unit.minorPartsActive ? '#22c55e' : '#ef4444' }}>
+                                                        {booking.warranty.unit.minorPartsActive ? 'Active' : 'Expired'} — until {new Date(booking.warranty.unit.minorPartsExpiresAt).toLocaleDateString()}
+                                                    </span>
+                                                </div>
+                                            </>
+                                        )}
+                                        {booking.unitWaiver?.acknowledged && (
+                                            <div className="sdm-list-row sdm-list-row-block">
+                                                <span>Unit Waiver</span>
+                                                <p className="sdm-list-value">
+                                                    Signed by {booking.unitWaiver.customerName} on {new Date(booking.unitWaiver.acknowledgedAt).toLocaleDateString()}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+
+                            {booking.extensionRequest?.status === 'Pending' && (
+                                <>
+                                    <h5 className="sdm-col-heading sdm-col-heading-spaced">
+                                        <Icon name="clock" /> EXTENSION REQUEST
+                                    </h5>
+                                    <div className="sdm-notice">
+                                        <p style={{ margin: '0 0 10px' }}>"{booking.extensionRequest.reason}"</p>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <button
+                                                className="sdm-btn sdm-btn-danger"
+                                                onClick={() => handleExtensionDecision('deny')}
+                                                disabled={saving}
+                                            >
+                                                Deny
+                                            </button>
+                                            <button
+                                                className="sdm-btn sdm-btn-primary"
+                                                onClick={() => handleExtensionDecision('approve')}
+                                                disabled={saving}
+                                            >
+                                                Approve
+                                            </button>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+
+                            {['Approved', 'Denied'].includes(booking.extensionRequest?.status) && (
+                                <>
+                                    <h5 className="sdm-col-heading sdm-col-heading-spaced">
+                                        <Icon name="clock" /> EXTENSION REQUEST
+                                    </h5>
+                                    <div className="sdm-list">
+                                        <div className="sdm-list-row sdm-list-row-block">
+                                            <span>"{booking.extensionRequest.reason}"</span>
+                                            <p className="sdm-list-value">{booking.extensionRequest.status}</p>
                                         </div>
                                     </div>
                                 </>

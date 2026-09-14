@@ -5,21 +5,30 @@ const User = require('../models/User');
 const Booking = require('../models/Booking');
 const auth = require('../middleware/auth');
 
-// Customer Classification Module: 4+ completed bookings within a rolling 12-month
-// window auto-flags a customer as "Return" — re-evaluated fresh on every read
-// rather than cached, so it naturally drops back to "Regular" if a Return
-// customer goes quiet for a year with no qualifying new completion.
+// Customer Classification Module thresholds. Not yet confirmed by the client —
+// the paper currently says "4+ different services in a year," but the count and/or
+// the "different services" wording could still change. Kept as named constants so
+// that update is a one-line change instead of a re-find-the-logic exercise.
+const RETURN_CUSTOMER_MIN_BOOKINGS = 4;
+const RETURN_CUSTOMER_WINDOW_MONTHS = 12;
+
+// 4+ completed bookings within a rolling window auto-flags a customer as "Return" —
+// re-evaluated fresh on every read rather than cached, so it naturally drops back
+// to "Regular" if a Return customer goes quiet for a year with no new completion.
 async function computeAutoClassification(customerId) {
-  const oneYearAgo = new Date();
-  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  const windowStart = new Date();
+  windowStart.setMonth(windowStart.getMonth() - RETURN_CUSTOMER_WINDOW_MONTHS);
 
   const completedCount = await Booking.countDocuments({
     customer: customerId,
     status: 'Completed',
-    completedAt: { $gte: oneYearAgo },
+    completedAt: { $gte: windowStart },
+    // A free back-job repair visit isn't a new service the customer chose to book —
+    // it's a redo of one already counted, so it shouldn't inflate the return-customer count.
+    isBackJob: { $ne: true },
   });
 
-  return completedCount >= 4 ? 'Return' : 'Regular';
+  return completedCount >= RETURN_CUSTOMER_MIN_BOOKINGS ? 'Return' : 'Regular';
 }
 
 // A manual admin override always wins over the auto-computed value.
@@ -83,7 +92,7 @@ router.post('/', auth, async (req, res) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const { name, email, phone, address, role, password } = req.body;
+    const { name, email, phone, address, role, password, clientType } = req.body;
 
     if (!email || !email.trim()) {
       return res.status(400).json({ message: 'Email is required' });
@@ -104,6 +113,7 @@ router.post('/', auth, async (req, res) => {
       address: address ? address.trim() : '',
       role: role || 'customer',
       isActive: true,
+      ...(clientType !== undefined ? { clientType } : {}),
     });
 
     res.status(201).json(newUser);
@@ -120,7 +130,7 @@ router.put('/:id', auth, async (req, res) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const { name, email, phone, address, role, isActive } = req.body;
+    const { name, email, phone, address, role, isActive, clientType } = req.body;
 
     const update = {};
     if (name !== undefined) update.name = name.trim();
@@ -129,6 +139,7 @@ router.put('/:id', auth, async (req, res) => {
     if (address !== undefined) update.address = address.trim();
     if (role !== undefined) update.role = role;
     if (isActive !== undefined) update.isActive = isActive;
+    if (clientType !== undefined) update.clientType = clientType;
 
     const updatedUser = await User.findByIdAndUpdate(req.params.id, update, {
       new: true,

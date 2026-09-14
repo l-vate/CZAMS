@@ -24,6 +24,8 @@ function Icon({ name }) {
       return <svg {...common}><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>;
     case 'shield':
       return <svg {...common}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>;
+    case 'star':
+      return <svg {...common}><polygon points="12 2 15 9 22 9 16.5 13.5 18.5 21 12 17 5.5 21 7.5 13.5 2 9 9 9 12 2" /></svg>;
     default:
       return null;
   }
@@ -37,6 +39,8 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
     address: '',
     role: 'customer',
     isActive: true,
+    classificationChoice: '', // '' = auto-computed, else a manual override ('Regular' | 'Return')
+    clientType: 'Residential',
   });
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -51,6 +55,8 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
         address: user.address || '',
         role: user.role || 'customer',
         isActive: user.isActive !== undefined ? user.isActive : true,
+        classificationChoice: user.manualClassification || '',
+        clientType: user.clientType || 'Residential',
       });
       setIsEditing(false);
     }
@@ -62,16 +68,40 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
     setSaving(true);
     setError('');
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch(`http://localhost:5000/api/users/${user._id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(formData),
       });
 
-      const data = await response.json();
+      let data = await response.json();
       if (!response.ok) {
         setError(data.message || 'Failed to update user details.');
         return;
+      }
+
+      // Customer Classification Module: sent separately, and only if it actually
+      // changed, since it has its own dedicated endpoint/validation.
+      const originalOverride = user.manualClassification || '';
+      if (user.role === 'customer' && formData.classificationChoice !== originalOverride) {
+        const classRes = await fetch(`http://localhost:5000/api/users/${user._id}/classification`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ classification: formData.classificationChoice || null }),
+        });
+        const classData = await classRes.json();
+        if (!classRes.ok) {
+          setError(classData.message || 'Failed to update classification.');
+          return;
+        }
+        data = classData;
       }
 
       setIsEditing(false);
@@ -89,9 +119,13 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
     setError('');
     try {
       const updatedStatus = !formData.isActive;
+      const token = localStorage.getItem('token');
       const response = await fetch(`http://localhost:5000/api/users/${user._id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ isActive: updatedStatus }),
       });
 
@@ -238,6 +272,52 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
                   )}
                 </div>
               </div>
+
+              {user.role === 'customer' && (
+                <div className="sdm-row">
+                  <div className="sdm-row-icon"><Icon name="pin" /></div>
+                  <div>
+                    <span className="sdm-row-label">CLIENT TYPE</span>
+                    {isEditing ? (
+                      <select
+                        className="sdm-tech-select"
+                        value={formData.clientType}
+                        onChange={(e) => setFormData({ ...formData, clientType: e.target.value })}
+                      >
+                        <option value="Residential">Residential</option>
+                        <option value="Commercial">Commercial</option>
+                      </select>
+                    ) : (
+                      <p className="sdm-row-value">{formData.clientType}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {user.role === 'customer' && (
+                <div className="sdm-row">
+                  <div className="sdm-row-icon"><Icon name="star" /></div>
+                  <div>
+                    <span className="sdm-row-label">CUSTOMER CLASSIFICATION</span>
+                    {isEditing ? (
+                      <select
+                        className="sdm-tech-select"
+                        value={formData.classificationChoice}
+                        onChange={(e) => setFormData({ ...formData, classificationChoice: e.target.value })}
+                      >
+                        <option value="">Auto (currently: {user.classification || 'Regular'})</option>
+                        <option value="Regular">Regular (manual override)</option>
+                        <option value="Return">Return (manual override)</option>
+                      </select>
+                    ) : (
+                      <p className="sdm-row-value">
+                        {user.classification || 'Regular'}
+                        {user.manualClassification ? ' (manual override)' : ' (auto-computed)'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {user.createdAt && (
                 <div className="sdm-row">

@@ -70,9 +70,26 @@ const reportSchema = new mongoose.Schema({
     isFinal: {
         type: Boolean,
         default: true
-    }
-}, { 
-    timestamps: true 
+    },
+
+    // Service Report hardening: technician must flag a pre-existing issue at time of
+    // service, not after — this is what lets Back Job Handling's admin review tell a
+    // legitimate (workmanship-caused) claim apart from a pre-existing condition.
+    preExistingIssue: {
+        flagged: { type: Boolean, default: false },
+        description: { type: String, trim: true },
+    },
+
+    // Client consent + e-signature, required to finalize the report. Captured on the
+    // technician's device at time of service (the client signs in person before the
+    // technician leaves), not a remote/async approval step.
+    clientConsent: {
+        signedName: { type: String, trim: true },
+        signatureDataUrl: String,
+        signedAt: Date,
+    },
+}, {
+    timestamps: true
 });
 
 // Index for faster queries

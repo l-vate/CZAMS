@@ -32,10 +32,10 @@ function ReceiptModal({ form, booking, onClose }) {
   const handlePrint = () => window.print();
 
   return (
-    <div className="modal-overlay receipt-modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={onClose}>
       <div className="receipt-modal-card" onClick={(e) => e.stopPropagation()}>
 
-        <div className="modal-header receipt-modal-header">
+        <div className="modal-header">
           <span />
           <button className="modal-close-btn" onClick={onClose}>✕</button>
         </div>

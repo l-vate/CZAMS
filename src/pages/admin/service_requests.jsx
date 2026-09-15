@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminLayout from './admin_layout';
 import AdminServiceDetailsModal from '../../components/admin_service_details_modal';
+import { getStatusColor } from '../../utils/statusColors';
 
 function ServiceRequests() {
     const navigate = useNavigate();
@@ -31,17 +32,6 @@ function ServiceRequests() {
         }
     };
 
-    const getStatusColor = (status) => {
-        switch (status) {
-            case 'Completed': return '#22c55e';
-            case 'Approved': return '#3b82f6';
-            case 'In Progress': return '#f59e0b';
-            case 'Cancelled': return '#ef4444';
-            case 'Pending': return '#f97316';
-            default: return '#6b7280';
-        }
-    };
-
     const handleViewDetails = (booking) => {
         setSelectedBooking(booking);
     };
@@ -59,12 +49,13 @@ function ServiceRequests() {
     return (
         <AdminLayout title="Bookings">
             <div className="page-container">
+                <h1 className="dashboard-welcome">Bookings</h1>
                 <div className="req-toolbar">
                     <div className="req-filters">
                         {filters.map((filter) => (
                             <button
                                 key={filter}
-                                className={`req-filter-pill ${activeFilter === filter ? 'active' : ''}`}
+                                className={`filter-pill ${activeFilter === filter ? 'filter-pill--active' : ''}`}
                                 onClick={() => setActiveFilter(filter)}
                             >
                                 {filter}

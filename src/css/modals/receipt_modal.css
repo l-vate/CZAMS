@@ -1,10 +1,13 @@
 /* ============ RECEIPT MODAL ============ */
 .receipt-modal-card {
   max-width: 480px;
+  max-height: 85vh;
   background: #ffffff;
   border-radius: 16px;
   padding: 28px;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .receipt-content {
@@ -74,17 +77,15 @@
   font-style: italic;
 }
 
+/* Background/hover converged (Pass D) to var(--primary)/var(--primary-hover) —
+   inherited from .modal-submit-btn now that this no longer overrides it to a
+   near-black color. */
 .receipt-print-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: #0f172a;
   margin-top: 16px;
-}
-
-.receipt-print-btn:hover {
-  background: #1e293b;
 }
 
 /* ============ PRINT MEDIA RULES ============ */

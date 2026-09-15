@@ -1,6 +1,245 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../../css/public.css'
+
+const API_BASE = 'http://localhost:5000';
+
+const SEARCH_TABS = [
+  { key: 'service', label: 'By Service' },
+  { key: 'technician', label: 'By Technician' },
+  { key: 'date', label: 'By Available Date' },
+];
+
+const CATEGORY_LABEL = {
+  Holiday: '🎉 Holiday',
+  Closure: '🚧 Closure',
+  Maintenance: '🛠️ Maintenance',
+  General: '📢 Announcement',
+};
+
+/* ── Landing Page Module: public search ─────────────────────
+   Unauthenticated visitors can browse services, technicians, and date
+   availability without logging in. Reuses the same real data the logged-in
+   booking flow uses (GET /api/services/public mirrors the service picker's
+   data, GET /api/auth/technicians is the exact endpoint book_service.jsx
+   already uses, GET /api/bookings/public/availability mirrors the private
+   busy-technicians lookup) rather than a separate hardcoded dataset —
+   this only browses, it doesn't book; booking still requires login. */
+function PublicSearch({ navigate }) {
+  const [activeTab, setActiveTab] = useState('service');
+  const [services, setServices] = useState([]);
+  const [technicians, setTechnicians] = useState([]);
+  const [serviceQuery, setServiceQuery] = useState('');
+  const [technicianQuery, setTechnicianQuery] = useState('');
+  const [dateQuery, setDateQuery] = useState('');
+  const [busyTechIds, setBusyTechIds] = useState(null);
+  const [checkingDate, setCheckingDate] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/services/public`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setServices(Array.isArray(data) ? data : []))
+      .catch(() => setServices([]));
+
+    fetch(`${API_BASE}/api/auth/technicians`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setTechnicians(Array.isArray(data) ? data : []))
+      .catch(() => setTechnicians([]));
+  }, []);
+
+  const filteredServices = useMemo(() => {
+    const q = serviceQuery.trim().toLowerCase();
+    if (!q) return services;
+    return services.filter(
+      (s) => s.name?.toLowerCase().includes(q) || s.category?.toLowerCase().includes(q)
+    );
+  }, [services, serviceQuery]);
+
+  const filteredTechnicians = useMemo(() => {
+    const q = technicianQuery.trim().toLowerCase();
+    if (!q) return technicians;
+    return technicians.filter((t) => t.name?.toLowerCase().includes(q));
+  }, [technicians, technicianQuery]);
+
+  const handleDateCheck = async (value) => {
+    setDateQuery(value);
+    setBusyTechIds(null);
+    if (!value) return;
+
+    setCheckingDate(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/bookings/public/availability?date=${value}`);
+      const data = res.ok ? await res.json() : { busyTechIds: [] };
+      setBusyTechIds(Array.isArray(data.busyTechIds) ? data.busyTechIds : []);
+    } catch (err) {
+      setBusyTechIds([]);
+    } finally {
+      setCheckingDate(false);
+    }
+  };
+
+  const availableTechnicians = busyTechIds
+    ? technicians.filter((t) => !busyTechIds.includes(t._id))
+    : [];
+
+  return (
+    <section id="search" className="public-search">
+      <span className="section-eyebrow">Find What You Need</span>
+      <h2 className="section-title">Search Before You Book</h2>
+      <p className="section-subtitle">Browse our services, technicians, and open dates — no account needed.</p>
+
+      <div className="public-search-tabs">
+        {SEARCH_TABS.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            className={`public-search-tab ${activeTab === tab.key ? 'public-search-tab--active' : ''}`}
+            onClick={() => setActiveTab(tab.key)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="public-search-panel">
+        {activeTab === 'service' && (
+          <>
+            <input
+              type="text"
+              className="public-search-input"
+              placeholder="Search services (e.g. cleaning, repair, installation)..."
+              value={serviceQuery}
+              onChange={(e) => setServiceQuery(e.target.value)}
+            />
+            <div className="public-search-results">
+              {filteredServices.length === 0 ? (
+                <p className="public-search-empty">No matching services.</p>
+              ) : (
+                filteredServices.map((s) => (
+                  <div className="public-search-result" key={s._id}>
+                    <div className="public-search-result-main">
+                      <span className="public-search-result-title">{s.name}</span>
+                      <span className="public-search-result-desc">{s.description}</span>
+                    </div>
+                    <span className="public-search-result-price">₱{Number(s.price).toLocaleString()}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </>
+        )}
+
+        {activeTab === 'technician' && (
+          <>
+            <input
+              type="text"
+              className="public-search-input"
+              placeholder="Search technicians by name..."
+              value={technicianQuery}
+              onChange={(e) => setTechnicianQuery(e.target.value)}
+            />
+            <div className="public-search-results">
+              {filteredTechnicians.length === 0 ? (
+                <p className="public-search-empty">No matching technicians.</p>
+              ) : (
+                filteredTechnicians.map((t) => (
+                  <div className="public-search-result" key={t._id}>
+                    <div className="public-search-result-main">
+                      <span className="public-search-result-title">{t.name}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </>
+        )}
+
+        {activeTab === 'date' && (
+          <>
+            <input
+              type="date"
+              className="public-search-input"
+              value={dateQuery}
+              onChange={(e) => handleDateCheck(e.target.value)}
+            />
+            <div className="public-search-results">
+              {checkingDate && <p className="public-search-empty">Checking availability...</p>}
+              {!checkingDate && dateQuery && busyTechIds !== null && (
+                availableTechnicians.length === 0 ? (
+                  <p className="public-search-empty">
+                    {technicians.length === 0
+                      ? 'No technicians on file yet.'
+                      : 'Fully booked on this date — try another day.'}
+                  </p>
+                ) : (
+                  <>
+                    <p className="public-search-availability-summary">
+                      {availableTechnicians.length} of {technicians.length} technicians available
+                    </p>
+                    {availableTechnicians.map((t) => (
+                      <div className="public-search-result" key={t._id}>
+                        <div className="public-search-result-main">
+                          <span className="public-search-result-title">{t.name}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )
+              )}
+            </div>
+          </>
+        )}
+
+        <div className="public-search-cta">
+          <button className="cta" onClick={() => navigate('/login')}>Log In to Book</button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ── Landing Page Module: announcement board ─────────────────
+   Real data from GET /api/announcements/public (Announcement model, managed by
+   admin under Manage Services > ... > Announcements). Hidden entirely when there
+   are none, rather than showing an empty "no announcements" box on a public
+   marketing page. */
+function AnnouncementBoard() {
+  const [announcements, setAnnouncements] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/announcements/public`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setAnnouncements(Array.isArray(data) ? data : []))
+      .catch(() => setAnnouncements([]))
+      .finally(() => setLoaded(true));
+  }, []);
+
+  if (!loaded || announcements.length === 0) return null;
+
+  return (
+    <section className="announcement-board">
+      <span className="section-eyebrow">Stay Updated</span>
+      <h2 className="section-title">Announcements</h2>
+
+      <div className="announcement-board-list">
+        {announcements.map((a) => (
+          <div className="announcement-card" key={a._id}>
+            <div className="announcement-card-topline">
+              <span className={`announcement-card-category announcement-card-category--${a.category.toLowerCase()}`}>
+                {CATEGORY_LABEL[a.category] || a.category}
+              </span>
+              {a.displayDate && <span className="announcement-card-date">{a.displayDate}</span>}
+            </div>
+            <h3>{a.title}</h3>
+            <p>{a.message}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 /* ── Static Content ─────────────────────────────────────── */
 const STATS = [
   { value: '15+', label: 'Years of Experience' },
@@ -68,13 +307,7 @@ const HOW_IT_WORKS_STEPS = [
 ];
 
 function LandingPage() {
-  const [current, setCurrent] = useState(0);
   const navigate = useNavigate();
-  const slides = ['slide-1', 'slide-2'];
-
-  const nextSlide = () => {
-    setCurrent((prev) => (prev + 1) % slides.length);
-  };
 
   return (
     <>
@@ -97,7 +330,7 @@ function LandingPage() {
       {/* ============ HERO ============ */}
       <section id="home" className="hero">
         <div className="slides">
-          <div className={`slide slide-1 ${current === 0 ? 'active' : ''}`}>
+          <div className="slide slide-1 active">
             <div className="slide-content">
               <span className="slide-eyebrow">Trusted since 2009</span>
               <h1>Cool comfort, clean air,<br />delivered to your door.</h1>
@@ -107,20 +340,18 @@ function LandingPage() {
               </div>
             </div>
           </div>
-
-          <div className={`slide slide-2 ${current === 1 ? 'active' : ''}`}>
-            <div className="slide-content">
-              <span className="slide-eyebrow">📢 Announcements</span>
-              <h2>Now accepting bookings<br />for the summer season!</h2>
-              <p>Open Monday – Saturday, 8:00 AM – 6:00 PM</p>
-              <button className="cta" onClick={() => navigate('/login')}>Book Now</button>
-            </div>
-          </div>
         </div>
-        <button className="next-btn" onClick={nextSlide}>❯</button>
       </section>
 
       <div className="vent-divider" />
+
+      {/* ============ PUBLIC SEARCH ============ */}
+      <PublicSearch navigate={navigate} />
+
+      <div className="vent-divider" />
+
+      {/* ============ ANNOUNCEMENT BOARD ============ */}
+      <AnnouncementBoard />
 
       {/* ============ ABOUT US ============ */}
       <section id="about" className="about">
@@ -226,9 +457,9 @@ function LandingPage() {
 
           <div>
             <h4>Location</h4>
-            <p>Metro Manila, Philippines</p>
+            <p>N.S. Amoranto corner Cadig St., Quezon City, Metro Manila</p>
             <iframe
-              src="https://www.openstreetmap.org/export/embed.html?bbox=120.97%2C14.55%2C121.05%2C14.62&layer=mapnik"
+              src="https://www.google.com/maps?q=N.S.+Amoranto+corner+Cadig+St.,+Quezon+City,+Metro+Manila&output=embed"
               className="map"
               loading="lazy"
               title="Cooling Zone Location Map"

@@ -3,6 +3,7 @@ import CustomerLayout from './customer_layout';
 import { useNavigate } from 'react-router-dom';
 import { FiClock, FiMapPin, FiEye, FiStar } from 'react-icons/fi';
 import FeedbackModal from '../../components/feedback_modal';
+import { getStatusColor } from '../../utils/statusColors';
 
 const FEEDBACK_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -128,16 +129,6 @@ function MyBookings() {
     return idx;
   })();
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Completed': return '#22c55e';
-      case 'Approved': return '#3b82f6';
-      case 'In Progress': return '#f59e0b';
-      case 'Cancelled': return '#ef4444';
-      default: return '#f59e0b';
-    }
-  };
-
   return (
     <CustomerLayout title="My Bookings">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -145,22 +136,16 @@ function MyBookings() {
           {filters.map((filter) => (
             <button
               key={filter}
+              type="button"
+              className={`filter-pill ${activeFilter === filter ? 'filter-pill--active' : ''}`}
               onClick={() => setActiveFilter(filter)}
-              style={{
-                padding: '10px 18px', borderRadius: '999px', border: '1px solid #1b9ce5',
-                background: activeFilter === filter ? '#1b9ce5' : '#fff',
-                color: activeFilter === filter ? '#fff' : '#333', cursor: 'pointer',
-              }}
             >
               {filter}
             </button>
           ))}
         </div>
 
-        <button
-          onClick={() => navigate('/customer/book_service')}
-          style={{ background: '#1b9ce5', color: '#fff', border: 'none', borderRadius: '6px', padding: '10px 16px', cursor: 'pointer', fontWeight: '600' }}
-        >
+        <button type="button" className="bs-next-btn" onClick={() => navigate('/customer/book_service')}>
           New Booking
         </button>
       </div>
@@ -186,7 +171,7 @@ function MyBookings() {
 
               <div
                 style={{
-                  background: '#fff', border: '1px solid #d9d9d9', borderRadius: '12px',
+                  background: '#fff', border: '1px solid var(--card-border)', borderRadius: '12px',
                   padding: '18px 20px', display: 'grid', gridTemplateColumns: '2fr 1.5fr 1.5fr 1fr',
                   alignItems: 'center',
                   opacity: booking.status === 'Cancelled' ? 0.6 : 1,

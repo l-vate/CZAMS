@@ -105,6 +105,36 @@ function openRefundIfEligible(booking) {
 }
 
 // ============================================
+// 1b. PUBLIC ROUTES (no auth — Landing Page Module search)
+// ============================================
+
+// Which technicians are already booked on a given date — mirrors the private
+// /busy-technicians lookup used elsewhere, exposed here for unauthenticated
+// visitors browsing the landing page. Registered as a two-segment path (not just
+// "/:bookingId") so it can never be shadowed by the single-segment booking-detail
+// route below, regardless of route registration order.
+router.get('/public/availability', async (req, res) => {
+  try {
+    const { date } = req.query;
+    if (!date) return res.status(400).json({ message: 'Date is required' });
+
+    const busyBookings = await Booking.find({
+      date,
+      status: { $in: ['Pending', 'Approved', 'In Progress'] }
+    }).select('technician');
+
+    const busyTechIds = busyBookings
+      .map(b => b.technician?.toString())
+      .filter(Boolean);
+
+    res.json({ busyTechIds });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ============================================
 // 2. CUSTOMER ROUTES (Booking Management)
 // ============================================
 

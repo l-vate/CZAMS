@@ -62,9 +62,9 @@ function Billings() {
           // shown alongside the main status once the down payment has been accepted.
           let balanceNote = null;
           if (isBalanceRejected) {
-            balanceNote = { text: 'Balance Rejected — please resubmit', color: '#ef4444' };
+            balanceNote = { text: 'Balance Rejected — please resubmit', color: 'var(--danger)' };
           } else if (isBalanceToVerify) {
-            balanceNote = { text: 'Balance: To Verify', color: '#1b9ce5' };
+            balanceNote = { text: 'Balance: To Verify', color: 'var(--warning)' };
           }
 
           const paid = isFullyPaid || isPartiallyPaid || isToVerify;
@@ -153,13 +153,19 @@ function Billings() {
     return new Date(b.createdAt) - new Date(a.createdAt); // newest first within same group
   });
 
+  // Payment-status colors, converged with admin.css's .status-pill--* (same
+  // tokens from index.css) so the two files can't drift apart again: Partially
+  // Paid and To Verify now match admin's existing blue/amber choices rather than
+  // keeping their own (this file previously had them swapped — To Verify was
+  // blue, Partially Paid was amber). Cancelled is a deliberately neutral gray,
+  // not red — see the --payment-cancelled-* comment in index.css for why.
   const getStatusColor = (bill) => {
-    if (bill.isRefunded) return '#0e7490';
-    if (bill.isCancelled) return '#64748b';
-    if (bill.isFullyPaid) return '#22c55e';
-    if (bill.isPartiallyPaid) return '#f59e0b';
-    if (bill.isToVerify) return '#1b9ce5';
-    return '#ef4444';
+    if (bill.isRefunded) return 'var(--payment-refunded-txt)';
+    if (bill.isCancelled) return 'var(--payment-cancelled-txt)';
+    if (bill.isFullyPaid) return 'var(--success)';
+    if (bill.isPartiallyPaid) return 'var(--primary)';
+    if (bill.isToVerify) return 'var(--warning)';
+    return 'var(--danger)';
   };
 
   const handlePaymentSubmit = async ({ proof }) => {
@@ -219,12 +225,9 @@ function Billings() {
           {filters.map((filter) => (
             <button
               key={filter}
+              type="button"
+              className={`filter-pill ${activeFilter === filter ? 'filter-pill--active' : ''}`}
               onClick={() => setActiveFilter(filter)}
-              style={{
-                padding: '10px 18px', borderRadius: '999px', border: '1px solid #1b9ce5',
-                background: activeFilter === filter ? '#1b9ce5' : '#fff',
-                color: activeFilter === filter ? '#fff' : '#333', cursor: 'pointer',
-              }}
             >
               {filter}
             </button>
@@ -253,7 +256,7 @@ function Billings() {
             <div
               key={bill.id}
               style={{
-                background: '#fff', border: '1px solid #d9d9d9', borderRadius: '12px',
+                background: '#fff', border: '1px solid var(--card-border)', borderRadius: '12px',
                 padding: '18px 20px', display: 'grid', gridTemplateColumns: '2fr 1.5fr 1.5fr 1.2fr',
                 alignItems: 'center',
               }}
@@ -304,7 +307,9 @@ function Billings() {
 
                 {!bill.paid && !bill.isCancelled && (
                   <button
-                    style={{ background: '#1b9ce5', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    type="button"
+                    className="bs-next-btn"
+                    style={{ padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '6px' }}
                     onClick={() => {
                       setSelectedBill(bill);
                       setPaymentType('downpayment');
@@ -317,7 +322,9 @@ function Billings() {
 
                 {bill.isPartiallyPaid && !bill.isBalancePaid && !bill.isCancelled && (
                   <button
-                    style={{ background: '#1b9ce5', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    type="button"
+                    className="bs-next-btn"
+                    style={{ padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '6px' }}
                     onClick={() => {
                       setSelectedBill(bill);
                       setPaymentType('balance');

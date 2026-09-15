@@ -10,13 +10,8 @@
   margin-bottom: 8px;
 }
 
-.dashboard-header h1 {
-  font-family: 'Outfit', sans-serif;
-  font-size: 32px;
-  font-weight: 700;
-  color: var(--navy);
-  margin: 0;
-}
+/* Title styling now comes from the shared .dashboard-welcome (index.css, Pass E)
+   — was its own 32px rule, one of three competing page-title sizes. */
 
 .dashboard-header p {
   font-size: 14px;
@@ -189,54 +184,8 @@
 /* ============ MANAGE ACCOUNTS ============ */
 .ma-overview { padding: 8px 4px; }
 
-.ma-page-title {
-  font-size: 1.9rem;
-  font-weight: 800;
-  color: #1f2937;
-  margin: 0 0 20px 0;
-}
-
-.ma-account-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin-bottom: 32px;
-}
-
-.ma-account-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  width: 100%;
-  border: none;
-  border-radius: 16px;
-  padding: 18px 24px;
-  cursor: pointer;
-  text-align: left;
-  color: #fff;
-  background: linear-gradient(90deg, #5fb8e8 0%, #1a5fa8 100%);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.ma-account-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(26, 95, 168, 0.25);
-}
-
-.ma-account-icon {
-  flex-shrink: 0;
-  width: 44px; height: 44px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.25);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.ma-account-text { display: flex; flex-direction: column; flex: 1; }
-.ma-account-title { font-size: 1.05rem; font-weight: 700; line-height: 1.3; }
-.ma-account-subtitle { font-size: 0.82rem; color: rgba(255, 255, 255, 0.85); }
-.ma-account-arrow { font-size: 1.2rem; font-weight: 600; flex-shrink: 0; }
+/* .ma-page-title was dead CSS — manage_accounts.jsx had no in-page title at all;
+   it now uses the shared .dashboard-welcome (index.css, Pass E). */
 
 .ma-list-view { padding: 8px 4px; }
 
@@ -281,7 +230,7 @@
 .ma-search-icon { font-size: 0.85rem; opacity: 0.6; }
 
 .ma-register-btn {
-  background: #1a7fd6;
+  background: var(--primary);
   color: #fff;
   border: none;
   font-weight: 700;
@@ -292,7 +241,7 @@
   transition: background 0.15s ease;
 }
 
-.ma-register-btn:hover { background: #15629f; }
+.ma-register-btn:hover { background: var(--primary-hover); }
 
 .ma-list { display: flex; flex-direction: column; gap: 12px; }
 
@@ -357,7 +306,7 @@
 
 .ma-form-card {
   background: #fff;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--card-border);
   border-radius: 16px;
   padding: 28px 32px;
   max-width: 720px;
@@ -387,17 +336,19 @@
   transition: border-color 0.15s ease;
 }
 
-.ma-input:focus, .ma-textarea:focus { border-color: #1a7fd6; }
+.ma-input:focus, .ma-textarea:focus { border-color: var(--primary); }
 .ma-textarea { resize: vertical; }
 
 .ma-form-error { color: #d13c3c; font-size: 0.85rem; font-weight: 600; margin: 4px 0 0 0; }
 
 .ma-form-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 18px; }
 
+/* Converged (Pass D) to the same ghost treatment as .bs-back-btn/.svc-btn-ghost/
+   .ann-btn-ghost/.sdm-btn-outline. */
 .ma-cancel-btn {
   background: #fff;
-  border: 1px solid #d7dbe0;
-  color: #374151;
+  border: 1.5px solid var(--mist);
+  color: var(--ink-soft);
   font-weight: 700;
   font-size: 0.9rem;
   padding: 11px 22px;
@@ -405,10 +356,10 @@
   cursor: pointer;
 }
 
-.ma-cancel-btn:hover { background: #f3f4f6; }
+.ma-cancel-btn:hover { border-color: var(--navy); color: var(--navy); }
 
 .ma-submit-btn {
-  background: #1a7fd6;
+  background: var(--primary);
   border: none;
   color: #fff;
   font-weight: 700;
@@ -419,66 +370,23 @@
   transition: background 0.15s ease;
 }
 
-.ma-submit-btn:hover { background: #15629f; }
+.ma-submit-btn:hover { background: var(--primary-hover); }
 
 /* ============ MANAGE SERVICES ============ */
-.svc-menu { display: flex; flex-direction: column; gap: 16px; }
-
-.svc-menu-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-.svc-menu-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  border: none;
-  border-radius: 18px;
-  padding: 22px 24px;
-  cursor: pointer;
-  text-align: left;
-  color: #fff;
-  font: inherit;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.svc-menu-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 24px rgba(21, 101, 192, 0.2);
-}
-
-.svc-menu-card-lg { background: linear-gradient(135deg, #4fc3f7, #0d47a1); }
-.svc-menu-card-light { background: linear-gradient(135deg, #81d4fa, #29b6f6); }
-
-.svc-menu-icon {
-  flex-shrink: 0;
-  width: 42px; height: 42px;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.22);
-}
-
-.svc-menu-text { display: flex; flex-direction: column; flex: 1; gap: 2px; }
-.svc-menu-title { font-weight: 700; font-size: 17px; }
-.svc-menu-sub { font-size: 13px; opacity: 0.85; }
-.svc-menu-arrow { font-size: 20px; opacity: 0.9; }
-
 .svc-view { display: flex; flex-direction: column; gap: 16px; }
 
 .svc-back-link {
   align-self: flex-start;
   background: none;
   border: none;
-  color: #1565c0;
+  color: var(--primary);
   font-weight: 600;
   font-size: 14px;
   cursor: pointer;
   padding: 0;
 }
 
-.svc-view-title { margin: 0; font-size: 22px; font-weight: 700; color: #1a1a1a; }
+/* Title styling now comes from the shared .dashboard-welcome (index.css, Pass E). */
 .svc-empty { text-align: center; color: #8a94a6; padding: 24px 0; }
 
 .svc-toolbar {
@@ -502,7 +410,7 @@
   cursor: pointer;
 }
 
-.svc-tab.active { background: #1565c0; border-color: #1565c0; color: #fff; }
+.svc-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
 
 .svc-toolbar-right { display: flex; align-items: center; gap: 14px; }
 
@@ -510,7 +418,7 @@
   position: relative;
   background: none;
   border: none;
-  color: #1565c0;
+  color: var(--primary);
   font-weight: 600;
   font-size: 13.5px;
   cursor: pointer;
@@ -520,7 +428,7 @@
 .svc-refund-badge {
   position: absolute;
   top: -8px; right: -6px;
-  background: #ef4444;
+  background: var(--danger);
   color: #fff;
   font-size: 10px;
   font-weight: 700;
@@ -529,7 +437,7 @@
 }
 
 .svc-walkin-btn, .svc-add-btn {
-  background: linear-gradient(135deg, #4fc3f7, #1565c0);
+  background: var(--primary);
   color: #fff;
   border: none;
   border-radius: 10px;
@@ -538,6 +446,8 @@
   font-weight: 600;
   cursor: pointer;
 }
+
+.svc-walkin-btn:hover, .svc-add-btn:hover { background: var(--primary-hover); }
 
 .svc-add-btn { padding: 10px 18px; font-size: 14px; }
 
@@ -593,11 +503,10 @@
   text-transform: capitalize;
 }
 
-.svc-badge-approved    { background: #e0e7ff; color: #4338ca; }
-.svc-badge-pending     { background: #fef3c7; color: #b45309; }
-.svc-badge-completed   { background: #d1fae5; color: #047857; }
-.svc-badge-in-progress { background: #dbeafe; color: #1d4ed8; }
-.svc-badge-cancelled   { background: #fee2e2; color: #b91c1c; }
+/* Approved/Pending/In-Progress/Completed/Cancelled colors for .svc-badge-* come
+   from the shared mapping in index.css (which also backs .status-badge/.status-pill)
+   — no duplicate color rules here, that duplication is what let this admin.css copy
+   drift out of sync (Approved/In-Progress swapped) in the first place. */
 
 .svc-request-service { font-weight: 600; font-size: 14.5px; color: #1a1a1a; margin: 0 0 2px; }
 .svc-request-meta { font-size: 12.5px; color: #8a94a6; margin: 0; line-height: 1.5; }
@@ -617,7 +526,7 @@
   flex-shrink: 0;
   background: none;
   border: none;
-  color: #1565c0;
+  color: var(--primary);
   font-weight: 600;
   font-size: 13px;
   text-decoration: underline;
@@ -653,7 +562,7 @@
 }
 
 .svc-service-card:hover {
-  box-shadow: 0 6px 16px rgba(21, 101, 192, 0.1);
+  box-shadow: var(--card-hover-shadow);
   transform: translateY(-1px);
 }
 
@@ -663,7 +572,7 @@
   display: flex; align-items: center; justify-content: center;
   border-radius: 10px;
   background: #e3f2fd;
-  color: #1565c0;
+  color: var(--primary);
 }
 
 .svc-service-info { display: flex; flex-direction: column; flex: 1; min-width: 0; }
@@ -672,7 +581,7 @@
 
 .svc-service-price {
   flex-shrink: 0;
-  background: linear-gradient(135deg, #4fc3f7, #1565c0);
+  background: linear-gradient(135deg, #4fc3f7, var(--primary));
   color: #fff;
   font-weight: 600;
   font-size: 13px;
@@ -699,7 +608,15 @@
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
 }
 
-.svc-modal h2 { margin: 0 0 16px; font-size: 18px; }
+/* Header row for the shared .modal-title + .modal-close-btn — this modal used to
+   have only a plain <h2> and a text "Cancel" button, unlike every other modal in
+   the app, which all have an icon close button in the corner. */
+.svc-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
 
 .svc-field {
   display: flex;
@@ -735,16 +652,209 @@
 
 .svc-btn {
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 9px 16px;
   font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
 }
 
-.svc-btn-primary { background: linear-gradient(135deg, #4fc3f7, #1565c0); color: #fff; }
-.svc-btn-ghost { background: #f1f5f9; color: #475569; }
-.svc-btn-danger { background: #fef2f2; color: #dc2626; }
+/* Converged button treatments (Pass D): primary = solid var(--primary) (was a
+   gradient — the gradient look is now reserved for the decorative menu-card
+   pattern, not action buttons); ghost = the .bs-back-btn treatment used
+   everywhere else; danger = solid var(--danger) fill, matching
+   .cancel-booking-btn/.sdm-btn-danger, not the previous light-pink-bg look. */
+.svc-btn-primary { background: var(--primary); color: #fff; }
+.svc-btn-primary:hover { background: var(--primary-hover); }
+.svc-btn-ghost { background: #fff; border: 1.5px solid var(--mist); color: var(--ink-soft); }
+.svc-btn-ghost:hover { border-color: var(--navy); color: var(--navy); }
+.svc-btn-danger { background: var(--danger); color: #fff; }
+.svc-btn-danger:hover { background: var(--danger-hover); }
+
+/* ============ ANNOUNCEMENTS PAGE (System Configuration Module) ============ */
+.ann-view { display: flex; flex-direction: column; gap: 16px; }
+/* Title styling now comes from the shared .dashboard-welcome (index.css, Pass E). */
+.ann-empty { text-align: center; color: #8a94a6; padding: 24px 0; }
+
+.ann-manage-header { display: flex; align-items: center; justify-content: space-between; }
+
+.ann-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.ann-search {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 14px;
+}
+
+.ann-search:focus {
+  outline: none;
+  border-color: #4fc3f7;
+  box-shadow: 0 0 0 3px rgba(79, 195, 247, 0.2);
+}
+
+.ann-search-inline { max-width: 260px; }
+
+.ann-add-btn {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.ann-add-btn:hover { background: var(--primary-hover); }
+
+.ann-manage-panel {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+}
+
+.ann-manage-grid { display: flex; flex-direction: column; gap: 12px; }
+
+.ann-item-card {
+  display: flex;
+  align-items: flex-start;
+  background: #f6f9fc;
+  border: 1px solid #eef2f6;
+  border-radius: 14px;
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.ann-item-card:hover {
+  box-shadow: var(--card-hover-shadow);
+  transform: translateY(-1px);
+}
+
+.ann-item-info { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+
+.ann-item-topline { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ann-item-title { font-weight: 600; font-size: 15px; color: #1a1a1a; }
+.ann-item-message { font-size: 13px; color: #4a5568; line-height: 1.5; }
+.ann-item-date { font-size: 12px; color: #8a94a6; }
+
+.ann-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  text-transform: capitalize;
+}
+
+.ann-badge-holiday { background: var(--status-pending-bg); color: var(--status-pending-txt); }
+.ann-badge-closure { background: var(--status-cancel-bg); color: var(--status-cancel-txt); }
+.ann-badge-maintenance { background: var(--status-approved-bg); color: var(--status-approved-txt); }
+.ann-badge-general { background: var(--status-progress-bg); color: var(--status-progress-txt); }
+.ann-badge-inactive { background: #e2e8f0; color: #475569; }
+
+.ann-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.ann-modal {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
+}
+
+/* Header row for the shared .modal-title + .modal-close-btn — see the matching
+   comment on .svc-modal-header. */
+.ann-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.ann-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: #4a5568;
+  margin-bottom: 14px;
+}
+
+.ann-field input,
+.ann-field textarea,
+.ann-field select {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 14px;
+  color: #1a1a1a;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.ann-field input:focus,
+.ann-field textarea:focus,
+.ann-field select:focus {
+  outline: none;
+  border-color: #4fc3f7;
+  box-shadow: 0 0 0 3px rgba(79, 195, 247, 0.2);
+}
+
+.ann-checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #4a5568;
+  margin-bottom: 14px;
+  cursor: pointer;
+}
+
+.ann-modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+
+.ann-modal-actions-right { display: flex; gap: 8px; margin-left: auto; }
+
+.ann-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 9px 16px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Same converged treatments as .svc-btn-* above. */
+.ann-btn-primary { background: var(--primary); color: #fff; }
+.ann-btn-primary:hover { background: var(--primary-hover); }
+.ann-btn-ghost { background: #fff; border: 1.5px solid var(--mist); color: var(--ink-soft); }
+.ann-btn-ghost:hover { border-color: var(--navy); color: var(--navy); }
+.ann-btn-danger { background: var(--danger); color: #fff; }
+.ann-btn-danger:hover { background: var(--danger-hover); }
 
 /* ============ PAYMENTS PAGE — TOP TABS (Payments | Refunds) ============ */
 .payments-top-tabs {
@@ -789,9 +899,9 @@
 
 .filter-pill--active,
 .filter-pill:hover {
-  background: #2563eb;
+  background: var(--primary);
   color: #ffffff;
-  border-color: #2563eb;
+  border-color: var(--primary);
 }
 
 .payments-search {
@@ -833,7 +943,7 @@
 }
 
 .payment-card:hover {
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+  box-shadow: var(--card-hover-shadow);
 }
 
 .payment-card__header {
@@ -874,17 +984,17 @@
   letter-spacing: 0.03em;
 }
 
-.status-pill--verify { background: #fef3c7; color: #d97706; }
-.status-pill--partial { background: #e0f2fe; color: #0284c7; }
-.status-pill--full { background: #dcfce7; color: #15803d; }
-.status-pill--rejected { background: #fee2e2; color: #dc2626; }
-.status-pill--refunded { background: #cffafe; color: #0e7490; }
-.status-pill--cancelled { background: #e2e8f0; color: #475569; }
+.status-pill--verify { background: var(--status-pending-bg); color: var(--warning-hover); }
+.status-pill--partial { background: #e0f2fe; color: var(--primary); }
+.status-pill--full { background: var(--status-complete-bg); color: var(--status-complete-txt); }
+.status-pill--rejected { background: var(--status-cancel-bg); color: var(--danger); }
+.status-pill--refunded { background: var(--payment-refunded-bg); color: var(--payment-refunded-txt); }
+.status-pill--cancelled { background: var(--payment-cancelled-bg); color: var(--payment-cancelled-txt); }
 
 .payment-card__review-btn {
   padding: 8px 14px;
   background: #f1f5f9;
-  color: #2563eb;
+  color: var(--primary);
   border: none;
   border-radius: 8px;
   font-weight: 600;
@@ -920,33 +1030,22 @@
 
 .req-filters { display: flex; gap: 10px; flex-wrap: wrap; }
 
-.req-filter-pill {
-  padding: 10px 20px;
-  border-radius: 999px;
-  border: 1px solid #1b9ce5;
-  background: #fff;
-  color: #1b9ce5;
-  font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-.req-filter-pill.active { background: #1b9ce5; color: #fff; }
+/* Filter buttons here now use the shared .filter-pill primitive (Pass D) instead
+   of this page's own outlined style. */
 
 .req-new-btn {
-  background: #1b9ce5;
+  background: var(--primary);
   color: #fff;
   border: none;
   padding: 12px 22px;
-  border-radius: 8px;
+  border-radius: 10px;
   font-weight: 700;
   font-size: 13.5px;
   cursor: pointer;
   transition: background 0.15s ease;
 }
 
-.req-new-btn:hover { background: #1584c4; }
+.req-new-btn:hover { background: var(--primary-hover); }
 
 /* Grid container layout replacing row flex layout */
 .req-grid {
@@ -960,14 +1059,14 @@
   flex-direction: column;
   justify-content: space-between;
   background: #fff;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--card-border);
   border-radius: 14px;
   padding: 20px;
   transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .req-card:hover {
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--card-hover-shadow);
   transform: translateY(-2px);
 }
 
@@ -1212,14 +1311,14 @@
   background: #f8fafc;
   padding: 10px 12px;
   border-radius: 6px;
-  border-left: 3px solid #2563eb;
+  border-left: 3px solid var(--primary);
 }
 
 .report-view-value--parts {
   background: #f0fdf4;
   padding: 8px 12px;
   border-radius: 6px;
-  border-left: 3px solid #22c55e;
+  border-left: 3px solid var(--success);
 }
 
 .report-view-value--rec {
@@ -1237,12 +1336,12 @@
 }
 
 .report-view-followup-yes {
-  color: #dc2626;
+  color: var(--danger);
   font-weight: 600;
 }
 
 .report-view-followup-no {
-  color: #22c55e;
+  color: var(--success);
   font-weight: 600;
 }
 
@@ -1283,7 +1382,7 @@
 }
 
 .report-card:hover {
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+  box-shadow: var(--card-hover-shadow);
 }
 
 .report-card__header {
@@ -1398,7 +1497,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  color: #dc2626;
+  color: var(--danger);
   font-weight: 500;
 }
 
@@ -1417,7 +1516,7 @@
   gap: 6px;
   padding: 8px 16px;
   background: #f1f5f9;
-  color: #2563eb;
+  color: var(--primary);
   border: none;
   border-radius: 8px;
   font-weight: 600;
@@ -1460,7 +1559,7 @@
 }
 
 .walkin-mode-btn.selected {
-  border-color: #2563eb;
+  border-color: var(--primary);
   background: #eff6ff;
   color: #1d4ed8;
 }
@@ -1489,7 +1588,7 @@
 }
 
 .walkin-customer-row:hover {
-  border-color: #2563eb;
+  border-color: var(--primary);
   background: #f8fafc;
 }
 
@@ -1597,7 +1696,7 @@
 }
 
 .refund-card:hover {
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+  box-shadow: var(--card-hover-shadow);
 }
 
 .refund-card__header {
@@ -1626,7 +1725,7 @@
   text-transform: uppercase;
   letter-spacing: 0.03em;
   background: #fee2e2;
-  color: #dc2626;
+  color: var(--danger);
 }
 
 /* Solid fill so a flagged refund outranks the lighter same-day tag visually —
@@ -1638,7 +1737,7 @@
   border-radius: 999px;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  background: #dc2626;
+  background: var(--danger);
   color: #ffffff;
 }
 
@@ -1654,7 +1753,7 @@
 
 .refund-flag-notice-time {
   font-size: 11px;
-  color: #b91c1c;
+  color: var(--danger-hover);
   margin-top: 4px;
 }
 
@@ -1703,7 +1802,7 @@
 .refund-card__review-btn {
   padding: 8px 14px;
   background: #f1f5f9;
-  color: #2563eb;
+  color: var(--primary);
   border: none;
   border-radius: 8px;
   font-weight: 600;
@@ -1786,7 +1885,7 @@
 }
 
 .backjob-card:hover {
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+  box-shadow: var(--card-hover-shadow);
 }
 
 .backjob-card__header {
@@ -1859,7 +1958,7 @@
 .backjob-card__review-btn {
   padding: 8px 14px;
   background: #f1f5f9;
-  color: #2563eb;
+  color: var(--primary);
   border: none;
   border-radius: 8px;
   font-weight: 600;

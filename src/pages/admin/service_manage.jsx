@@ -187,7 +187,7 @@ function ServiceManage() {
         
         {/* Header & Actions */}
         <div className="svc-manage-header">
-          <h1 className="svc-view-title">Manage Services</h1>
+          <h1 className="dashboard-welcome">Manage Services</h1>
           <button className="svc-add-btn" onClick={openAddModal}>
             <FiPlus style={{ marginRight: '6px', verticalAlign: 'middle' }} /> Add Service
           </button>
@@ -252,9 +252,12 @@ function ServiceManage() {
 
       {/* Add / Edit Modal */}
       {showModal && (
-        <div className="svc-modal-overlay">
-          <div className="svc-modal">
-            <h2>{editingService ? 'Edit Service' : 'Add New Service'}</h2>
+        <div className="svc-modal-overlay" onClick={closeModal}>
+          <div className="svc-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="svc-modal-header">
+              <h2 className="modal-title">{editingService ? 'Edit Service' : 'Add New Service'}</h2>
+              <button type="button" className="modal-close-btn" onClick={closeModal}>✕</button>
+            </div>
 
             <form onSubmit={handleSubmit}>
               {formError && <p className="ma-form-error" style={{ marginBottom: '12px' }}>{formError}</p>}

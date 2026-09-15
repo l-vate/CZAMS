@@ -223,6 +223,7 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
     return (
         <div className="sdm-overlay" onClick={onClose}>
             <div className="sdm-modal" onClick={(e) => e.stopPropagation()}>
+                <button type="button" className="modal-close-btn sdm-close-position" onClick={onClose}>✕</button>
                 <div className="sdm-body">
                     <div className="sdm-titlebar">
                         <div>

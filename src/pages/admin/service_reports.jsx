@@ -415,6 +415,7 @@ function ServiceReports() {
 
   return (
     <AdminLayout title="Service Reports">
+      <h1 className="dashboard-welcome">Service Reports</h1>
       <div className="reports-toolbar">
         <div className="reports-filters">
           {FILTERS.map((filter) => (

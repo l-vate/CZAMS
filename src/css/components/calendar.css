@@ -114,8 +114,8 @@
 }
 
 .cal-mini-day:hover { background: #f3f4f6; }
-.cal-mini-day-today { color: #2563eb; font-weight: 600; }
-.cal-mini-day-selected { background: #2563eb; color: #fff; }
+.cal-mini-day-today { color: var(--primary); font-weight: 600; }
+.cal-mini-day-selected { background: var(--primary); color: #fff; }
 
 .cal-legend { margin-top: 24px; }
 
@@ -250,7 +250,7 @@
   color: #1f2937;
 }
 
-.cal-day-number-today { background: #2563eb; color: #fff; }
+.cal-day-number-today { background: var(--primary); color: #fff; }
 
 /* Grid Timeline Layout */
 .cal-grid-scroll {
@@ -313,15 +313,21 @@
 }
 
 /* Event Status Highlights */
-.cal-job-confirmed { background: #dbeafe; border-color: #3b82f6; color: #1e3a8a; }
-.cal-job-pending   { background: #fef3c7; border-color: #f59e0b; color: #78350f; }
-.cal-job-completed { background: #d1fae5; border-color: #10b981; color: #064e3b; }
-.cal-job-cancelled { background: #f3f4f6; border-color: #9ca3af; color: #6b7280; }
+/* Converged (Pass E, deferred from Pass B) to the shared status tokens — this
+   legend previously had its own blue/green palette not tied to any token.
+   "Cancelled" uses --payment-cancelled-* (neutral gray) rather than the red
+   --status-cancel-*: a cancelled slot on a schedule reads as "not happening,"
+   informational, not a warning — same reasoning as the payment-status Cancelled
+   decision in Pass B. */
+.cal-job-confirmed { background: var(--status-approved-bg); border-color: var(--primary); color: var(--status-approved-txt); }
+.cal-job-pending   { background: var(--status-pending-bg); border-color: var(--warning); color: var(--status-pending-txt); }
+.cal-job-completed { background: var(--status-complete-bg); border-color: var(--success); color: var(--status-complete-txt); }
+.cal-job-cancelled { background: var(--payment-cancelled-bg); border-color: var(--payment-cancelled-txt); color: var(--payment-cancelled-txt); }
 
-.cal-dot-confirmed { background: #3b82f6; }
-.cal-dot-pending   { background: #f59e0b; }
-.cal-dot-completed { background: #10b981; }
-.cal-dot-cancelled { background: #9ca3af; }
+.cal-dot-confirmed { background: var(--primary); }
+.cal-dot-pending   { background: var(--warning); }
+.cal-dot-completed { background: var(--success); }
+.cal-dot-cancelled { background: var(--payment-cancelled-txt); }
 
 .cal-status-pill {
   border-radius: 999px;

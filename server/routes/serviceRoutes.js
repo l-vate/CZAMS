@@ -4,6 +4,19 @@ const crypto = require('crypto');
 const Service = require('../models/Service');
 const auth = require('../middleware/auth');
 
+// GET all active services, safe fields only (no auth — Landing Page Module public
+// search). Kept separate from the auth-gated route below rather than loosening it.
+router.get('/public', async (req, res) => {
+  try {
+    const services = await Service.find({ isActive: true })
+      .select('name description price durationMinutes category icon serviceType')
+      .sort({ category: 1, name: 1 });
+    res.json(services);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // GET all active services (any logged-in user)
 router.get('/', auth, async (req, res) => {
   try {

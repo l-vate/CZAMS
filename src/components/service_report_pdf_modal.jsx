@@ -28,7 +28,7 @@ function ServiceReportPdfModal({ report, reportItem, onClose }) {
   const handlePrint = () => window.print();
 
   return (
-    <div className="modal-overlay report-pdf-modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={onClose}>
       <div className="report-pdf-modal-card" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header report-pdf-modal-header">
           <span />

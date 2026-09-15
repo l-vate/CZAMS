@@ -28,6 +28,7 @@ import AdminServiceReports from './pages/admin/service_reports';
 import AdminPayments from './pages/admin/payments';
 import AdminBackJobs from './pages/admin/back_jobs';
 import AdminAnalytics from './pages/admin/analytics';
+import AdminAnnouncements from './pages/admin/announcements';
 
 function App() {
   return (
@@ -66,6 +67,7 @@ function App() {
         <Route path="/admin/payments" element={<AdminPayments />} />
         <Route path="/admin/back-jobs" element={<AdminBackJobs />} />
         <Route path="/admin/analytics" element={<AdminAnalytics />} />
+        <Route path="/admin/announcements" element={<AdminAnnouncements />} />
 
       </Routes>
     </BrowserRouter>

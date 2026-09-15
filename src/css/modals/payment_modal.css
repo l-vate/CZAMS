@@ -24,6 +24,14 @@
   padding: 24px 28px;
   position: relative;
   box-sizing: border-box;
+  /* Load-bearing for the simpler modals (payment_modal.jsx, feedback_modal.jsx,
+     back_job_modal.jsx) that stack plain content blocks with no margins of their
+     own — the more complex admin review modals give each section its own
+     explicit margin instead, so this just adds a little extra breathing room
+     there rather than anything visually breaking. */
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .modal-header {
@@ -94,39 +102,22 @@
 }
 
 .modal-file-btn:hover {
-  border-color: #2563eb;
+  border-color: var(--primary);
   background: #eff6ff;
-  color: #1d4ed8;
+  color: var(--primary-hover);
 }
 
-.modal-submit-btn {
-  width: 100%;
-  padding: 12px 18px;
-  background: #2563eb;
-  color: #ffffff;
-  border: none;
-  border-radius: 10px;
-  font-family: 'Inter', sans-serif;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s ease, transform 0.1s ease;
-  margin-top: 8px;
-}
-
-.modal-submit-btn:hover:not(:disabled) {
-  background: #1d4ed8;
-  transform: translateY(-1px);
-}
-
-.modal-submit-btn:disabled {
-  background: #94a3b8;
-  cursor: not-allowed;
-}
+/* .modal-submit-btn now defined once in customer.css (shared across every modal
+   that uses it) — this used to redefine it here too, with a different color, and
+   silently won the cascade since this file loads after customer.css. */
 
 /* ============ ADMIN PAYMENT REVIEW MODAL ============ */
 .payment-review-modal {
   max-width: 560px;
+  /* This modal's own children already carry precise hand-tuned margins (4px,
+     12px, 16px, 20px) between sections — the shared .modal-card's 14px gap
+     would stack on top of every one of them and blow out that spacing. */
+  gap: 0;
 }
 
 .payment-review-booking {
@@ -200,39 +191,12 @@
   gap: 12px;
 }
 
-.cancel-booking-btn {
-  flex: 1;
-  padding: 11px 16px;
-  background: #ef4444;
-  color: #ffffff;
-  border: none;
-  border-radius: 10px;
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.cancel-booking-btn:hover:not(:disabled) {
-  background: #dc2626;
-}
-
-.bs-next-btn {
-  flex: 1;
-  padding: 11px 16px;
-  background: #16a34a;
-  color: #ffffff;
-  border: none;
-  border-radius: 10px;
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.bs-next-btn:hover:not(:disabled) {
-  background: #15803d;
-}
+/* .cancel-booking-btn and .bs-next-btn are now defined once each in customer.css
+   (flex:1 sizing inside this container comes from customer.css's
+   ".cancel-confirm-actions .bs-back-btn/.bs-next-btn/.cancel-booking-btn" rule) —
+   this used to redefine both here too (cancel-booking-btn in a different red,
+   bs-next-btn in green instead of the intended primary blue), and silently won
+   the cascade since this file loads after customer.css. */
 
 @keyframes fadeIn {
   from { opacity: 0; transform: scale(0.98); }

@@ -230,6 +230,7 @@ function ManageAccounts() {
   return (
     <AdminLayout title="Manage Accounts">
       <div className="page-container">
+        <h1 className="dashboard-welcome">Manage Accounts</h1>
         {view === 'register' ? (
           <RegisterForm
             type={registerRole}
@@ -244,7 +245,8 @@ function ManageAccounts() {
                 {filters.map((filter) => (
                   <button
                     key={filter}
-                    className={`req-filter-pill ${activeFilter === filter ? 'active' : ''}`}
+                    type="button"
+                    className={`filter-pill ${activeFilter === filter ? 'filter-pill--active' : ''}`}
                     onClick={() => setActiveFilter(filter)}
                   >
                     {filter}

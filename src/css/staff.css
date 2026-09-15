@@ -42,7 +42,7 @@
 }
 
 .tech-stat-card:hover {
-  box-shadow: 0 4px 16px rgba(11, 37, 69, 0.08);
+  box-shadow: var(--card-hover-shadow);
 }
 
 .tech-stat-icon {
@@ -101,7 +101,7 @@
 }
 
 .tech-feedback-card:hover {
-  box-shadow: 0 4px 16px rgba(11, 37, 69, 0.08);
+  box-shadow: var(--card-hover-shadow);
 }
 
 .tech-feedback-left {
@@ -145,7 +145,7 @@
   display: flex;
   gap: 2px;
   justify-content: flex-end;
-  color: #f59e0b;
+  color: var(--warning);
   font-size: 14px;
 }
 
@@ -299,7 +299,7 @@
 }
 
 .tech-job-card:hover {
-  box-shadow: 0 4px 16px rgba(11, 37, 69, 0.08);
+  box-shadow: var(--card-hover-shadow);
 }
 
 .tech-job-top-row {
@@ -322,12 +322,24 @@
   color: white;
 }
 
+.tech-status-pending {
+  background: var(--warning);
+}
+
+.tech-status-confirmed {
+  background: var(--primary);
+}
+
 .tech-status-in-progress {
-  background: #8b5cf6;
+  background: var(--status-progress-solid);
 }
 
 .tech-status-completed {
-  background: #22c55e;
+  background: var(--success);
+}
+
+.tech-status-cancelled {
+  background: var(--danger);
 }
 
 /* Job Details */
@@ -488,16 +500,20 @@
 }
 
 /* Profile Card */
+/* Converged (Pass E) to match the customer portal's .profile-page .profile-card:
+   12px radius (was 16px), --card-border (was a colder, unrelated gray), and the
+   same subtle shadow this card was missing entirely. */
 .profile-card {
   position: relative;
   display: flex;
   align-items: center;
   gap: 26px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
   padding: 32px;
   margin-bottom: 32px;
+  box-shadow: 0 2px 12px rgba(11, 37, 69, 0.03);
 }
 
 .profile-avatar-lg {
@@ -520,22 +536,26 @@
   object-fit: cover;
 }
 
+/* Converged (Pass E) to the customer portal's .profile-info naming convention:
+   the name itself reads as a heading (navy), the surrounding metadata reads as
+   secondary text (ink-soft) — not a bright accent blue, which looked like a link
+   or clickable element for a plain identity heading. */
 .profile-name {
   margin: 0;
   font-size: 1.4rem;
   font-weight: 800;
-  color: #1c9fd6;
+  color: var(--navy);
 }
 
 .profile-id {
   margin: 2px 0 0;
-  color: #1c9fd6;
+  color: var(--ink-soft);
   font-size: 0.9rem;
 }
 
 .profile-contact {
   margin-top: 10px;
-  color: #1c9fd6;
+  color: var(--ink-soft);
   font-size: 0.9rem;
   line-height: 1.6;
 }

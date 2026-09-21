@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import AdminLayout from './admin_layout';
 import { FiClock, FiFileText, FiUser, FiMapPin, FiSearch, FiX, FiEye, FiCheckCircle, FiAlertCircle, FiClock as FiClockIcon } from 'react-icons/fi';
+import ServiceReportPdfModal from '../../components/service_report_pdf_modal';
+import PersonFilterBanner from '../../components/person_filter_banner';
+import { getUnitsSummary } from '../../utils/bookingPricing';
 
 const API_BASE = 'http://localhost:5000';
 
@@ -10,6 +14,12 @@ const FILTERS = [
   { key: 'Complete', label: 'Complete' },
   { key: 'Partial', label: 'Partial' },
   { key: 'Unresolved', label: 'Unresolved' },
+];
+
+const CLIENT_TYPE_FILTERS = [
+  { key: 'all', label: 'All Clients' },
+  { key: 'Residential', label: 'Residential' },
+  { key: 'Commercial', label: 'Commercial' },
 ];
 
 // Resolution status styles
@@ -64,6 +74,8 @@ function AlertIcon() {
 
 /* ── View Report Modal ──────────────────────────────── */
 function ViewReportModal({ report, onClose }) {
+  const [showPdf, setShowPdf] = useState(false);
+
   if (!report) return null;
 
   const formatDate = (date) => {
@@ -197,6 +209,29 @@ function ViewReportModal({ report, onClose }) {
             </div>
           )}
 
+          {/* Pre-existing Issue - Full Width */}
+          {report.preExistingIssue?.flagged && (
+            <div className="report-view-field report-view-field--full">
+              <label className="report-view-label">
+                <AlertIcon /> Pre-existing Issue Flagged
+              </label>
+              <p className="report-view-value">{report.preExistingIssue.description}</p>
+            </div>
+          )}
+
+          {/* Client Consent - Full Width */}
+          {report.clientConsent?.signedName && (
+            <div className="report-view-field report-view-field--full">
+              <label className="report-view-label">
+                <UserIcon /> Client Consent
+              </label>
+              <p className="report-view-value">
+                Signed by {report.clientConsent.signedName}
+                {report.clientConsent.signedAt ? ` on ${formatDateTime(report.clientConsent.signedAt)}` : ''}
+              </p>
+            </div>
+          )}
+
           {/* Submitted Info - Full Width */}
           <div className="report-view-field report-view-field--full report-view-field--submitted">
             <div className="report-view-submitted-info">
@@ -214,13 +249,37 @@ function ViewReportModal({ report, onClose }) {
           </div>
         </div>
 
-        <button
-          className="report-view-close-btn"
-          onClick={onClose}
-        >
-          Close
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            className="report-view-close-btn"
+            style={{ flex: 1 }}
+            onClick={onClose}
+          >
+            Close
+          </button>
+          <button
+            className="report-view-close-btn"
+            style={{ flex: 1, background: '#2563eb', color: '#fff', borderColor: '#2563eb' }}
+            onClick={() => setShowPdf(true)}
+          >
+            <FiFileText /> Export PDF
+          </button>
+        </div>
       </div>
+
+      {showPdf && (
+        <ServiceReportPdfModal
+          report={report}
+          reportItem={{
+            bookingId: report.bookingId,
+            service: report.bookingDetails?.service?.name || 'Service',
+            customer: report.bookingDetails?.customer?.name || 'Customer',
+            address: report.bookingDetails?.address || '—',
+            bookingDate: formatDate(report.bookingDetails?.date),
+          }}
+          onClose={() => setShowPdf(false)}
+        />
+      )}
     </div>
   );
 }
@@ -246,7 +305,7 @@ function ReportCard({ report, onViewReport }) {
         <div className="report-card__service">
           <span className="report-card__service-type">{report.bookingDetails?.service?.name || 'Service'}</span>
           <span className="report-card__dot">·</span>
-          <span className="report-card__detail">{report.bookingDetails?.brandModel || 'N/A'}</span>
+          <span className="report-card__detail">{getUnitsSummary(report.bookingDetails, { withBrand: true }) || report.bookingDetails?.brandModel || 'N/A'}</span>
         </div>
         <div className="report-card__customer">
           <UserIcon />
@@ -300,11 +359,16 @@ function ReportCard({ report, onViewReport }) {
 
 /* ── Main Component ──────────────────────────────── */
 function ServiceReports() {
+  const location = useLocation();
   const [activeFilter, setActiveFilter] = useState('all');
+  const [activeClientType, setActiveClientType] = useState('all');
   const [search, setSearch] = useState('');
   const [selectedReport, setSelectedReport] = useState(null);
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Manage Accounts' "Reports" link (technician or client) lands here with a
+  // person filter pre-applied via navigation state.
+  const [personFilter, setPersonFilter] = useState(location.state?.personFilter || null);
 
   // Fetch all reports
   const fetchReports = async () => {
@@ -335,6 +399,10 @@ function ServiceReports() {
         activeFilter === 'all' ||
         report.issueResolution === activeFilter;
 
+      const matchesClientType =
+        activeClientType === 'all' ||
+        (report.bookingDetails?.customer?.clientType || 'Residential') === activeClientType;
+
       const query = search.trim().toLowerCase();
       const matchesSearch =
         !query ||
@@ -344,9 +412,15 @@ function ServiceReports() {
         report.bookingDetails?.customer?.name?.toLowerCase().includes(query) ||
         report.bookingDetails?.service?.name?.toLowerCase().includes(query);
 
-      return matchesFilter && matchesSearch;
+      const matchesPerson =
+        !personFilter ||
+        (personFilter.type === 'technician'
+          ? report.technician?._id === personFilter.id
+          : report.bookingDetails?.customer?._id === personFilter.id);
+
+      return matchesFilter && matchesClientType && matchesSearch && matchesPerson;
     });
-  }, [reports, activeFilter, search]);
+  }, [reports, activeFilter, activeClientType, search, personFilter]);
 
   const handleViewReport = (report) => {
     setSelectedReport(report);
@@ -354,6 +428,7 @@ function ServiceReports() {
 
   return (
     <AdminLayout title="Service Reports">
+      <h1 className="dashboard-welcome">Service Reports</h1>
       <div className="reports-toolbar">
         <div className="reports-filters">
           {FILTERS.map((filter) => (
@@ -362,6 +437,19 @@ function ServiceReports() {
               type="button"
               className={`filter-pill ${activeFilter === filter.key ? 'filter-pill--active' : ''}`}
               onClick={() => setActiveFilter(filter.key)}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="reports-filters">
+          {CLIENT_TYPE_FILTERS.map((filter) => (
+            <button
+              key={filter.key}
+              type="button"
+              className={`filter-pill ${activeClientType === filter.key ? 'filter-pill--active' : ''}`}
+              onClick={() => setActiveClientType(filter.key)}
             >
               {filter.label}
             </button>
@@ -378,6 +466,8 @@ function ServiceReports() {
           />
         </div>
       </div>
+
+      <PersonFilterBanner filter={personFilter} onClear={() => setPersonFilter(null)} />
 
       <div className="reports-stats">
         <span>Total Reports: <strong>{filteredReports.length}</strong></span>

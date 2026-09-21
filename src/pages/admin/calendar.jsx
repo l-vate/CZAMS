@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import AdminLayout from "./admin_layout";
-import CalendarView from "../../components/calendar_view";
+import CalendarView, { mapBookingStatusToCalendarStatus } from "../../components/calendar_view";
+import { toLocalDateKey } from "../../utils/date";
 
 function Calendar() {
   const [jobs, setJobs] = useState([]);
@@ -38,10 +39,10 @@ function Calendar() {
             title: item.service?.name || item.title || "Service Request",
             customer: item.customer?.name || item.customerName || "N/A",
             assignedTo: item.technician?.name || "Unassigned",
-            date: item.date || (startDate ? startDate.toISOString().split("T")[0] : ""),
+            date: item.date || (startDate ? toLocalDateKey(startDate) : ""),
             startHour,
             endHour,
-            status: (item.status || "pending").toLowerCase(),
+            status: mapBookingStatusToCalendarStatus(item.status),
           };
         });
 

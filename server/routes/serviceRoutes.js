@@ -2,9 +2,23 @@ const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
 const Service = require('../models/Service');
+const auth = require('../middleware/auth');
 
-// GET all active services (public-facing)
-router.get('/', async (req, res) => {
+// GET all active services, safe fields only (no auth — Landing Page Module public
+// search). Kept separate from the auth-gated route below rather than loosening it.
+router.get('/public', async (req, res) => {
+  try {
+    const services = await Service.find({ isActive: true })
+      .select('name description price durationMinutes category icon serviceType unitTypePricing')
+      .sort({ category: 1, name: 1 });
+    res.json(services);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET all active services (any logged-in user)
+router.get('/', auth, async (req, res) => {
   try {
     const services = await Service.find({ isActive: true }).sort({ category: 1, name: 1 });
     res.json(services);
@@ -14,8 +28,12 @@ router.get('/', async (req, res) => {
 });
 
 // GET all services regardless of active status (admin services.jsx page)
-router.get('/admin/all', async (req, res) => {
+router.get('/admin/all', auth, async (req, res) => {
   try {
+    if (req.userRole !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
     const services = await Service.find({}).sort({ category: 1, name: 1 });
     res.json(services);
   } catch (err) {
@@ -23,8 +41,8 @@ router.get('/admin/all', async (req, res) => {
   }
 });
 
-// GET single service by id
-router.get('/:id', async (req, res) => {
+// GET single service by id (any logged-in user)
+router.get('/:id', auth, async (req, res) => {
   try {
     const service = await Service.findById(req.params.id);
     if (!service) return res.status(404).json({ message: 'Service not found' });
@@ -35,9 +53,13 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST create new service
-router.post('/', async (req, res) => {
+router.post('/', auth, async (req, res) => {
   try {
-    const { name, description, price, durationMinutes, category, icon, isActive } = req.body;
+    if (req.userRole !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const { name, description, price, durationMinutes, category, icon, isActive, serviceType, unitTypePricing } = req.body;
 
     if (!name || !name.trim()) {
       return res.status(400).json({ message: 'Name is required' });
@@ -55,6 +77,8 @@ router.post('/', async (req, res) => {
       category: category || '',
       icon: icon || '',
       isActive: isActive !== undefined ? isActive : true,
+      serviceType: serviceType || 'Other',
+      unitTypePricing: Array.isArray(unitTypePricing) ? unitTypePricing : [],
     });
 
     res.status(201).json(service);
@@ -64,9 +88,13 @@ router.post('/', async (req, res) => {
 });
 
 // PUT update existing service
-router.put('/:id', async (req, res) => {
+router.put('/:id', auth, async (req, res) => {
   try {
-    const { name, description, price, durationMinutes, category, icon, isActive } = req.body;
+    if (req.userRole !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const { name, description, price, durationMinutes, category, icon, isActive, serviceType, unitTypePricing } = req.body;
 
     if (name !== undefined && !name.trim()) {
       return res.status(400).json({ message: 'Name cannot be empty' });
@@ -83,6 +111,8 @@ router.put('/:id', async (req, res) => {
     if (category !== undefined) update.category = category;
     if (icon !== undefined) update.icon = icon;
     if (isActive !== undefined) update.isActive = isActive;
+    if (serviceType !== undefined) update.serviceType = serviceType;
+    if (unitTypePricing !== undefined) update.unitTypePricing = Array.isArray(unitTypePricing) ? unitTypePricing : [];
 
     const service = await Service.findByIdAndUpdate(req.params.id, update, {
       new: true,
@@ -97,8 +127,12 @@ router.put('/:id', async (req, res) => {
 });
 
 // PATCH toggle active status
-router.patch('/:id/toggle-active', async (req, res) => {
+router.patch('/:id/toggle-active', auth, async (req, res) => {
   try {
+    if (req.userRole !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
     const service = await Service.findById(req.params.id);
     if (!service) return res.status(404).json({ message: 'Service not found' });
 
@@ -111,8 +145,12 @@ router.patch('/:id/toggle-active', async (req, res) => {
 });
 
 // DELETE a service
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', auth, async (req, res) => {
   try {
+    if (req.userRole !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
     const service = await Service.findByIdAndDelete(req.params.id);
     if (!service) return res.status(404).json({ message: 'Service not found' });
     res.json({ message: 'Service deleted' });

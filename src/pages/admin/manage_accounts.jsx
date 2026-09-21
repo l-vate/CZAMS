@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AdminLayout from './admin_layout';
 import UserDetailsModal from '../../components/user_details_modal';
+import TechnicianPerformanceModal from '../../components/technician_performance_modal';
 
 /* ── Small Icon Helpers ───────────────────────────────────── */
 function ClockIcon() {
@@ -136,6 +138,7 @@ function RegisterForm({ type, onCancel, onSubmit }) {
 
 /* ── Main Manage Accounts Component ───────────────────────── */
 function ManageAccounts() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('Technicians'); // 'Technicians' | 'Clients'
@@ -144,6 +147,7 @@ function ManageAccounts() {
   const [registerRole, setRegisterRole] = useState('staff'); // 'staff' | 'customer'
   const [justAdded, setJustAdded] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [performanceReviewFor, setPerformanceReviewFor] = useState(null);
 
   const filters = ['Technicians', 'Clients'];
 
@@ -153,7 +157,10 @@ function ManageAccounts() {
 
   const fetchAllUsers = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/users');
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/users', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (response.ok) {
         const data = await response.json();
         setUsers(Array.isArray(data) ? data : []);
@@ -167,9 +174,13 @@ function ManageAccounts() {
 
   const handleRegisterSubmit = async (values) => {
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch('http://localhost:5000/api/users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           name: values.name.trim(),
           email: values.email.trim(),
@@ -199,6 +210,39 @@ function ManageAccounts() {
     setSelectedUser(updatedUser);
   };
 
+  // Most of these links reuse existing full pages (Bookings, Payments, Service
+  // Reports) with a person filter pre-applied via navigation state, rather than
+  // building six standalone views — see PersonFilterBanner on each of those pages
+  // for the other half of this. Performance Review is the one exception: there's
+  // no existing per-technician page to filter into (Analytics is aggregate-only),
+  // so it opens a small modal here instead.
+  const handleAccountLink = (person, label) => {
+    const isTech = person.role === 'staff';
+    const personFilter = {
+      type: isTech ? 'technician' : 'customer',
+      id: person._id,
+      name: person.name || 'No Name Provided',
+    };
+
+    switch (label) {
+      case 'View Job History':
+      case 'View Bookings':
+        navigate('/admin/services/requests', { state: { personFilter } });
+        break;
+      case 'Performance Review':
+        setPerformanceReviewFor(person);
+        break;
+      case 'Reports':
+        navigate('/admin/services/reports', { state: { personFilter } });
+        break;
+      case 'Billing History':
+        navigate('/admin/payments', { state: { personFilter } });
+        break;
+      default:
+        break;
+    }
+  };
+
   const handleOpenRegister = () => {
     // Dynamically select role based on the current filter tab
     setRegisterRole(activeFilter === 'Technicians' ? 'staff' : 'customer');
@@ -223,6 +267,7 @@ function ManageAccounts() {
   return (
     <AdminLayout title="Manage Accounts">
       <div className="page-container">
+        <h1 className="dashboard-welcome">Manage Accounts</h1>
         {view === 'register' ? (
           <RegisterForm
             type={registerRole}
@@ -237,7 +282,8 @@ function ManageAccounts() {
                 {filters.map((filter) => (
                   <button
                     key={filter}
-                    className={`req-filter-pill ${activeFilter === filter ? 'active' : ''}`}
+                    type="button"
+                    className={`filter-pill ${activeFilter === filter ? 'filter-pill--active' : ''}`}
                     onClick={() => setActiveFilter(filter)}
                   >
                     {filter}
@@ -308,7 +354,10 @@ function ManageAccounts() {
                             href="#"
                             className="ma-row-link"
                             key={label}
-                            onClick={(e) => e.preventDefault()}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleAccountLink(person, label);
+                            }}
                           >
                             <ClockIcon /> {label}
                           </a>
@@ -339,6 +388,13 @@ function ManageAccounts() {
           user={selectedUser}
           onClose={() => setSelectedUser(null)}
           onUpdated={handleUserUpdated}
+        />
+      )}
+
+      {performanceReviewFor && (
+        <TechnicianPerformanceModal
+          technician={performanceReviewFor}
+          onClose={() => setPerformanceReviewFor(null)}
         />
       )}
     </AdminLayout>

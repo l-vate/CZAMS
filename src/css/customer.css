@@ -68,7 +68,7 @@
   transition: box-shadow 0.2s ease;
 }
 
-.stat-card:hover { box-shadow: 0 4px 16px rgba(11,37,69,0.08); }
+.stat-card:hover { box-shadow: var(--card-hover-shadow); }
 
 .stat-card-label {
   font-size: 13px;
@@ -177,28 +177,28 @@
 }
 
 .status-pending {
-  background-color: #fef3c7;
-  color: #b45309;
+  background-color: var(--status-pending-bg);
+  color: var(--status-pending-txt);
 }
 
 .status-approved {
-  background-color: #dbeafe;
-  color: #1d4ed8;
+  background-color: var(--status-approved-bg);
+  color: var(--status-approved-txt);
 }
 
 .status-in-progress {
-  background-color: #e0e7ff;
-  color: #4338ca;
+  background-color: var(--status-progress-bg);
+  color: var(--status-progress-txt);
 }
 
 .status-completed {
-  background-color: #dcfce7;
-  color: #15803d;
+  background-color: var(--status-complete-bg);
+  color: var(--status-complete-txt);
 }
 
 .status-cancelled {
-  background-color: #fee2e2;
-  color: #b91c1c;
+  background-color: var(--status-cancel-bg);
+  color: var(--status-cancel-txt);
 }
 
 .info-card-empty .empty-icon { font-size: 22px; opacity: 0.5; }
@@ -343,6 +343,28 @@
 
 .bs-field-group:last-child { margin-bottom: 0; }
 
+.waiver-box {
+  padding: 14px 16px;
+  border: 1.5px solid #f3c98b;
+  background: #fff8ec;
+  border-radius: 10px;
+}
+
+.waiver-checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--navy);
+  cursor: pointer;
+  margin: 4px 0 10px;
+}
+
+.waiver-checkbox-label input[type="checkbox"] {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
 .bs-label { font-size: 14px; font-weight: 600; color: var(--navy); }
 
 .bs-label-hint { font-size: 12px; font-weight: 400; color: var(--ink-soft); }
@@ -399,27 +421,85 @@
 
 .bs-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 
-.unit-type-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+/* Multi-Unit Booking Redesign — replaces the old .unit-type-grid/.unit-type-btn
+   "select all that apply" checklist (no quantity, one bulk brand/model field)
+   with a per-row add/remove list: type + quantity + brand/model + live subtotal
+   per unit entry. */
+.unit-entry-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 
-.unit-type-btn {
-  padding: 9px 18px;
+.unit-entry-row {
+  display: grid;
+  grid-template-columns: 1.2fr 70px 1.4fr auto auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.unit-entry-row .bs-select,
+.unit-entry-row .bs-input {
+  margin: 0;
+}
+
+.unit-entry-qty { text-align: center; padding-left: 8px; padding-right: 8px; }
+
+.unit-entry-subtotal {
+  font-weight: 700;
+  color: var(--navy);
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+
+.unit-entry-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
   border: 1.5px solid var(--mist);
   border-radius: 8px;
-  background: var(--frost);
+  background: var(--white);
+  color: var(--ink-soft);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.unit-entry-remove:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
+.unit-entry-remove:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.unit-entry-add-btn {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 9px 16px;
+  border: 1.5px dashed var(--mist);
+  border-radius: 8px;
+  background: none;
   font-family: 'Inter', sans-serif;
   font-size: 13px;
   font-weight: 600;
-  color: var(--ink-soft);
+  color: var(--navy-soft);
   cursor: pointer;
-  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+  transition: border-color 0.2s ease, color 0.2s ease;
 }
 
-.unit-type-btn:hover { border-color: var(--navy-soft); color: var(--navy); }
+.unit-entry-add-btn:hover { border-color: var(--navy-soft); color: var(--navy); }
 
-.unit-type-btn.selected {
-  border-color: var(--navy-soft);
-  background: rgba(14,140,140,0.1);
-  color: var(--navy);
+@media (max-width: 620px) {
+  .unit-entry-row {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "type type" "qty brand" "subtotal remove";
+  }
+  .unit-entry-type { grid-area: type; }
+  .unit-entry-qty { grid-area: qty; }
+  .unit-entry-brand { grid-area: brand; }
+  .unit-entry-subtotal { grid-area: subtotal; }
+  .unit-entry-remove { grid-area: remove; justify-self: end; }
 }
 
 .time-toggle { display: flex; gap: 10px; }
@@ -563,7 +643,7 @@
   text-align: center;
 }
 
-.cost-status-unpaid { color: #e05a5a; font-weight: 600; }
+.cost-status-unpaid { color: var(--danger); font-weight: 600; }
 .cost-status-paid { color: var(--navy); font-weight: 600; }
 
 .cost-link {
@@ -659,9 +739,16 @@
 
 .bs-back-btn:hover { border-color: var(--navy); color: var(--navy); }
 
+/* This is the app's single shared "primary submit/next/confirm" button — reused
+   well beyond the customer booking wizard it was first built for (admin walk-in
+   booking, admin payments/back-jobs modals, staff profile), so it now takes the
+   consolidated --primary token rather than the customer portal's own navy brand
+   color. Previously duplicated (differently, as green) in modals/payment_modal.css,
+   which silently won the cascade there since it loaded after this file — that
+   duplicate has been removed so this is the one intentional definition. */
 .bs-next-btn {
   padding: 11px 28px;
-  background: var(--navy);
+  background: var(--primary);
   color: white;
   border: none;
   border-radius: 10px;
@@ -672,35 +759,13 @@
   transition: background 0.2s ease, transform 0.15s ease;
 }
 
-.bs-next-btn:hover:not(:disabled) { background: var(--navy-soft); transform: translateY(-1px); }
+.bs-next-btn:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-1px); }
 .bs-next-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ============ MY BOOKINGS =============*/
-.booking-filters {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-}
-
-.booking-filters button {
-  padding: 10px 20px;
-  border: 1px solid #0ea5e9;
-  border-radius: 999px;
-  background: white;
-  cursor: pointer;
-}
-
-.booking-filters .active {
-  background: #0ea5e9;
-  color: white;
-}
-
-.new-booking-btn {
-  margin-left: auto;
-  background: #0ea5e9 !important;
-  color: white;
-}
+/* .booking-filters/.new-booking-btn removed (Pass D) — my_bookings.jsx now uses
+   the shared .filter-pill/.bs-next-btn classes instead of these (which were
+   already unused; the page had switched to inline styles at some point). */
 
 .booking-list {
   display: flex;
@@ -738,18 +803,11 @@
   color: #666;
 }
 
-.status-badge {
-  padding: 4px 10px;
-  border-radius: 999px;
-  color: white;
-  font-size: 12px;
-}
-
-.status-badge.completed   { background: #22c55e; }
-.status-badge.pending     { background: #f59e0b; }
-.status-badge.approved    { background: #3b82f6; }
-.status-badge.in-progress { background: #8b5cf6; }
-.status-badge.cancelled   { background: #ef4444; }
+/* .status-badge and its .pending/.approved/.completed/etc. color modifiers come
+   from the shared mapping in index.css — this used to redefine them locally with
+   a different (solid, white-text) look that silently won the cascade over the
+   intended shared pastel style wherever "status-badge" was used bare, e.g.
+   book_details.jsx's className="status-badge pending". */
 
 .booking-actions {
   display: flex;
@@ -778,7 +836,7 @@
   background: var(--white);
   border-radius: 12px;
   padding: 24px 32px;
-  border: 1px solid #e2eaf1;
+  border: 1px solid var(--card-border);
   box-shadow: 0 2px 12px rgba(11,37,69,0.03);
 }
 
@@ -905,55 +963,37 @@
   transform: translateY(-1px);
 }
 
+/* Converged (Pass D) to the same solid danger-fill treatment as
+   .cancel-booking-btn/.sdm-btn-danger — was a lighter outline-style button
+   before, a third shape/shade for the same "danger" concept. */
 .delete-account-btn {
   padding: 11px 22px;
-  background: var(--white);
-  border: 1.5px solid #f5dcdc;
-  color: #e05a5a;
+  background: var(--danger);
+  border: none;
+  color: #fff;
   border-radius: 10px;
   font-family: 'Outfit', sans-serif;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
+  transition: background 0.2s ease, transform 0.15s ease;
 }
 
 .delete-account-btn:hover {
-  background: #fff5f5;
-  border-color: #e05a5a;
+  background: var(--danger-hover);
+  transform: translateY(-1px);
 }
 
 /* ============ PAYMENT MODAL & CONFIRMATION ============ */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(11, 37, 69, 0.55);
-  backdrop-filter: blur(3px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 20px;
-}
-
-.modal-card {
-  background: var(--white);
-  border-radius: 18px;
-  padding: 28px 28px 24px;
-  width: 100%;
-  max-width: 360px;
-  box-shadow: 0 20px 60px rgba(11, 37, 69, 0.25);
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.modal-title {
-  font-family: 'Outfit', sans-serif;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--navy);
-}
+/* .modal-overlay/.modal-card/.modal-header/.modal-title/.modal-close-btn are now
+   defined once, in modals/payment_modal.css — this used to redefine all five with
+   different overlay darkness/blur, card radius/max-width, and a text-only close
+   button instead of the shared circular icon one. That file's version already
+   won the cascade everywhere (it loads after this one), so nothing here actually
+   changes visually; this just removes the dead competing copy. The one exception
+   ported over: .modal-card's flex column + 14px gap, which this file's simpler
+   modals (payment_modal.jsx) depend on for spacing between stacked rows — that's
+   now part of the canonical definition in payment_modal.css instead of being lost. */
 
 .modal-cost-rows {
   display: flex;
@@ -1028,10 +1068,14 @@
 
 .modal-file-btn:hover { color: var(--navy); }
 
+/* Same shared "primary submit" role/token as .bs-next-btn above — also used well
+   beyond this file (feedback/back-job/payment/receipt/service-report-pdf modals).
+   Was separately duplicated (as flat #2563eb, coincidentally close to --primary
+   but not referencing it) in modals/payment_modal.css; that duplicate is removed. */
 .modal-submit-btn {
   width: 100%;
   padding: 14px;
-  background: var(--navy);
+  background: var(--primary);
   color: white;
   border: none;
   border-radius: 10px;
@@ -1051,30 +1095,27 @@
 }
 
 .modal-submit-btn:hover {
-  background: var(--navy-soft);
+  background: var(--primary-hover);
   transform: translateY(-1px);
 }
 
-.modal-header {
+.feedback-stars {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 4px;
+  gap: 6px;
+  margin: 4px 0 20px;
 }
 
-.modal-close-btn {
+.feedback-star-btn {
   background: none;
   border: none;
-  font-size: 16px;
-  color: var(--ink-soft);
-  cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 6px;
+  padding: 0;
+  font-size: 26px;
   line-height: 1;
-  transition: background 0.15s ease, color 0.15s ease;
+  color: var(--warning);
+  cursor: pointer;
 }
 
-.modal-close-btn:hover { background: #f0f4f8; color: var(--navy); }
+.feedback-star-btn:disabled { cursor: default; }
 
 .confirmation-wrap {
   display: flex;
@@ -1112,7 +1153,7 @@
   height: 52px;
   border-radius: 50%;
   background: #fde3e3;
-  color: #e05a5a;
+  color: var(--danger);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1145,6 +1186,19 @@
   border: 1px solid #e2eaf1;
   border-radius: 12px;
   padding: 14px 16px;
+}
+
+/* Email/SMS aren't actually wired up to any sender — visually distinct from the
+   real in-app notification card so it's obvious which one actually works. */
+.confirmation-notif-card--disabled {
+  background: #f8fafc;
+  border-style: dashed;
+  opacity: 0.65;
+}
+
+.confirmation-notif-card--disabled .confirmation-notif-title,
+.confirmation-notif-card--disabled .confirmation-notif-sub {
+  color: var(--ink-soft);
 }
 
 .confirmation-notif-title {
@@ -1271,9 +1325,11 @@
   gap: 12px;
 }
 
+/* Single shared "danger/cancel" button definition — also duplicated (with a
+   different hover shade) in modals/payment_modal.css, removed from there. */
 .cancel-booking-btn {
   padding: 11px 22px;
-  background: #ef4444;
+  background: var(--danger);
   color: white;
   border: none;
   border-radius: 10px;
@@ -1285,7 +1341,7 @@
 }
 
 .cancel-booking-btn:hover {
-  background: #c43a3a;
+  background: var(--danger-hover);
   transform: translateY(-1px);
 }
 
@@ -1312,6 +1368,7 @@
 }
 
 .cancel-confirm-actions .bs-back-btn,
+.cancel-confirm-actions .bs-next-btn,
 .cancel-confirm-actions .cancel-booking-btn {
   flex: 1;
 }
@@ -1333,19 +1390,11 @@
 
 .cancelled-actions { display: flex; gap: 12px; }
 
-/* =========================
-   RECEIPT MODAL
-========================= */
-.receipt-modal-card {
-  width: 400px;
-  max-width: 92vw;
-  max-height: 85vh;
-  background: #fff;
-  border-radius: 14px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  box-shadow: 0 20px 60px rgba(0,0,0,.18);
-}
+/* .receipt-modal-card now defined once, in modals/receipt_modal.css (480px/16px
+   radius) — that was already the version actually rendering, since that file
+   loads after this one. Its max-height/overflow-y (needed so a long receipt with
+   several balance/proof rows can scroll instead of overflowing the viewport) was
+   ported over from this copy, which had it and the winning one didn't. */
 
 .receipt-print-area {
   padding: 14px 18px;
@@ -1523,7 +1572,6 @@
   .booking-summary { grid-row: 3; }
   .summary-grid { grid-template-columns: 1fr; }
   .booking-card { grid-template-columns: 1fr; gap: 12px; }
-  .new-booking-btn { margin-left: 0; }
   .profile-header { flex-direction: column; align-items: flex-start; gap: 16px; }
   .edit-profile-btn { width: 100%; text-align: center; }
   .profile-grid { grid-template-columns: 1fr; }
@@ -1570,7 +1618,7 @@
   height: 32px;
   border-radius: 50%;
   background-color: #eff6ff;
-  color: #2563eb;
+  color: var(--primary);
   display: flex;
   align-items: center;
   justify-content: center;

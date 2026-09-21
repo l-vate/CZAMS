@@ -1,4 +1,6 @@
+import { useState, useEffect, useMemo } from 'react';
 import AdminLayout from './admin_layout';
+import { getStatusColor } from '../../utils/statusColors';
 
 import {
   FiClipboard,
@@ -7,39 +9,109 @@ import {
   FiUsers,
 } from 'react-icons/fi';
 
+const API_BASE = 'http://localhost:5000';
+
+const CLIENT_TYPE_FILTERS = [
+  { key: 'all', label: 'All Clients' },
+  { key: 'Residential', label: 'Residential' },
+  { key: 'Commercial', label: 'Commercial' },
+];
+
+const RECENT_BOOKINGS_LIMIT = 5;
+
 function Dashboard() {
-  const stats = [
-    { title: 'Total Bookings', value: 128, icon: <FiClipboard /> },
-    { title: 'Pending Requests', value: 15, icon: <FiClock /> },
-    { title: 'Completed Services', value: 98, icon: <FiCheckCircle /> },
-    { title: 'Active Staff', value: 12, icon: <FiUsers /> },
-  ];
+  const [bookings, setBookings] = useState([]);
+  const [activeStaffCount, setActiveStaffCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [activeClientType, setActiveClientType] = useState('all');
 
-  const bookings = [
-    { id: 'CZ-2026-7523', customer: 'John Doe', service: 'Cleaning', status: 'Pending' },
-    { id: 'CZ-2026-7524', customer: 'Jane Smith', service: 'Repair', status: 'Approved' },
-    { id: 'CZ-2026-7525', customer: 'Michael Cruz', service: 'Installation', status: 'Completed' },
-  ];
+  useEffect(() => {
+    async function fetchData() {
+      setLoading(true);
+      try {
+        const token = localStorage.getItem('token');
+        const headers = { Authorization: `Bearer ${token}` };
 
-  const statusClass = {
-    Pending: 'admin-status-pending',
-    Approved: 'admin-status-approved',
-    Completed: 'admin-status-completed',
-  };
+        const [bookingsRes, staffRes] = await Promise.all([
+          fetch(`${API_BASE}/api/bookings`, { headers }),
+          fetch(`${API_BASE}/api/users?role=staff`, { headers }),
+        ]);
+
+        const bookingsData = bookingsRes.ok ? await bookingsRes.json() : [];
+        const staffData = staffRes.ok ? await staffRes.json() : [];
+
+        setBookings(Array.isArray(bookingsData) ? bookingsData : []);
+        setActiveStaffCount(
+          Array.isArray(staffData) ? staffData.filter((s) => s.isActive).length : 0
+        );
+      } catch (err) {
+        console.error('Error loading dashboard data:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, []);
+
+  const filteredBookings = useMemo(() => {
+    if (activeClientType === 'all') return bookings;
+    return bookings.filter(
+      (b) => (b.customer?.clientType || 'Residential') === activeClientType
+    );
+  }, [bookings, activeClientType]);
+
+  const stats = useMemo(() => [
+    {
+      title: 'Total Bookings',
+      value: filteredBookings.length,
+      icon: <FiClipboard />,
+    },
+    {
+      title: 'Pending Requests',
+      value: filteredBookings.filter((b) => b.status === 'Pending').length,
+      icon: <FiClock />,
+    },
+    {
+      title: 'Completed Services',
+      value: filteredBookings.filter((b) => b.status === 'Completed').length,
+      icon: <FiCheckCircle />,
+    },
+    {
+      title: 'Active Staff',
+      value: activeStaffCount,
+      icon: <FiUsers />,
+    },
+  ], [filteredBookings, activeStaffCount]);
+
+  const recentBookings = filteredBookings.slice(0, RECENT_BOOKINGS_LIMIT);
 
   return (
     <AdminLayout title="Dashboard">
       <div className="dashboard">
         <div className="dashboard-header">
-          <h1>Welcome, Admin</h1>
+          <h1 className="dashboard-welcome">Welcome, Admin</h1>
           <p>Manage bookings, staff, and services from one place.</p>
+        </div>
+
+        <div className="dash-filters">
+          {CLIENT_TYPE_FILTERS.map((filter) => (
+            <button
+              key={filter.key}
+              type="button"
+              className={`filter-pill ${activeClientType === filter.key ? 'filter-pill--active' : ''}`}
+              onClick={() => setActiveClientType(filter.key)}
+            >
+              {filter.label}
+            </button>
+          ))}
         </div>
 
         <div className="stats-container">
           {stats.map((stat) => (
             <div className="stat-card" key={stat.title}>
               <div className="stat-icon">{stat.icon}</div>
-              <h3>{stat.value}</h3>
+              <h3>{loading ? '—' : stat.value}</h3>
               <p>{stat.title}</p>
             </div>
           ))}
@@ -59,18 +131,24 @@ function Dashboard() {
             </thead>
 
             <tbody>
-              {bookings.map((b) => (
-                <tr key={b.id}>
-                  <td>{b.id}</td>
-                  <td>{b.customer}</td>
-                  <td>{b.service}</td>
-                  <td>
-                    <span className={`admin-status-badge ${statusClass[b.status]}`}>
-                      {b.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {loading ? (
+                <tr><td colSpan={4}>Loading bookings...</td></tr>
+              ) : recentBookings.length === 0 ? (
+                <tr><td colSpan={4}>No bookings found.</td></tr>
+              ) : (
+                recentBookings.map((b) => (
+                  <tr key={b._id}>
+                    <td>{b.bookingId}</td>
+                    <td>{b.customer?.name || 'N/A'}</td>
+                    <td>{b.service?.name || 'N/A'}</td>
+                    <td>
+                      <span className="req-status-badge" style={{ background: getStatusColor(b.status) }}>
+                        {b.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

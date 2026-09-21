@@ -17,6 +17,7 @@ function RegisterPage() {
     email: '',
     phone: '',
     role: 'client',
+    clientType: 'Residential',
     password: '',
     confirmPassword: '',
   });
@@ -168,6 +169,22 @@ const handleSubmit = async (e) => {
                 <option value="technician">Technician</option>
               </select>
             </div>
+
+            {formData.role === 'client' && (
+              <div className="form-group">
+                <label htmlFor="clientType">Client type</label>
+                <select
+                  id="clientType"
+                  name="clientType"
+                  value={formData.clientType}
+                  onChange={handleChange}
+                  className="form-select"
+                >
+                  <option value="Residential">Residential</option>
+                  <option value="Commercial">Commercial</option>
+                </select>
+              </div>
+            )}
 
             <div className="form-group">
               <label htmlFor="password">Password</label>

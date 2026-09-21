@@ -1,9 +1,18 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FiMenu, FiX } from 'react-icons/fi';
 import Sidebar from '../../components/sidebars/customer_sidebar';
+import NotificationBell from '../../components/notification_bell';
 
 function CustomerLayout({ title, children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const handleNotificationClick = (notification) => {
+    if (notification.relatedBookingId) {
+      navigate(`/customer/book_details/${notification.relatedBookingId}`);
+    }
+  };
 
   return (
     <div className={`dashboard-shell customer-dashboard-shell${sidebarOpen ? ' sidebar-open' : ''}`}>
@@ -21,6 +30,7 @@ function CustomerLayout({ title, children }) {
             {sidebarOpen ? <FiX /> : <FiMenu />}
           </button>
           {title}
+          <NotificationBell onNotificationClick={handleNotificationClick} />
         </div>
 
         <div className="dashboard-body">

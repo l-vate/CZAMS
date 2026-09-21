@@ -23,9 +23,12 @@ import AdminCalendar from './pages/admin/calendar';
 import AdminServices from './pages/admin/services';
 import AdminServiceManage from './pages/admin/service_manage';
 import AdminServiceRequests from './pages/admin/service_requests';
+import AdminWalkInBooking from './pages/admin/walk_in_booking';
 import AdminServiceReports from './pages/admin/service_reports';
 import AdminPayments from './pages/admin/payments';
+import AdminBackJobs from './pages/admin/back_jobs';
 import AdminAnalytics from './pages/admin/analytics';
+import AdminAnnouncements from './pages/admin/announcements';
 
 function App() {
   return (
@@ -59,9 +62,12 @@ function App() {
         <Route path="/admin/services" element={<AdminServices />} />
         <Route path="/admin/services/manage" element={<AdminServiceManage />} />
         <Route path="/admin/services/requests" element={<AdminServiceRequests />} />
+        <Route path="/admin/services/requests/new" element={<AdminWalkInBooking />} />
         <Route path="/admin/services/reports" element={<AdminServiceReports />} />
         <Route path="/admin/payments" element={<AdminPayments />} />
+        <Route path="/admin/back-jobs" element={<AdminBackJobs />} />
         <Route path="/admin/analytics" element={<AdminAnalytics />} />
+        <Route path="/admin/announcements" element={<AdminAnnouncements />} />
 
       </Routes>
     </BrowserRouter>

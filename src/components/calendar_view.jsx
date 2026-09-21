@@ -2,11 +2,30 @@ import { useState, useMemo } from "react";
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const HOUR_HEIGHT = 56; // px per hour row
-const DAY_NAMES = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+const DAY_NAMES = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]; // indexed by Date.getDay()
+// The month grid (like the Week view and mini-picker) starts on Monday, so its header row must too.
+const WEEKDAY_HEADERS = [...DAY_NAMES.slice(1), DAY_NAMES[0]];
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
+
+// The calendar's own status vocabulary (matches the .cal-job-*/.cal-dot-* CSS
+// classes below) doesn't literally match Booking.status's enum — "Approved"
+// and "In Progress" had no mapping at all before this, so job blocks/chips for
+// those two statuses rendered with no color styling. Exported so both
+// admin/calendar.jsx and staff/calendar.jsx map bookings the same way.
+const CALENDAR_STATUS_MAP = {
+  pending: "pending",
+  approved: "confirmed",
+  "in progress": "in-progress",
+  completed: "completed",
+  cancelled: "cancelled",
+};
+
+export function mapBookingStatusToCalendarStatus(status) {
+  return CALENDAR_STATUS_MAP[(status || "pending").toLowerCase()] || "pending";
+}
 
 function startOfWeek(date) {
   const d = new Date(date);
@@ -21,9 +40,27 @@ function addDays(date, n) {
   return d;
 }
 
+// Local calendar date as YYYY-MM-DD. Must not go through toISOString(): that
+// converts to UTC, which shifts a local-midnight date back a day for anyone ahead
+// of UTC (e.g. UTC+8), so bookings landed on the wrong day and "today" highlighted
+// the wrong cell.
 function toKey(date) {
-  return date.toISOString().split("T")[0];
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 }
+
+// 6 full weeks (42 days) covering the anchor month, starting on the Monday
+// on/before the 1st — a standard month-grid layout, distinct from the 7-day
+// week the Day/Week views use.
+function getMonthGridDays(anchorDate) {
+  const firstOfMonth = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), 1);
+  const gridStart = startOfWeek(firstOfMonth);
+  return Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
+}
+
+const MONTH_CHIPS_VISIBLE = 3;
 
 function formatHour(h) {
   const hour = h % 12 === 0 ? 12 : h % 12;
@@ -57,12 +94,23 @@ export default function CalendarView({ jobs = [], title = "Calendar", onJobClick
   }, [jobs]);
 
   function goPrev() {
-    const step = view === "Day" ? -1 : view === "Week" ? -7 : -30;
+    // Month used a flat -30 days, which drifts across month boundaries (e.g. a
+    // 31-day month wouldn't actually reach the previous month's 1st) — a real
+    // month step needs setMonth, not a fixed day count.
+    if (view === "Month") {
+      setAnchorDate((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
+      return;
+    }
+    const step = view === "Day" ? -1 : -7;
     setAnchorDate((d) => addDays(d, step));
   }
 
   function goNext() {
-    const step = view === "Day" ? 1 : view === "Week" ? 7 : 30;
+    if (view === "Month") {
+      setAnchorDate((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1));
+      return;
+    }
+    const step = view === "Day" ? 1 : 7;
     setAnchorDate((d) => addDays(d, step));
   }
 
@@ -112,6 +160,18 @@ export default function CalendarView({ jobs = [], title = "Calendar", onJobClick
           </div>
         </div>
 
+        {view === "Month" ? (
+          <MonthGrid
+            anchorDate={anchorDate}
+            jobsByDay={jobsByDay}
+            todayKey={todayKey}
+            onJobClick={(job) => {
+              setSelectedJob(job);
+              onJobClick?.(job);
+            }}
+          />
+        ) : (
+        <>
         {/* Day headers */}
         <div
           className="cal-day-headers"
@@ -183,9 +243,68 @@ export default function CalendarView({ jobs = [], title = "Calendar", onJobClick
             })}
           </div>
         </div>
+        </>
+        )}
       </div>
 
       {selectedJob && <JobDetailPanel job={selectedJob} onClose={() => setSelectedJob(null)} />}
+    </div>
+  );
+}
+
+// Traditional month grid (6 weeks x 7 days) — the "Month" toolbar toggle used to
+// just relabel the view without actually rendering one; the hour-based grid the
+// Day/Week views use isn't suited to a month at a glance, so this renders day
+// cells with compact job chips instead.
+function MonthGrid({ anchorDate, jobsByDay, todayKey, onJobClick }) {
+  const days = useMemo(() => getMonthGridDays(anchorDate), [anchorDate]);
+  const anchorMonth = anchorDate.getMonth();
+
+  return (
+    <div className="cal-month-grid-scroll">
+      <div className="cal-month-weekdays">
+        {WEEKDAY_HEADERS.map((d) => (
+          <div key={d} className="cal-month-weekday">{d}</div>
+        ))}
+      </div>
+
+      <div className="cal-month-grid">
+        {days.map((d) => {
+          const key = toKey(d);
+          const dayJobs = jobsByDay[key] || [];
+          const isToday = key === todayKey;
+          const isOutsideMonth = d.getMonth() !== anchorMonth;
+          const visibleJobs = dayJobs.slice(0, MONTH_CHIPS_VISIBLE);
+          const hiddenCount = dayJobs.length - visibleJobs.length;
+
+          return (
+            <div
+              key={key}
+              className={`cal-month-day-cell ${isOutsideMonth ? "cal-month-day-cell-outside" : ""}`}
+            >
+              <div className={`cal-month-day-number ${isToday ? "cal-day-number-today" : ""}`}>
+                {d.getDate()}
+              </div>
+
+              <div className="cal-month-day-jobs">
+                {visibleJobs.map((job) => (
+                  <button
+                    key={job.id}
+                    onClick={() => onJobClick(job)}
+                    className={`cal-month-job-chip cal-job-${job.status}`}
+                    title={job.title}
+                  >
+                    {job.title}
+                  </button>
+                ))}
+                {hiddenCount > 0 && (
+                  <span className="cal-month-more">+{hiddenCount} more</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -265,7 +384,7 @@ function MiniMonthPicker({ anchorDate, onSelect, onToday, title }) {
 
       <div className="cal-legend">
         <p>Legend</p>
-        {["confirmed", "pending", "completed", "cancelled"].map((status) => (
+        {["confirmed", "pending", "in-progress", "completed", "cancelled"].map((status) => (
           <div key={status} className="cal-legend-item">
             <span className={`cal-legend-dot cal-dot-${status}`} />
             <span className="cal-legend-label">{status}</span>

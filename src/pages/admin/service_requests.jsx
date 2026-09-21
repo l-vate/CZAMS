@@ -1,12 +1,21 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import AdminLayout from './admin_layout';
 import AdminServiceDetailsModal from '../../components/admin_service_details_modal';
+import PersonFilterBanner from '../../components/person_filter_banner';
+import { getStatusColor } from '../../utils/statusColors';
 
 function ServiceRequests() {
+    const navigate = useNavigate();
+    const location = useLocation();
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeFilter, setActiveFilter] = useState('All');
     const [selectedBooking, setSelectedBooking] = useState(null);
+    // Manage Accounts' "View Job History" (technician) / "View Bookings" (client)
+    // links land here with a person filter pre-applied via navigation state, rather
+    // than this page having its own duplicate list of every technician/client.
+    const [personFilter, setPersonFilter] = useState(location.state?.personFilter || null);
 
     const filters = ['All', 'Pending', 'Approved', 'In Progress', 'Completed', 'Cancelled'];
 
@@ -29,17 +38,6 @@ function ServiceRequests() {
         }
     };
 
-    const getStatusColor = (status) => {
-        switch (status) {
-            case 'Completed': return '#22c55e';
-            case 'Approved': return '#3b82f6';
-            case 'In Progress': return '#f59e0b';
-            case 'Cancelled': return '#ef4444';
-            case 'Pending': return '#f97316';
-            default: return '#6b7280';
-        }
-    };
-
     const handleViewDetails = (booking) => {
         setSelectedBooking(booking);
     };
@@ -51,26 +49,39 @@ function ServiceRequests() {
         setSelectedBooking(updatedBooking);
     };
 
-    const filteredRequests =
-        activeFilter === 'All' ? requests : requests.filter((req) => req.status === activeFilter);
+    const filteredRequests = requests
+        .filter((req) => activeFilter === 'All' || req.status === activeFilter)
+        .filter((req) => {
+            if (!personFilter) return true;
+            const person = personFilter.type === 'technician' ? req.technician : req.customer;
+            return person?._id === personFilter.id;
+        });
 
     return (
         <AdminLayout title="Bookings">
             <div className="page-container">
+                <h1 className="dashboard-welcome">Bookings</h1>
                 <div className="req-toolbar">
                     <div className="req-filters">
                         {filters.map((filter) => (
                             <button
                                 key={filter}
-                                className={`req-filter-pill ${activeFilter === filter ? 'active' : ''}`}
+                                className={`filter-pill ${activeFilter === filter ? 'filter-pill--active' : ''}`}
                                 onClick={() => setActiveFilter(filter)}
                             >
                                 {filter}
                             </button>
                         ))}
                     </div>
-                    <button className="req-new-btn">+ New Booking</button>
+                    <button
+                        className="req-new-btn"
+                        onClick={() => navigate('/admin/services/requests/new')}
+                    >
+                        + New Booking
+                    </button>
                 </div>
+
+                <PersonFilterBanner filter={personFilter} onClear={() => setPersonFilter(null)} />
 
                 {loading ? (
                     <p>Loading bookings...</p>

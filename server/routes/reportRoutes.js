@@ -12,17 +12,21 @@ const User = require('../models/User'); // Add this import
 // Create a new report for a booking
 router.post('/', auth, async (req, res) => {
     try {
-        const { 
-            bookingId, 
-            workSummary, 
-            partsUsed, 
-            recommendations, 
-            laborHours, 
-            issueResolution, 
-            followUpRequired, 
-            followUpDate, 
+        const {
+            bookingId,
+            workSummary,
+            partsUsed,
+            recommendations,
+            laborHours,
+            issueResolution,
+            followUpRequired,
+            followUpDate,
             notes,
-            submittedAt
+            submittedAt,
+            preExistingIssueFlagged,
+            preExistingIssueDescription,
+            clientConsentSignedName,
+            clientConsentSignatureDataUrl,
         } = req.body;
 
         // Validate required fields
@@ -36,6 +40,15 @@ router.post('/', auth, async (req, res) => {
 
         if (followUpRequired && !followUpDate) {
             return res.status(400).json({ message: 'Follow-up date is required when follow-up is needed' });
+        }
+
+        if (preExistingIssueFlagged && !preExistingIssueDescription?.trim()) {
+            return res.status(400).json({ message: 'Please describe the pre-existing issue.' });
+        }
+
+        // Client consent + e-signature is required to finalize the report
+        if (!clientConsentSignedName?.trim() || !clientConsentSignatureDataUrl) {
+            return res.status(400).json({ message: "The client's signature and name are required to finalize this report." });
         }
 
         // Find the booking
@@ -77,6 +90,15 @@ router.post('/', auth, async (req, res) => {
             notes: notes?.trim() || null,
             submittedAt: submittedAt || new Date(),
             submittedBy: req.userId, // This is now a string
+            preExistingIssue: {
+                flagged: preExistingIssueFlagged || false,
+                description: preExistingIssueFlagged ? preExistingIssueDescription.trim() : null,
+            },
+            clientConsent: {
+                signedName: clientConsentSignedName.trim(),
+                signatureDataUrl: clientConsentSignatureDataUrl,
+                signedAt: new Date(),
+            },
         });
 
         await report.save();
@@ -146,13 +168,13 @@ router.get('/', auth, async (req, res) => {
             
             // Get booking details
             const booking = await Booking.findById(report.booking)
-                .populate('customer', 'name email')
+                .populate('customer', 'name email clientType')
                 .populate('service', 'name');
             reportObj.bookingDetails = booking;
-            
+
             return reportObj;
         }));
-        
+
         res.json(populatedReports);
     } catch (error) {
         console.error('Error fetching all reports:', error);

@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import AdminLayout from './admin_layout';
 import { FiClock, FiFileText, FiUser, FiMapPin, FiSearch, FiX, FiEye, FiCheckCircle, FiAlertCircle, FiClock as FiClockIcon } from 'react-icons/fi';
 import ServiceReportPdfModal from '../../components/service_report_pdf_modal';
+import PersonFilterBanner from '../../components/person_filter_banner';
+import { getUnitsSummary } from '../../utils/bookingPricing';
 
 const API_BASE = 'http://localhost:5000';
 
@@ -302,7 +305,7 @@ function ReportCard({ report, onViewReport }) {
         <div className="report-card__service">
           <span className="report-card__service-type">{report.bookingDetails?.service?.name || 'Service'}</span>
           <span className="report-card__dot">·</span>
-          <span className="report-card__detail">{report.bookingDetails?.brandModel || 'N/A'}</span>
+          <span className="report-card__detail">{getUnitsSummary(report.bookingDetails, { withBrand: true }) || report.bookingDetails?.brandModel || 'N/A'}</span>
         </div>
         <div className="report-card__customer">
           <UserIcon />
@@ -356,12 +359,16 @@ function ReportCard({ report, onViewReport }) {
 
 /* ── Main Component ──────────────────────────────── */
 function ServiceReports() {
+  const location = useLocation();
   const [activeFilter, setActiveFilter] = useState('all');
   const [activeClientType, setActiveClientType] = useState('all');
   const [search, setSearch] = useState('');
   const [selectedReport, setSelectedReport] = useState(null);
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Manage Accounts' "Reports" link (technician or client) lands here with a
+  // person filter pre-applied via navigation state.
+  const [personFilter, setPersonFilter] = useState(location.state?.personFilter || null);
 
   // Fetch all reports
   const fetchReports = async () => {
@@ -405,9 +412,15 @@ function ServiceReports() {
         report.bookingDetails?.customer?.name?.toLowerCase().includes(query) ||
         report.bookingDetails?.service?.name?.toLowerCase().includes(query);
 
-      return matchesFilter && matchesClientType && matchesSearch;
+      const matchesPerson =
+        !personFilter ||
+        (personFilter.type === 'technician'
+          ? report.technician?._id === personFilter.id
+          : report.bookingDetails?.customer?._id === personFilter.id);
+
+      return matchesFilter && matchesClientType && matchesSearch && matchesPerson;
     });
-  }, [reports, activeFilter, activeClientType, search]);
+  }, [reports, activeFilter, activeClientType, search, personFilter]);
 
   const handleViewReport = (report) => {
     setSelectedReport(report);
@@ -453,6 +466,8 @@ function ServiceReports() {
           />
         </div>
       </div>
+
+      <PersonFilterBanner filter={personFilter} onClear={() => setPersonFilter(null)} />
 
       <div className="reports-stats">
         <span>Total Reports: <strong>{filteredReports.length}</strong></span>

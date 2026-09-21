@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
 import PaymentModal from '../../components/payment_modal';
 import ReceiptModal from '../../components/receipt_modal';
-import { FiClock, FiMapPin, FiFileText, FiCreditCard } from 'react-icons/fi';
+import { FiClock, FiMapPin, FiFileText, FiCreditCard, FiEye } from 'react-icons/fi';
+import { getBookingLineItems } from '../../utils/bookingPricing';
+import { usePaymentSettings } from '../../utils/paymentSettings';
 
 function Billings() {
+  const navigate = useNavigate();
   const [showPayment, setShowPayment] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [selectedBill, setSelectedBill] = useState(null);
@@ -13,10 +17,11 @@ function Billings() {
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [paymentType, setPaymentType] = useState('downpayment'); // 'downpayment' | 'balance'
+  const { paymentMethods } = usePaymentSettings();
 
   const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
 
-  const filters = ['All', 'To Verify', 'Partially Paid', 'Fully Paid', 'Unpaid'];
+  const filters = ['All', 'To Verify', 'Partially Paid', 'Fully Paid', 'Unpaid', 'Refunded'];
 
   const fetchBookings = () => {
     const token = localStorage.getItem('token');
@@ -69,7 +74,7 @@ function Billings() {
 
           const paid = isFullyPaid || isPartiallyPaid || isToVerify;
 
-          const basePrice = b.service?.price || 0;
+          const { lineItems, basePrice } = getBookingLineItems(b);
           const dpPercent = b.downPaymentPercent ?? 10;
           const toPayNow = Math.round(basePrice * (dpPercent / 100));
           const remaining = basePrice - toPayNow;
@@ -104,6 +109,7 @@ function Billings() {
             status,
             date: new Date(b.createdAt).toLocaleDateString('en-US'),
             basePrice,
+            lineItems,
             toPayNow,
             remaining,
             raw: b,
@@ -122,7 +128,8 @@ function Billings() {
   const filteredBills = bills
     .filter((bill) => {
       if (activeFilter === 'All') return true;
-      if (bill.isCancelled) return false; // cancelled/refunded bookings only show under "All" — their old paymentStatus no longer applies
+      if (activeFilter === 'Refunded') return bill.isRefunded;
+      if (bill.isCancelled) return false; // cancelled bookings (refunded excepted above) only show under "All" — their old paymentStatus no longer applies
       if (activeFilter === 'To Verify') return bill.isToVerify || bill.isBalanceToVerify;
       if (activeFilter === 'Fully Paid') return bill.isFullyPaid;
       if (activeFilter === 'Partially Paid') return bill.isPartiallyPaid;
@@ -293,6 +300,14 @@ function Billings() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+                <button
+                  type="button"
+                  style={{ background: 'transparent', border: '1px solid #d0dde8', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', color: '#333', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  onClick={() => navigate(`/customer/book_details/${bill.id}`)}
+                >
+                  <FiEye size={14} /> View Details
+                </button>
+
                 {bill.isFullyPaid && !bill.isCancelled && (
                   <button
                     style={{ background: 'transparent', border: '1px solid #d0dde8', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', color: '#333', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
@@ -345,6 +360,7 @@ function Billings() {
         <PaymentModal
           form={selectedBill}
           paymentType={paymentType}
+          paymentMethods={paymentMethods}
           onClose={() => setShowPayment(false)}
           onSubmit={paymentType === 'balance' ? handleBalancePaymentSubmit : handlePaymentSubmit}
         />

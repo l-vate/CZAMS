@@ -3,6 +3,7 @@ import StaffLayout from './staff_layout';
 import {
   FiChevronDown, FiSearch, FiClock, FiMapPin, FiX, FiInfo, FiUser, FiPhone,
 } from 'react-icons/fi';
+import { getUnitsSummary } from '../../utils/bookingPricing';
 
 const API_BASE = 'http://localhost:5000';
 
@@ -219,7 +220,7 @@ function toViewJob(booking) {
     time: booking.time,
     customerName: booking.customer?.name || 'Customer',
     contactNumber: booking.customer?.phone || '',
-    unitType: booking.unitTypes?.join(', '),
+    unitType: getUnitsSummary(booking, { withBrand: true }),
     problemDescription: booking.problemDescription,
     technicianInstructions: booking.technicianInstructions,
     disruption: booking.disruption,

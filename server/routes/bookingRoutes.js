@@ -7,6 +7,7 @@ const Booking = require('../models/Booking');
 const User = require('../models/User');
 const { getWarrantyStatus } = require('../utils/warranty');
 const { sendNotification } = require('../utils/notifications');
+const { getBookingBasePrice } = require('../utils/pricing');
 
 // Every route that returns a booking should include its computed warranty status,
 // otherwise the admin/customer detail views lose that section the moment any other
@@ -88,7 +89,7 @@ function openRefundIfEligible(booking) {
 
   if (!hasDownPaymentOnFile) return;
 
-  const basePrice = booking.service?.price || 0;
+  const basePrice = getBookingBasePrice(booking);
   const downPaymentAmount = Math.round(basePrice * (booking.downPaymentPercent / 100));
   const isSameDay = booking.date === todayDateString();
 
@@ -108,26 +109,24 @@ function openRefundIfEligible(booking) {
 // 1b. PUBLIC ROUTES (no auth — Landing Page Module search)
 // ============================================
 
-// Which technicians are already booked on a given date — mirrors the private
-// /busy-technicians lookup used elsewhere, exposed here for unauthenticated
-// visitors browsing the landing page. Registered as a two-segment path (not just
-// "/:bookingId") so it can never be shadowed by the single-segment booking-detail
-// route below, regardless of route registration order.
-router.get('/public/availability', async (req, res) => {
+// Company-wide feedback aggregate for the navbar search popup — when a visitor's
+// search matches a technician, we deliberately show this instead of that
+// individual's own rating/reviews (small 4-person field team; no public
+// per-technician profile). All-time, across every completed booking with
+// feedback on file, regardless of which technician was assigned. Registered as
+// a two-segment path (not just "/:bookingId") so it can never be shadowed by the
+// single-segment booking-detail route below, regardless of route registration order.
+router.get('/public/feedback-summary', async (req, res) => {
   try {
-    const { date } = req.query;
-    if (!date) return res.status(400).json({ message: 'Date is required' });
+    const [result] = await Booking.aggregate([
+      { $match: { 'feedback.rating': { $exists: true, $ne: null } } },
+      { $group: { _id: null, averageRating: { $avg: '$feedback.rating' }, totalReviews: { $sum: 1 } } },
+    ]);
 
-    const busyBookings = await Booking.find({
-      date,
-      status: { $in: ['Pending', 'Approved', 'In Progress'] }
-    }).select('technician');
-
-    const busyTechIds = busyBookings
-      .map(b => b.technician?.toString())
-      .filter(Boolean);
-
-    res.json({ busyTechIds });
+    res.json({
+      averageRating: result ? Math.round(result.averageRating * 10) / 10 : null,
+      totalReviews: result ? result.totalReviews : 0,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -148,7 +147,7 @@ router.post('/', auth, (req, res, next) => {
 }, upload.single('proof'), async (req, res) => {
   try {
     const {
-      service, unitTypes, brandModel, problemDescription,
+      service, units: unitsRaw, problemDescription,
       date, time, technician, address,
       downPaymentPercent, paymentMode, paymentMode2,
       customer, clientSuppliedUnit, unitWaiverAcknowledged, unitWaiverName,
@@ -159,6 +158,27 @@ router.post('/', auth, (req, res, next) => {
         message: 'Selected date must be at least 3 days from today.'
       });
     }
+
+    // Multi-Unit Booking Redesign: `units` arrives as a JSON string, same reason
+    // `proof` is a file rather than JSON — this is a multipart/form-data request,
+    // which can't carry a nested array as a plain field the way a JSON body could.
+    let units;
+    try {
+      units = JSON.parse(unitsRaw || '[]');
+    } catch (err) {
+      return res.status(400).json({ message: 'Invalid unit list.' });
+    }
+    if (!Array.isArray(units) || units.length === 0) {
+      return res.status(400).json({ message: 'At least one unit is required.' });
+    }
+    if (units.some((u) => !u.type || !Number.isFinite(Number(u.quantity)) || Number(u.quantity) < 1)) {
+      return res.status(400).json({ message: 'Each unit needs a type and a quantity of at least 1.' });
+    }
+    units = units.map((u) => ({
+      type: u.type,
+      quantity: Number(u.quantity),
+      brandModel: u.brandModel || '',
+    }));
 
     // Warranty Tracking Module: a client-supplied unit on an installation booking
     // has no Unit Warranty, so a signed waiver acknowledging that is required.
@@ -202,7 +222,7 @@ router.post('/', auth, (req, res, next) => {
     const booking = await Booking.create({
       bookingId: req.generatedBookingId,
       customer: bookingCustomerId,
-      service, unitTypes, brandModel, problemDescription,
+      service, units, problemDescription,
       date, time, technician, address,
       downPaymentPercent, paymentMode, paymentMode2,
       paymentStatus, proofFile,
@@ -244,6 +264,31 @@ router.get('/mine', auth, async (req, res) => {
       return obj;
     });
     res.json(enriched);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get busy technicians for a specific date. Must stay registered before
+// GET /:bookingId below — Express matches in registration order, so any
+// single-segment GET path declared after it is swallowed as a bookingId lookup
+// (this route used to sit after it and always 404'd "Booking not found").
+router.get('/busy-technicians', auth, async (req, res) => {
+  try {
+    const { date } = req.query;
+    if (!date) return res.status(400).json({ message: 'Date is required' });
+
+    const busyBookings = await Booking.find({
+      date,
+      status: { $in: ['Pending', 'Approved', 'In Progress'] }
+    });
+
+    const busyTechIds = busyBookings
+      .map(b => b.technician?.toString())
+      .filter(Boolean);
+
+    res.json({ busyTechIds });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -478,28 +523,6 @@ router.get('/technician/mine/stats', auth, async (req, res) => {
       }));
 
     res.json({ ongoing, completed, pendingReports, feedbacks });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Get busy technicians for a specific date
-router.get('/busy-technicians', auth, async (req, res) => {
-  try {
-    const { date } = req.query;
-    if (!date) return res.status(400).json({ message: 'Date is required' });
-
-    const busyBookings = await Booking.find({
-      date,
-      status: { $in: ['Pending', 'Approved', 'In Progress'] }
-    });
-
-    const busyTechIds = busyBookings
-      .map(b => b.technician?.toString())
-      .filter(Boolean);
-
-    res.json({ busyTechIds });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });

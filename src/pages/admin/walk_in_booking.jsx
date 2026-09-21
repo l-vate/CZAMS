@@ -4,8 +4,6 @@ import AdminLayout from './admin_layout';
 import {
   useServices,
   useTechnicians,
-  getDownPaymentOptions,
-  PAYMENT_MODES,
   getCostBreakdown,
   StepIndicator,
   Step1,
@@ -13,6 +11,7 @@ import {
   Step3,
   Step5,
 } from '../customer/book_service';
+import { usePaymentSettings, getDownPaymentOptions } from '../../utils/paymentSettings';
 import { FiCheck, FiArrowLeft, FiArrowRight, FiUserPlus } from 'react-icons/fi';
 
 const API_BASE = 'http://localhost:5000';
@@ -233,7 +232,7 @@ function CustomerStep({ customers, loadingCustomers, selectedCustomer, onSelectC
 /* ── Step 5: Payment — admin is recording an in-person/phone payment, not
    walking a remote customer through where to send money, so this skips the
    customer-facing PaymentModal and just records the mode + an optional proof. ── */
-function WalkInPaymentStep({ form, setForm, services, isReturnCustomer }) {
+function WalkInPaymentStep({ form, setForm, services, isReturnCustomer, paymentMethods, downPaymentPercentages }) {
   const { basePrice, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services);
   const isNoDownPayment = dpPercent === 0;
 
@@ -251,7 +250,7 @@ function WalkInPaymentStep({ form, setForm, services, isReturnCustomer }) {
         <div className="bs-field-group">
           <label className="bs-label">Down Payment</label>
           <div className="dp-radio-grid">
-            {getDownPaymentOptions(isReturnCustomer).map((opt) => (
+            {getDownPaymentOptions(isReturnCustomer, downPaymentPercentages).map((opt) => (
               <label key={opt.value} className="dp-radio-label">
                 <input
                   type="radio"
@@ -283,8 +282,8 @@ function WalkInPaymentStep({ form, setForm, services, isReturnCustomer }) {
                 onChange={(e) => setForm({ ...form, paymentMode: e.target.value })}
               >
                 <option value="">Select mode</option>
-                {PAYMENT_MODES.map((m) => (
-                  <option key={m} value={m}>{m}</option>
+                {paymentMethods.map((m) => (
+                  <option key={m.name} value={m.name}>{m.name}</option>
                 ))}
               </select>
             </div>
@@ -298,8 +297,8 @@ function WalkInPaymentStep({ form, setForm, services, isReturnCustomer }) {
                   onChange={(e) => setForm({ ...form, paymentMode2: e.target.value })}
                 >
                   <option value="">Select mode</option>
-                  {PAYMENT_MODES.map((m) => (
-                    <option key={m} value={m}>{m}</option>
+                  {paymentMethods.map((m) => (
+                    <option key={m.name} value={m.name}>{m.name}</option>
                   ))}
                 </select>
               </div>
@@ -331,6 +330,7 @@ function WalkInBooking() {
   const { services, loading: loadingServices } = useServices();
   const { technicians } = useTechnicians();
   const { customers, loading: loadingCustomers } = useCustomers();
+  const { paymentMethods, downPaymentPercentages } = usePaymentSettings();
   const navigate = useNavigate();
 
   const [step, setStep] = useState(1);
@@ -339,8 +339,7 @@ function WalkInBooking() {
 
   const [form, setForm] = useState({
     service: '',
-    unitTypes: [],
-    brandModel: '',
+    units: [],
     problemDescription: '',
     date: '',
     time: '',
@@ -358,7 +357,9 @@ function WalkInBooking() {
     if (step === 1) return !!customer;
     if (step === 2) return !!form.service;
     if (step === 3) {
-      if ((form.unitTypes || []).length === 0) return false;
+      const units = form.units || [];
+      if (units.length === 0) return false;
+      if (units.some((u) => !u.type || !u.quantity || u.quantity < 1)) return false;
       const selectedService = services.find((s) => s.id === form.service);
       const isInstallation = selectedService?.serviceType === 'Installation';
       if (isInstallation && form.clientSuppliedUnit) {
@@ -389,8 +390,7 @@ function WalkInBooking() {
       const formData = new FormData();
       formData.append('customer', customer._id);
       formData.append('service', form.service);
-      (form.unitTypes || []).forEach((u) => formData.append('unitTypes', u));
-      formData.append('brandModel', form.brandModel || '');
+      formData.append('units', JSON.stringify(form.units || []));
       formData.append('problemDescription', form.problemDescription || '');
       formData.append('date', form.date);
       formData.append('time', form.time);
@@ -457,6 +457,8 @@ function WalkInBooking() {
                 setForm={setForm}
                 services={services}
                 isReturnCustomer={isReturnCustomer}
+                paymentMethods={paymentMethods}
+                downPaymentPercentages={downPaymentPercentages}
               />
             )}
             {step === 6 && (

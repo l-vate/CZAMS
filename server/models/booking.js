@@ -4,6 +4,21 @@ const bookingSchema = new mongoose.Schema({
     bookingId: { type: String, unique: true, required: true },
     customer: { type: String, ref: 'User', required: true },
     service: { type: String, ref: 'Service', required: true },
+
+    // Multi-Unit Booking Redesign: a customer can now list one or more unit
+    // entries, each with its own type, quantity, and brand/model — replacing the
+    // old single-type-per-booking model where unitTypes was just a flat list of
+    // type names with no quantity and one bulk brandModel text field for
+    // everything. `unitTypes`/`brandModel` below are kept (not removed) purely
+    // for backward-reading bookings created before this change — Mongoose only
+    // exposes schema-declared paths, so dropping them would make historical
+    // bookings' unit info disappear from admin views/reports, not just look
+    // different. New bookings only ever populate `units`.
+    units: [{
+      type: { type: String, required: true },
+      quantity: { type: Number, required: true, min: 1, default: 1 },
+      brandModel: String,
+    }],
     unitTypes: [String],
     brandModel: String,
     problemDescription: String,

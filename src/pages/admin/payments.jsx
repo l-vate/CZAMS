@@ -1,6 +1,9 @@
 import { useMemo, useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import AdminLayout from './admin_layout';
 import { FiSearch } from 'react-icons/fi';
+import PersonFilterBanner from '../../components/person_filter_banner';
+import { getBookingLineItems, getUnitsSummary } from '../../utils/bookingPricing';
 
 const API_BASE = 'http://localhost:5000';
 
@@ -152,12 +155,12 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
           </button>
         </div>
 
-        <p className="payment-review-booking" style={{ margin: '2px 0 16px', color: '#6b7280', fontSize: '14px' }}>
+        <p className="payment-review-booking">
           {payment.serviceType} · {payment.bookingId}
         </p>
 
         {error && (
-          <p style={{ color: '#ef4444', fontSize: '13px', marginBottom: '12px' }}>{error}</p>
+          <p style={{ color: 'var(--danger)', fontSize: '13px', marginBottom: '12px' }}>{error}</p>
         )}
 
         <div
@@ -209,7 +212,7 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
                     style={{
                       display: 'inline-block',
                       padding: '8px 16px',
-                      background: '#2563eb',
+                      background: 'var(--primary)',
                       color: '#fff',
                       borderRadius: '6px',
                       textDecoration: 'none',
@@ -246,7 +249,7 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
                 }}
               >
                 <FileIcon />
-                <span style={{ fontWeight: 600, fontSize: '14px' }}>proof_of_payment_{payment.bookingId}</span>
+                <span style={{ fontWeight: 600, fontSize: '13px' }}>proof_of_payment_{payment.bookingId}</span>
               </div>
             )
           ) : (
@@ -257,7 +260,7 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
                 border: '1px dashed #d1d5db',
                 borderRadius: '8px',
                 color: '#9ca3af',
-                fontSize: '14px',
+                fontSize: '13px',
                 textAlign: 'center',
               }}
             >
@@ -314,6 +317,8 @@ function PaymentCard({ payment, onReviewRequest }) {
         <div className="payment-card__technician">Technician: {payment.technician}</div>
       </div>
 
+      <div className="payment-card__amount">{payment.amount}</div>
+
       <div className="payment-card__datetime">
         <ClockIcon />
         <span>{payment.date} {payment.time}</span>
@@ -341,7 +346,7 @@ function PaymentCard({ payment, onReviewRequest }) {
   );
 }
 
-function PaymentsPanel() {
+function PaymentsPanel({ personFilter, onClearPersonFilter }) {
   const [activeFilter, setActiveFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [selectedPayment, setSelectedPayment] = useState(null);
@@ -374,9 +379,9 @@ function PaymentsPanel() {
       const clientName = typeof b.customer === 'object' ? (b.customer?.name || 'Customer') : (b.customerName || 'Customer');
       const technician = typeof b.technician === 'object' ? (b.technician?.name || 'Unassigned') : (b.technician || 'Unassigned');
       const serviceType = typeof b.service === 'object' ? (b.service?.name || 'Service') : (b.service || 'Service');
-      const detail = b.brandModel || b.unitTypes || b.problemDescription || 'Detail';
+      const detail = getUnitsSummary(b) || b.brandModel || b.problemDescription || 'Detail';
 
-      const basePrice = b.service?.price || b.basePrice || 0;
+      const { basePrice } = getBookingLineItems(b);
 
       let status = 'unpaid';
       if (b.refund?.status === 'Processed') {
@@ -433,9 +438,12 @@ function PaymentsPanel() {
         !query ||
         payment.clientName.toLowerCase().includes(query) ||
         payment.bookingId.toLowerCase().includes(query);
-      return matchesFilter && matchesSearch;
+      // Billing History (Manage Accounts, client accounts) — this panel only ever
+      // receives a 'customer' person filter, never 'technician'.
+      const matchesPerson = !personFilter || payment.raw?.customer?._id === personFilter.id;
+      return matchesFilter && matchesSearch && matchesPerson;
     });
-  }, [paymentsList, activeFilter, search]);
+  }, [paymentsList, activeFilter, search, personFilter]);
 
   const handleReviewRequest = (payment) => {
     setSelectedPayment(payment);
@@ -467,6 +475,8 @@ function PaymentsPanel() {
           />
         </div>
       </div>
+
+      <PersonFilterBanner filter={personFilter} onClear={onClearPersonFilter} />
 
       {loading ? (
         <div className="payments-empty">Loading payment requests...</div>
@@ -604,7 +614,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
         <p className="payment-review-booking">{refund.serviceType} · {refund.bookingId}</p>
 
         {error && (
-          <p style={{ color: '#ef4444', fontSize: '13px', marginBottom: '12px' }}>{error}</p>
+          <p style={{ color: 'var(--danger)', fontSize: '13px', marginBottom: '12px' }}>{error}</p>
         )}
 
         {isFlagged && (
@@ -680,7 +690,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
               />
             </label>
             {!proof && (
-              <p style={{ fontSize: '11px', color: '#e05a5a', marginTop: '2px' }}>
+              <p style={{ fontSize: '11px', color: 'var(--danger)', marginTop: '2px' }}>
                 Required before this refund can be marked processed.
               </p>
             )}
@@ -897,7 +907,11 @@ function RefundsPanel() {
    MAIN — tab switch between Payments and Refunds
    ===================================================================== */
 function Payments() {
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('payments');
+  // Manage Accounts' "Billing History" (client accounts) lands here with a person
+  // filter pre-applied via navigation state — Payments tab only, Refunds is unrelated.
+  const [personFilter, setPersonFilter] = useState(location.state?.personFilter || null);
 
   return (
     <AdminLayout title="Payments">
@@ -915,7 +929,11 @@ function Payments() {
         ))}
       </div>
 
-      {activeTab === 'payments' ? <PaymentsPanel /> : <RefundsPanel />}
+      {activeTab === 'payments' ? (
+        <PaymentsPanel personFilter={personFilter} onClearPersonFilter={() => setPersonFilter(null)} />
+      ) : (
+        <RefundsPanel />
+      )}
     </AdminLayout>
   );
 }

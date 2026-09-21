@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
 import PaymentModal from '../../components/payment_modal';
+import { getUnitPrice } from '../../utils/bookingPricing';
+import { toLocalDateKey } from '../../utils/date';
+import { usePaymentSettings, getDownPaymentOptions } from '../../utils/paymentSettings';
 import {
   FiWind,
   FiTool,
@@ -13,6 +16,8 @@ import {
   FiClock,
   FiArrowLeft,
   FiArrowRight,
+  FiPlus,
+  FiX,
 } from 'react-icons/fi';
 
 const ICON_MAP = {
@@ -40,6 +45,7 @@ export function useServices() {
           price: s.price,
           icon: ICON_MAP[s.icon] || <FiSettings />,
           serviceType: s.serviceType,
+          unitTypePricing: s.unitTypePricing || [],
         }));
         setServices(mapped);
         setLoading(false);
@@ -69,23 +75,10 @@ export function useTechnicians() {
 
 export const UNIT_TYPES = ['Window Type', 'Split Type', 'Floor Mounted', 'Cassette Type', 'Portable'];
 
-export const DOWN_PAYMENT_OPTIONS = [
-  { label: 'Full Payment (100%)', value: 100 },
-  { label: '30% Down Payment', value: 30 },
-  { label: '50% Down Payment', value: 50 },
-];
-const FIRST_PAYMENT_MODES = ['E-Wallet (GCash, Maya...)', 'Bank Transfer'];
-export const PAYMENT_MODES = ['Cash', 'E-Wallet (GCash, Maya...)', 'Bank Transfer'];
-
-// Customer Classification Module perk: a "Return" customer (4+ completed bookings
-// in the trailing 12 months) sees an extra no-down-payment option up front.
-export function getDownPaymentOptions(isReturnCustomer) {
-  if (!isReturnCustomer) return DOWN_PAYMENT_OPTIONS;
-  return [
-    { label: 'No Down Payment (Return Customer)', value: 0 },
-    ...DOWN_PAYMENT_OPTIONS,
-  ];
-}
+// System Configuration Module: payment methods and down payment percentages used
+// to be hardcoded here (DOWN_PAYMENT_OPTIONS / PAYMENT_MODES / getDownPaymentOptions).
+// Both are now admin-managed — see src/utils/paymentSettings.js (usePaymentSettings,
+// getDownPaymentOptions) and the Payment Settings tab in admin's Manage Services page.
 
 // Fetches the logged-in customer's own classification (Customer Classification Module)
 export function useMyClassification() {
@@ -113,15 +106,24 @@ function generateBookingId() {
   return `CZ-${year}-${rand}`;
 }
 
-// Shared cost breakdown math — used by Step4 and Step5
+// Shared cost breakdown math — used by Step2 (per-row price preview), Step4,
+// and Step5. Itemizes each unit entry (type × quantity, at that type's price)
+// instead of assuming one flat price for the whole booking.
 export function getCostBreakdown(form, services) {
   const selected = services.find((s) => s.id === form.service);
-  const basePrice = selected?.price || 0;
+  const units = form.units || [];
+
+  const lineItems = units.map((u) => {
+    const unitPrice = getUnitPrice(selected, u.type);
+    return { ...u, unitPrice, subtotal: unitPrice * (u.quantity || 0) };
+  });
+
+  const basePrice = lineItems.reduce((sum, li) => sum + li.subtotal, 0);
   const dpPercent = form.downPaymentPercent ?? 10;
   const toPayNow = Math.round(basePrice * (dpPercent / 100));
   const remaining = basePrice - toPayNow;
   const isFullPay = dpPercent === 100;
-  return { selected, basePrice, dpPercent, toPayNow, remaining, isFullPay };
+  return { selected, lineItems, basePrice, dpPercent, toPayNow, remaining, isFullPay };
 }
 
 /* ── Step Indicator ───────────────────────────────────────── */
@@ -185,16 +187,30 @@ export function Step1({ form, setForm, services }) {
 }
 
 /* ── Step 2: Unit Details ─────────────────────────────────── */
+const EMPTY_UNIT_ENTRY = { type: '', quantity: 1, brandModel: '' };
+
 export function Step2({ form, setForm, services = [] }) {
-  const toggleUnit = (type) => {
-    const current = form.unitTypes || [];
-    const updated = current.includes(type)
-      ? current.filter((t) => t !== type)
-      : [...current, type];
-    setForm({ ...form, unitTypes: updated });
+  // Multi-Unit Booking Redesign: a booking now lists one or more unit entries
+  // (type + quantity + its own brand/model), replacing the old flat
+  // "select all that apply" type checklist with no quantity and one bulk
+  // brand/model text field for the whole booking.
+  const units = form.units && form.units.length > 0 ? form.units : [EMPTY_UNIT_ENTRY];
+  const selectedService = services.find((s) => s.id === form.service);
+
+  const updateUnit = (index, patch) => {
+    const updated = units.map((u, i) => (i === index ? { ...u, ...patch } : u));
+    setForm({ ...form, units: updated });
   };
 
-  const selectedService = services.find((s) => s.id === form.service);
+  const addUnit = () => {
+    setForm({ ...form, units: [...units, { ...EMPTY_UNIT_ENTRY }] });
+  };
+
+  const removeUnit = (index) => {
+    const updated = units.filter((_, i) => i !== index);
+    setForm({ ...form, units: updated.length > 0 ? updated : [{ ...EMPTY_UNIT_ENTRY }] });
+  };
+
   const isInstallation = selectedService?.serviceType === 'Installation';
 
   const setClientSuppliedUnit = (clientSupplied) => {
@@ -209,33 +225,62 @@ export function Step2({ form, setForm, services = [] }) {
   return (
     <div className="bs-card">
       <h3 className="bs-card-title">Unit Details</h3>
-      <p className="bs-card-sub">Provide details about your aircon unit(s).</p>
+      <p className="bs-card-sub">Add each aircon unit this booking covers, with its type and quantity.</p>
 
       <div className="bs-field-group">
-        <label className="bs-label">Unit Type <span className="bs-label-hint">(Select all that apply)</span></label>
-        <div className="unit-type-grid">
-          {UNIT_TYPES.map((type) => (
-            <button
-              key={type}
-              type="button"
-              className={`unit-type-btn ${(form.unitTypes || []).includes(type) ? 'selected' : ''}`}
-              onClick={() => toggleUnit(type)}
-            >
-              {type}
-            </button>
+        <label className="bs-label">Units</label>
+        <div className="unit-entry-list">
+          {units.map((unit, index) => (
+            <div className="unit-entry-row" key={index}>
+              <select
+                className="bs-select unit-entry-type"
+                value={unit.type}
+                onChange={(e) => updateUnit(index, { type: e.target.value })}
+              >
+                <option value="">Select type</option>
+                {UNIT_TYPES.map((type) => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+
+              <input
+                type="number"
+                className="bs-input unit-entry-qty"
+                min="1"
+                value={unit.quantity}
+                onChange={(e) => updateUnit(index, { quantity: Number(e.target.value) || 1 })}
+              />
+
+              <input
+                type="text"
+                className="bs-input unit-entry-brand"
+                placeholder="Brand & model (e.g. Carrier 1HP)"
+                value={unit.brandModel}
+                onChange={(e) => updateUnit(index, { brandModel: e.target.value })}
+              />
+
+              {selectedService && unit.type && (
+                <span className="unit-entry-subtotal">
+                  ₱{(getUnitPrice(selectedService, unit.type) * (unit.quantity || 0)).toLocaleString()}
+                </span>
+              )}
+
+              <button
+                type="button"
+                className="unit-entry-remove"
+                onClick={() => removeUnit(index)}
+                disabled={units.length === 1}
+                aria-label="Remove unit"
+              >
+                <FiX />
+              </button>
+            </div>
           ))}
         </div>
-      </div>
 
-      <div className="bs-field-group">
-        <label className="bs-label">Brand &amp; Model <span className="bs-label-hint">(Enter the brands and models of your units)</span></label>
-        <textarea
-          className="bs-textarea"
-          rows={3}
-          placeholder="e.g. Carrier 1HP Split Type, Panasonic 1.5HP Window Type"
-          value={form.brandModel || ''}
-          onChange={(e) => setForm({ ...form, brandModel: e.target.value })}
-        />
+        <button type="button" className="unit-entry-add-btn" onClick={addUnit}>
+          <FiPlus /> Add Another Unit
+        </button>
       </div>
 
       {isInstallation && (
@@ -306,7 +351,7 @@ export function Step3({ form, setForm, technicians }) {
   const minDate = (() => {
     const d = new Date();
     d.setDate(d.getDate() + 3);
-    return d.toISOString().split('T')[0]; // YYYY-MM-DD for <input type="date">
+    return toLocalDateKey(d); // YYYY-MM-DD for <input type="date">
   })();
 
    return (
@@ -376,10 +421,14 @@ export function Step3({ form, setForm, technicians }) {
 }
 
 /* ── Step 4: Payment ──────────────────────────────────────── */
-function Step4({ form, setForm, services, isReturnCustomer }) {
+function Step4({ form, setForm, services, isReturnCustomer, paymentMethods, downPaymentPercentages }) {
   const [showModal, setShowModal] = useState(false);
-  const { basePrice, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services);
+  const { lineItems, basePrice, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services);
   const isNoDownPayment = dpPercent === 0;
+  // The very first, remote payment can't reasonably be Cash or Cheque — both need
+  // a physical handoff that hasn't happened yet at this point in the flow.
+  // Everything else the admin has configured (GCash, Bank Transfer, ...) is fair game.
+  const firstPaymentMethods = paymentMethods.filter((m) => !['Cash', 'Cheque'].includes(m.name));
 
 const handleSubmitPayment = ({ proof }) => {
     setForm({ ...form, paymentStatus: 'to_verify', proofFile: proof?.name || null, proofFileObj: proof || null });
@@ -393,10 +442,12 @@ const handleSubmitPayment = ({ proof }) => {
           form={{
             ...form,
             basePrice,
+            lineItems,
             downPaymentPercent: dpPercent,
             toPayNow,
             remaining,
           }}
+          paymentMethods={paymentMethods}
           onClose={() => setShowModal(false)}
           onSubmit={handleSubmitPayment}
         />
@@ -413,7 +464,7 @@ const handleSubmitPayment = ({ proof }) => {
           <div className="bs-field-group">
             <label className="bs-label">Down Payment</label>
             <div className="dp-radio-grid">
-              {getDownPaymentOptions(isReturnCustomer).map((opt) => (
+              {getDownPaymentOptions(isReturnCustomer, downPaymentPercentages).map((opt) => (
                 <label key={opt.value} className="dp-radio-label">
                   <input
                     type="radio"
@@ -444,8 +495,8 @@ const handleSubmitPayment = ({ proof }) => {
                   onChange={(e) => setForm({ ...form, paymentMode: e.target.value })}
                 >
                   <option value="">Select mode</option>
-                  {FIRST_PAYMENT_MODES.map((m) => (
-                    <option key={m} value={m}>{m}</option>
+                  {firstPaymentMethods.map((m) => (
+                    <option key={m.name} value={m.name}>{m.name}</option>
                   ))}
                 </select>
               </div>
@@ -460,8 +511,8 @@ const handleSubmitPayment = ({ proof }) => {
                     onChange={(e) => setForm({ ...form, paymentMode2: e.target.value })}
                   >
                     <option value="">Select mode</option>
-                    {PAYMENT_MODES.map((m) => (
-                      <option key={m} value={m}>{m}</option>
+                    {paymentMethods.map((m) => (
+                      <option key={m.name} value={m.name}>{m.name}</option>
                     ))}
                   </select>
                 </div>
@@ -473,6 +524,14 @@ const handleSubmitPayment = ({ proof }) => {
         {/* ── Right: Cost Breakdown ── */}
         <div className="cost-breakdown-card">
           <h4 className="cost-breakdown-title">Cost Breakdown</h4>
+
+          {lineItems.map((li, i) => (
+            <div className="cost-row cost-row-item" key={i}>
+              <span>{li.type || '—'} × {li.quantity}</span>
+              <span>₱{li.subtotal.toLocaleString()}.00</span>
+            </div>
+          ))}
+          <div className="cost-divider" />
 
           <div className="cost-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}.00</span></div>
           <div className="cost-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
@@ -523,7 +582,7 @@ const handleSubmitPayment = ({ proof }) => {
 
 /* ── Step 5: Booking Summary ──────────────────────────────── */
 export function Step5({ form, services, technicians }) {
-  const { selected, basePrice, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services);
+  const { selected, lineItems, basePrice, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services);
   const techName = technicians.find((t) => t._id === form.technician)?.name || 'No preference';
 
   return (
@@ -533,8 +592,12 @@ export function Step5({ form, services, technicians }) {
         <div>
           <p className="summary-section-title">Service Details</p>
           <div className="summary-row"><span>Service</span><span>{selected?.label || '—'}</span></div>
-          <div className="summary-row"><span>Unit Type</span><span>{(form.unitTypes || []).join(', ') || '—'}</span></div>
-          <div className="summary-row"><span>Brand &amp; Model</span><span>{form.brandModel || '—'}</span></div>
+          {lineItems.map((li, i) => (
+            <div className="summary-row" key={i}>
+              <span>Unit {i + 1}</span>
+              <span>{li.quantity}× {li.type || '—'}{li.brandModel ? ` — ${li.brandModel}` : ''}</span>
+            </div>
+          ))}
           <div className="summary-row"><span>Date &amp; Time</span><span>{form.date ? `${form.date}, ${form.time || ''}` : '—'}</span></div>
           <div className="summary-row"><span>Address</span><span>{form.address || '—'}</span></div>
           <div className="summary-row"><span>Preferred Tech</span><span>{techName}</span></div>
@@ -571,13 +634,13 @@ function BookService() {
   const { technicians } = useTechnicians();
   const classification = useMyClassification();
   const isReturnCustomer = classification === 'Return';
+  const { paymentMethods, downPaymentPercentages } = usePaymentSettings();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
 
   const [form, setForm] = useState({
     service: '',
-    unitTypes: [],
-    brandModel: '',
+    units: [],
     problemDescription: '',
     date: '',
     time: '',
@@ -591,7 +654,9 @@ function BookService() {
 const canNext = () => {
     if (step === 1) return !!form.service;
     if (step === 2) {
-      if ((form.unitTypes || []).length === 0) return false;
+      const units = form.units || [];
+      if (units.length === 0) return false;
+      if (units.some((u) => !u.type || !u.quantity || u.quantity < 1)) return false;
       const selectedService = services.find((s) => s.id === form.service);
       const isInstallation = selectedService?.serviceType === 'Installation';
       if (isInstallation && form.clientSuppliedUnit) {
@@ -623,8 +688,9 @@ const canNext = () => {
 
       const formData = new FormData();
       formData.append('service', form.service);
-      (form.unitTypes || []).forEach((u) => formData.append('unitTypes', u));
-      formData.append('brandModel', form.brandModel || '');
+      // Sent as a JSON string, not repeated fields, since this is multipart/form-data
+      // (there's a proof file too) and units are now structured objects, not flat strings.
+      formData.append('units', JSON.stringify(form.units || []));
       formData.append('problemDescription', form.problemDescription || '');
       formData.append('date', form.date);
       formData.append('time', form.time);
@@ -673,7 +739,16 @@ const canNext = () => {
           {step === 1 && <Step1 form={form} setForm={setForm} services={services} />}
           {step === 2 && <Step2 form={form} setForm={setForm} services={services} />}
           {step === 3 && <Step3 form={form} setForm={setForm} technicians={technicians} />}
-          {step === 4 && <Step4 form={form} setForm={setForm} services={services} isReturnCustomer={isReturnCustomer} />}
+          {step === 4 && (
+            <Step4
+              form={form}
+              setForm={setForm}
+              services={services}
+              isReturnCustomer={isReturnCustomer}
+              paymentMethods={paymentMethods}
+              downPaymentPercentages={downPaymentPercentages}
+            />
+          )}
           {step === 5 && <Step5 form={form} services={services} technicians={technicians} />}
         </>
       )}

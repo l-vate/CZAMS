@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getBookingLineItems } from '../utils/bookingPricing';
 
 const NEXT_STATUS = {
     Pending: [{ label: 'Approve', value: 'Approved' }],
@@ -12,6 +13,14 @@ const STATUS_COLORS = {
     'In Progress': '#f59e0b',
     Completed: '#22c55e',
     Cancelled: '#ef4444',
+};
+
+const PAYMENT_STATUS_LABELS = {
+    Unpaid: 'Unpaid',
+    to_verify: 'To Verify',
+    partially_paid: 'Partially Paid',
+    fully_paid: 'Fully Paid',
+    rejected: 'Rejected',
 };
 
 function Icon({ name }) {
@@ -213,6 +222,9 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
     const isEditable = isPending || (isActive && isReassigning);
     const isDisabled = !isEditable || saving || isCompletedOrCancelled;
 
+    const { lineItems, basePrice } = getBookingLineItems(booking);
+    const downPaymentAmount = Math.round(basePrice * ((booking.downPaymentPercent ?? 0) / 100));
+
     // Filter available technicians
     const availableTechnicians = technicians.filter(tech => {
         // Always show the currently assigned technician in the list so it doesn't blank out
@@ -255,12 +267,12 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                     <div className="sdm-columns">
                         <div className="sdm-col">
                             <h4 className="sdm-service-name">{booking.service?.name || 'Service'}</h4>
-                            {booking.unitTypes?.length > 0 && (
-                                <p className="sdm-unit-line">
-                                    Unit: {booking.unitTypes.join(', ')}
-                                    {booking.brandModel ? ` · ${booking.brandModel}` : ''}
+                            {lineItems.map((li, i) => (
+                                <p className="sdm-unit-line" key={i}>
+                                    Unit: {li.quantity}× {li.type}
+                                    {li.brandModel ? ` · ${li.brandModel}` : ''}
                                 </p>
-                            )}
+                            ))}
 
                             <div className="sdm-row">
                                 <div className="sdm-row-icon"><Icon name="calendar" /></div>
@@ -400,20 +412,59 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                             </h5>
 
                             <div className="sdm-list">
+                                {!booking.isBackJob && (
+                                    <>
+                                        {lineItems.map((li, i) => (
+                                            <div className="sdm-list-row" key={i}>
+                                                <span>{li.quantity}× {li.type} @ ₱{li.unitPrice.toLocaleString()}</span>
+                                                <span className="sdm-list-value">₱{li.subtotal.toLocaleString()}</span>
+                                            </div>
+                                        ))}
+                                        <div className="sdm-list-row">
+                                            <span><strong>Total Price</strong></span>
+                                            <span className="sdm-list-value"><strong>₱{basePrice.toLocaleString()}</strong></span>
+                                        </div>
+                                    </>
+                                )}
                                 <div className="sdm-list-row">
                                     <span>Down Payment</span>
-                                    <span className="sdm-list-value">{booking.downPaymentPercent ?? 'N/A'}%</span>
-                                </div>
-                                <div className="sdm-list-row">
-                                    <span>Payment Status</span>
-                                    <span className="sdm-list-value">{booking.paymentStatus || 'N/A'}</span>
-                                </div>
-                                <div className="sdm-list-row">
-                                    <span>Payment Mode</span>
                                     <span className="sdm-list-value">
-                                        {[booking.paymentMode, booking.paymentMode2].filter(Boolean).join(' / ') || 'N/A'}
+                                        {booking.downPaymentPercent ?? 'N/A'}%
+                                        {!booking.isBackJob && booking.downPaymentPercent != null && ` (₱${downPaymentAmount.toLocaleString()})`}
                                     </span>
                                 </div>
+                                {!booking.isBackJob && booking.downPaymentPercent != null && (
+                                    <div className="sdm-list-row">
+                                        <span>Remaining Balance</span>
+                                        <span className="sdm-list-value">₱{(basePrice - downPaymentAmount).toLocaleString()}</span>
+                                    </div>
+                                )}
+                                <div className="sdm-list-row">
+                                    <span>Payment Status</span>
+                                    <span className="sdm-list-value">
+                                        {PAYMENT_STATUS_LABELS[booking.paymentStatus] || booking.paymentStatus || 'N/A'}
+                                    </span>
+                                </div>
+                                {/* paymentMode = how the down payment is paid, paymentMode2 = how the balance is
+                                    paid. Two different payments that can legitimately share a mode, so they're
+                                    shown labelled rather than joined; a 100% payment has no separate balance. */}
+                                {booking.downPaymentPercent === 100 ? (
+                                    <div className="sdm-list-row">
+                                        <span>Payment Mode</span>
+                                        <span className="sdm-list-value">{booking.paymentMode || 'N/A'}</span>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="sdm-list-row">
+                                            <span>Down Payment Mode</span>
+                                            <span className="sdm-list-value">{booking.paymentMode || 'N/A'}</span>
+                                        </div>
+                                        <div className="sdm-list-row">
+                                            <span>Balance Payment Mode</span>
+                                            <span className="sdm-list-value">{booking.paymentMode2 || 'N/A'}</span>
+                                        </div>
+                                    </>
+                                )}
                                 <div className="sdm-list-row">
                                     <span>Proof of Payment</span>
                                     <span className="sdm-list-value">

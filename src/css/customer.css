@@ -421,27 +421,85 @@
 
 .bs-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 
-.unit-type-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+/* Multi-Unit Booking Redesign — replaces the old .unit-type-grid/.unit-type-btn
+   "select all that apply" checklist (no quantity, one bulk brand/model field)
+   with a per-row add/remove list: type + quantity + brand/model + live subtotal
+   per unit entry. */
+.unit-entry-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 
-.unit-type-btn {
-  padding: 9px 18px;
+.unit-entry-row {
+  display: grid;
+  grid-template-columns: 1.2fr 70px 1.4fr auto auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.unit-entry-row .bs-select,
+.unit-entry-row .bs-input {
+  margin: 0;
+}
+
+.unit-entry-qty { text-align: center; padding-left: 8px; padding-right: 8px; }
+
+.unit-entry-subtotal {
+  font-weight: 700;
+  color: var(--navy);
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+
+.unit-entry-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
   border: 1.5px solid var(--mist);
   border-radius: 8px;
-  background: var(--frost);
+  background: var(--white);
+  color: var(--ink-soft);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.unit-entry-remove:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
+.unit-entry-remove:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.unit-entry-add-btn {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 9px 16px;
+  border: 1.5px dashed var(--mist);
+  border-radius: 8px;
+  background: none;
   font-family: 'Inter', sans-serif;
   font-size: 13px;
   font-weight: 600;
-  color: var(--ink-soft);
+  color: var(--navy-soft);
   cursor: pointer;
-  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+  transition: border-color 0.2s ease, color 0.2s ease;
 }
 
-.unit-type-btn:hover { border-color: var(--navy-soft); color: var(--navy); }
+.unit-entry-add-btn:hover { border-color: var(--navy-soft); color: var(--navy); }
 
-.unit-type-btn.selected {
-  border-color: var(--navy-soft);
-  background: rgba(14,140,140,0.1);
-  color: var(--navy);
+@media (max-width: 620px) {
+  .unit-entry-row {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "type type" "qty brand" "subtotal remove";
+  }
+  .unit-entry-type { grid-area: type; }
+  .unit-entry-qty { grid-area: qty; }
+  .unit-entry-brand { grid-area: brand; }
+  .unit-entry-subtotal { grid-area: subtotal; }
+  .unit-entry-remove { grid-area: remove; justify-self: end; }
 }
 
 .time-toggle { display: flex; gap: 10px; }

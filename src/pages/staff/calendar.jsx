@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import StaffLayout from "./staff_layout";
-import CalendarView from "../../components/calendar_view";
+import CalendarView, { mapBookingStatusToCalendarStatus } from "../../components/calendar_view";
+import { getUnitsSummary } from "../../utils/bookingPricing";
 
 const API_BASE = "http://localhost:5000";
 
@@ -44,10 +45,8 @@ function toCalendarJob(booking) {
   }
 
   // Format unit types label
-  const unitTypesLabel =
-    Array.isArray(booking.unitTypes) && booking.unitTypes.length > 0
-      ? ` - ${booking.unitTypes.join(", ")}`
-      : "";
+  const unitsSummary = getUnitsSummary(booking);
+  const unitTypesLabel = unitsSummary ? ` - ${unitsSummary}` : "";
 
   return {
     id: booking._id || booking.bookingId,
@@ -57,7 +56,7 @@ function toCalendarJob(booking) {
     date: booking.date,
     startHour,
     endHour,
-    status: (booking.status || "pending").toLowerCase(),
+    status: mapBookingStatusToCalendarStatus(booking.status),
   };
 }
 

@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import AdminLayout from './admin_layout';
 import { FiPlus, FiSearch, FiSettings, FiTool, FiWind, FiThermometer } from 'react-icons/fi';
+import { UNIT_TYPES } from '../customer/book_service';
+import PaymentSettingsPanel from '../../components/payment_settings_panel';
+
+const TABS = [
+  { key: 'services', label: 'Services' },
+  { key: 'payment', label: 'Payment Settings' },
+];
 
 const API_BASE = 'http://localhost:5000';
 
@@ -11,6 +18,10 @@ const ICON_MAP = {
   FiSettings: <FiSettings />,
 };
 
+// Multi-Unit Booking Redesign: unitTypePricing is edited here as a plain
+// { [unitType]: priceString } map (one input per UNIT_TYPES entry) since that's
+// far easier to bind form inputs to than an array — converted to the array shape
+// the Service model actually stores on submit.
 const EMPTY_FORM = {
   name: '',
   description: '',
@@ -20,9 +31,11 @@ const EMPTY_FORM = {
   icon: 'FiSettings',
   isActive: true,
   serviceType: 'Other',
+  unitTypePricing: {},
 };
 
 function ServiceManage() {
+  const [activeTab, setActiveTab] = useState('services');
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -69,6 +82,10 @@ function ServiceManage() {
 
   function openEditModal(service) {
     setEditingService(service);
+    const unitTypePricing = {};
+    (service.unitTypePricing || []).forEach((entry) => {
+      unitTypePricing[entry.unitType] = String(entry.price);
+    });
     setForm({
       name: service.name || '',
       description: service.description || '',
@@ -78,6 +95,7 @@ function ServiceManage() {
       icon: service.icon || 'FiSettings',
       isActive: service.isActive !== undefined ? service.isActive : true,
       serviceType: service.serviceType || 'Other',
+      unitTypePricing,
     });
     setFormError('');
     setShowModal(true);
@@ -98,6 +116,13 @@ function ServiceManage() {
     }));
   }
 
+  function handleUnitTypePriceChange(unitType, value) {
+    setForm((prev) => ({
+      ...prev,
+      unitTypePricing: { ...prev.unitTypePricing, [unitType]: value },
+    }));
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setFormError('');
@@ -111,6 +136,17 @@ function ServiceManage() {
       return;
     }
 
+    // Empty inputs mean "use the base price" — only entries the admin actually
+    // typed a value into get sent as an override.
+    const unitTypePricing = Object.entries(form.unitTypePricing || {})
+      .filter(([, value]) => value !== '' && value !== null && value !== undefined)
+      .map(([unitType, value]) => ({ unitType, price: Number(value) }));
+
+    if (unitTypePricing.some((entry) => isNaN(entry.price) || entry.price < 0)) {
+      setFormError('Per-unit-type prices must be valid numbers.');
+      return;
+    }
+
     const payload = {
       name: form.name.trim(),
       description: form.description.trim(),
@@ -120,6 +156,7 @@ function ServiceManage() {
       icon: form.icon,
       isActive: form.isActive,
       serviceType: form.serviceType,
+      unitTypePricing,
     };
 
     setSaving(true);
@@ -188,65 +225,93 @@ function ServiceManage() {
         {/* Header & Actions */}
         <div className="svc-manage-header">
           <h1 className="dashboard-welcome">Manage Services</h1>
-          <button className="svc-add-btn" onClick={openAddModal}>
-            <FiPlus style={{ marginRight: '6px', verticalAlign: 'middle' }} /> Add Service
-          </button>
-        </div>
-
-        {/* Toolbar & Search */}
-        <div className="svc-toolbar">
-          <input
-            type="text"
-            className="svc-search svc-search-inline"
-            placeholder="Search services..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-
-        {/* Error Banner */}
-        {error && (
-          <div className="ma-form-error" style={{ marginBottom: '16px' }}>
-            {error}
-          </div>
-        )}
-
-        {/* Main Panel & Grid */}
-        <div className="svc-manage-panel">
-          {loading ? (
-            <p className="svc-empty">Loading services...</p>
-          ) : filteredServices.length === 0 ? (
-            <div className="svc-empty">
-              <p>No services found.</p>
-              <button className="svc-btn svc-btn-ghost" onClick={openAddModal} style={{ marginTop: '10px' }}>
-                Create your first service
-              </button>
-            </div>
-          ) : (
-            <div className="svc-manage-grid">
-              {filteredServices.map((s) => (
-                <div
-                  key={s._id}
-                  className="svc-service-card"
-                  onClick={() => openEditModal(s)}
-                >
-                  <div className="svc-service-icon">
-                    {ICON_MAP[s.icon] || <FiSettings />}
-                  </div>
-                  <div className="svc-service-info">
-                    <span className="svc-service-name">{s.name}</span>
-                    <span className="svc-service-desc">
-                      {s.description || 'No description provided'}
-                    </span>
-                  </div>
-                  <span className="svc-service-price">
-                    ₱{Number(s.price).toLocaleString()}
-                  </span>
-                </div>
-              ))}
-            </div>
+          {activeTab === 'services' && (
+            <button className="svc-add-btn" onClick={openAddModal}>
+              <FiPlus style={{ marginRight: '6px', verticalAlign: 'middle' }} /> Add Service
+            </button>
           )}
         </div>
+
+        {/* System Configuration Module: Services (per-service pricing) vs Payment
+            Settings (methods + account details + down payment percentages) —
+            both admin-managed config for the booking flow, kept as tabs on the
+            same existing page rather than a separate nav item. */}
+        <div className="req-filters">
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              className={`filter-pill ${activeTab === tab.key ? 'filter-pill--active' : ''}`}
+              onClick={() => setActiveTab(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'payment' ? (
+          <PaymentSettingsPanel />
+        ) : (
+          <>
+            {/* Toolbar & Search */}
+            <div className="svc-toolbar">
+              <input
+                type="text"
+                className="svc-search svc-search-inline"
+                placeholder="Search services..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+
+            {/* Error Banner */}
+            {error && (
+              <div className="ma-form-error" style={{ marginBottom: '16px' }}>
+                {error}
+              </div>
+            )}
+
+            {/* Main Panel & Grid */}
+            <div className="svc-manage-panel">
+              {loading ? (
+                <p className="svc-empty">Loading services...</p>
+              ) : filteredServices.length === 0 ? (
+                <div className="svc-empty">
+                  <p>No services found.</p>
+                  <button className="svc-btn svc-btn-ghost" onClick={openAddModal} style={{ marginTop: '10px' }}>
+                    Create your first service
+                  </button>
+                </div>
+              ) : (
+                <div className="svc-manage-grid">
+                  {filteredServices.map((s) => (
+                    <div
+                      key={s._id}
+                      className="svc-service-card"
+                      onClick={() => openEditModal(s)}
+                    >
+                      <div className="svc-service-icon">
+                        {ICON_MAP[s.icon] || <FiSettings />}
+                      </div>
+                      <div className="svc-service-info">
+                        <span className="svc-service-name">{s.name}</span>
+                        <span className="svc-service-desc">
+                          {s.description || 'No description provided'}
+                        </span>
+                      </div>
+                      <span className="svc-service-price">
+                        ₱{Number(s.price).toLocaleString()}
+                        {s.unitTypePricing?.length > 0 && (
+                          <span className="svc-service-price-note">varies by unit type</span>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
 
       </div>
 
@@ -297,6 +362,25 @@ function ServiceManage() {
                   placeholder="1500"
                   required
                 />
+              </div>
+
+              <div className="svc-field">
+                <label>Per-Unit-Type Pricing <span className="svc-field-hint">(optional — overrides base price for that unit type)</span></label>
+                <div className="svc-unit-pricing-grid">
+                  {UNIT_TYPES.map((unitType) => (
+                    <div key={unitType} className="svc-unit-pricing-row">
+                      <span className="svc-unit-pricing-label">{unitType}</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder={`Same as base (₱${form.price || 0})`}
+                        value={form.unitTypePricing?.[unitType] ?? ''}
+                        onChange={(e) => handleUnitTypePriceChange(unitType, e.target.value)}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="svc-field">

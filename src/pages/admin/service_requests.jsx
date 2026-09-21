@@ -1,15 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import AdminLayout from './admin_layout';
 import AdminServiceDetailsModal from '../../components/admin_service_details_modal';
+import PersonFilterBanner from '../../components/person_filter_banner';
 import { getStatusColor } from '../../utils/statusColors';
 
 function ServiceRequests() {
     const navigate = useNavigate();
+    const location = useLocation();
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeFilter, setActiveFilter] = useState('All');
     const [selectedBooking, setSelectedBooking] = useState(null);
+    // Manage Accounts' "View Job History" (technician) / "View Bookings" (client)
+    // links land here with a person filter pre-applied via navigation state, rather
+    // than this page having its own duplicate list of every technician/client.
+    const [personFilter, setPersonFilter] = useState(location.state?.personFilter || null);
 
     const filters = ['All', 'Pending', 'Approved', 'In Progress', 'Completed', 'Cancelled'];
 
@@ -43,8 +49,13 @@ function ServiceRequests() {
         setSelectedBooking(updatedBooking);
     };
 
-    const filteredRequests =
-        activeFilter === 'All' ? requests : requests.filter((req) => req.status === activeFilter);
+    const filteredRequests = requests
+        .filter((req) => activeFilter === 'All' || req.status === activeFilter)
+        .filter((req) => {
+            if (!personFilter) return true;
+            const person = personFilter.type === 'technician' ? req.technician : req.customer;
+            return person?._id === personFilter.id;
+        });
 
     return (
         <AdminLayout title="Bookings">
@@ -69,6 +80,8 @@ function ServiceRequests() {
                         + New Booking
                     </button>
                 </div>
+
+                <PersonFilterBanner filter={personFilter} onClear={() => setPersonFilter(null)} />
 
                 {loading ? (
                     <p>Loading bookings...</p>

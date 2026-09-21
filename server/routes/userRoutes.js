@@ -5,16 +5,18 @@ const User = require('../models/User');
 const Booking = require('../models/Booking');
 const auth = require('../middleware/auth');
 
-// Customer Classification Module thresholds. Not yet confirmed by the client —
-// the paper currently says "4+ different services in a year," but the count and/or
-// the "different services" wording could still change. Kept as named constants so
-// that update is a one-line change instead of a re-find-the-logic exercise.
-const RETURN_CUSTOMER_MIN_BOOKINGS = 4;
+// Customer Classification Module thresholds. Client-confirmed: commercial clients
+// clean quarterly (4x/year), residential clean 3x/year — a flat 3 catches both
+// segments, since commercial's 4x/year always clears it too, so no need to split
+// the logic by client type. Kept as a named constant so a future change is still
+// a one-line edit instead of a re-find-the-logic exercise.
+const RETURN_CUSTOMER_MIN_BOOKINGS = 3;
 const RETURN_CUSTOMER_WINDOW_MONTHS = 12;
 
-// 4+ completed bookings within a rolling window auto-flags a customer as "Return" —
-// re-evaluated fresh on every read rather than cached, so it naturally drops back
-// to "Regular" if a Return customer goes quiet for a year with no new completion.
+// RETURN_CUSTOMER_MIN_BOOKINGS+ completed bookings within a rolling window
+// auto-flags a customer as "Return" — re-evaluated fresh on every read rather
+// than cached, so it naturally drops back to "Regular" if a Return customer goes
+// quiet for a year with no new completion.
 async function computeAutoClassification(customerId) {
   const windowStart = new Date();
   windowStart.setMonth(windowStart.getMonth() - RETURN_CUSTOMER_WINDOW_MONTHS);

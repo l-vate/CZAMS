@@ -74,11 +74,21 @@ function ReceiptModal({ form, booking, onClose }) {
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td>{form.service || '—'}</td>
-                  <td>1</td>
-                  <td>₱{basePrice.toLocaleString()}</td>
-                </tr>
+                {form.lineItems?.length > 0 ? (
+                  form.lineItems.map((li, i) => (
+                    <tr key={i}>
+                      <td>{form.service || '—'} — {li.type || '—'}{li.brandModel ? ` (${li.brandModel})` : ''}</td>
+                      <td>{li.quantity}</td>
+                      <td>₱{li.subtotal.toLocaleString()}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td>{form.service || '—'}</td>
+                    <td>1</td>
+                    <td>₱{basePrice.toLocaleString()}</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

@@ -9,7 +9,7 @@ const auth = require('../middleware/auth');
 router.get('/public', async (req, res) => {
   try {
     const services = await Service.find({ isActive: true })
-      .select('name description price durationMinutes category icon serviceType')
+      .select('name description price durationMinutes category icon serviceType unitTypePricing')
       .sort({ category: 1, name: 1 });
     res.json(services);
   } catch (err) {
@@ -59,7 +59,7 @@ router.post('/', auth, async (req, res) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const { name, description, price, durationMinutes, category, icon, isActive, serviceType } = req.body;
+    const { name, description, price, durationMinutes, category, icon, isActive, serviceType, unitTypePricing } = req.body;
 
     if (!name || !name.trim()) {
       return res.status(400).json({ message: 'Name is required' });
@@ -78,6 +78,7 @@ router.post('/', auth, async (req, res) => {
       icon: icon || '',
       isActive: isActive !== undefined ? isActive : true,
       serviceType: serviceType || 'Other',
+      unitTypePricing: Array.isArray(unitTypePricing) ? unitTypePricing : [],
     });
 
     res.status(201).json(service);
@@ -93,7 +94,7 @@ router.put('/:id', auth, async (req, res) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const { name, description, price, durationMinutes, category, icon, isActive, serviceType } = req.body;
+    const { name, description, price, durationMinutes, category, icon, isActive, serviceType, unitTypePricing } = req.body;
 
     if (name !== undefined && !name.trim()) {
       return res.status(400).json({ message: 'Name cannot be empty' });
@@ -111,6 +112,7 @@ router.put('/:id', auth, async (req, res) => {
     if (icon !== undefined) update.icon = icon;
     if (isActive !== undefined) update.isActive = isActive;
     if (serviceType !== undefined) update.serviceType = serviceType;
+    if (unitTypePricing !== undefined) update.unitTypePricing = Array.isArray(unitTypePricing) ? unitTypePricing : [];
 
     const service = await Service.findByIdAndUpdate(req.params.id, update, {
       new: true,

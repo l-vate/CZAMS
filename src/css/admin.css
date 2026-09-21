@@ -184,6 +184,67 @@
 /* ============ MANAGE ACCOUNTS ============ */
 .ma-overview { padding: 8px 4px; }
 
+/* Performance Review modal (technician_performance_modal.jsx) — compact 3-up
+   version of .analytics-card, sized for a modal rather than a full dashboard row. */
+.tpm-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.tpm-stat-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+}
+
+.tpm-stat-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.tpm-stat-label {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+/* "Filtered by <person>" banner — Manage Accounts links into Bookings/Payments/
+   Reports with a person filter pre-applied; this is the dismissible banner each
+   of those pages shows while that filter is active. */
+.person-filter-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e3a8a;
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  margin: 12px 0;
+}
+
+.person-filter-banner strong { font-weight: 700; }
+
+.person-filter-clear {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: #1d4ed8;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 /* .ma-page-title was dead CSS — manage_accounts.jsx had no in-page title at all;
    it now uses the shared .dashboard-welcome (index.css, Pass E). */
 
@@ -245,14 +306,25 @@
 
 .ma-list { display: flex; flex-direction: column; gap: 12px; }
 
+/* Had no background/border/shadow at all before — not something the UI
+   consistency pass touched or broke, it was just never fully styled. Matched
+   here to the .payment-card/.refund-card/.backjob-card convention exactly
+   (same white bg, same #e2e8f0 border, same --card-hover-shadow on hover). */
 .ma-list-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 18px 24px;
   flex-wrap: wrap;
+  transition: box-shadow 0.2s ease;
+}
+
+.ma-list-row:hover {
+  box-shadow: var(--card-hover-shadow);
 }
 
 .ma-row-info { min-width: 180px; }
@@ -599,12 +671,17 @@
   z-index: 1000;
 }
 
+/* max-height/overflow-y added alongside the same fix on the shared .modal-card
+   (modals/payment_modal.css) — this is a separate class (not .modal-card) so it
+   needed the same fix applied here too. */
 .svc-modal {
   background: #fff;
   border-radius: 16px;
   padding: 24px;
   width: 100%;
   max-width: 380px;
+  max-height: 90vh;
+  overflow-y: auto;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
 }
 
@@ -641,6 +718,52 @@
   box-shadow: 0 0 0 3px rgba(79, 195, 247, 0.2);
 }
 
+.svc-field-hint { font-weight: 400; color: #94a3b8; font-size: 11px; }
+
+/* Multi-Unit Booking Redesign: one price-override row per UNIT_TYPES entry. */
+.svc-unit-pricing-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.svc-unit-pricing-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.svc-unit-pricing-label { font-size: 12.5px; color: #475569; flex-shrink: 0; }
+
+.svc-unit-pricing-row input {
+  width: 140px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 13px;
+  color: #1a1a1a;
+}
+
+.svc-unit-pricing-row input:focus {
+  outline: none;
+  border-color: #4fc3f7;
+  box-shadow: 0 0 0 3px rgba(79, 195, 247, 0.2);
+}
+
+.svc-service-price-note {
+  display: block;
+  font-size: 9.5px;
+  font-weight: 500;
+  text-transform: none;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
 .svc-modal-actions {
   display: flex;
   align-items: center;
@@ -670,6 +793,115 @@
 .svc-btn-ghost:hover { border-color: var(--navy); color: var(--navy); }
 .svc-btn-danger { background: var(--danger); color: #fff; }
 .svc-btn-danger:hover { background: var(--danger-hover); }
+
+/* ============ PAYMENT SETTINGS (System Configuration Module) ============ */
+.pset-panel { display: flex; flex-direction: column; gap: 28px; }
+
+.pset-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.pset-input {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 13.5px;
+  color: #1a1a1a;
+  flex: 1;
+  min-width: 0;
+}
+
+.pset-input:focus {
+  outline: none;
+  border-color: #4fc3f7;
+  box-shadow: 0 0 0 3px rgba(79, 195, 247, 0.2);
+}
+
+.pset-method-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pset-method-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pset-method-name {
+  font-weight: 600;
+  font-size: 14.5px;
+}
+
+.pset-icon-btn {
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.pset-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 4px;
+}
+
+.pset-remove-detail-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.pset-remove-detail-btn:hover { color: var(--danger); }
+
+.pset-add-detail-btn {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 4px 0;
+  margin-left: 4px;
+}
+
+.pset-percent-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+
+.pset-percent-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pset-percent-input { width: 90px; flex: none; }
+
+.pset-save-row {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid var(--mist);
+  padding-top: 16px;
+}
 
 /* ============ ANNOUNCEMENTS PAGE (System Configuration Module) ============ */
 .ann-view { display: flex; flex-direction: column; gap: 16px; }
@@ -773,12 +1005,15 @@
   z-index: 1000;
 }
 
+/* Same fix as .svc-modal above. */
 .ann-modal {
   background: #fff;
   border-radius: 16px;
   padding: 24px;
   width: 100%;
   max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
 }
 
@@ -936,7 +1171,9 @@
   border-radius: 12px;
   padding: 18px 22px;
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr auto;
+  /* Fixed-width last column (rather than auto) so cards without a Review button —
+     fully paid / cancelled — keep the same column positions as the ones with it. */
+  grid-template-columns: 2fr 0.8fr 1fr 1fr 130px;
   align-items: center;
   gap: 16px;
   transition: box-shadow 0.2s ease;
@@ -973,6 +1210,12 @@
 .payment-card__technician {
   font-size: 12.5px;
   color: #64748b;
+}
+
+.payment-card__amount {
+  font-weight: 700;
+  font-size: 15px;
+  color: #0f172a;
 }
 
 .status-pill {

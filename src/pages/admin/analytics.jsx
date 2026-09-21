@@ -48,7 +48,7 @@ function monthLabel(key) {
 // Module's existing fields). Missed assignments are intentionally omitted — there's
 // no existing field that reliably tracks a technician failing to show up for an
 // assignment, so this would have to be invented rather than computed.
-function buildTechnicianStats(bookings, reports) {
+export function buildTechnicianStats(bookings, reports) {
     const map = {};
 
     bookings.forEach((b) => {

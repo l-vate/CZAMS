@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AdminLayout from './admin_layout';
 import UserDetailsModal from '../../components/user_details_modal';
+import TechnicianPerformanceModal from '../../components/technician_performance_modal';
 
 /* ── Small Icon Helpers ───────────────────────────────────── */
 function ClockIcon() {
@@ -136,6 +138,7 @@ function RegisterForm({ type, onCancel, onSubmit }) {
 
 /* ── Main Manage Accounts Component ───────────────────────── */
 function ManageAccounts() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('Technicians'); // 'Technicians' | 'Clients'
@@ -144,6 +147,7 @@ function ManageAccounts() {
   const [registerRole, setRegisterRole] = useState('staff'); // 'staff' | 'customer'
   const [justAdded, setJustAdded] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [performanceReviewFor, setPerformanceReviewFor] = useState(null);
 
   const filters = ['Technicians', 'Clients'];
 
@@ -204,6 +208,39 @@ function ManageAccounts() {
   const handleUserUpdated = (updatedUser) => {
     setUsers((prev) => prev.map((u) => (u._id === updatedUser._id ? updatedUser : u)));
     setSelectedUser(updatedUser);
+  };
+
+  // Most of these links reuse existing full pages (Bookings, Payments, Service
+  // Reports) with a person filter pre-applied via navigation state, rather than
+  // building six standalone views — see PersonFilterBanner on each of those pages
+  // for the other half of this. Performance Review is the one exception: there's
+  // no existing per-technician page to filter into (Analytics is aggregate-only),
+  // so it opens a small modal here instead.
+  const handleAccountLink = (person, label) => {
+    const isTech = person.role === 'staff';
+    const personFilter = {
+      type: isTech ? 'technician' : 'customer',
+      id: person._id,
+      name: person.name || 'No Name Provided',
+    };
+
+    switch (label) {
+      case 'View Job History':
+      case 'View Bookings':
+        navigate('/admin/services/requests', { state: { personFilter } });
+        break;
+      case 'Performance Review':
+        setPerformanceReviewFor(person);
+        break;
+      case 'Reports':
+        navigate('/admin/services/reports', { state: { personFilter } });
+        break;
+      case 'Billing History':
+        navigate('/admin/payments', { state: { personFilter } });
+        break;
+      default:
+        break;
+    }
   };
 
   const handleOpenRegister = () => {
@@ -317,7 +354,10 @@ function ManageAccounts() {
                             href="#"
                             className="ma-row-link"
                             key={label}
-                            onClick={(e) => e.preventDefault()}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleAccountLink(person, label);
+                            }}
                           >
                             <ClockIcon /> {label}
                           </a>
@@ -348,6 +388,13 @@ function ManageAccounts() {
           user={selectedUser}
           onClose={() => setSelectedUser(null)}
           onUpdated={handleUserUpdated}
+        />
+      )}
+
+      {performanceReviewFor && (
+        <TechnicianPerformanceModal
+          technician={performanceReviewFor}
+          onClose={() => setPerformanceReviewFor(null)}
         />
       )}
     </AdminLayout>

@@ -32,6 +32,16 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+  /* This base class had no height/overflow handling at all — only a few
+     size-modifier classes (.sdm-modal, .report-view-modal, .receipt-modal-card,
+     .report-pdf-modal-card) individually patched it. Every plain .modal-card
+     consumer (payment_modal.jsx, feedback_modal.jsx, back_job_modal.jsx, the
+     admin .payment-review-modal used by Payments/Refunds/Back Jobs review,
+     .cancel-confirm-card, and staff's .tech-job-modal) had no fallback: content
+     taller than the viewport just got clipped above/below the screen with no way
+     to scroll to it. Fixed once, here, so it applies to all of them.  */
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .modal-header {

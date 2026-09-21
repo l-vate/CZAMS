@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-function PaymentModal({ form, paymentType = 'downpayment', onClose, onSubmit }) {
+function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], onClose, onSubmit }) {
   const basePrice = form.basePrice || 0;
   const dpPercent = form.downPaymentPercent ?? 10;
   const toPayNow = form.toPayNow ?? Math.round(basePrice * (dpPercent / 100));
@@ -9,6 +9,13 @@ function PaymentModal({ form, paymentType = 'downpayment', onClose, onSubmit }) 
   const isBalance = paymentType === 'balance';
   const amountDue = isBalance ? remaining : toPayNow;
   const amountLabel = isBalance ? 'Remaining Balance Due' : 'Amount to Pay Now';
+
+  // A balance payment uses whatever mode was picked for the *second* payment when
+  // the booking was made (paymentMode2) — form.paymentMode is the down payment's
+  // mode and would be wrong here for e.g. a booking paid down via GCash but
+  // settling its balance via Bank Transfer.
+  const selectedModeName = isBalance ? form.paymentMode2 : form.paymentMode;
+  const accountDetails = paymentMethods.find((m) => m.name === selectedModeName)?.accountDetails || [];
 
   const [proof, setProof] = useState(null);
   const [senior, setSenior] = useState(null);
@@ -47,6 +54,12 @@ function PaymentModal({ form, paymentType = 'downpayment', onClose, onSubmit }) 
         </div>
 
         <div className="modal-cost-rows">
+          {form.lineItems?.map((li, i) => (
+            <div className="modal-cost-row" key={i}>
+              <span>{li.type || '—'} × {li.quantity}</span>
+              <span>₱{li.subtotal.toLocaleString()}.00</span>
+            </div>
+          ))}
           <div className="modal-cost-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}.00</span></div>
           <div className="modal-cost-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
 
@@ -64,11 +77,16 @@ function PaymentModal({ form, paymentType = 'downpayment', onClose, onSubmit }) 
 
         <div className="modal-divider" />
 
-        <p className="modal-instruction">Send your payment to the account:</p>
-        <div className="modal-account-box">
-          <div className="modal-account-row"><span>Account Name</span><span>John Owner</span></div>
-          <div className="modal-account-row"><span>Account Number</span><span>09xxxxxxxxx</span></div>
-        </div>
+        {accountDetails.length > 0 && (
+          <>
+            <p className="modal-instruction">Send your payment to the account:</p>
+            <div className="modal-account-box">
+              {accountDetails.map((d, i) => (
+                <div className="modal-account-row" key={i}><span>{d.label}</span><span>{d.value}</span></div>
+              ))}
+            </div>
+          </>
+        )}
 
         <div className="modal-upload-group">
           <label className="modal-upload-label">

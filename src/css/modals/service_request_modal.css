@@ -9,6 +9,13 @@
     padding: 20px;
 }
 
+/* .sdm-modal itself no longer scrolls (overflow: hidden) — it used to, which
+   meant .sdm-close-position (a direct sibling, added in the earlier UI
+   consistency pass) would scroll away with the rest of the content on a tall
+   record, the same class of problem as a modal being cut off with no way back
+   to its own close button. .sdm-body now owns its own scroll region instead
+   (flex: 1 + overflow-y: auto below), so the close button and the sticky footer
+   both stay outside the scrolled area and always stay visible. */
 .sdm-modal {
     position: relative;
     background: #fff;
@@ -16,8 +23,10 @@
     max-width: 720px;
     max-height: 90vh;
     border-radius: 20px;
-    overflow-y: auto;
+    overflow: hidden;
     box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+    display: flex;
+    flex-direction: column;
 }
 
 /* .sdm-close was dead CSS — never actually used in either sdm-* modal's JSX, so
@@ -36,6 +45,8 @@
 
 .sdm-body {
     padding: 28px 32px 8px;
+    flex: 1;
+    overflow-y: auto;
 }
 
 .sdm-titlebar {
@@ -347,9 +358,11 @@
     background: var(--primary-hover);
 }
 
+/* No longer needs position: sticky — it's a flex sibling of .sdm-body outside
+   that element's own scroll region now, so it naturally stays put at the
+   bottom without relying on sticky positioning inside a scrolling ancestor. */
 .sdm-footer {
-    position: sticky;
-    bottom: 0;
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: flex-end;

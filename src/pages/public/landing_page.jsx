@@ -1,14 +1,37 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FiWind, FiThermometer, FiZap, FiGrid, FiHome, FiSearch } from 'react-icons/fi';
 import '../../css/public.css'
 
 const API_BASE = 'http://localhost:5000';
 
-const SEARCH_TABS = [
-  { key: 'service', label: 'By Service' },
-  { key: 'technician', label: 'By Technician' },
-  { key: 'date', label: 'By Available Date' },
-];
+const NAV_SEARCH_RESULTS_LIMIT = 8;
+
+// Same canonical list booking uses (book_service.jsx UNIT_TYPES) — duplicated
+// here rather than imported since that module is customer/auth-flow code and
+// this component is the fully public landing page. Named distinctly from the
+// UNIT_TYPES below (that one's the "Coverage" section's icon list, a different,
+// looser set of labels — this one has to match booking's real unit types
+// exactly, since it's used to look up real per-type prices).
+const SEARCH_UNIT_TYPES = ['Window Type', 'Split Type', 'Floor Mounted', 'Cassette Type', 'Portable'];
+
+// Temporary placeholder photos (free stock, aircon-themed) for the small inset
+// image per unit type in the search popup's service-match card. Swap for real
+// CZA photography later.
+const UNIT_TYPE_IMAGES = {
+  'Window Type': 'https://images.unsplash.com/photo-1630169839507-fedc46615129?auto=format&fit=crop&w=200&q=70',
+  'Split Type': 'https://images.unsplash.com/photo-1762341123870-d706f257a12e?auto=format&fit=crop&w=200&q=70',
+  'Floor Mounted': 'https://images.unsplash.com/photo-1758980960373-2be749113338?auto=format&fit=crop&w=200&q=70',
+  'Cassette Type': 'https://images.unsplash.com/photo-1647936900381-d5df29d055a5?auto=format&fit=crop&w=200&q=70',
+  'Portable': 'https://cdn.pixabay.com/photo/2018/06/08/16/10/air-conditioning-3462597_640.png',
+};
+
+// Mirrors src/utils/bookingPricing.js getUnitPrice: a per-unit-type override if the
+// admin set one for this service, otherwise the flat base price.
+function getUnitPrice(service, unitType) {
+  const override = service?.unitTypePricing?.find((p) => p.unitType === unitType);
+  return override ? override.price : (service?.price || 0);
+}
 
 const CATEGORY_LABEL = {
   Holiday: '🎉 Holiday',
@@ -17,23 +40,29 @@ const CATEGORY_LABEL = {
   General: '📢 Announcement',
 };
 
-/* ── Landing Page Module: public search ─────────────────────
-   Unauthenticated visitors can browse services, technicians, and date
-   availability without logging in. Reuses the same real data the logged-in
-   booking flow uses (GET /api/services/public mirrors the service picker's
-   data, GET /api/auth/technicians is the exact endpoint book_service.jsx
-   already uses, GET /api/bookings/public/availability mirrors the private
-   busy-technicians lookup) rather than a separate hardcoded dataset —
-   this only browses, it doesn't book; booking still requires login. */
-function PublicSearch({ navigate }) {
-  const [activeTab, setActiveTab] = useState('service');
+/* ── Landing Page Module: navbar search ─────────────────────
+   Replaces the old dedicated "Search Before You Book" section (3 tabs incl. a
+   date-availability check) with a single normal search input in the navbar —
+   simple text match against service and technician names only. Date search was
+   dropped: it doesn't fit a plain text box the way name matching does, and per
+   the client this is better handled inside the actual booking flow later if it's
+   ever needed. Still real data (GET /api/services/public, GET /api/auth/technicians,
+   GET /api/bookings/public/feedback-summary — all public, no auth) and still
+   browse-only for an unauthenticated visitor.
+
+   Results open in a larger popup instead of a small inline list. A service
+   match shows that service's description and a full per-unit-type price
+   breakdown. A technician match deliberately does NOT show that person's own
+   schedule/rating/profile — this is a 4-person field team and an individual
+   public profile is a privacy concern the client specifically wants to avoid —
+   so it shows the matched name plus one shared, company-wide review aggregate
+   instead (same aggregate no matter which or how many technicians matched). */
+function NavSearch({ navigate }) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
   const [services, setServices] = useState([]);
   const [technicians, setTechnicians] = useState([]);
-  const [serviceQuery, setServiceQuery] = useState('');
-  const [technicianQuery, setTechnicianQuery] = useState('');
-  const [dateQuery, setDateQuery] = useState('');
-  const [busyTechIds, setBusyTechIds] = useState(null);
-  const [checkingDate, setCheckingDate] = useState(false);
+  const [feedbackSummary, setFeedbackSummary] = useState(null);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/services/public`)
@@ -45,199 +74,155 @@ function PublicSearch({ navigate }) {
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => setTechnicians(Array.isArray(data) ? data : []))
       .catch(() => setTechnicians([]));
+
+    fetch(`${API_BASE}/api/bookings/public/feedback-summary`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setFeedbackSummary(data))
+      .catch(() => setFeedbackSummary(null));
   }, []);
 
-  const filteredServices = useMemo(() => {
-    const q = serviceQuery.trim().toLowerCase();
-    if (!q) return services;
-    return services.filter(
-      (s) => s.name?.toLowerCase().includes(q) || s.category?.toLowerCase().includes(q)
-    );
-  }, [services, serviceQuery]);
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [open]);
 
-  const filteredTechnicians = useMemo(() => {
-    const q = technicianQuery.trim().toLowerCase();
-    if (!q) return technicians;
+  const serviceResults = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    // Capped (unlike the technician list, small enough to just show in full) —
+    // each match renders as a full card with a description and unit-type grid,
+    // so an uncapped list could get very long in the popup.
+    return services.filter((s) => s.name?.toLowerCase().includes(q)).slice(0, NAV_SEARCH_RESULTS_LIMIT);
+  }, [services, query]);
+
+  const technicianResults = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
     return technicians.filter((t) => t.name?.toLowerCase().includes(q));
-  }, [technicians, technicianQuery]);
+  }, [technicians, query]);
 
-  const handleDateCheck = async (value) => {
-    setDateQuery(value);
-    setBusyTechIds(null);
-    if (!value) return;
-
-    setCheckingDate(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/bookings/public/availability?date=${value}`);
-      const data = res.ok ? await res.json() : { busyTechIds: [] };
-      setBusyTechIds(Array.isArray(data.busyTechIds) ? data.busyTechIds : []);
-    } catch (err) {
-      setBusyTechIds([]);
-    } finally {
-      setCheckingDate(false);
-    }
-  };
-
-  const availableTechnicians = busyTechIds
-    ? technicians.filter((t) => !busyTechIds.includes(t._id))
-    : [];
+  const totalResults = serviceResults.length + technicianResults.length;
 
   return (
-    <section id="search" className="public-search">
-      <span className="section-eyebrow">Find What You Need</span>
-      <h2 className="section-title">Search Before You Book</h2>
-      <p className="section-subtitle">Browse our services, technicians, and open dates — no account needed.</p>
-
-      <div className="public-search-tabs">
-        {SEARCH_TABS.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            className={`public-search-tab ${activeTab === tab.key ? 'public-search-tab--active' : ''}`}
-            onClick={() => setActiveTab(tab.key)}
-          >
-            {tab.label}
-          </button>
-        ))}
+    <div className="nav-search-wrapper">
+      <div className="nav-search-box">
+        <FiSearch className="nav-search-icon" aria-hidden="true" />
+        <input
+          type="search"
+          className="search"
+          placeholder="Search services or technicians..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => setOpen(true)}
+        />
       </div>
 
-      <div className="public-search-panel">
-        {activeTab === 'service' && (
-          <>
-            <input
-              type="text"
-              className="public-search-input"
-              placeholder="Search services (e.g. cleaning, repair, installation)..."
-              value={serviceQuery}
-              onChange={(e) => setServiceQuery(e.target.value)}
-            />
-            <div className="public-search-results">
-              {filteredServices.length === 0 ? (
-                <p className="public-search-empty">No matching services.</p>
-              ) : (
-                filteredServices.map((s) => (
-                  <div className="public-search-result" key={s._id}>
-                    <div className="public-search-result-main">
-                      <span className="public-search-result-title">{s.name}</span>
-                      <span className="public-search-result-desc">{s.description}</span>
-                    </div>
-                    <span className="public-search-result-price">₱{Number(s.price).toLocaleString()}</span>
-                  </div>
-                ))
-              )}
+      {open && query.trim() && (
+        <div className="modal-overlay nav-search-modal-overlay" onClick={() => setOpen(false)}>
+          <div className="nav-search-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="nav-search-modal-title">Search Results for "{query.trim()}"</span>
+              <button className="modal-close-btn" onClick={() => setOpen(false)}>✕</button>
             </div>
-          </>
-        )}
 
-        {activeTab === 'technician' && (
-          <>
-            <input
-              type="text"
-              className="public-search-input"
-              placeholder="Search technicians by name..."
-              value={technicianQuery}
-              onChange={(e) => setTechnicianQuery(e.target.value)}
-            />
-            <div className="public-search-results">
-              {filteredTechnicians.length === 0 ? (
-                <p className="public-search-empty">No matching technicians.</p>
+            <div className="nav-search-modal-body">
+              {totalResults === 0 ? (
+                <p className="nav-search-empty">No matches for "{query.trim()}".</p>
               ) : (
-                filteredTechnicians.map((t) => (
-                  <div className="public-search-result" key={t._id}>
-                    <div className="public-search-result-main">
-                      <span className="public-search-result-title">{t.name}</span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </>
-        )}
+                <>
+                  {serviceResults.length > 0 && (
+                    <div className="nav-search-result-group">
+                      <h4 className="nav-search-group-title">Services</h4>
+                      {serviceResults.map((s) => (
+                        <div className="nav-search-service-card" key={s._id}>
+                          <div className="nav-search-service-header">
+                            <span className="nav-search-service-name">{s.name}</span>
+                            <span className="nav-search-service-base-price">
+                              From ₱{Number(s.price).toLocaleString()}
+                            </span>
+                          </div>
+                          {s.description && (
+                            <p className="nav-search-service-desc">{s.description}</p>
+                          )}
 
-        {activeTab === 'date' && (
-          <>
-            <input
-              type="date"
-              className="public-search-input"
-              value={dateQuery}
-              onChange={(e) => handleDateCheck(e.target.value)}
-            />
-            <div className="public-search-results">
-              {checkingDate && <p className="public-search-empty">Checking availability...</p>}
-              {!checkingDate && dateQuery && busyTechIds !== null && (
-                availableTechnicians.length === 0 ? (
-                  <p className="public-search-empty">
-                    {technicians.length === 0
-                      ? 'No technicians on file yet.'
-                      : 'Fully booked on this date — try another day.'}
-                  </p>
-                ) : (
-                  <>
-                    <p className="public-search-availability-summary">
-                      {availableTechnicians.length} of {technicians.length} technicians available
-                    </p>
-                    {availableTechnicians.map((t) => (
-                      <div className="public-search-result" key={t._id}>
-                        <div className="public-search-result-main">
-                          <span className="public-search-result-title">{t.name}</span>
+                          <p className="nav-search-unit-heading">Pricing by unit type</p>
+                          <div className="nav-search-unit-grid">
+                            {SEARCH_UNIT_TYPES.map((type) => (
+                              <div className="nav-search-unit-item" key={type}>
+                                <img
+                                  src={UNIT_TYPE_IMAGES[type]}
+                                  alt={type}
+                                  className="nav-search-unit-photo"
+                                />
+                                <span className="nav-search-unit-label">{type}</span>
+                                <span className="nav-search-unit-price">
+                                  ₱{Number(getUnitPrice(s, type)).toLocaleString()}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </>
-                )
-              )}
-            </div>
-          </>
-        )}
+                      ))}
+                    </div>
+                  )}
 
-        <div className="public-search-cta">
-          <button className="cta" onClick={() => navigate('/login')}>Log In to Book</button>
+                  {technicianResults.length > 0 && (
+                    <div className="nav-search-result-group">
+                      <h4 className="nav-search-group-title">Technicians</h4>
+                      <div className="nav-search-tech-names">
+                        {technicianResults.map((t) => (
+                          <span className="nav-search-tech-chip" key={t._id}>{t.name}</span>
+                        ))}
+                      </div>
+
+                      {/* Company-wide aggregate only — never a per-technician score/profile. */}
+                      <div className="nav-search-reviews-card">
+                        <p className="nav-search-reviews-title">Customer Reviews</p>
+                        {feedbackSummary?.totalReviews > 0 ? (
+                          <p className="nav-search-reviews-stat">
+                            ★ {feedbackSummary.averageRating} average from {feedbackSummary.totalReviews} review{feedbackSummary.totalReviews === 1 ? '' : 's'}
+                          </p>
+                        ) : (
+                          <p className="nav-search-reviews-stat nav-search-reviews-empty">No reviews yet.</p>
+                        )}
+                        <p className="nav-search-reviews-note">
+                          Reflects all completed jobs company-wide, not a single technician.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              <button className="cta nav-search-cta" onClick={() => navigate('/login')}>
+                Log In to Book
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-    </section>
+      )}
+    </div>
   );
 }
 
-/* ── Landing Page Module: announcement board ─────────────────
+/* ── Landing Page Module: announcements-in-hero hook ─────────
    Real data from GET /api/announcements/public (Announcement model, managed by
-   admin under Manage Services > ... > Announcements). Hidden entirely when there
-   are none, rather than showing an empty "no announcements" box on a public
-   marketing page. */
-function AnnouncementBoard() {
+   admin under Announcements). Previously rendered as its own section below the
+   hero; moved back into the hero carousel itself (one slide per announcement,
+   after the static booking slide) so it actually shows in the main top banner. */
+function useAnnouncements() {
   const [announcements, setAnnouncements] = useState([]);
-  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/announcements/public`)
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => setAnnouncements(Array.isArray(data) ? data : []))
-      .catch(() => setAnnouncements([]))
-      .finally(() => setLoaded(true));
+      .catch(() => setAnnouncements([]));
   }, []);
 
-  if (!loaded || announcements.length === 0) return null;
-
-  return (
-    <section className="announcement-board">
-      <span className="section-eyebrow">Stay Updated</span>
-      <h2 className="section-title">Announcements</h2>
-
-      <div className="announcement-board-list">
-        {announcements.map((a) => (
-          <div className="announcement-card" key={a._id}>
-            <div className="announcement-card-topline">
-              <span className={`announcement-card-category announcement-card-category--${a.category.toLowerCase()}`}>
-                {CATEGORY_LABEL[a.category] || a.category}
-              </span>
-              {a.displayDate && <span className="announcement-card-date">{a.displayDate}</span>}
-            </div>
-            <h3>{a.title}</h3>
-            <p>{a.message}</p>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
+  return announcements;
 }
 
 /* ── Static Content ─────────────────────────────────────── */
@@ -248,39 +233,47 @@ const STATS = [
   { value: '4.9★', label: 'Average Rating' },
 ];
 
+// Temporary placeholder photos (free Unsplash stock, aircon/HVAC-themed) —
+// /images/services/*.jpg never existed on disk (confirmed: public/images/ only
+// has logo.png), so these cards were rendering broken images. Swap for real CZA
+// photography when available.
 const SERVICES = [
   {
-    image: '/images/services/cleaning.jpg',
+    image: 'https://images.unsplash.com/photo-1737012197886-7d5a52ded45b?auto=format&fit=crop&w=800&q=80',
     title: 'Aircon Cleaning',
     desc: 'Thorough deep-cleaning for fresh, healthy, efficient air circulation.',
     price: 'From ₱650',
   },
   {
-    image: '/images/services/repair.jpg',
+    image: 'https://images.unsplash.com/photo-1642749776312-aa42ce20c9f5?auto=format&fit=crop&w=800&q=80',
     title: 'Repair & Diagnostics',
     desc: 'Fast diagnosis and dependable repairs for all unit types and brands.',
     price: 'From ₱1,200',
   },
   {
-    image: '/images/services/installation.jpg',
+    image: 'https://images.unsplash.com/photo-1726614846573-c1ac2e6161d1?auto=format&fit=crop&w=800&q=80',
     title: 'New Installation',
     desc: 'Professional installation with proper setup, testing, and cleanup.',
     price: 'From ₱3,500',
   },
   {
-    image: '/images/services/checkup.jpg',
+    image: 'https://images.unsplash.com/photo-1759772238012-9d5ad59ae637?auto=format&fit=crop&w=800&q=80',
     title: 'Preventive Check-Up',
     desc: 'Scheduled maintenance to avoid costly breakdowns before they happen.',
     price: 'From ₱550',
   },
 ];
 
+// Icon-based, not photo-based — /images/units/ never existed on disk (confirmed:
+// only logo.png is present under public/images), so every box here was actually
+// rendering a broken image icon. .card-icon already existed in public.css for
+// exactly this treatment but had no consumer anywhere in the app.
 const UNIT_TYPES = [
-  { image: '/images/units/window-type.jpg', label: 'Window Type' },
-  { image: '/images/units/split-type.jpg', label: 'Split Type' },
-  { image: '/images/units/inverter.jpg', label: 'Inverter' },
-  { image: '/images/units/cassette.jpg', label: 'Cassette' },
-  { image: '/images/units/floor-mounted.jpg', label: 'Floor Mounted' },
+  { icon: <FiWind />, label: 'Window Type' },
+  { icon: <FiThermometer />, label: 'Split Type' },
+  { icon: <FiZap />, label: 'Inverter' },
+  { icon: <FiGrid />, label: 'Cassette' },
+  { icon: <FiHome />, label: 'Floor Mounted' },
 ];
 
 const HOW_IT_WORKS_STEPS = [
@@ -308,6 +301,13 @@ const HOW_IT_WORKS_STEPS = [
 
 function LandingPage() {
   const navigate = useNavigate();
+  const announcements = useAnnouncements();
+  const [current, setCurrent] = useState(0);
+  const totalSlides = 1 + announcements.length;
+
+  const nextSlide = () => {
+    setCurrent((prev) => (prev + 1) % totalSlides);
+  };
 
   return (
     <>
@@ -323,6 +323,7 @@ function LandingPage() {
             <a href="#about">ABOUT US</a>
             <a href="#services">SERVICES</a>
           </nav>
+          <NavSearch navigate={navigate} />
           <button className="login-btn" onClick={() => navigate('/login')}>LOG IN</button>
         </div>
       </header>
@@ -330,7 +331,7 @@ function LandingPage() {
       {/* ============ HERO ============ */}
       <section id="home" className="hero">
         <div className="slides">
-          <div className="slide slide-1 active">
+          <div className={`slide slide-1 ${current === 0 ? 'active' : ''}`}>
             <div className="slide-content">
               <span className="slide-eyebrow">Trusted since 2009</span>
               <h1>Cool comfort, clean air,<br />delivered to your door.</h1>
@@ -340,18 +341,27 @@ function LandingPage() {
               </div>
             </div>
           </div>
+
+          {announcements.map((a, i) => (
+            <div className={`slide slide-2 ${current === i + 1 ? 'active' : ''}`} key={a._id}>
+              <div className="slide-content">
+                <span className="slide-eyebrow">
+                  {CATEGORY_LABEL[a.category] || a.category}
+                  {a.displayDate ? ` · ${a.displayDate}` : ''}
+                </span>
+                <h2>{a.title}</h2>
+                <p>{a.message}</p>
+              </div>
+            </div>
+          ))}
         </div>
+
+        {announcements.length > 0 && (
+          <button className="next-btn" onClick={nextSlide}>❯</button>
+        )}
       </section>
 
       <div className="vent-divider" />
-
-      {/* ============ PUBLIC SEARCH ============ */}
-      <PublicSearch navigate={navigate} />
-
-      <div className="vent-divider" />
-
-      {/* ============ ANNOUNCEMENT BOARD ============ */}
-      <AnnouncementBoard />
 
       {/* ============ ABOUT US ============ */}
       <section id="about" className="about">
@@ -405,7 +415,7 @@ function LandingPage() {
         <div className="cards">
           {UNIT_TYPES.map((unit) => (
             <div className="card" key={unit.label}>
-              <img src={unit.image} alt={unit.label} className="card-photo card-photo--unit" />
+              <span className="card-icon">{unit.icon}</span>
               <p>{unit.label}</p>
             </div>
           ))}
@@ -452,7 +462,7 @@ function LandingPage() {
           <div>
             <h4>Contact Us</h4>
             <p>📞 +63 900 000 0000</p>
-            <p>✉️ info@coolingzone.com</p>
+            <p>✉️ coolingzoneaircon@yahoo.com</p>
           </div>
 
           <div>

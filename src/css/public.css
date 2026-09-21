@@ -130,9 +130,11 @@
 }
 
 .slide-1 {
+  /* Temporary placeholder (free Unsplash stock, aircon-themed) — /images/hero-aircon.jpg
+     never existed on disk. Swap for real CZA photography when available. */
   background:
     linear-gradient(155deg, var(--navy) 0%, var(--navy-soft) 55%, var(--navy) 100%),
-    url('/images/hero-aircon.jpg') center/cover no-repeat;
+    url('https://images.unsplash.com/photo-1718203862467-c33159fdc504?auto=format&fit=crop&w=1600&q=80') center/cover no-repeat;
 }
 
 .slide-2 {
@@ -232,187 +234,246 @@
 
 .next-btn:hover { background: rgba(255,255,255,0.32); }
 
-/* ============ LANDING — PUBLIC SEARCH ============ */
-.public-search {
-  text-align: center;
-  background: var(--white);
-  padding: 80px 64px;
-}
+/* Announcements now render as hero slides (.slide-2, above) instead of their own
+   section — the .announcement-board/.announcement-card rules that used to style
+   that section have been removed. Same for the old dedicated "Search Before You
+   Book" section (.public-search*) — replaced by .nav-search-* below, a single
+   input in the navbar itself. */
 
-.public-search-tabs {
+/* Base overlay/header/close-button classes for the search popup — landing_page.jsx
+   only imports this stylesheet (not the shared modals/*.css used by the
+   authenticated app), so these are defined locally rather than pulling in an
+   otherwise-unrelated bundle just for three class names. */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
   display: flex;
+  align-items: center;
   justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 28px;
-  margin-bottom: 24px;
+  padding: 16px;
 }
 
-.public-search-tab {
-  border: 1.5px solid var(--mist);
-  background: var(--frost);
-  color: var(--ink-soft);
-  font-family: 'Outfit', sans-serif;
-  font-weight: 600;
-  font-size: 14px;
-  padding: 10px 22px;
-  border-radius: 24px;
-  cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-}
-
-.public-search-tab:hover { border-color: var(--navy-soft); }
-
-.public-search-tab--active {
-  background: var(--navy-soft);
-  border-color: var(--navy-soft);
-  color: white;
-}
-
-.public-search-panel {
-  max-width: 640px;
-  margin: 0 auto;
-  background: var(--frost);
-  border: 1px solid var(--mist);
-  border-radius: 20px;
-  padding: 28px;
-  text-align: left;
-}
-
-.public-search-input {
-  width: 100%;
-  padding: 12px 16px;
-  border: 1.5px solid var(--mist);
-  border-radius: 12px;
-  font-family: 'Inter', sans-serif;
-  font-size: 14px;
-  color: var(--navy);
-  background: var(--white);
-  outline: none;
-  transition: border-color 0.2s ease;
-}
-
-.public-search-input:focus { border-color: var(--navy-soft); }
-
-.public-search-results {
-  margin-top: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-height: 320px;
-  overflow-y: auto;
-}
-
-.public-search-empty {
-  color: var(--ink-soft);
-  font-size: 14px;
-  text-align: center;
-  padding: 12px 0;
-}
-
-.public-search-availability-summary {
-  font-weight: 600;
-  color: var(--navy);
-  font-size: 14px;
-  margin-bottom: 4px;
-}
-
-.public-search-result {
+.modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  background: var(--white);
-  border: 1px solid rgba(11,37,69,0.06);
-  border-radius: 12px;
-  padding: 12px 16px;
 }
 
-.public-search-result-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.public-search-result-title { font-weight: 600; color: var(--navy); font-size: 14.5px; }
-.public-search-result-desc { color: var(--ink-soft); font-size: 12.5px; }
-
-.public-search-result-price {
+.modal-close-btn {
+  background: #f1f5f9;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  cursor: pointer;
   flex-shrink: 0;
-  font-family: 'Outfit', sans-serif;
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--teal, #0e8c8c);
-  background: rgba(14,140,140,0.08);
-  padding: 5px 12px;
-  border-radius: 20px;
 }
 
-.public-search-cta {
-  margin-top: 20px;
+.modal-close-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+/* ============ NAVBAR SEARCH ============ */
+.nav-search-wrapper {
+  position: relative;
+}
+
+.nav-search-box {
+  position: relative;
   display: flex;
-  justify-content: center;
+  align-items: center;
 }
 
-/* ============ LANDING — ANNOUNCEMENT BOARD ============ */
-.announcement-board {
-  text-align: center;
-  background: var(--mist);
-  padding: 80px 64px;
+.nav-search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--ink-soft);
+  font-size: 14px;
+  pointer-events: none;
 }
 
-.announcement-board-list {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 20px;
-  margin-top: 28px;
+.nav-search-box .search {
+  width: 220px;
+  padding-left: 34px;
 }
 
-.announcement-card {
+/* Results open in a larger popup (.nav-search-modal) rather than a small
+   inline dropdown under the input — a service match needs room for its
+   description and per-unit-type price breakdown, and a technician match needs
+   room for the company-wide review aggregate shown in its place (see
+   NavSearch in landing_page.jsx for why no per-technician profile is shown). */
+.nav-search-modal-overlay {
+  z-index: 300;
+}
+
+.nav-search-modal {
   background: var(--white);
   border-radius: 16px;
-  padding: 24px 22px;
-  width: 300px;
-  text-align: left;
-  box-shadow: 0 4px 20px rgba(11,37,69,0.07);
-  border: 1px solid rgba(11,37,69,0.05);
+  width: min(560px, 92vw);
+  max-height: 82vh;
+  overflow-y: auto;
+  padding: 20px 22px 24px;
+  box-shadow: 0 24px 60px rgba(11,37,69,0.28);
+  font-family: 'Inter', sans-serif;
 }
 
-.announcement-card-topline {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.announcement-card-category {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 4px 12px;
-  border-radius: 999px;
-  background: rgba(14,140,140,0.1);
-  color: var(--teal, #0e8c8c);
-  white-space: nowrap;
-}
-
-.announcement-card-category--holiday { background: rgba(255,107,74,0.12); color: var(--coral-dark, #e8542f); }
-.announcement-card-category--closure { background: rgba(220,38,38,0.1); color: #dc2626; }
-.announcement-card-category--maintenance { background: rgba(37,99,235,0.1); color: #1d4ed8; }
-
-.announcement-card-date {
-  font-size: 12px;
-  color: var(--ink-soft);
-  white-space: nowrap;
-}
-
-.announcement-card h3 {
-  font-size: 16px;
+.nav-search-modal-title {
+  font-family: 'Outfit', sans-serif;
   font-weight: 700;
   color: var(--navy);
-  margin-bottom: 8px;
+  font-size: 16px;
 }
 
-.announcement-card p {
+.nav-search-modal-body {
+  margin-top: 14px;
+}
+
+.nav-search-empty {
   color: var(--ink-soft);
-  font-size: 13.5px;
-  line-height: 1.6;
+  font-size: 13px;
+  text-align: center;
+  padding: 24px 8px;
+}
+
+.nav-search-result-group + .nav-search-result-group {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--mist);
+}
+
+.nav-search-group-title {
+  font-family: 'Outfit', sans-serif;
+  color: var(--navy);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 10px;
+}
+
+.nav-search-service-card {
+  background: var(--frost);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.nav-search-service-card + .nav-search-service-card {
+  margin-top: 12px;
+}
+
+.nav-search-service-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.nav-search-service-name {
+  font-weight: 700;
+  color: var(--navy);
+  font-size: 15px;
+}
+
+.nav-search-service-base-price {
+  flex-shrink: 0;
+  color: var(--navy-soft);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.nav-search-service-desc {
+  color: var(--ink-soft);
+  font-size: 13px;
+  margin: 6px 0 0;
+}
+
+.nav-search-unit-heading {
+  color: var(--ink-soft);
+  font-size: 12px;
+  margin: 12px 0 6px;
+}
+
+.nav-search-unit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 10px;
+}
+
+.nav-search-unit-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+}
+
+.nav-search-unit-photo {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.nav-search-unit-label { font-size: 11px; color: var(--ink-soft); line-height: 1.2; }
+.nav-search-unit-price { font-size: 12.5px; font-weight: 700; color: var(--navy); }
+
+.nav-search-tech-names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.nav-search-tech-chip {
+  background: var(--frost);
+  color: var(--navy);
+  font-weight: 600;
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 999px;
+}
+
+.nav-search-reviews-card {
+  margin-top: 14px;
+  background: var(--frost);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.nav-search-reviews-title {
+  font-weight: 700;
+  color: var(--navy);
+  font-size: 14px;
+  margin: 0 0 6px;
+}
+
+.nav-search-reviews-stat {
+  color: var(--navy-soft);
+  font-weight: 600;
+  font-size: 14px;
+  margin: 0;
+}
+
+.nav-search-reviews-empty { color: var(--ink-soft); font-weight: 500; }
+
+.nav-search-reviews-note {
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  margin: 6px 0 0;
+}
+
+.nav-search-cta {
+  display: block;
+  width: 100%;
+  margin-top: 20px;
 }
 
 /* ============ LANDING — ABOUT ============ */
@@ -1018,11 +1079,10 @@
 @media (max-width: 860px) {
   .navbar { flex-wrap: wrap; padding: 14px 22px; gap: 12px; }
   .nav-links { order: 3; width: 100%; display: flex; justify-content: center; }
+  .nav-search-wrapper { order: 4; width: 100%; }
+  .nav-search-box .search { width: 100%; }
   .slide-content h1, .slide-content h2 { font-size: 32px; }
   .footer { padding: 40px 22px 20px; }
-  .public-search, .announcement-board { padding: 48px 22px; }
-  .public-search-panel { padding: 20px; }
-  .announcement-card { width: 100%; }
   .auth-split-page { flex-direction: column; }
   .auth-split-left { width: 100%; min-width: unset; padding: 32px 28px; min-height: 220px; }
   .auth-split-tagline h1 { font-size: 30px; }

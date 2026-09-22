@@ -104,7 +104,7 @@ function ReceiptModal({ form, booking, onClose }) {
               <span>Proof of Payment</span>
               <span>
                 {proofFile
-                  ? <a href={"http://localhost:5000" + proofFile} target="_blank" rel="noopener noreferrer">View File</a>
+                  ? <a href={`${import.meta.env.VITE_API_URL}${proofFile}`} target="_blank" rel="noopener noreferrer">View File</a>
                   : 'None'}
               </span>
             </div>
@@ -123,7 +123,7 @@ function ReceiptModal({ form, booking, onClose }) {
                   <div className="receipt-info-row">
                     <span>Balance Proof</span>
                     <span>
-                      <a href={"http://localhost:5000" + balanceProofFile} target="_blank" rel="noopener noreferrer">View File</a>
+                      <a href={`${import.meta.env.VITE_API_URL}${balanceProofFile}`} target="_blank" rel="noopener noreferrer">View File</a>
                     </span>
                   </div>
                 )}

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import AdminLayout from './admin_layout';
 import { FiClock, FiFileText, FiUser, FiMapPin, FiSearch, FiX, FiEye, FiCheckCircle, FiAlertCircle, FiClock as FiClockIcon } from 'react-icons/fi';
 
-const API_BASE = 'http://localhost:5000';
+const API_BASE = `${import.meta.env.VITE_API_URL}`;
 
 // Filter options
 const FILTERS = [

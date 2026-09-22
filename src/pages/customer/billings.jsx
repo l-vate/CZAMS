@@ -20,7 +20,7 @@ function Billings() {
 
   const fetchBookings = () => {
     const token = localStorage.getItem('token');
-    fetch('http://localhost:5000/api/bookings/mine', {
+    fetch(`${import.meta.env.VITE_API_URL}/api/bookings/mine`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => res.json())
@@ -152,7 +152,7 @@ function Billings() {
       const formData = new FormData();
       if (proof) formData.append('proof', proof);
 
-      const res = await fetch(`http://localhost:5000/api/bookings/${selectedBill.id}/pay`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings/${selectedBill.id}/pay`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}` }, // no Content-Type — browser sets it for FormData
         body: formData,
@@ -177,7 +177,7 @@ function Billings() {
       const formData = new FormData();
       if (proof) formData.append('proof', proof);
 
-      const res = await fetch(`http://localhost:5000/api/bookings/${selectedBill.id}/pay-balance`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings/${selectedBill.id}/pay-balance`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}` },
         body: formData,

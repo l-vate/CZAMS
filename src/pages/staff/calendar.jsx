@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import StaffLayout from "./staff_layout";
 import CalendarView from "../../components/calendar_view";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "${import.meta.env.VITE_API_URL}";
 
 // Converts "9:00 AM" -> 9, "1:30 PM" -> 13.5
 function timeToHour(timeStr) {

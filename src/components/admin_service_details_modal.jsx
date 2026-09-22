@@ -53,7 +53,7 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
 
     const fetchTechnicians = async () => {
         try {
-            const response = await fetch('http://localhost:5000/api/auth/technicians');
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/technicians`);
             const data = await response.json();
             setTechnicians(Array.isArray(data) ? data : []);
         } catch (err) {
@@ -65,7 +65,7 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
         if (!booking?.date) return;
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`http://localhost:5000/api/bookings/busy-technicians?date=${booking.date}`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings/busy-technicians?date=${booking.date}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const data = await response.json();
@@ -81,7 +81,7 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
         try {
             const token = localStorage.getItem('token');
             const response = await fetch(
-                `http://localhost:5000/api/bookings/${booking.bookingId}/admin-update`,
+                `${import.meta.env.VITE_API_URL}/api/bookings/${booking.bookingId}/admin-update`,
                 {
                     method: 'PATCH',
                     headers: {
@@ -250,7 +250,7 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                     <span className="sdm-list-value">
                                         {booking.proofFile ? (
                                             <a
-                                                href={`http://localhost:5000${booking.proofFile}`}
+                                                href={`${import.meta.env.VITE_API_URL}${booking.proofFile}`}
                                                 target="_blank"
                                                 rel="noreferrer"
                                                 className="sdm-link"
@@ -271,7 +271,7 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                         <span>Balance Proof</span>
                                         <span className="sdm-list-value">
                                             <a
-                                                href={`http://localhost:5000${booking.balanceProofFile}`}
+                                                href={`${import.meta.env.VITE_API_URL}${booking.balanceProofFile}`}
                                                 target="_blank"
                                                 rel="noreferrer"
                                                 className="sdm-link"

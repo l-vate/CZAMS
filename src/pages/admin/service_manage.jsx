@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import AdminLayout from './admin_layout';
 import { FiPlus, FiSearch, FiSettings, FiTool, FiWind, FiThermometer } from 'react-icons/fi';
 
-const API_BASE = 'http://localhost:5000';
+const API_BASE = `${import.meta.env.VITE_API_URL}`;
 
 const ICON_MAP = {
   FiWind: <FiWind />,

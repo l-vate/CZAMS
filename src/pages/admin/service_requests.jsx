@@ -17,7 +17,7 @@ function ServiceRequests() {
     const fetchRequests = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch('http://localhost:5000/api/bookings', {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const data = await response.json();

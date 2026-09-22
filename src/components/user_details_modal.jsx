@@ -62,7 +62,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
     setSaving(true);
     setError('');
     try {
-      const response = await fetch(`http://localhost:5000/api/users/${user._id}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/users/${user._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -89,7 +89,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
     setError('');
     try {
       const updatedStatus = !formData.isActive;
-      const response = await fetch(`http://localhost:5000/api/users/${user._id}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/users/${user._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive: updatedStatus }),
@@ -135,7 +135,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
           <div className="sdm-customer-line">
             {user.profileImage ? (
               <img
-                src={`http://localhost:5000${user.profileImage}`}
+                src={`${import.meta.env.VITE_API_URL}${user.profileImage}`}
                 alt={formData.name}
                 style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }}
               />

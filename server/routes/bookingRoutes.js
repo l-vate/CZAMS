@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const auth = require('../middleware/auth');
-const Booking = require('./models/Booking');
+const Booking = require('../models/Booking');
 
 // ============================================
 // 1. CONFIGURATION & HELPERS

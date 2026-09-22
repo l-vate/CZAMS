@@ -369,6 +369,18 @@
 
 .bs-label-hint { font-size: 12px; font-weight: 400; color: var(--ink-soft); }
 
+/* Explicit Service Area Boundary — soft, non-blocking warning under the address
+   field (Step3). Amber, not red: this doesn't stop submission, it just flags the
+   booking for admin review. */
+.bs-area-warning {
+  font-size: 12px;
+  color: var(--status-pending-txt);
+  background: var(--status-pending-bg);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-top: 6px;
+}
+
 .bs-input,
 .bs-select {
   padding: 12px 16px;
@@ -433,9 +445,28 @@
 
 .unit-entry-row {
   display: grid;
-  grid-template-columns: 1.2fr 70px 1.4fr auto auto;
+  grid-template-columns: 40px 1.2fr 70px 1.4fr auto auto;
   gap: 10px;
   align-items: center;
+}
+
+/* Small inset photo per unit type (same treatment/images as the landing page's
+   navbar search popup — src/utils/unitTypeImages.js) so the customer sees what
+   they're picking while actually building the booking, not just on the
+   marketing page. Empty state before a type is chosen is a blank placeholder
+   box, not a broken image. */
+.unit-entry-photo {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.unit-entry-photo-empty {
+  display: block;
+  background: var(--frost);
+  border: 1px dashed var(--mist);
 }
 
 .unit-entry-row .bs-select,
@@ -493,8 +524,9 @@
 @media (max-width: 620px) {
   .unit-entry-row {
     grid-template-columns: 1fr 1fr;
-    grid-template-areas: "type type" "qty brand" "subtotal remove";
+    grid-template-areas: "photo photo" "type type" "qty brand" "subtotal remove";
   }
+  .unit-entry-photo { grid-area: photo; }
   .unit-entry-type { grid-area: type; }
   .unit-entry-qty { grid-area: qty; }
   .unit-entry-brand { grid-area: brand; }

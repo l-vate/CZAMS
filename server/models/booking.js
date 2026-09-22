@@ -137,6 +137,35 @@ const bookingSchema = new mongoose.Schema({
         acknowledgedAt: Date,
     },
 
+    // Proof of purchase through CZA (only applicable when clientSuppliedUnit is
+    // false, i.e. a CZA-supplied unit) — backs a future 5yr/1yr Unit Warranty claim
+    // the same way unitWaiver backs a client-supplied-unit exclusion. Same
+    // uploads/proofs storage and admin-facing pattern as payment proof; uploaded by
+    // admin once the unit purchase is confirmed, not by the customer at booking time.
+    unitPurchaseProof: String,
+
+    // Distance/Mobilization Charges: admin-entered, not system-computed — CZA has
+    // no full price-by-zone table to auto-derive this from. distanceAdjustment is
+    // for Cleaning jobs; mobilizationFee is the (typically ~₱2,500 but
+    // admin-adjustable per job) vehicle mobilization/demobilization charge for a
+    // far Installation. Both default 0 (no charge) and are folded into the cost
+    // breakdown as extra line items — see getBookingLineItems in
+    // src/utils/bookingPricing.js and server/utils/pricing.js.
+    distanceAdjustment: { type: Number, default: 0 },
+    mobilizationFee: { type: Number, default: 0 },
+
+    // Explicit Service Area Boundary: computed at booking creation from a
+    // keyword match against the confirmed area list (Quezon City, Pasig, Manila,
+    // Cavite, Alabang, GMA, Carmona) — see isWithinServiceArea in
+    // server/utils/serviceArea.js. A miss doesn't block submission (free-text
+    // address matching is too unreliable to hard-block real customers on), it
+    // flags the booking for admin review instead.
+    serviceAreaCheck: {
+        withinArea: { type: Boolean, default: true },
+        checkedAt: Date,
+        adminReviewed: { type: Boolean, default: false },
+    },
+
     // Back Job Handling Module: this booking is a free warranty repair visit
     // spawned from a BackJob claim, not a regular paid service request — kept as
     // its own flag (rather than inferring from downPaymentPercent === 0) so it can
@@ -149,6 +178,16 @@ const bookingSchema = new mongoose.Schema({
     // reschedule + notification (no new booking spawned), and extensionRequest
     // mirrors the existing rescheduleRequest shape (technician requests, admin
     // approves/denies) rather than inventing a new request pattern.
+    // Three-Tier Cleaning Structure: the customer's answers to the tier-
+    // determination questions in Step1 (book_service.jsx), kept for admin/
+    // technician context on *why* this booking resolved to Deep Cleaning or
+    // Pull-down Deep Cleaning rather than regular Cleaning — the actual pricing
+    // comes from which Service got selected, this is just the record of the inputs.
+    cleaningTierAnswers: {
+        lastCleanedOver6MonthsAgo: Boolean,
+        isActivelyLeaking: Boolean,
+    },
+
     disruption: {
         status: { type: String, enum: ['None', 'Reported', 'Rescheduled'], default: 'None' },
         reason: String,

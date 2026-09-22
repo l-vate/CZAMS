@@ -32,6 +32,10 @@ const EMPTY_FORM = {
   isActive: true,
   serviceType: 'Other',
   unitTypePricing: {},
+  // Three-Tier Cleaning Structure: true for Deep Cleaning / Pull-down Deep
+  // Cleaning — resolved automatically by Step1's tier questions, never picked
+  // directly by the customer, but still fully editable here like any service.
+  hiddenFromDirectSelection: false,
 };
 
 function ServiceManage() {
@@ -96,6 +100,7 @@ function ServiceManage() {
       isActive: service.isActive !== undefined ? service.isActive : true,
       serviceType: service.serviceType || 'Other',
       unitTypePricing,
+      hiddenFromDirectSelection: !!service.hiddenFromDirectSelection,
     });
     setFormError('');
     setShowModal(true);
@@ -157,6 +162,7 @@ function ServiceManage() {
       isActive: form.isActive,
       serviceType: form.serviceType,
       unitTypePricing,
+      hiddenFromDirectSelection: form.hiddenFromDirectSelection,
     };
 
     setSaving(true);
@@ -294,7 +300,12 @@ function ServiceManage() {
                         {ICON_MAP[s.icon] || <FiSettings />}
                       </div>
                       <div className="svc-service-info">
-                        <span className="svc-service-name">{s.name}</span>
+                        <span className="svc-service-name">
+                          {s.name}
+                          {s.hiddenFromDirectSelection && (
+                            <span className="svc-service-price-note" style={{ display: 'inline-block', marginLeft: '8px' }}>hidden from customers</span>
+                          )}
+                        </span>
                         <span className="svc-service-desc">
                           {s.description || 'No description provided'}
                         </span>
@@ -419,11 +430,29 @@ function ServiceManage() {
                   <option value="Cleaning">Cleaning</option>
                   <option value="Installation">Installation</option>
                   <option value="Repair">Repair</option>
+                  <option value="Leak Repair">Leak Repair</option>
                   <option value="Maintenance">Maintenance</option>
                   <option value="Other">Other</option>
                 </select>
                 <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
                   Determines which Warranty Tracking rule applies to bookings of this service.
+                </p>
+              </div>
+
+              <div className="svc-field">
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    name="hiddenFromDirectSelection"
+                    checked={form.hiddenFromDirectSelection}
+                    onChange={handleChange}
+                  />
+                  Hide from customer's direct service selection
+                </label>
+                <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
+                  For the two upgraded cleaning tiers (Deep Cleaning, Pull-down Deep Cleaning) — resolved
+                  automatically by the tier questions when a customer picks "Cleaning," never shown as
+                  its own card. Leave unchecked for every other service.
                 </p>
               </div>
 

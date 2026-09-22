@@ -23,17 +23,34 @@ export function getBookingLineItems(booking) {
     return { ...u, unitPrice, subtotal: unitPrice * (u.quantity || 0) };
   });
 
-  const basePrice = lineItems.length > 0
+  let basePrice = lineItems.length > 0
     ? lineItems.reduce((sum, li) => sum + li.subtotal, 0)
     : (service?.price || 0);
+
+  // Distance/Mobilization Charges: admin-entered extras, appended as synthetic
+  // line items (isCharge: true, distinct from a real unit entry) — every screen
+  // that already renders lineItems (Payment Modal, Booking Summary, Receipt,
+  // admin modal) shows them for free, with no changes needed there.
+  if (booking?.distanceAdjustment) {
+    lineItems.push({ type: 'Distance Adjustment', quantity: 1, unitPrice: booking.distanceAdjustment, subtotal: booking.distanceAdjustment, isCharge: true });
+    basePrice += booking.distanceAdjustment;
+  }
+  if (booking?.mobilizationFee) {
+    lineItems.push({ type: 'Mobilization/Demobilization Fee', quantity: 1, unitPrice: booking.mobilizationFee, subtotal: booking.mobilizationFee, isCharge: true });
+    basePrice += booking.mobilizationFee;
+  }
+
   return { lineItems, basePrice };
 }
 
 // Compact one-line description of a booking's units, e.g. "2× Split Type, 1× Floor Mounted".
 // With `withBrand`, each entry's brand/model is appended: "2× Split Type (Carrier 1HP)".
+// Excludes synthetic charge line items (Distance Adjustment etc.) — this describes
+// the physical units, not admin-entered fees.
 export function getUnitsSummary(booking, { withBrand = false } = {}) {
   const { lineItems } = getBookingLineItems(booking);
   return lineItems
+    .filter((li) => !li.isCharge)
     .map((li) => `${li.quantity}× ${li.type}${withBrand && li.brandModel ? ` (${li.brandModel})` : ''}`)
     .join(', ');
 }

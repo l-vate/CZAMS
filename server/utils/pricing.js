@@ -15,9 +15,14 @@ function getBookingBasePrice(booking) {
     ? booking.units
     : (booking?.unitTypes || []).map((type) => ({ type, quantity: 1 }));
 
-  if (units.length === 0) return service?.price || 0;
+  const unitsTotal = units.length === 0
+    ? (service?.price || 0)
+    : units.reduce((sum, u) => sum + getUnitPrice(service, u.type) * (u.quantity || 0), 0);
 
-  return units.reduce((sum, u) => sum + getUnitPrice(service, u.type) * (u.quantity || 0), 0);
+  // Distance/Mobilization Charges: admin-entered extras on top of unit pricing —
+  // real money the customer owes, so they belong in the same total a refund is
+  // calculated against.
+  return unitsTotal + (booking?.distanceAdjustment || 0) + (booking?.mobilizationFee || 0);
 }
 
 module.exports = { getUnitPrice, getBookingBasePrice };

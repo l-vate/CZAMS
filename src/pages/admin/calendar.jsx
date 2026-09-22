@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import AdminLayout from "./admin_layout";
-import CalendarView, { mapBookingStatusToCalendarStatus } from "../../components/calendar_view";
-import { toLocalDateKey } from "../../utils/date";
+import CalendarView, { mapBookingStatusToCalendarStatus, getTimeBlockHours } from "../../components/calendar_view";
 
 function Calendar() {
   const [jobs, setJobs] = useState([]);
@@ -22,24 +21,20 @@ function Calendar() {
       if (Array.isArray(data)) {
         // Map backend schema to the structure expected by CalendarView
         const transformedJobs = data.map((item) => {
-          // Parse start and end hours (assuming ISO strings like '2026-07-08T08:00:00Z' or separate time fields)
-          const startDate = item.startTime ? new Date(item.startTime) : null;
-          const endDate = item.endTime ? new Date(item.endTime) : null;
-
-          const startHour = startDate
-            ? startDate.getHours() + startDate.getMinutes() / 60
-            : item.startHour || 8;
-          
-          const endHour = endDate
-            ? endDate.getHours() + endDate.getMinutes() / 60
-            : item.endHour || 10;
+          // item.time is Booking's real field — "Morning" or "Afternoon", set by
+          // Step3's time toggle (book_service.jsx). There are no startTime/endTime
+          // fields on Booking; the previous version looked for those (and for
+          // startHour/endHour, which aren't booking fields either — those are only
+          // ever produced here), so every booking silently fell back to the same
+          // fixed 8:00-10:00 AM slot regardless of which block was actually booked.
+          const { startHour, endHour } = getTimeBlockHours(item.time);
 
           return {
             id: item._id || item.bookingId,
             title: item.service?.name || item.title || "Service Request",
             customer: item.customer?.name || item.customerName || "N/A",
             assignedTo: item.technician?.name || "Unassigned",
-            date: item.date || (startDate ? toLocalDateKey(startDate) : ""),
+            date: item.date || "",
             startHour,
             endHour,
             status: mapBookingStatusToCalendarStatus(item.status),

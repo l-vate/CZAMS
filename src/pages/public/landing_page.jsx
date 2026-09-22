@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiWind, FiThermometer, FiZap, FiGrid, FiHome, FiSearch } from 'react-icons/fi';
+import { UNIT_TYPE_IMAGES } from '../../utils/unitTypeImages';
 import '../../css/public.css'
 
 const API_BASE = 'http://localhost:5000';
@@ -14,17 +15,6 @@ const NAV_SEARCH_RESULTS_LIMIT = 8;
 // looser set of labels — this one has to match booking's real unit types
 // exactly, since it's used to look up real per-type prices).
 const SEARCH_UNIT_TYPES = ['Window Type', 'Split Type', 'Floor Mounted', 'Cassette Type', 'Portable'];
-
-// Temporary placeholder photos (free stock, aircon-themed) for the small inset
-// image per unit type in the search popup's service-match card. Swap for real
-// CZA photography later.
-const UNIT_TYPE_IMAGES = {
-  'Window Type': 'https://images.unsplash.com/photo-1630169839507-fedc46615129?auto=format&fit=crop&w=200&q=70',
-  'Split Type': 'https://images.unsplash.com/photo-1762341123870-d706f257a12e?auto=format&fit=crop&w=200&q=70',
-  'Floor Mounted': 'https://images.unsplash.com/photo-1758980960373-2be749113338?auto=format&fit=crop&w=200&q=70',
-  'Cassette Type': 'https://images.unsplash.com/photo-1647936900381-d5df29d055a5?auto=format&fit=crop&w=200&q=70',
-  'Portable': 'https://cdn.pixabay.com/photo/2018/06/08/16/10/air-conditioning-3462597_640.png',
-};
 
 // Mirrors src/utils/bookingPricing.js getUnitPrice: a per-unit-type override if the
 // admin set one for this service, otherwise the flat base price.

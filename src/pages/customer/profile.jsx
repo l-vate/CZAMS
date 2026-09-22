@@ -185,7 +185,7 @@ const [user, setUser] = useState(loadUserFromStorage);
     const formData = new FormData();
     formData.append('photo', file);
 
-    const res = await fetch('http://localhost:5000/api/auth/profile/photo', {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/profile/photo`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: formData,
@@ -199,7 +199,7 @@ const [user, setUser] = useState(loadUserFromStorage);
     }
 
     localStorage.setItem('user', JSON.stringify(data.user));
-    setEditForm((prev) => ({ ...prev, photo: `http://localhost:5000${data.user.profileImage}` }));
+    setEditForm((prev) => ({ ...prev, photo: `${import.meta.env.VITE_API_URL}${data.user.profileImage}` }));
   } catch (err) {
     alert('Could not connect to server for photo upload.');
   }
@@ -209,7 +209,7 @@ const [user, setUser] = useState(loadUserFromStorage);
   const handleSaveProfile = async () => {
   try {
     const token = localStorage.getItem('token');
-    const res = await fetch('http://localhost:5000/api/auth/profile', {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/profile`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -261,7 +261,7 @@ const [user, setUser] = useState(loadUserFromStorage);
     setPasswordError('');
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/auth/change-password', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/change-password`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -292,7 +292,7 @@ const [user, setUser] = useState(loadUserFromStorage);
     setDeleting(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/auth/account', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/account`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -364,7 +364,7 @@ const [user, setUser] = useState(loadUserFromStorage);
               <div className="profile-avatar">
                 {user.photo ? (
                   <img
-                    src={user.photo.startsWith('data:') ? user.photo : `http://localhost:5000${user.photo}`}
+                    src={user.photo.startsWith('data:') ? user.photo : `${import.meta.env.VITE_API_URL}${user.photo}`}
                     alt="Profile"
                     style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
                   />

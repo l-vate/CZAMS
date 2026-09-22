@@ -141,7 +141,7 @@ function BookDetails() {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    fetch(`http://localhost:5000/api/bookings/${bookingId}`, {
+    fetch(`${import.meta.env.VITE_API_URL}/api/bookings/${bookingId}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => res.json())
@@ -199,7 +199,7 @@ function BookDetails() {
     setCancelling(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5000/api/bookings/${booking.bookingId}/cancel`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings/${booking.bookingId}/cancel`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -222,7 +222,7 @@ function BookDetails() {
     setRescheduling(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5000/api/bookings/${booking.bookingId}/reschedule`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings/${booking.bookingId}/reschedule`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -368,7 +368,7 @@ function BookDetails() {
                 <span className="cost-link">
                   {booking.proofFile ? (
                     
-                      <a href={`http://localhost:5000${booking.proofFile}`}
+                      <a href={`${import.meta.env.VITE_API_URL}${booking.proofFile}`}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
@@ -385,7 +385,7 @@ function BookDetails() {
                   <span className="cost-link">
                     {booking.balanceProofFile ? (
                       
-                        <a href={`http://localhost:5000${booking.balanceProofFile}`}
+                        <a href={`${import.meta.env.VITE_API_URL}${booking.balanceProofFile}`}
                         target="_blank"
                         rel="noopener noreferrer"
                       >

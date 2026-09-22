@@ -27,7 +27,7 @@ function useServices() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/services')
+    fetch(`${import.meta.env.VITE_API_URL}/api/services`)
       .then((res) => res.json())
       .then((data) => {
         const mapped = data.map((s) => ({
@@ -51,7 +51,7 @@ function useTechnicians() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/auth/technicians')
+    fetch(`${import.meta.env.VITE_API_URL}/api/auth/technicians`)
       .then((res) => res.json())
       .then((data) => {
         setTechnicians(Array.isArray(data) ? data : []);
@@ -502,7 +502,7 @@ const canNext = () => {
       formData.append('paymentStatus', form.paymentStatus || 'Unpaid');
       if (form.proofFileObj) formData.append('proof', form.proofFileObj);
 
-      const res = await fetch('http://localhost:5000/api/bookings', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }, // no Content-Type for FormData
         body: formData,

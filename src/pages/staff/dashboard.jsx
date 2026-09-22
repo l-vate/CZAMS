@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import StaffLayout from './staff_layout';
 import { FiUser, FiTool, FiCheckCircle, FiFileText, FiStar } from 'react-icons/fi';
 
-const API_BASE = 'http://localhost:5000';
+const API_BASE = `${import.meta.env.VITE_API_URL}`;
 
 function Dashboard() {
   const navigate = useNavigate();

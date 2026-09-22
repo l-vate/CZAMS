@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import StaffLayout from './staff_layout';
 import { FiClock, FiFileText, FiX, FiUser, FiMapPin } from 'react-icons/fi';
 
-const API_BASE = 'http://localhost:5000';
+const API_BASE = `${import.meta.env.VITE_API_URL}`;
 
 function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
   const [form, setForm] = useState({

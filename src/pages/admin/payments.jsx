@@ -108,7 +108,7 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
         : { paymentStatus: status }; // status can be 'partially_paid', 'fully_paid', or 'rejected'
 
       const res = await fetch(
-        `http://localhost:5000/api/bookings/${payment.bookingId}/admin-update`,
+        `${import.meta.env.VITE_API_URL}/api/bookings/${payment.bookingId}/admin-update`,
         {
           method: 'PATCH',
           headers: {
@@ -345,7 +345,7 @@ function Payments() {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/bookings', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('Failed to fetch bookings');
@@ -396,7 +396,7 @@ function Payments() {
         ? (b.balanceProofFile || b.proofFile)
         : (b.proofFile || b.balanceProofFile);
       const attachmentUrl = proofFile
-        ? (proofFile.startsWith('http') ? proofFile : `http://localhost:5000${proofFile}`)
+        ? (proofFile.startsWith('http') ? proofFile : `${import.meta.env.VITE_API_URL}${proofFile}`)
         : null;
 
       return {

@@ -4,7 +4,7 @@ import {
   FiChevronDown, FiSearch, FiClock, FiMapPin, FiX, FiInfo, FiUser, FiPhone,
 } from 'react-icons/fi';
 
-const API_BASE = 'http://localhost:5000';
+const API_BASE = `${import.meta.env.VITE_API_URL}`;
 
 const statusClass = {
   'Pending': 'tech-status-pending',

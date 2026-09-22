@@ -5,6 +5,8 @@ import PaymentModal from '../../components/payment_modal';
 import { getUnitPrice } from '../../utils/bookingPricing';
 import { toLocalDateKey } from '../../utils/date';
 import { usePaymentSettings, getDownPaymentOptions } from '../../utils/paymentSettings';
+import { UNIT_TYPE_IMAGES } from '../../utils/unitTypeImages';
+import { isWithinServiceArea, SERVICE_AREA_DISPLAY_NAMES } from '../../utils/serviceArea';
 import {
   FiWind,
   FiTool,
@@ -46,6 +48,7 @@ export function useServices() {
           icon: ICON_MAP[s.icon] || <FiSettings />,
           serviceType: s.serviceType,
           unitTypePricing: s.unitTypePricing || [],
+          hiddenFromDirectSelection: !!s.hiddenFromDirectSelection,
         }));
         setServices(mapped);
         setLoading(false);
@@ -150,37 +153,124 @@ export function StepIndicator({ current, total = TOTAL_STEPS }) {
 }
 
 /* ── Step 1: Choose a Service ─────────────────────────────── */
+// Three-Tier Cleaning Structure: Deep Cleaning and Pull-down Deep Cleaning are
+// real Services (own price, own unitTypePricing, admin-managed in Manage
+// Services) but hiddenFromDirectSelection — the customer never picks them
+// directly, only the one visible "Cleaning" card. Resolved by price order
+// (lowest = regular, highest = pull-down) rather than by name, so renaming a
+// tier in Manage Services doesn't break this — the higher price for the more
+// involved job is the actual defining trait the client described.
+function resolveCleaningTierService(services, lastCleanedOver6MonthsAgo, isActivelyLeaking) {
+  const tiers = services
+    .filter((s) => s.serviceType === 'Cleaning')
+    .sort((a, b) => a.price - b.price);
+  if (tiers.length === 0) return null;
+
+  if (isActivelyLeaking) return tiers[tiers.length - 1];
+  if (lastCleanedOver6MonthsAgo) return tiers[1] || tiers[0];
+  return tiers[0];
+}
+
+function CleaningTierQuestions({ onResolve, onCancel, initialAnswers }) {
+  const [lastCleanedOver6MonthsAgo, setLastCleaned] = useState(initialAnswers?.lastCleanedOver6MonthsAgo ?? null);
+  const [isActivelyLeaking, setLeaking] = useState(initialAnswers?.isActivelyLeaking ?? null);
+  const answered = lastCleanedOver6MonthsAgo !== null && isActivelyLeaking !== null;
+
+  return (
+    <div className="bs-card">
+      <button type="button" className="ma-back-link" onClick={onCancel} style={{ marginBottom: '12px' }}>
+        &larr; Back to services
+      </button>
+      <h3 className="bs-card-title">A Couple Quick Questions</h3>
+      <p className="bs-card-sub">This determines which cleaning tier applies — same trigger CZA already uses for a verbal quote.</p>
+
+      <div className="bs-field-group">
+        <label className="bs-label">Is the unit currently leaking?</label>
+        <div className="time-toggle">
+          <button type="button" className={`time-btn ${isActivelyLeaking === true ? 'selected' : ''}`} onClick={() => setLeaking(true)}>Yes</button>
+          <button type="button" className={`time-btn ${isActivelyLeaking === false ? 'selected' : ''}`} onClick={() => setLeaking(false)}>No</button>
+        </div>
+      </div>
+
+      <div className="bs-field-group">
+        <label className="bs-label">When was this unit last professionally cleaned?</label>
+        <div className="time-toggle">
+          <button type="button" className={`time-btn ${lastCleanedOver6MonthsAgo === false ? 'selected' : ''}`} onClick={() => setLastCleaned(false)}>Within the last 6 months</button>
+          <button type="button" className={`time-btn ${lastCleanedOver6MonthsAgo === true ? 'selected' : ''}`} onClick={() => setLastCleaned(true)}>6+ months ago / not sure</button>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        className="bs-next-btn"
+        disabled={!answered}
+        onClick={() => onResolve({ lastCleanedOver6MonthsAgo, isActivelyLeaking })}
+      >
+        Continue <FiArrowRight />
+      </button>
+    </div>
+  );
+}
+
 export function Step1({ form, setForm, services }) {
+  const [askingCleaningTier, setAskingCleaningTier] = useState(false);
+  const visibleServices = services.filter((s) => !s.hiddenFromDirectSelection);
+  const cleaningTierServiceIds = services.filter((s) => s.serviceType === 'Cleaning').map((s) => s.id);
+  const isCleaningTierSelected = cleaningTierServiceIds.includes(form.service);
+
+  const selectService = (s) => setForm({
+    ...form,
+    service: s.id,
+    // A different service may not be Installation at all, or may need
+    // the unit-source question re-asked — don't carry stale answers over.
+    clientSuppliedUnit: false,
+    unitWaiverAcknowledged: false,
+    unitWaiverName: '',
+  });
+
+  if (askingCleaningTier) {
+    return (
+      <CleaningTierQuestions
+        initialAnswers={{ lastCleanedOver6MonthsAgo: form.lastCleanedOver6MonthsAgo, isActivelyLeaking: form.isActivelyLeaking }}
+        onCancel={() => setAskingCleaningTier(false)}
+        onResolve={({ lastCleanedOver6MonthsAgo, isActivelyLeaking }) => {
+          const resolved = resolveCleaningTierService(services, lastCleanedOver6MonthsAgo, isActivelyLeaking);
+          if (resolved) selectService(resolved);
+          setForm((prev) => ({ ...prev, lastCleanedOver6MonthsAgo, isActivelyLeaking }));
+          setAskingCleaningTier(false);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="bs-card">
       <h3 className="bs-card-title">Choose a Service</h3>
       <p className="bs-card-sub">Base price only. Final cost may vary depending on the scope of work and materials needed.</p>
       <div className="service-grid">
-        {services.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            className={`service-option ${form.service === s.id ? 'selected' : ''}`}
-            onClick={() => setForm({
-              ...form,
-              service: s.id,
-              // A different service may not be Installation at all, or may need
-              // the unit-source question re-asked — don't carry stale answers over.
-              clientSuppliedUnit: false,
-              unitWaiverAcknowledged: false,
-              unitWaiverName: '',
-            })}
-          >
-            <div className="service-option-left">
-              <span className="service-icon">{s.icon}</span>
-              <div>
-                <p className="service-name">{s.label}</p>
-                <p className="service-desc">{s.desc}</p>
+        {visibleServices.map((s) => {
+          const isCleaningEntryPoint = s.serviceType === 'Cleaning';
+          const selected = isCleaningEntryPoint ? isCleaningTierSelected : form.service === s.id;
+          return (
+            <button
+              key={s.id}
+              type="button"
+              className={`service-option ${selected ? 'selected' : ''}`}
+              onClick={() => (isCleaningEntryPoint ? setAskingCleaningTier(true) : selectService(s))}
+            >
+              <div className="service-option-left">
+                <span className="service-icon">{s.icon}</span>
+                <div>
+                  <p className="service-name">{s.label}</p>
+                  <p className="service-desc">{s.desc}</p>
+                </div>
               </div>
-            </div>
-            <span className="service-price">₱{s.price.toLocaleString()}</span>
-          </button>
-        ))}
+              <span className="service-price">
+                {isCleaningEntryPoint ? 'From ' : ''}₱{s.price.toLocaleString()}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -232,6 +322,12 @@ export function Step2({ form, setForm, services = [] }) {
         <div className="unit-entry-list">
           {units.map((unit, index) => (
             <div className="unit-entry-row" key={index}>
+              {unit.type ? (
+                <img src={UNIT_TYPE_IMAGES[unit.type]} alt={unit.type} className="unit-entry-photo" />
+              ) : (
+                <span className="unit-entry-photo unit-entry-photo-empty" aria-hidden="true" />
+              )}
+
               <select
                 className="bs-select unit-entry-type"
                 value={unit.type}
@@ -354,6 +450,29 @@ export function Step3({ form, setForm, technicians }) {
     return toLocalDateKey(d); // YYYY-MM-DD for <input type="date">
   })();
 
+  // Hard-Block Technician Double-Booking: this is a UX convenience (hide the
+  // obviously-unavailable options) — the real enforcement is server-side on
+  // booking creation, since a customer could bypass client-side filtering entirely.
+  const [busyTechIds, setBusyTechIds] = useState([]);
+  useEffect(() => {
+    if (!form.date || !form.time) { setBusyTechIds([]); return; }
+    const token = localStorage.getItem('token');
+    fetch(`http://localhost:5000/api/bookings/busy-technicians?date=${form.date}&time=${form.time}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => (res.ok ? res.json() : { busyTechIds: [] }))
+      .then((data) => setBusyTechIds(data.busyTechIds || []))
+      .catch(() => setBusyTechIds([]));
+  }, [form.date, form.time]);
+
+  const availableTechnicians = technicians.filter((t) => !busyTechIds.includes(t._id));
+
+  // Explicit Service Area Boundary — soft check: doesn't block submission (free-
+  // text address matching is too unreliable for that), just warns the customer
+  // and flags the booking for admin review server-side.
+  const addressEntered = (form.address || '').trim().length > 0;
+  const withinArea = !addressEntered || isWithinServiceArea(form.address);
+
    return (
     <div className="bs-card">
       <h3 className="bs-card-title">Location &amp; Schedule</h3>
@@ -400,10 +519,15 @@ export function Step3({ form, setForm, technicians }) {
           onChange={(e) => setForm({ ...form, technician: e.target.value })}
         >
           <option value="">No preference</option>
-          {technicians.map((t) => (
+          {availableTechnicians.map((t) => (
             <option key={t._id} value={t._id}>{t.name}</option>
           ))}
         </select>
+        {form.date && form.time && busyTechIds.length > 0 && (
+          <p style={{ fontSize: '12px', color: 'var(--ink-soft)', marginTop: '4px' }}>
+            {busyTechIds.length} technician{busyTechIds.length === 1 ? '' : 's'} already booked for this date/time {busyTechIds.length === 1 ? 'is' : 'are'} not shown.
+          </p>
+        )}
       </div>
 
       <div className="bs-field-group">
@@ -415,6 +539,12 @@ export function Step3({ form, setForm, technicians }) {
           value={form.address || ''}
           onChange={(e) => setForm({ ...form, address: e.target.value })}
         />
+        {addressEntered && !withinArea && (
+          <p className="bs-area-warning">
+            This address doesn't mention any of CZA's confirmed service areas ({SERVICE_AREA_DISPLAY_NAMES.join(', ')}).
+            You can still submit — it'll be flagged for admin review before confirming.
+          </p>
+        )}
       </div>
     </div>
   );
@@ -705,6 +835,10 @@ const canNext = () => {
       formData.append('paymentMode', form.paymentMode || '');
       formData.append('paymentMode2', form.paymentMode2 || '');
       formData.append('paymentStatus', form.paymentStatus || 'Unpaid');
+      if (form.lastCleanedOver6MonthsAgo !== undefined) {
+        formData.append('lastCleanedOver6MonthsAgo', form.lastCleanedOver6MonthsAgo);
+        formData.append('isActivelyLeaking', form.isActivelyLeaking);
+      }
       if (form.proofFileObj) formData.append('proof', form.proofFileObj);
 
       const res = await fetch('http://localhost:5000/api/bookings', {

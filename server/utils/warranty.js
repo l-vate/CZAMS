@@ -10,6 +10,7 @@ const WARRANTY_PERIODS = {
   INSTALLATION_CLIENT_UNIT_WORKMANSHIP_MONTHS: 3,
   UNIT_COMPRESSOR_YEARS: 5,
   UNIT_MINOR_PARTS_YEARS: 1,
+  LEAK_REPAIR_MONTHS: 1, // client-confirmed, own category distinct from Cleaning/Installation
 };
 
 function addDays(date, days) {
@@ -83,6 +84,21 @@ function getWarrantyStatus(booking) {
       scope: 'Workmanship (e.g. leaking refrigerant pipes)',
       workmanship: { expiresAt: workmanshipExpiresAt, active: now <= workmanshipExpiresAt },
       unit,
+    };
+  }
+
+  // Leak Repair: a fifth, standalone warranty category — a paid repair (system
+  // reprocess/leak repair/flushing/vacuum/charging) triggered by a refrigerant
+  // undercharge found during Cleaning or a paid check-up, distinct from the
+  // Cleaning/Installation warranties above.
+  if (serviceType === 'Leak Repair') {
+    const expiresAt = addMonths(completedAt, WARRANTY_PERIODS.LEAK_REPAIR_MONTHS);
+    return {
+      applicable: true,
+      type: 'Leak Repair',
+      scope: 'Workmanship on the repair (reprocess/flushing/vacuum/charging)',
+      workmanship: { expiresAt, active: now <= expiresAt },
+      unit: null,
     };
   }
 

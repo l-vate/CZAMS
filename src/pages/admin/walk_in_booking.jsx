@@ -308,7 +308,13 @@ function WalkInPaymentStep({ form, setForm, services, isReturnCustomer, paymentM
               <label className="bs-label">
                 Proof of Payment <span className="bs-label-hint">(Optional — e.g. a GCash screenshot; not needed for cash)</span>
               </label>
-              <input type="file" accept="image/*,.pdf" className="bs-input" onChange={handleProofChange} />
+              {/* Same upload button pattern/class as the customer-facing PaymentModal
+                  (.modal-file-btn, css/modals/payment_modal.css) — was a bare native
+                  file input here, visually inconsistent with the rest of the app. */}
+              <label className="modal-file-btn">
+                {form.proofFile || '[Choose a file]'}
+                <input type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={handleProofChange} />
+              </label>
             </div>
           </>
         )}

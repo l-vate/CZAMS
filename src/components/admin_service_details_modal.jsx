@@ -53,6 +53,10 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
     const [disruptionTime, setDisruptionTime] = useState('');
     const [instructionsDraft, setInstructionsDraft] = useState(booking?.technicianInstructions || '');
     const [editingInstructions, setEditingInstructions] = useState(false);
+    const [editingCharges, setEditingCharges] = useState(false);
+    const [distanceDraft, setDistanceDraft] = useState(booking?.distanceAdjustment || 0);
+    const [mobilizationDraft, setMobilizationDraft] = useState(booking?.mobilizationFee || 0);
+    const [uploadingProof, setUploadingProof] = useState(false);
 
     useEffect(() => {
         fetchTechnicians();
@@ -63,6 +67,9 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
         setIsReassigning(false); // Reset reassignment state when booking changes
         setInstructionsDraft(booking?.technicianInstructions || '');
         setEditingInstructions(false);
+        setDistanceDraft(booking?.distanceAdjustment || 0);
+        setMobilizationDraft(booking?.mobilizationFee || 0);
+        setEditingCharges(false);
         fetchBusyTechs();
     }, [booking]);
 
@@ -80,7 +87,7 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
         if (!booking?.date) return;
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`http://localhost:5000/api/bookings/busy-technicians?date=${booking.date}`, {
+            const response = await fetch(`http://localhost:5000/api/bookings/busy-technicians?date=${booking.date}&time=${encodeURIComponent(booking.time || '')}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const data = await response.json();
@@ -142,6 +149,44 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
         const success = await patchBooking({ technicianInstructions: instructionsDraft });
         if (success) {
             setEditingInstructions(false);
+        }
+    };
+
+    // Distance/Mobilization Charges: admin-entered, not system-computed.
+    const handleSaveCharges = async () => {
+        const success = await patchBooking({ distanceAdjustment: distanceDraft, mobilizationFee: mobilizationDraft });
+        if (success) {
+            setEditingCharges(false);
+        }
+    };
+
+    // Proof of purchase for a CZA-supplied unit — backs a future Unit Warranty
+    // claim. Admin-side upload (mirrors the customer-facing pay/pay-balance proof
+    // uploads, same multer/proofs storage), not a JSON PATCH like the others.
+    const handleUnitPurchaseProofUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploadingProof(true);
+        setError('');
+        try {
+            const token = localStorage.getItem('token');
+            const formData = new FormData();
+            formData.append('proof', file);
+            const response = await fetch(
+                `http://localhost:5000/api/bookings/${booking.bookingId}/unit-purchase-proof`,
+                { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: formData }
+            );
+            const data = await response.json();
+            if (!response.ok) {
+                setError(data.message || 'Failed to upload proof of purchase.');
+                return;
+            }
+            onUpdated?.(data);
+        } catch (err) {
+            console.error('Error uploading unit purchase proof:', err);
+            setError('Network error. Please try again.');
+        } finally {
+            setUploadingProof(false);
         }
     };
 
@@ -253,6 +298,12 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                     {booking.isBackJob && (
                         <div className="sdm-notice">
                             Back Job — free of charge (warranty repair visit for booking {booking.backJobId ? `linked to ${booking.backJobId}` : ''}). No payment is expected on this booking.
+                        </div>
+                    )}
+
+                    {booking.serviceAreaCheck && !booking.serviceAreaCheck.withinArea && (
+                        <div className="sdm-notice">
+                            ⚠ This address didn't match any of CZA's confirmed service areas at booking time — flagged for review.
                         </div>
                     )}
 
@@ -426,6 +477,58 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                         </div>
                                     </>
                                 )}
+                                {/* Distance/Mobilization Charges: admin-entered, not system-computed —
+                                    CZA has no full price-by-zone table to auto-derive this from. Distance
+                                    adjustment applies to Cleaning jobs; mobilization/demobilization is the
+                                    (typically ~₱2,500 but admin-adjustable) vehicle charge for a far
+                                    Installation. Shown as an editable row only for the relevant service type. */}
+                                {!booking.isBackJob && (booking.service?.serviceType === 'Cleaning' || booking.service?.serviceType === 'Installation') && (
+                                    editingCharges ? (
+                                        <div className="sdm-list-row sdm-list-row-block">
+                                            <span>Admin Pricing Adjustments</span>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+                                                {booking.service?.serviceType === 'Cleaning' && (
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
+                                                        Distance Adjustment (₱)
+                                                        <input
+                                                            type="number" min="0" className="ma-input" style={{ width: '110px' }}
+                                                            value={distanceDraft}
+                                                            onChange={(e) => setDistanceDraft(Number(e.target.value) || 0)}
+                                                        />
+                                                    </label>
+                                                )}
+                                                {booking.service?.serviceType === 'Installation' && (
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
+                                                        Mobilization/Demobilization Fee (₱)
+                                                        <input
+                                                            type="number" min="0" className="ma-input" style={{ width: '110px' }}
+                                                            value={mobilizationDraft}
+                                                            onChange={(e) => setMobilizationDraft(Number(e.target.value) || 0)}
+                                                        />
+                                                    </label>
+                                                )}
+                                                <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
+                                                    <button className="sdm-btn sdm-btn-outline" onClick={() => {
+                                                        setEditingCharges(false);
+                                                        setDistanceDraft(booking.distanceAdjustment || 0);
+                                                        setMobilizationDraft(booking.mobilizationFee || 0);
+                                                    }}>Cancel</button>
+                                                    <button className="sdm-btn sdm-btn-primary" onClick={handleSaveCharges} disabled={saving}>Save</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="sdm-list-row">
+                                            <span>
+                                                {booking.service?.serviceType === 'Cleaning' ? 'Distance Adjustment' : 'Mobilization Fee'}
+                                            </span>
+                                            <span className="sdm-list-value" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                ₱{(booking.service?.serviceType === 'Cleaning' ? (booking.distanceAdjustment || 0) : (booking.mobilizationFee || 0)).toLocaleString()}
+                                                <button className="sdm-btn sdm-btn-outline" style={{ padding: '2px 8px', fontSize: '0.75rem' }} onClick={() => setEditingCharges(true)}>Edit</button>
+                                            </span>
+                                        </div>
+                                    )
+                                )}
                                 <div className="sdm-list-row">
                                     <span>Down Payment</span>
                                     <span className="sdm-list-value">
@@ -502,6 +605,41 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                     </div>
                                 )}
                             </div>
+
+                            {/* Proof of purchase for a CZA-supplied unit — mirrors the client-supplied-
+                                unit waiver's role but for the opposite case, backing a future 5yr/1yr
+                                Unit Warranty claim. Not gated on completion, unlike Warranty Status below
+                                (admin should be able to attach this as soon as the unit is sourced). */}
+                            {booking.service?.serviceType === 'Installation' && !booking.clientSuppliedUnit && (
+                                <>
+                                    <h5 className="sdm-col-heading sdm-col-heading-spaced">
+                                        <Icon name="file" /> UNIT PURCHASE PROOF
+                                    </h5>
+                                    <div className="sdm-list">
+                                        <div className="sdm-list-row">
+                                            <span>Proof of Purchase</span>
+                                            <span className="sdm-list-value" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                {booking.unitPurchaseProof ? (
+                                                    <a
+                                                        href={`http://localhost:5000${booking.unitPurchaseProof}`}
+                                                        target="_blank" rel="noreferrer" className="sdm-link"
+                                                    >
+                                                        View File
+                                                    </a>
+                                                ) : 'Not uploaded'}
+                                                <label className="sdm-btn sdm-btn-outline" style={{ padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer' }}>
+                                                    {uploadingProof ? 'Uploading...' : booking.unitPurchaseProof ? 'Replace' : 'Upload'}
+                                                    <input
+                                                        type="file" accept="image/*,.pdf" style={{ display: 'none' }}
+                                                        onChange={handleUnitPurchaseProofUpload}
+                                                        disabled={uploadingProof}
+                                                    />
+                                                </label>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
 
                             {booking.report?.submittedAt && (
                                 <>

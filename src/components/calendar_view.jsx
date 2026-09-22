@@ -27,6 +27,24 @@ export function mapBookingStatusToCalendarStatus(status) {
   return CALENDAR_STATUS_MAP[(status || "pending").toLowerCase()] || "pending";
 }
 
+// Booking.time is literally the string "Morning" or "Afternoon" (Step3's time
+// toggle, book_service.jsx) — never a parseable "9:00 AM - 11:00 AM" range, and
+// there are no startTime/endTime fields on Booking at all. The Week/Day grid
+// still needs *some* start/end hour to position a block, so this maps each block
+// to a fixed range grounded in the app's own stated hours (landing_page.jsx
+// footer: Mon–Sat 8:00 AM–6:00 PM), with a lunch gap between them — so a
+// Morning-only booking visually reads as busy 8–12 and free in the afternoon,
+// not "busy all day" or an arbitrary slot unrelated to which block was actually booked.
+// Exported so both admin/calendar.jsx and staff/calendar.jsx derive this the same way.
+const TIME_BLOCK_HOURS = {
+  Morning: { startHour: 8, endHour: 12 },
+  Afternoon: { startHour: 13, endHour: 18 },
+};
+
+export function getTimeBlockHours(time) {
+  return TIME_BLOCK_HOURS[time] || { startHour: 8, endHour: 10 };
+}
+
 function startOfWeek(date) {
   const d = new Date(date);
   const day = d.getDay(); // 0 = Sun

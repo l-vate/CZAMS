@@ -1,48 +1,13 @@
 import { useEffect, useState } from "react";
 import StaffLayout from "./staff_layout";
-import CalendarView, { mapBookingStatusToCalendarStatus } from "../../components/calendar_view";
+import CalendarView, { mapBookingStatusToCalendarStatus, getTimeBlockHours } from "../../components/calendar_view";
 import { getUnitsSummary } from "../../utils/bookingPricing";
 
 const API_BASE = "http://localhost:5000";
 
-// Converts "9:00 AM" -> 9, "1:30 PM" -> 13.5
-function timeToHour(timeStr) {
-  if (!timeStr) return 8; // Default fallback to 8:00 AM if unparseable
-  const parts = timeStr.trim().split(" ");
-  if (parts.length < 2) return 8;
-
-  const [time, period] = parts;
-  let [h, m] = time.split(":").map(Number);
-
-  if (isNaN(h)) return 8;
-
-  const periodUpper = period?.toUpperCase();
-  if (periodUpper === "PM" && h !== 12) h += 12;
-  if (periodUpper === "AM" && h === 12) h = 0;
-
-  return h + (m || 0) / 60;
-}
-
-// Splits "9:00 AM - 11:00 AM" into start and end strings
-function splitTimeRange(timeStr) {
-  if (!timeStr || typeof timeStr !== "string") {
-    return { start: null, end: null };
-  }
-  const [start, end] = timeStr.split("-").map((s) => s.trim());
-  return { start, end };
-}
-
 // Map backend DB response to the structure required by CalendarView
 function toCalendarJob(booking) {
-  const { start, end } = splitTimeRange(booking.time);
-
-  const startHour = timeToHour(start);
-  let endHour = timeToHour(end);
-
-  // If no end time was supplied, default the event duration to 2 hours
-  if (!end || endHour <= startHour) {
-    endHour = startHour + 2;
-  }
+  const { startHour, endHour } = getTimeBlockHours(booking.time);
 
   // Format unit types label
   const unitsSummary = getUnitsSummary(booking);

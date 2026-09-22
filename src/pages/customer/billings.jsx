@@ -105,6 +105,7 @@ function Billings() {
             isRefunded,
             isCancelled,
             isRefundPending,
+            isBackJob: !!b.isBackJob,
             balanceNote,
             status,
             date: new Date(b.createdAt).toLocaleDateString('en-US'),
@@ -130,6 +131,10 @@ function Billings() {
       if (activeFilter === 'All') return true;
       if (activeFilter === 'Refunded') return bill.isRefunded;
       if (bill.isCancelled) return false; // cancelled bookings (refunded excepted above) only show under "All" — their old paymentStatus no longer applies
+      // A back-job follow-up is free (0% down, nothing to pay) — there's nothing to
+      // bill, so like Cancelled/Refunded it only shows under "All", not alongside
+      // real payable bookings in the normal status tabs.
+      if (bill.isBackJob) return false;
       if (activeFilter === 'To Verify') return bill.isToVerify || bill.isBalanceToVerify;
       if (activeFilter === 'Fully Paid') return bill.isFullyPaid;
       if (activeFilter === 'Partially Paid') return bill.isPartiallyPaid;
@@ -271,8 +276,8 @@ function Billings() {
               <div>
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap' }}>
                   <small style={{ color: '#888' }}>{bill.date}</small>
-                  <span style={{ background: getStatusColor(bill), color: '#fff', padding: '2px 8px', borderRadius: '999px', fontSize: '11px' }}>
-                    {bill.status}
+                  <span style={{ background: bill.isBackJob ? 'var(--success)' : getStatusColor(bill), color: '#fff', padding: '2px 8px', borderRadius: '999px', fontSize: '11px' }}>
+                    {bill.isBackJob ? 'Free (Back Job)' : bill.status}
                   </span>
                   {bill.balanceNote && (
                     <span style={{ color: bill.balanceNote.color, fontSize: '11px', fontWeight: 600 }}>
@@ -320,7 +325,7 @@ function Billings() {
                   </button>
                 )}
 
-                {!bill.paid && !bill.isCancelled && (
+                {!bill.paid && !bill.isCancelled && !bill.isBackJob && (
                   <button
                     type="button"
                     className="bs-next-btn"

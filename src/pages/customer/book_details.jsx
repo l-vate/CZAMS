@@ -14,7 +14,10 @@ import {
   FiUser, FiAlertTriangle, FiX, FiArrowRight, FiStar, FiPhone,
 } from 'react-icons/fi';
 import { API_BASE } from '../../config/api';
-import { orFallback } from '../../services/apiClient';
+import { ApiError, orFallback, bodyEvenIfError } from '../../services/apiClient';
+import { getBooking, cancelBooking, rescheduleBooking, submitFeedback } from '../../services/bookingService';
+import { flagRefund } from '../../services/refundService';
+import { getBackJobForBooking, reportBackJob } from '../../services/backJobService';
 import { listNotifications } from '../../services/notificationService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
 import { REFUND_STATUS } from '../../constants/refundStatus';
@@ -200,25 +203,12 @@ function RefundFlagForm({ bookingId, refund, onFlagged }) {
     setSubmitting(true);
     setError('');
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/bookings/${bookingId}/refund/flag`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ message: message.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.message || 'Failed to submit report.');
-        return;
-      }
+      const data = await flagRefund(bookingId, message.trim());
       onFlagged(data);
       setShowForm(false);
       setMessage('');
-    } catch {
-      setError('Could not connect to server.');
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message || 'Failed to submit report.' : 'Could not connect to server.');
     } finally {
       setSubmitting(false);
     }
@@ -304,11 +294,7 @@ function BookDetails() {
   const [bookingNotification, setBookingNotification] = useState(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    fetch(`${API_BASE}/api/bookings/${bookingId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
+    bodyEvenIfError(getBooking(bookingId))
       .then((data) => {
         setBooking(data);
         setLoading(false);
@@ -318,11 +304,7 @@ function BookDetails() {
 
   // Check whether an issue was already reported for this booking (Back Job Handling)
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    fetch(`${API_BASE}/api/backjobs/booking/${bookingId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => (res.ok ? res.json() : null))
+    orFallback(getBackJobForBooking(bookingId), null)
       .then((data) => setBackJob(data))
       .catch(() => {});
   }, [bookingId]);
@@ -394,21 +376,11 @@ function BookDetails() {
   const handleConfirmCancel = async () => {
     setCancelling(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/bookings/${booking.bookingId}/cancel`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.message || 'Failed to cancel booking');
-        setCancelling(false);
-        return;
-      }
+      const data = await cancelBooking(booking.bookingId);
       setBooking(data);
       setShowCancel(false);
-    } catch {
-      alert('Could not connect to server.');
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message || 'Failed to cancel booking' : 'Could not connect to server.');
     } finally {
       setCancelling(false);
     }
@@ -417,25 +389,11 @@ function BookDetails() {
   const handleRescheduleSubmit = async ({ date, time }) => {
     setRescheduling(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/bookings/${booking.bookingId}/reschedule`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ date, time }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.message || 'Failed to submit reschedule');
-        setRescheduling(false);
-        return;
-      }
+      const data = await rescheduleBooking(booking.bookingId, { date, time });
       setBooking(data);
       setShowReschedule(false);
-    } catch {
-      alert('Could not connect to server.');
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message || 'Failed to submit reschedule' : 'Could not connect to server.');
     } finally {
       setRescheduling(false);
     }
@@ -444,24 +402,11 @@ function BookDetails() {
   const handleFeedbackSubmit = async ({ rating, text }) => {
     setSubmittingFeedback(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/bookings/${booking.bookingId}/feedback`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ rating, text }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.message || 'Failed to submit feedback');
-        return;
-      }
+      const data = await submitFeedback(booking.bookingId, { rating, text });
       setBooking(data);
       setShowFeedback(false);
-    } catch {
-      alert('Could not connect to server.');
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message || 'Failed to submit feedback' : 'Could not connect to server.');
     } finally {
       setSubmittingFeedback(false);
     }
@@ -470,23 +415,10 @@ function BookDetails() {
   const handleBackJobSubmit = async ({ issueDescription }) => {
     setSubmittingBackJob(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/backjobs`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ bookingId: booking.bookingId, issueDescription }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.message || 'Failed to submit report');
-        return;
-      }
+      const data = await reportBackJob({ bookingId: booking.bookingId, issueDescription });
       setBackJob(data);
-    } catch {
-      alert('Could not connect to server.');
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message || 'Failed to submit report' : 'Could not connect to server.');
     } finally {
       setSubmittingBackJob(false);
     }

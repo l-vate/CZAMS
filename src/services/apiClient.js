@@ -66,3 +66,20 @@ export async function attempt(promise, fallbackMessage) {
     throw err;
   }
 }
+
+// For `.catch` chains that rethrow as a plain Error: keeps the server's message, with `text`
+// standing in when it sent none. Anything else (a network failure) passes through unchanged.
+export const withFallback = (text) => (err) => {
+  throw err instanceof ApiError ? new Error(err.message || text) : err;
+};
+
+// The old `res.json()` that never looked at the status: a failed response resolves to its
+// body (usually { message }) instead of throwing. A network failure still throws.
+export async function bodyEvenIfError(promise) {
+  try {
+    return await promise;
+  } catch (err) {
+    if (err instanceof ApiError) return err.data;
+    throw err;
+  }
+}

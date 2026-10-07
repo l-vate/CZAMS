@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import AdminLayout from './admin_layout';
 import { FiX, FiInfo, FiShield, FiEye } from 'react-icons/fi';
 import { getFilterPillStyle } from '../../utils/statusColors';
-import { API_BASE } from '../../config/api';
+import { withFallback } from '../../services/apiClient';
+import { listBackJobs, markBackJobReviewed } from '../../services/backJobService';
 import { BACK_JOB_STATUS } from '../../constants/backJobStatus';
 
 // Same badge/left-accent classes as the customer's My Bookings and technician's
@@ -60,15 +61,7 @@ function BackJobDetailModal({ backJob, onClose, onSuccess }) {
     setSubmitting(true);
     setError('');
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/backjobs/${backJob.backJobId}/review`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Failed to update back job report.');
-      }
+      await markBackJobReviewed(backJob.backJobId).catch(withFallback('Failed to update back job report.'));
       onSuccess?.();
       onClose();
     } catch (err) {
@@ -199,12 +192,7 @@ function BackJobs() {
   const fetchBackJobs = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/backjobs`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Failed to fetch back job reports');
-      const data = await res.json();
+      const data = await listBackJobs();
       setRawBackJobs(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error fetching back jobs:', err);

@@ -4,6 +4,8 @@ import { FiClock, FiFileText, FiX, FiUser, FiMapPin } from 'react-icons/fi';
 import SignaturePad from '../../components/signature_pad';
 import ServiceReportPdfModal from '../../components/service_report_pdf_modal';
 import { getFilterPillStyle } from '../../utils/statusColors';
+import { orFallback } from '../../services/apiClient';
+import { listTechnicianJobs } from '../../services/bookingService';
 import { API_BASE } from '../../config/api';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
 
@@ -560,10 +562,7 @@ function Reports() {
       
       try {
         // First, get all bookings assigned to the technician
-        const bookingsRes = await fetch(`${API_BASE}/api/bookings/technician/mine`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const bookingsData = await bookingsRes.json();
+        const bookingsData = await orFallback(listTechnicianJobs(), null);
         
         if (!Array.isArray(bookingsData)) {
           setReports([]);

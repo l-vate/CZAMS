@@ -11,8 +11,8 @@ import {
   FiMapPin,
   FiEye,
 } from 'react-icons/fi';
-import { API_BASE } from '../../config/api';
 import { orFallback } from '../../services/apiClient';
+import { listBookings, getTechnicianWorkload } from '../../services/bookingService';
 import { listUsers } from '../../services/userService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
 
@@ -64,17 +64,11 @@ function Dashboard() {
     async function fetchData() {
       setLoading(true);
       try {
-        const token = localStorage.getItem('token');
-        const headers = { Authorization: `Bearer ${token}` };
-
-        const [bookingsRes, staffData, workloadRes] = await Promise.all([
-          fetch(`${API_BASE}/api/bookings`, { headers }),
+        const [bookingsData, staffData, workloadData] = await Promise.all([
+          orFallback(listBookings(), []),
           orFallback(listUsers('staff'), []),
-          fetch(`${API_BASE}/api/bookings/technician-workload`, { headers }),
+          orFallback(getTechnicianWorkload(), []),
         ]);
-
-        const bookingsData = bookingsRes.ok ? await bookingsRes.json() : [];
-        const workloadData = workloadRes.ok ? await workloadRes.json() : [];
         setWorkload(Array.isArray(workloadData) ? workloadData : []);
 
         setBookings(Array.isArray(bookingsData) ? bookingsData : []);

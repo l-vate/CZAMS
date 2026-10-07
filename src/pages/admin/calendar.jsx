@@ -3,7 +3,8 @@ import AdminLayout from "./admin_layout";
 import { getMemberNames } from "../../utils/assignments";
 import CalendarView from "../../components/calendar_view";
 import { mapBookingStatusToCalendarStatus, getTimeBlockHours } from "../../utils/calendar";
-import { API_BASE } from '../../config/api';
+import { orFallback } from '../../services/apiClient';
+import { listBookings } from '../../services/bookingService';
 
 function Calendar() {
   const [jobs, setJobs] = useState([]);
@@ -15,11 +16,7 @@ function Calendar() {
 
   const fetchJobs = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API_BASE}/api/bookings`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
+      const data = await orFallback(listBookings(), null);
 
       if (Array.isArray(data)) {
         // Map backend schema to the structure expected by CalendarView

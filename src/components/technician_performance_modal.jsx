@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { buildTechnicianStats } from '../utils/technicianStats';
 import { API_BASE } from '../config/api';
+import { orFallback } from '../services/apiClient';
+import { getTechnicianFeedback } from '../services/bookingService';
 
 
 const fmtHours = (h) => (h === null || h === undefined ? 'N/A' : `${h.toFixed(1)} hrs`);
@@ -50,11 +52,7 @@ function TechnicianPerformanceModal({ technician, onClose }) {
     let cancelled = false;
     async function loadReviews() {
       try {
-        const token = localStorage.getItem('token');
-        const res = await fetch(`${API_BASE}/api/bookings/technicians/${technician._id}/feedback`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = res.ok ? await res.json() : [];
+        const data = await orFallback(getTechnicianFeedback(technician._id), []);
         if (!cancelled) setReviews(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error('Error loading technician reviews:', err);

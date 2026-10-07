@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { API_BASE } from '../config/api';
+import { ApiError, attempt } from '../services/apiClient';
+import { assignBooking, autoAssignBooking } from '../services/bookingService';
 import { getAssignments, getMinTechnicians } from '../utils/assignments';
 import { BOOKING_STATUS } from '../constants/bookingStatus';
 
@@ -53,19 +55,13 @@ function AssignmentPanel({ booking, onUpdated }) {
     setSaving(true);
     setError('');
     try {
-      const token = localStorage.getItem('token');
       const assignments = chosen.map((v) => (v.startsWith('team:') ? { teamId: v.slice(5) } : { technicianId: v.slice(5) }));
-      const res = await fetch(`${API_BASE}/api/bookings/${booking.bookingId}/assign`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ assignments }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.message || 'Could not save the assignment.');
+      const saved = await attempt(assignBooking(booking.bookingId, assignments), 'Could not save the assignment.');
+      if (saved.error) {
+        setError(saved.error);
         return;
       }
-      onUpdated?.(data);
+      onUpdated?.(saved.data);
     } catch (err) {
       console.error('Error saving assignment:', err);
       setError('Network error. Please try again.');
@@ -81,20 +77,15 @@ function AssignmentPanel({ booking, onUpdated }) {
     setError('');
     setSuggestedDates([]);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/bookings/${booking.bookingId}/auto-assign`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.message || 'Could not auto-assign.');
-        setSuggestedDates(data.suggestedDates || []);
-        return;
-      }
+      const data = await autoAssignBooking(booking.bookingId);
       setAutoNote({ bookingId: booking.bookingId, text: data.autoAssignNote });
       onUpdated?.(data);
     } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message || 'Could not auto-assign.');
+        setSuggestedDates(err.data?.suggestedDates || []);
+        return;
+      }
       console.error('Error auto-assigning:', err);
       setError('Network error. Please try again.');
     } finally {

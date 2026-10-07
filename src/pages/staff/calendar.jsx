@@ -3,7 +3,7 @@ import StaffLayout from "./staff_layout";
 import CalendarView from "../../components/calendar_view";
 import { mapBookingStatusToCalendarStatus, getTimeBlockHours } from "../../utils/calendar";
 import { getUnitsSummary } from "../../utils/bookingPricing";
-import { API_BASE } from '../../config/api';
+import { listTechnicianJobs } from '../../services/bookingService';
 
 
 // Map backend DB response to the structure required by CalendarView
@@ -36,19 +36,7 @@ function Calendar() {
 
   const fetchTechnicianJobs = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API_BASE}/api/bookings/technician/mine`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch jobs: ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      const data = await listTechnicianJobs();
       setJobs(Array.isArray(data) ? data.map(toCalendarJob) : []);
     } catch (err) {
       console.error("Failed to load technician schedule:", err);

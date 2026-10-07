@@ -1,3 +1,4 @@
+/* Classes named *-xN were extracted from inline styles. Rename when the page is next edited. */
 /* ============ NAVBAR ============ */
 .navbar {
   display: flex;
@@ -246,48 +247,8 @@
    Book" section (.public-search*) - replaced by .nav-search-* below, a single
    input in the navbar itself. */
 
-/* Base overlay/header/close-button classes for the search popup - landing_page.jsx
-   only imports this stylesheet (not the shared modals/*.css used by the
-   authenticated app), so these are defined locally rather than pulling in an
-   otherwise-unrelated bundle just for three class names. */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(15, 23, 42, 0.65);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.modal-close-btn {
-  background: #f1f5f9;
-  border: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #64748b;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.modal-close-btn:hover {
-  background: #e2e8f0;
-  color: #0f172a;
-}
+/* The popup's base .modal-overlay / .modal-header / .modal-close-btn classes come from
+   modals/payment_modal.css (every stylesheet is loaded globally by main.jsx). */
 
 /* ============ NAVBAR SEARCH ============ */
 .nav-search-wrapper {
@@ -338,10 +299,6 @@
   font-weight: 700;
   color: var(--navy);
   font-size: 16px;
-}
-
-.modal-header {
-  gap: 12px;
 }
 
 .nav-search-modal-body {

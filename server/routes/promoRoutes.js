@@ -6,27 +6,28 @@ const Promo = require('../models/Promo');
 const Service = require('../models/Service');
 const { manilaTodayKey } = require('../utils/timeBlocks');
 const { isInForce } = require('../utils/promos');
+const { invalid, sendProblem } = require('../utils/validation');
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const validDate = (s) => DATE_PATTERN.test(String(s)) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`));
 
-// Returns an error message, or null. Used by create and update.
+// Returns null when fine, otherwise { status, message }. Used by create and update.
 async function validate(body) {
-  if (!body.name || !String(body.name).trim()) return 'A promo name is required.';
-  if (!['percent', 'fixed'].includes(body.discountType)) return 'Choose a percent or a fixed amount discount.';
+  if (!body.name || !String(body.name).trim()) return invalid('A promo name is required.');
+  if (!['percent', 'fixed'].includes(body.discountType)) return invalid('Choose a percent or a fixed amount discount.');
   const value = Number(body.discountValue);
-  if (!Number.isFinite(value)) return 'Enter the discount value.';
-  if (body.discountType === 'percent' && (value < 1 || value > 100)) return 'A percent discount must be between 1 and 100.';
-  if (body.discountType === 'fixed' && !(value > 0)) return 'A fixed discount must be greater than 0.';
+  if (!Number.isFinite(value)) return invalid('Enter the discount value.');
+  if (body.discountType === 'percent' && (value < 1 || value > 100)) return invalid('A percent discount must be between 1 and 100.');
+  if (body.discountType === 'fixed' && !(value > 0)) return invalid('A fixed discount must be greater than 0.');
   const minUnits = body.minUnits === undefined || body.minUnits === '' ? 1 : Number(body.minUnits);
-  if (!Number.isInteger(minUnits) || minUnits < 1) return 'The minimum number of units must be a whole number, 1 or more.';
-  if (!validDate(body.startDate) || !validDate(body.endDate)) return 'Choose a start date and an end date.';
-  if (body.endDate < body.startDate) return 'The end date cannot be before the start date.';
+  if (!Number.isInteger(minUnits) || minUnits < 1) return invalid('The minimum number of units must be a whole number, 1 or more.');
+  if (!validDate(body.startDate) || !validDate(body.endDate)) return invalid('Choose a start date and an end date.');
+  if (body.endDate < body.startDate) return invalid('The end date cannot be before the start date.');
   if (body.services !== undefined) {
-    if (!Array.isArray(body.services)) return 'Services must be a list.';
+    if (!Array.isArray(body.services)) return invalid('Services must be a list.');
     if (body.services.length > 0) {
       const found = await Service.countDocuments({ _id: { $in: body.services } });
-      if (found !== new Set(body.services).size) return 'One of the chosen services does not exist.';
+      if (found !== new Set(body.services).size) return invalid('One of the chosen services does not exist.');
     }
   }
   return null;
@@ -87,7 +88,7 @@ router.get('/', auth, adminOnly, async (req, res) => {
 router.post('/', auth, adminOnly, async (req, res) => {
   try {
     const problem = await validate(req.body);
-    if (problem) return res.status(400).json({ message: problem });
+    if (problem) return sendProblem(res, problem);
     res.status(201).json(await Promo.create(pick(req.body)));
   } catch (err) {
     console.error(err);
@@ -102,7 +103,7 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
 
     const merged = { ...promo.toObject(), ...req.body };
     const problem = await validate(merged);
-    if (problem) return res.status(400).json({ message: problem });
+    if (problem) return sendProblem(res, problem);
 
     Object.assign(promo, pick(merged));
     await promo.save();

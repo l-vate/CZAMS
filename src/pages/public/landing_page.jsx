@@ -352,7 +352,7 @@ function LandingPage() {
       </header>
 
       {/* ============ HERO ============ */}
-      <section id="home" className="hero">
+      <section id="home" className="hero landing-section">
         <div className="slides">
           <div className={`slide slide-1 ${current === 0 ? 'active' : ''}`}>
             <div className="slide-content">
@@ -387,7 +387,7 @@ function LandingPage() {
       <div className="vent-divider" />
 
       {/* ============ ABOUT US ============ */}
-      <section id="about" className="about">
+      <section id="about" className="about landing-section">
         <span className="section-eyebrow">Who We Are</span>
         <h2 className="section-title">About Us</h2>
         <p>
@@ -399,7 +399,7 @@ function LandingPage() {
       <div className="vent-divider" />
 
       {/* ============ SERVICES ============ */}
-      <section id="services" className="services">
+      <section id="services" className="services landing-section">
         <span className="section-eyebrow">What We Offer</span>
         <h2 className="section-title">Our Services</h2>
         <p className="section-subtitle">Base price only - final cost may vary depending on scope and materials.</p>
@@ -430,7 +430,7 @@ function LandingPage() {
 
       {/* ============ CURRENT PROMOS (real data, only shown when there are any) ============ */}
       {promos.length > 0 && (
-        <section id="promos" className="services">
+        <section id="promos" className="services landing-section">
           <span className="section-eyebrow">Save More</span>
           <h2 className="section-title">Current Promos</h2>
           <div className="cards">
@@ -447,7 +447,7 @@ function LandingPage() {
       )}
 
       {/* ============ UNIT TYPES ============ */}
-      <section className="units">
+      <section className="units landing-section">
         <span className="section-eyebrow">Coverage</span>
         <h2 className="section-title">Unit Types We Service</h2>
 
@@ -464,7 +464,7 @@ function LandingPage() {
       <div className="vent-divider" />
 
       {/* ============ AVAILABLE DATES ============ */}
-      <section id="availability" className="services">
+      <section id="availability" className="services landing-section">
         <span className="section-eyebrow">Plan Ahead</span>
         <h2 className="section-title">Available Dates</h2>
         <p className="section-subtitle">Bookings need at least 3 days notice. Morning and Afternoon are booked separately.</p>
@@ -475,7 +475,7 @@ function LandingPage() {
       <div className="vent-divider" />
 
       {/* ============ HOW IT WORKS ============ */}
-      <section className="how">
+      <section className="how landing-section">
         <span className="section-eyebrow">The Process</span>
         <h2 className="section-title">How It Works</h2>
         <p className="section-subtitle">From booking to post-service support - we've made it simple.</p>

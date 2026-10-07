@@ -31,6 +31,7 @@ const Team = require('../models/Team');
 const { proposeAssignment } = require('../utils/autoAssign');
 const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/queue');
 const { generateBookingId, createWithUniqueBookingId, BookingIdExhaustedError } = require('../utils/bookingId');
+const { invalid, sendProblem } = require('../utils/validation');
 const {
   ASSIGNMENT_POPULATE, getMemberIds, getLeadIds, getRoleFor, getMinTechnicians,
   memberFilter, findConflictingBooking, getBusyTechnicianIds,
@@ -104,18 +105,18 @@ function normalizeContactNumber(raw) {
   return digits.length >= 7 && digits.length <= 15 ? value : null;
 }
 
-// What an admin may do to a booking's status, as an error message or null when allowed.
+// What an admin may do to a booking's status: null when allowed, otherwise { status, message }.
 // Cancelling is allowed here and handled (with its refund) further down.
 function validateAdminStatusChange(current, requested) {
   if (!requested || requested === current) return null;
   if (requested === BOOKING_STATUS.APPROVED) {
-    return current === BOOKING_STATUS.PENDING ? null : 'Only a pending booking can be approved.';
+    return current === BOOKING_STATUS.PENDING ? null : invalid('Only a pending booking can be approved.');
   }
   if (requested === BOOKING_STATUS.CANCELLED) return null;
   if (requested === BOOKING_STATUS.IN_PROGRESS || requested === BOOKING_STATUS.COMPLETED) {
-    return 'A booking becomes In Progress automatically when its time block starts, and Completed when the technician submits the service report. It cannot be set by hand.';
+    return invalid('A booking becomes In Progress automatically when its time block starts, and Completed when the technician submits the service report. It cannot be set by hand.');
   }
-  return 'A booking cannot be moved back to Pending.';
+  return invalid('A booking cannot be moved back to Pending.');
 }
 
 // One notification to every technician on the booking (every member of every assigned team).
@@ -1496,9 +1497,7 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
     // and Completed are set by the system alone: In Progress by the status job when the
     // time block starts, Completed when the technician submits the service report.
     const statusProblem = validateAdminStatusChange(booking.status, status);
-    if (statusProblem) {
-      return res.status(400).json({ message: statusProblem });
-    }
+    if (statusProblem) return sendProblem(res, statusProblem);
 
     // Technicians are assigned as teams through PATCH /:bookingId/assign, which checks every
     // member for conflicts. This route no longer takes a single technician.

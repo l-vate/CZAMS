@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminLayout from './admin_layout';
 import UserDetailsModal from '../../components/user_details_modal';
 import TechnicianPerformanceModal from '../../components/technician_performance_modal';
+import { getFilterPillStyle } from '../../utils/statusColors';
+import { API_BASE } from '../../config/api';
+import { ROLE } from '../../constants/roles';
 
 /* ── Small Icon Helpers ───────────────────────────────────── */
 function ClockIcon() {
@@ -14,13 +17,9 @@ function ClockIcon() {
   );
 }
 
-function Stars({ count = 5 }) {
-  return <span className="ma-stars">{'★'.repeat(count)}{'☆'.repeat(5 - count)}</span>;
-}
-
 /* ── Registration Form (Technician / Client) ──────────────── */
 function RegisterForm({ type, onCancel, onSubmit }) {
-  const isTech = type === 'staff';
+  const isTech = type === ROLE.STAFF;
   const [values, setValues] = useState({
     name: '',
     email: '',
@@ -144,7 +143,7 @@ function ManageAccounts() {
   const [activeFilter, setActiveFilter] = useState('Technicians'); // 'Technicians' | 'Clients'
   const [search, setSearch] = useState('');
   const [view, setView] = useState('list'); // 'list' | 'register'
-  const [registerRole, setRegisterRole] = useState('staff'); // 'staff' | 'customer'
+  const [registerRole, setRegisterRole] = useState(ROLE.STAFF);
   const [justAdded, setJustAdded] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [performanceReviewFor, setPerformanceReviewFor] = useState(null);
@@ -158,7 +157,7 @@ function ManageAccounts() {
   const fetchAllUsers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/users', {
+      const response = await fetch(`${API_BASE}/api/users`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (response.ok) {
@@ -175,7 +174,7 @@ function ManageAccounts() {
   const handleRegisterSubmit = async (values) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/users', {
+      const response = await fetch(`${API_BASE}/api/users`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -212,12 +211,12 @@ function ManageAccounts() {
 
   // Most of these links reuse existing full pages (Bookings, Payments, Service
   // Reports) with a person filter pre-applied via navigation state, rather than
-  // building six standalone views — see PersonFilterBanner on each of those pages
+  // building six standalone views - see PersonFilterBanner on each of those pages
   // for the other half of this. Performance Review is the one exception: there's
   // no existing per-technician page to filter into (Analytics is aggregate-only),
   // so it opens a small modal here instead.
   const handleAccountLink = (person, label) => {
-    const isTech = person.role === 'staff';
+    const isTech = person.role === ROLE.STAFF;
     const personFilter = {
       type: isTech ? 'technician' : 'customer',
       id: person._id,
@@ -245,7 +244,7 @@ function ManageAccounts() {
 
   const handleOpenRegister = () => {
     // Dynamically select role based on the current filter tab
-    setRegisterRole(activeFilter === 'Technicians' ? 'staff' : 'customer');
+    setRegisterRole(activeFilter === 'Technicians' ? ROLE.STAFF : ROLE.CUSTOMER);
     setView('register');
   };
 
@@ -258,14 +257,19 @@ function ManageAccounts() {
 
     const matchesFilter =
       activeFilter === 'Technicians'
-        ? u.role === 'staff'
-        : u.role === 'customer';
+        ? u.role === ROLE.STAFF
+        : u.role === ROLE.CUSTOMER;
 
     return matchesSearch && matchesFilter;
-  });
+  }).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
   return (
-    <AdminLayout title="Manage Accounts">
+    <AdminLayout
+      title="Manage Accounts"
+      searchValue={search}
+      onSearchChange={setSearch}
+      searchPlaceholder="Search by name, ID, or email..."
+    >
       <div className="page-container">
         <h1 className="dashboard-welcome">Manage Accounts</h1>
         {view === 'register' ? (
@@ -277,13 +281,14 @@ function ManageAccounts() {
         ) : (
           <div className="ma-list-view">
             {/* Toolbar using ServiceRequests pill filter styling */}
-            <div className="req-toolbar" style={{ flexWrap: 'wrap', gap: '12px' }}>
+            <div className="req-toolbar admin-manage-accounts-x1">
               <div className="req-filters">
                 {filters.map((filter) => (
                   <button
                     key={filter}
                     type="button"
                     className={`filter-pill ${activeFilter === filter ? 'filter-pill--active' : ''}`}
+                    style={getFilterPillStyle(filter, activeFilter === filter)}
                     onClick={() => setActiveFilter(filter)}
                   >
                     {filter}
@@ -291,19 +296,8 @@ function ManageAccounts() {
                 ))}
               </div>
 
-              {/* Search input box */}
-              <div className="ma-search-box" style={{ flex: '1', minWidth: '200px' }}>
-                <span className="ma-search-icon">🔍</span>
-                <input
-                  type="text"
-                  placeholder="Search by name, ID, or email..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-
               {/* Single action button adding to the active filter type */}
-              <div>
+              <div className="admin-manage-accounts-x2">
                 <button
                   className="req-new-btn"
                   type="button"
@@ -315,21 +309,23 @@ function ManageAccounts() {
             </div>
 
             {justAdded && (
-              <div className="ma-success-banner" style={{ margin: '16px 0' }}>
+              <div className="ma-success-banner admin-manage-accounts-x3">
                 ✓ {justAdded.name} was successfully registered as a{' '}
-                {justAdded.role === 'staff' ? 'Technician' : 'Client'} ({justAdded._id}).
+                {justAdded.role === ROLE.STAFF ? 'Technician' : 'Client'} ({justAdded._id}).
               </div>
             )}
 
-            {/* List View */}
-            <div className="ma-list" style={{ marginTop: '16px' }}>
+            {/* List View - same tech-job-card shell as the customer's My Bookings
+                and technician's My Jobs cards, with a row of action buttons in
+                place of the old underlined links. */}
+            <div className="tech-job-list admin-manage-accounts-x4">
               {loading ? (
                 <p>Loading accounts...</p>
               ) : filteredUsers.length === 0 ? (
                 <p className="req-empty">No accounts found matching your criteria.</p>
               ) : (
-                filteredUsers.map((person, i) => {
-                  const isTech = person.role === 'staff';
+                filteredUsers.map((person) => {
+                  const isTech = person.role === ROLE.STAFF;
                   const roleLabel = isTech ? 'TECHNICIAN' : 'CLIENT';
                   const links = isTech
                     ? ['View Job History', 'Performance Review', 'Reports']
@@ -337,41 +333,35 @@ function ManageAccounts() {
 
                   return (
                     <div
-                      className="ma-list-row"
+                      className="tech-job-card admin-manage-accounts-x5"
                       key={person._id}
-                      style={{ background: i % 2 === 0 ? '#f4f5f7' : '#ececef' }}
                     >
-                      <div className="ma-row-info">
-                        <p className="ma-row-role">{roleLabel} NAME</p>
-                        <p className="ma-row-name">{person.name || 'No Name Provided'}</p>
-                        <p className="ma-row-id">account id: {person._id}</p>
-                        <p className="ma-row-rating"><Stars count={person.rating || 5} /></p>
+                      <div className="tech-job-info">
+                        <small className="tech-job-date-label">{roleLabel}</small>
+                        <div className="tech-job-service">{person.name || 'No Name Provided'}</div>
+                        <small className="tech-job-booking">{person._id}</small>
                       </div>
 
-                      <div className="ma-row-links">
-                        {links.map((label) => (
-                          <a
-                            href="#"
-                            className="ma-row-link"
-                            key={label}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              handleAccountLink(person, label);
-                            }}
+                      <div className="admin-manage-accounts-x6">
+                        <div className="admin-manage-accounts-x7">
+                          {links.map((label) => (
+                            <button
+                              type="button"
+                              className="view-details-btn admin-manage-accounts-x8"
+                              key={label}
+                              onClick={() => handleAccountLink(person, label)}
+                            >
+                              <ClockIcon /> {label}
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            className="bs-next-btn admin-manage-accounts-x9"
+                            onClick={() => setSelectedUser(person)}
                           >
-                            <ClockIcon /> {label}
-                          </a>
-                        ))}
-                        <a
-                          href="#"
-                          className="ma-row-link ma-row-more"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setSelectedUser(person);
-                          }}
-                        >
-                          View More
-                        </a>
+                            View More
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );

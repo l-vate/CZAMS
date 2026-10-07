@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import StaffLayout from "./staff_layout";
-import CalendarView, { mapBookingStatusToCalendarStatus, getTimeBlockHours } from "../../components/calendar_view";
+import CalendarView from "../../components/calendar_view";
+import { mapBookingStatusToCalendarStatus, getTimeBlockHours } from "../../utils/calendar";
 import { getUnitsSummary } from "../../utils/bookingPricing";
+import { API_BASE } from '../../config/api';
 
-const API_BASE = "http://localhost:5000";
 
 // Map backend DB response to the structure required by CalendarView
 function toCalendarJob(booking) {
@@ -15,7 +16,7 @@ function toCalendarJob(booking) {
 
   return {
     id: booking._id || booking.bookingId,
-    title: `${booking.service?.name || "Service"}${unitTypesLabel}`,
+    title: `${booking.service?.name || "Service"}${unitTypesLabel}${booking.myRole ? ` (${booking.myRole})` : ""}`,
     customer: booking.customer?.name || booking.customerName || "Customer",
     assignedTo: "Me", // Current logged-in technician
     date: booking.date,
@@ -62,7 +63,7 @@ function Calendar() {
       {loading ? (
         <p className="tech-job-empty">Loading your schedule…</p>
       ) : (
-        <div style={{ height: "calc(100vh - 8rem)" }}>
+        <div className="staff-calendar-x1">
           <CalendarView jobs={jobs} title="My Schedule" />
         </div>
       )}

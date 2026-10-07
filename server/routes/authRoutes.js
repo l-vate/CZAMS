@@ -1,14 +1,17 @@
 // server/routes/authRoutes.js
+const { ROLE } = require('../constants/roles');
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const fs = require('fs');
+const { hashPassword, verifyPassword } = require('../utils/password');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 
 // Simple ID generator matching your ADM001-style pattern
 function generateUserId(role) {
-  const prefix = role === 'staff' ? 'STF' : role === 'admin' ? 'ADM' : 'CUS';
+  const prefix = role === ROLE.STAFF ? 'STF' : role === ROLE.ADMIN ? 'ADM' : 'CUS';
   const random = Math.floor(1000 + Math.random() * 9000);
   return `${prefix}${random}`;
 }
@@ -19,11 +22,15 @@ const path = require('path');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '../uploads/profile-images'));
+    const dir = path.join(__dirname, '../uploads/profile-images');
+    fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
   },
+  // Unguessable name: the uploads folder is served statically, so the filename is
+  // the only thing standing between a URL and the file.
   filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `${req.userId}-${Date.now()}${ext}`);
+    const ext = path.extname(file.originalname).toLowerCase().replace(/[^.a-z0-9]/g, '');
+    cb(null, `${crypto.randomBytes(16).toString('hex')}${ext}`);
   },
 });
 
@@ -38,18 +45,19 @@ const upload = multer({
 
 router.post('/register', async (req, res) => {
   try {
-    const { firstName, lastName, email, phone, role, password, clientType } = req.body;
+    const { firstName, lastName, email, phone, password, clientType } = req.body;
 
     const existing = await User.findOne({ email });
     if (existing) {
       return res.status(400).json({ message: 'Email already registered' });
     }
 
-    // map frontend role values to backend schema values
-    const roleMap = { client: 'customer', technician: 'staff' };
-    const mappedRole = roleMap[role] || 'customer';
+    // Public registration only ever creates a customer. Any role sent in the body is
+    // ignored on purpose; technician and admin accounts are created by an admin
+    // through POST /api/users.
+    const mappedRole = ROLE.CUSTOMER;
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await hashPassword(password);
 
     const user = await User.create({
       _id: generateUserId(mappedRole),
@@ -59,9 +67,9 @@ router.post('/register', async (req, res) => {
       password: hashedPassword,
       role: mappedRole,
       isActive: true,
-      // Only meaningful for customer accounts — staff/admin registrations ignore it
+      // Only meaningful for customer accounts - staff/admin registrations ignore it
       // and keep the schema default.
-      ...(mappedRole === 'customer' && clientType === 'Commercial' ? { clientType: 'Commercial' } : {}),
+      ...(mappedRole === ROLE.CUSTOMER && clientType === 'Commercial' ? { clientType: 'Commercial' } : {}),
     });
 
     const token = jwt.sign(
@@ -93,25 +101,21 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    console.log('Login attempt:', { email, password });
-
     const user = await User.findOne({ email });
-    console.log('User found:', user);
-
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    let isMatch = false;
-    if (user.password.startsWith('$2a$') || user.password.startsWith('$2b$')) {
-      isMatch = await bcrypt.compare(password, user.password);
-    } else {
-      isMatch = password === user.password;
-    }
-    console.log('Password match:', isMatch, '| stored:', user.password, '| entered:', password);
+    const isMatch = await verifyPassword(user, password);
 
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid email or password' });
+    }
+
+    // Checked only after the password is right, so this message can't be used to
+    // probe which emails exist.
+    if (user.isActive === false) {
+      return res.status(403).json({ message: 'This account has been deactivated. Please contact the administrator.' });
     }
 
     const token = jwt.sign(
@@ -213,10 +217,49 @@ router.post('/profile/photo', auth, upload.single('photo'), async (req, res) => 
   }
 });
 
+router.put('/change-password', auth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const isMatch = await verifyPassword(user, currentPassword);
+
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Current password is incorrect' });
+    }
+
+    user.password = await hashPassword(newPassword);
+    await user.save();
+
+    res.json({ message: 'Password updated successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.delete('/account', auth, async (req, res) => {
+  try {
+    const user = await User.findByIdAndDelete(req.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json({ message: 'Account deleted successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // GET all active technicians (for client-side booking dropdown)
 router.get('/technicians', async (req, res) => {
   try {
-    const technicians = await User.find({ role: 'staff', isActive: true }).select('_id name');
+    const technicians = await User.find({ role: ROLE.STAFF, isActive: true }).select('_id name');
     res.json(technicians);
   } catch (err) {
     console.error(err);

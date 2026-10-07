@@ -1,4 +1,4 @@
-# CZAMS — Cooling Zone Aircon Management System
+# CZAMS - Cooling Zone Aircon Management System
 
 A web-based service and technician management system developed for **Cooling Zone Aircon Services**.
 

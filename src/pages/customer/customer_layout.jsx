@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiMenu, FiX } from 'react-icons/fi';
+import { FiMenu, FiX, FiMessageCircle, FiSearch } from 'react-icons/fi';
 import Sidebar from '../../components/sidebars/customer_sidebar';
 import NotificationBell from '../../components/notification_bell';
 
-function CustomerLayout({ title, children }) {
+// Search moved here (topbar) rather than duplicated per-page - My Bookings and
+// Payment & Billing pass searchValue/onSearchChange/searchPlaceholder to opt
+// into showing it; every other page just omits those props and gets nothing.
+function CustomerLayout({ title, children, searchValue, onSearchChange, searchPlaceholder }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -30,7 +33,32 @@ function CustomerLayout({ title, children }) {
             {sidebarOpen ? <FiX /> : <FiMenu />}
           </button>
           {title}
-          <NotificationBell onNotificationClick={handleNotificationClick} />
+          <div className="dashboard-topbar-actions">
+            {onSearchChange && (
+              <div className="topbar-search">
+                <FiSearch />
+                <input
+                  type="search"
+                  placeholder={searchPlaceholder || 'Search...'}
+                  value={searchValue}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                />
+              </div>
+            )}
+            {/* Chat is on-demand, not a persistent sidebar tab - this is the one
+                access point, available from every page, for when a customer
+                actually has a question for support. */}
+            <button
+              type="button"
+              className="topbar-support-btn"
+              onClick={() => navigate('/customer/chat')}
+              aria-label="Contact Support"
+              title="Contact Support"
+            >
+              <FiMessageCircle />
+            </button>
+            <NotificationBell onNotificationClick={handleNotificationClick} />
+          </div>
         </div>
 
         <div className="dashboard-body">

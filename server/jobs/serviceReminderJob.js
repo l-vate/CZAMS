@@ -1,35 +1,38 @@
+const { SERVICE_TYPE } = require('../constants/serviceTypes');
+const { NOTIFICATION_TYPE } = require('../constants/notificationTypes');
+const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const cron = require('node-cron');
 const Booking = require('../models/Booking');
 const Service = require('../models/Service');
 const ServiceReminder = require('../models/ServiceReminder');
 const { sendNotification } = require('../utils/notifications');
 
-// "3-4 months since the last cleaning" — a range, not an exact number. This uses
+// "3-4 months since the last cleaning" - a range, not an exact number. This uses
 // the sooner end as the trigger point (a customer becomes due once 3 months have
 // passed), matching how Back Job Handling used the sooner end of its own "2-3 days"
 // range. Named constant so this is a one-line change if the client confirms differently.
 const SERVICE_REMINDER_TRIGGER_MONTHS = 3;
 
 // The "who's due" check. Finds each customer's most recent completed Cleaning
-// booking (preventive maintenance only — check-ups stay client-initiated, per
-// scope) and, if it's old enough, records that a reminder is due — but does not
+// booking (preventive maintenance only - check-ups stay client-initiated, per
+// scope) and, if it's old enough, records that a reminder is due - but does not
 // send anything itself. See deliverPendingServiceReminders() below for the
 // delivery step, kept separate so detection never has to change to swap how
 // (or whether) delivery happens.
 async function runServiceReminderCheck() {
-  const cleaningServices = await Service.find({ serviceType: 'Cleaning' }).select('_id');
+  const cleaningServices = await Service.find({ serviceType: SERVICE_TYPE.CLEANING }).select('_id');
   const cleaningServiceIds = cleaningServices.map((s) => s._id);
 
   if (cleaningServiceIds.length === 0) {
     return { customersChecked: 0, remindersCreated: 0 };
   }
 
-  // A back-job repair visit doesn't reset the reminder clock — it's a redo of a
-  // cleaning already counted, not a new preventive service — so it's excluded here
+  // A back-job repair visit doesn't reset the reminder clock - it's a redo of a
+  // cleaning already counted, not a new preventive service - so it's excluded here
   // the same way it's excluded from the Customer Classification count.
   const cleaningBookings = await Booking.find({
     service: { $in: cleaningServiceIds },
-    status: 'Completed',
+    status: BOOKING_STATUS.COMPLETED,
     isBackJob: { $ne: true },
     completedAt: { $ne: null },
   }).sort({ completedAt: -1 });
@@ -50,7 +53,7 @@ async function runServiceReminderCheck() {
   for (const [customerId, booking] of latestByCustomer) {
     if (booking.completedAt > dueCutoff) continue; // not due yet
 
-    // One reminder per (customer, last cleaning) — skip if this cycle already flagged.
+    // One reminder per (customer, last cleaning) - skip if this cycle already flagged.
     const alreadyFlagged = await ServiceReminder.findOne({
       customer: customerId,
       lastCleaningBooking: booking._id,
@@ -74,7 +77,7 @@ async function runServiceReminderCheck() {
   return { customersChecked: latestByCustomer.size, remindersCreated };
 }
 
-// Delivers any reminder still sitting at 'Pending Notification' — the exact hook
+// Delivers any reminder still sitting at 'Pending Notification' - the exact hook
 // point the detection step above was built to leave open. Uses the generic
 // Notification Sender rather than anything reminder-specific, so this is just one
 // caller among others (Back Job Handling, Service Disruption & Extension, etc.).
@@ -89,7 +92,7 @@ async function deliverPendingServiceReminders() {
 
     await sendNotification(
       reminder.customer,
-      'service_reminder',
+      NOTIFICATION_TYPE.SERVICE_REMINDER,
       `It's been a while since your last aircon cleaning (${lastCleaningDate}). Book your next preventive maintenance to keep your unit running well.`,
       { booking: null }
     );
@@ -103,7 +106,7 @@ async function deliverPendingServiceReminders() {
   return { delivered };
 }
 
-// Runs once a day — plenty granular for a months-long interval, no need for anything tighter.
+// Runs once a day - plenty granular for a months-long interval, no need for anything tighter.
 function startServiceReminderSchedule() {
   cron.schedule('0 0 * * *', async () => {
     try {

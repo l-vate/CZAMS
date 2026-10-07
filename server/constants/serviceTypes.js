@@ -1,0 +1,14 @@
+// Service.serviceType values, exactly as stored.
+const SERVICE_TYPE = Object.freeze({
+  CLEANING: 'Cleaning',
+  INSTALLATION: 'Installation',
+  REPAIR: 'Repair',
+  MAINTENANCE: 'Maintenance',
+  LEAK_REPAIR: 'Leak Repair',
+  CHECK_UP: 'Check-up',
+  OTHER: 'Other',
+});
+
+const SERVICE_TYPE_VALUES = Object.freeze(Object.values(SERVICE_TYPE));
+
+module.exports = { SERVICE_TYPE, SERVICE_TYPE_VALUES };

@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI);
+    // eslint-disable-next-line no-console -- startup message, not debugging
     console.log('MongoDB connected:', mongoose.connection.name);
   } catch (err) {
     console.error('MongoDB connection error:', err.message);

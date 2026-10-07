@@ -10,7 +10,12 @@
   box-shadow: 0 2px 16px rgba(11,37,69,0.08);
   position: sticky;
   top: 0;
-  z-index: 100;
+  /* Above .nav-search-modal-overlay (z-index 300, portaled to document.body)
+     so the search input stays crisp/readable while that overlay is open -
+     position:sticky here creates its own stacking context, so a higher
+     z-index on .nav-search-wrapper alone (a descendant) can't escape this
+     navbar's z-index:100 ceiling to out-rank a sibling-of-body element. */
+  z-index: 350;
 }
 
 .nav-left {
@@ -55,7 +60,8 @@
 .search:focus { border-color: var(--navy-soft); }
 
 .nav-links a {
-  margin: 0 12px;
+  margin: 0 10px;
+  white-space: nowrap;
   text-decoration: none;
   color: var(--navy-soft);
   font-weight: 600;
@@ -95,7 +101,7 @@
   transform: translateY(-1px);
 }
 
-/* ============ LANDING — HERO ============ */
+/* ============ LANDING - HERO ============ */
 .hero {
   position: relative;
   height: 85vh;
@@ -130,7 +136,7 @@
 }
 
 .slide-1 {
-  /* Temporary placeholder (free Unsplash stock, aircon-themed) — /images/hero-aircon.jpg
+  /* Temporary placeholder (free Unsplash stock, aircon-themed) - /images/hero-aircon.jpg
      never existed on disk. Swap for real CZA photography when available. */
   background:
     linear-gradient(155deg, var(--navy) 0%, var(--navy-soft) 55%, var(--navy) 100%),
@@ -235,12 +241,12 @@
 .next-btn:hover { background: rgba(255,255,255,0.32); }
 
 /* Announcements now render as hero slides (.slide-2, above) instead of their own
-   section — the .announcement-board/.announcement-card rules that used to style
+   section - the .announcement-board/.announcement-card rules that used to style
    that section have been removed. Same for the old dedicated "Search Before You
-   Book" section (.public-search*) — replaced by .nav-search-* below, a single
+   Book" section (.public-search*) - replaced by .nav-search-* below, a single
    input in the navbar itself. */
 
-/* Base overlay/header/close-button classes for the search popup — landing_page.jsx
+/* Base overlay/header/close-button classes for the search popup - landing_page.jsx
    only imports this stylesheet (not the shared modals/*.css used by the
    authenticated app), so these are defined locally rather than pulling in an
    otherwise-unrelated bundle just for three class names. */
@@ -308,7 +314,7 @@
 }
 
 /* Results open in a larger popup (.nav-search-modal) rather than a small
-   inline dropdown under the input — a service match needs room for its
+   inline dropdown under the input - a service match needs room for its
    description and per-unit-type price breakdown, and a technician match needs
    room for the company-wide review aggregate shown in its place (see
    NavSearch in landing_page.jsx for why no per-technician profile is shown). */
@@ -317,9 +323,9 @@
 }
 
 .nav-search-modal {
-  background: var(--white);
-  border-radius: 16px;
-  width: min(560px, 92vw);
+  background: var(--frost);
+  border-radius: 18px;
+  width: min(600px, 92vw);
   max-height: 82vh;
   overflow-y: auto;
   padding: 20px 22px 24px;
@@ -332,6 +338,10 @@
   font-weight: 700;
   color: var(--navy);
   font-size: 16px;
+}
+
+.modal-header {
+  gap: 12px;
 }
 
 .nav-search-modal-body {
@@ -361,9 +371,16 @@
 }
 
 .nav-search-service-card {
-  background: var(--frost);
-  border-radius: 12px;
-  padding: 14px 16px;
+  background: var(--white);
+  border: 1px solid var(--mist);
+  border-radius: 14px;
+  padding: 16px 18px;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.nav-search-service-card:hover {
+  border-color: var(--navy-soft);
+  box-shadow: 0 8px 20px rgba(11, 37, 69, 0.08);
 }
 
 .nav-search-service-card + .nav-search-service-card {
@@ -372,7 +389,7 @@
 
 .nav-search-service-header {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
 }
@@ -383,23 +400,48 @@
   font-size: 15px;
 }
 
+/* Category pill next to the service name - colored per category so the
+   list reads at a glance instead of every card looking identical. */
+.nav-search-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  vertical-align: middle;
+  background: rgba(20, 58, 99, 0.08);
+  color: var(--navy-soft);
+}
+
+.nav-search-badge--cleaning { background: rgba(37, 99, 235, 0.1); color: var(--navy-soft); }
+.nav-search-badge--installation { background: rgba(139, 92, 246, 0.14); color: #7c3aed; }
+.nav-search-badge--maintenance { background: rgba(245, 158, 11, 0.14); color: #b45309; }
+.nav-search-badge--repair { background: rgba(220, 38, 38, 0.1); color: #dc2626; }
+
 .nav-search-service-base-price {
   flex-shrink: 0;
-  color: var(--navy-soft);
-  font-weight: 600;
-  font-size: 13px;
+  color: var(--navy);
+  font-weight: 700;
+  font-size: 14px;
 }
 
 .nav-search-service-desc {
   color: var(--ink-soft);
   font-size: 13px;
-  margin: 6px 0 0;
+  margin: 8px 0 0;
+  line-height: 1.5;
 }
 
 .nav-search-unit-heading {
   color: var(--ink-soft);
-  font-size: 12px;
-  margin: 12px 0 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 14px 0 8px;
 }
 
 .nav-search-unit-grid {
@@ -413,7 +455,16 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 4px;
+  gap: 5px;
+  padding: 8px 6px;
+  border-radius: 10px;
+  background: var(--frost);
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.nav-search-unit-item:hover {
+  background: #eaf1f8;
+  transform: translateY(-2px);
 }
 
 .nav-search-unit-photo {
@@ -443,9 +494,24 @@
 
 .nav-search-reviews-card {
   margin-top: 14px;
-  background: var(--frost);
-  border-radius: 12px;
-  padding: 14px 16px;
+  background: var(--white);
+  border: 1px solid var(--mist);
+  border-radius: 14px;
+  padding: 16px 18px;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.nav-search-reviews-card:hover {
+  border-color: var(--navy-soft);
+  box-shadow: 0 8px 20px rgba(11, 37, 69, 0.08);
+}
+
+.nav-search-reviews-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .nav-search-reviews-title {
@@ -456,9 +522,9 @@
 }
 
 .nav-search-reviews-stat {
-  color: var(--navy-soft);
+  color: var(--warning-hover);
   font-weight: 600;
-  font-size: 14px;
+  font-size: 13px;
   margin: 0;
 }
 
@@ -470,13 +536,44 @@
   margin: 6px 0 0;
 }
 
+.nav-search-review-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.nav-search-review-item {
+  padding-top: 10px;
+  border-top: 1px solid var(--mist);
+}
+
+.nav-search-review-item:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.nav-search-review-stars {
+  color: var(--warning);
+  font-size: 13px;
+  letter-spacing: 1px;
+}
+
+.nav-search-review-text {
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-style: italic;
+  margin: 4px 0 0;
+  line-height: 1.5;
+}
+
 .nav-search-cta {
   display: block;
   width: 100%;
   margin-top: 20px;
 }
 
-/* ============ LANDING — ABOUT ============ */
+/* ============ LANDING - ABOUT ============ */
 .about {
   text-align: center;
   background: var(--white);
@@ -521,7 +618,7 @@
   font-weight: 500;
 }
 
-/* ============ LANDING — SERVICES / UNITS / HOW IT WORKS ============ */
+/* ============ LANDING - SERVICES / UNITS / HOW IT WORKS ============ */
 .services,
 .units,
 .how {
@@ -656,7 +753,7 @@
   line-height: 1.6;
 }
 
-/* ============ LANDING — FOOTER ============ */
+/* ============ LANDING - FOOTER ============ */
 .footer {
   background: var(--navy);
   color: white;
@@ -681,7 +778,7 @@
 
 .footer-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 40px;
   margin-bottom: 40px;
 }
@@ -885,6 +982,7 @@
   padding: 44px 40px 36px;
   width: 100%;
   max-width: 440px;
+  margin: 0 auto;
   box-shadow: 0 8px 40px rgba(11,37,69,0.1);
   border: 1px solid rgba(11,37,69,0.06);
 }
@@ -948,7 +1046,14 @@
 
 .forgot-link:hover { text-decoration: underline; color: var(--navy); }
 
-.form-group input,
+/* :not([type=checkbox]):not([type=radio]) - this was previously a bare
+   `.form-group input` selector, which also caught checkboxes/radios inside a
+   .form-group (e.g. the Service Report's "Follow-up required" and
+   "Pre-existing issue" checkboxes) and stripped their native appearance via
+   `appearance: none` with no replacement checkmark, plus stretched them to
+   width:100%. They toggled correctly underneath, just with zero visible
+   feedback that they were checked. */
+.form-group input:not([type="checkbox"]):not([type="radio"]),
 .form-select {
   padding: 11px 14px;
   border: 1.5px solid #dde6ee;
@@ -963,14 +1068,14 @@
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
-.form-group input:focus,
+.form-group input:not([type="checkbox"]):not([type="radio"]):focus,
 .form-select:focus {
   border-color: var(--navy-soft);
   box-shadow: 0 0 0 3px rgba(14,140,140,0.1);
   background: white;
 }
 
-.form-group input::placeholder { color: #b8ccd8; }
+.form-group input:not([type="checkbox"]):not([type="radio"])::placeholder { color: #b8ccd8; }
 
 .form-select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%234a6178' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
@@ -1077,9 +1182,20 @@
 }
 
 @media (max-width: 860px) {
-  .navbar { flex-wrap: wrap; padding: 14px 22px; gap: 12px; }
-  .nav-links { order: 3; width: 100%; display: flex; justify-content: center; }
-  .nav-search-wrapper { order: 4; width: 100%; }
+  .navbar { flex-direction: column; align-items: center; padding: 14px 22px; gap: 12px; }
+  .nav-left { flex-shrink: 1; min-width: 0; width: 100%; justify-content: center; }
+  .brand { white-space: normal; text-align: center; }
+  .nav-right {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 20px;
+    width: 100%;
+  }
+  .nav-links { order: 1; display: flex; flex-wrap: wrap; gap: 4px; }
+  .nav-search-wrapper { order: 2; flex: 0 1 120px; min-width: 80px; margin-left: auto; }
+  .login-btn { order: 3; flex-shrink: 0; }
   .nav-search-box .search { width: 100%; }
   .slide-content h1, .slide-content h2 { font-size: 32px; }
   .footer { padding: 40px 22px 20px; }
@@ -1087,8 +1203,33 @@
   .auth-split-left { width: 100%; min-width: unset; padding: 32px 28px; min-height: 220px; }
   .auth-split-tagline h1 { font-size: 30px; }
   .auth-split-right { padding: 28px 16px; }
-  .auth-split-form-box { padding: 32px 22px; }
+  .auth-split-form-box { padding: 32px 22px; max-width: 480px; }
   .form-row { flex-direction: column; }
   .auth-split-left--register { position: static; height: auto; overflow: visible;}
   .auth-split-page:has(.auth-split-left--register) .auth-split-right { margin-left: 0; height: auto; overflow-y: visible; align-items: center; padding-top: 28px; padding-bottom: 28px; }
+}
+
+@media (max-width: 520px) {
+  .navbar { padding: 12px 16px; }
+  .brand { font-size: 14px; }
+  .logo { width: 40px; height: 40px; }
+  .hero { height: 70vh; }
+  .slide-content h1, .slide-content h2 { font-size: 26px; }
+  .slide-content p { font-size: 16px; }
+  .cta { padding: 13px 26px; font-size: 15px; }
+  .section-title { font-size: 28px; }
+  .stats { gap: 32px; }
+  .stat h3 { font-size: 36px; }
+  .card, .step { width: 100%; max-width: 320px; }
+  .footer { padding: 32px 16px 20px; }
+  .footer-grid { grid-template-columns: 1fr; gap: 32px; }
+  .auth-split-tagline h1 { font-size: 24px; }
+  .auth-role-btns { flex-direction: column; }
+}
+
+/* Extracted from inline styles in pages/public/login_page.jsx.
+   The class is doubled so it keeps the priority the inline style had over other rules. */
+.public-login-page-x1.public-login-page-x1 {
+  color: red;
+  font-size: 0.9rem;
 }

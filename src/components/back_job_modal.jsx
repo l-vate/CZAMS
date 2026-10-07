@@ -1,15 +1,16 @@
 import { useState } from 'react';
+import { BACK_JOB_STATUS } from '../constants/backJobStatus';
 
 function formatDate(dateStr) {
-  if (!dateStr) return '—';
+  if (!dateStr) return '-';
   const d = new Date(dateStr);
   if (isNaN(d)) return dateStr;
   return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
 // existingBackJob, when present, means the customer already reported an issue on
-// this booking — shown read-only instead of the report form.
-function BackJobModal({ booking, existingBackJob, onClose, onSubmit, submitting }) {
+// this booking - shown read-only instead of the report form.
+function BackJobModal({ existingBackJob, onClose, onSubmit, submitting }) {
   const [issueDescription, setIssueDescription] = useState('');
   const [error, setError] = useState('');
 
@@ -23,8 +24,8 @@ function BackJobModal({ booking, existingBackJob, onClose, onSubmit, submitting 
   };
 
   if (existingBackJob) {
-    const isScheduled = existingBackJob.status === 'Scheduled';
-    const isNotCovered = existingBackJob.status === 'Not Covered';
+    const isScheduled = existingBackJob.status === BACK_JOB_STATUS.SCHEDULED;
+    const isNotCovered = existingBackJob.status === BACK_JOB_STATUS.NOT_COVERED;
 
     return (
       <div className="modal-overlay" onClick={onClose}>
@@ -44,7 +45,7 @@ function BackJobModal({ booking, existingBackJob, onClose, onSubmit, submitting 
           {isScheduled && (
             <p className="cancelled-message">
               This was within warranty, so it's free of charge. A follow-up visit has
-              been scheduled — Booking ID <strong>{existingBackJob.resultingBookingId}</strong>,{' '}
+              been scheduled - Booking ID <strong>{existingBackJob.resultingBookingId}</strong>,{' '}
               {formatDate(existingBackJob.resultingBooking?.date)}.
             </p>
           )}
@@ -56,9 +57,9 @@ function BackJobModal({ booking, existingBackJob, onClose, onSubmit, submitting 
             </p>
           )}
 
-          {existingBackJob.status === 'Reviewed' && (
+          {existingBackJob.status === BACK_JOB_STATUS.REVIEWED && (
             <p className="cancelled-message">
-              This was outside warranty. Our team has reviewed it — reach out to us if
+              This was outside warranty. Our team has reviewed it - reach out to us if
               you haven't heard back yet.
             </p>
           )}
@@ -78,7 +79,7 @@ function BackJobModal({ booking, existingBackJob, onClose, onSubmit, submitting 
         </div>
 
         <p className="modal-instruction">
-          Use this if something's wrong after your service — e.g. a leak right after
+          Use this if something's wrong after your service - e.g. a leak right after
           cleaning, or the AC not cooling soon after installation. We'll check whether
           this is covered by warranty.
         </p>
@@ -95,7 +96,7 @@ function BackJobModal({ booking, existingBackJob, onClose, onSubmit, submitting 
         </div>
 
         {error && (
-          <p style={{ fontSize: '12px', color: '#e05a5a', marginTop: '-8px', marginBottom: '12px' }}>
+          <p className="back-job-modal-x1">
             {error}
           </p>
         )}

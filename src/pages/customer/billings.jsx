@@ -4,8 +4,13 @@ import CustomerLayout from './customer_layout';
 import PaymentModal from '../../components/payment_modal';
 import ReceiptModal from '../../components/receipt_modal';
 import { FiClock, FiMapPin, FiFileText, FiCreditCard, FiEye } from 'react-icons/fi';
-import { getBookingLineItems } from '../../utils/bookingPricing';
+import { getBookingLineItems, getPaymentBreakdown } from '../../utils/bookingPricing';
 import { usePaymentSettings } from '../../utils/paymentSettings';
+import { getFilterPillStyle } from '../../utils/statusColors';
+import { API_BASE } from '../../config/api';
+import { BOOKING_STATUS } from '../../constants/bookingStatus';
+import { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } from '../../constants/paymentStatus';
+import { REFUND_STATUS } from '../../constants/refundStatus';
 
 function Billings() {
   const navigate = useNavigate();
@@ -25,34 +30,34 @@ function Billings() {
 
   const fetchBookings = () => {
     const token = localStorage.getItem('token');
-    fetch('http://localhost:5000/api/bookings/mine', {
+    fetch(`${API_BASE}/api/bookings/mine`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => res.json())
       .then((data) => {
         const mapped = (Array.isArray(data) ? data : []).map((b) => {
 
-          const isPartiallyPaid = b.paymentStatus === 'partially_paid';
-          const isToVerify = b.paymentStatus === 'to_verify';
-          const isRejected = b.paymentStatus === 'rejected' || b.paymentStatus === 'Rejected';
+          const isPartiallyPaid = b.paymentStatus === PAYMENT_STATUS.PARTIALLY_PAID;
+          const isToVerify = b.paymentStatus === PAYMENT_STATUS.TO_VERIFY;
+          const isRejected = b.paymentStatus === PAYMENT_STATUS.REJECTED || b.paymentStatus === 'Rejected';
 
           // Balance-track status is tracked independently of the down-payment paymentStatus above.
-          const isBalanceToVerify = b.balancePaymentStatus === 'to_verify';
-          const isBalanceRejected = b.balancePaymentStatus === 'rejected';
-          const isBalancePaid = b.balancePaymentStatus === 'paid' || b.balancePaid;
+          const isBalanceToVerify = b.balancePaymentStatus === BALANCE_PAYMENT_STATUS.TO_VERIFY;
+          const isBalanceRejected = b.balancePaymentStatus === BALANCE_PAYMENT_STATUS.REJECTED;
+          const isBalancePaid = b.balancePaymentStatus === BALANCE_PAYMENT_STATUS.PAID || b.balancePaid;
 
           // A booking is fully paid once paymentStatus says so directly, OR once the down
-          // payment was accepted and the balance has separately been settled — this second
+          // payment was accepted and the balance has separately been settled - this second
           // check is a safety net for records saved before paymentStatus was also bumped
           // to 'fully_paid' on balance approval.
-          const isFullyPaid = b.paymentStatus === 'fully_paid' || b.paymentStatus === 'Paid' || (isPartiallyPaid && isBalancePaid);
+          const isFullyPaid = b.paymentStatus === PAYMENT_STATUS.FULLY_PAID || b.paymentStatus === 'Paid' || (isPartiallyPaid && isBalancePaid);
 
           // Once a booking is cancelled, paymentStatus reflects whatever it happened
-          // to be right before cancellation and no longer means what it used to — a
+          // to be right before cancellation and no longer means what it used to - a
           // processed refund or the cancellation itself overrides it below.
-          const isRefunded = b.refund?.status === 'Processed';
-          const isCancelled = b.status === 'Cancelled';
-          const isRefundPending = isCancelled && b.refund?.status === 'Pending';
+          const isRefunded = b.refund?.status === REFUND_STATUS.PROCESSED;
+          const isCancelled = b.status === BOOKING_STATUS.CANCELLED;
+          const isRefundPending = isCancelled && b.refund?.status === REFUND_STATUS.PENDING;
 
           let status = 'Unpaid';
           if (isRefunded) status = 'Refunded';
@@ -67,24 +72,23 @@ function Billings() {
           // shown alongside the main status once the down payment has been accepted.
           let balanceNote = null;
           if (isBalanceRejected) {
-            balanceNote = { text: 'Balance Rejected — please resubmit', color: 'var(--danger)' };
+            balanceNote = { text: 'Balance Rejected - please resubmit', tone: 'danger' };
           } else if (isBalanceToVerify) {
-            balanceNote = { text: 'Balance: To Verify', color: 'var(--warning)' };
+            balanceNote = { text: 'Balance: To Verify', tone: 'warning' };
           }
 
           const paid = isFullyPaid || isPartiallyPaid || isToVerify;
 
-          const { lineItems, basePrice } = getBookingLineItems(b);
+          const { lineItems, basePrice, discountAmount, discountLabel } = getBookingLineItems(b);
           const dpPercent = b.downPaymentPercent ?? 10;
-          const toPayNow = Math.round(basePrice * (dpPercent / 100));
-          const remaining = basePrice - toPayNow;
+          const { downPayment: toPayNow, balance: remaining } = getPaymentBreakdown({ ...b, downPaymentPercent: dpPercent });
 
           return {
             id: b.bookingId,
-            service: b.service?.name || b.service?.category || '—',
-            customerName: storedUser.name || '—',
+            service: b.service?.name || b.service?.category || '-',
+            customerName: storedUser.name || '-',
             address: b.address,
-            contactNumber: storedUser.phone || '—',
+            contactNumber: storedUser.phone || '-',
             paymentMode: b.paymentMode,
             paymentMode2: b.paymentMode2,
             proofFile: b.proofFile,
@@ -106,6 +110,11 @@ function Billings() {
             isCancelled,
             isRefundPending,
             isBackJob: !!b.isBackJob,
+            isCommercial: b.isCommercial,
+            vatAmount: b.vatAmount,
+            poNumber: b.poNumber,
+            paymentTermsDays: b.paymentTermsDays,
+            paymentDueAt: b.paymentDueAt,
             balanceNote,
             status,
             date: new Date(b.createdAt).toLocaleDateString('en-US'),
@@ -113,6 +122,8 @@ function Billings() {
             lineItems,
             toPayNow,
             remaining,
+            discountAmount,
+            discountLabel,
             raw: b,
           };
         });
@@ -130,15 +141,15 @@ function Billings() {
     .filter((bill) => {
       if (activeFilter === 'All') return true;
       if (activeFilter === 'Refunded') return bill.isRefunded;
-      if (bill.isCancelled) return false; // cancelled bookings (refunded excepted above) only show under "All" — their old paymentStatus no longer applies
-      // A back-job follow-up is free (0% down, nothing to pay) — there's nothing to
+      if (bill.isCancelled) return false; // cancelled bookings (refunded excepted above) only show under "All" - their old paymentStatus no longer applies
+      // A back-job follow-up is free (0% down, nothing to pay) - there's nothing to
       // bill, so like Cancelled/Refunded it only shows under "All", not alongside
       // real payable bookings in the normal status tabs.
       if (bill.isBackJob) return false;
       if (activeFilter === 'To Verify') return bill.isToVerify || bill.isBalanceToVerify;
       if (activeFilter === 'Fully Paid') return bill.isFullyPaid;
       if (activeFilter === 'Partially Paid') return bill.isPartiallyPaid;
-      if (activeFilter === 'Unpaid') return bill.paymentStatus === 'Unpaid' || bill.isRejected;
+      if (activeFilter === 'Unpaid') return bill.paymentStatus === PAYMENT_STATUS.UNPAID || bill.isRejected;
       return true;
     })
     .filter((bill) => {
@@ -168,9 +179,9 @@ function Billings() {
   // Payment-status colors, converged with admin.css's .status-pill--* (same
   // tokens from index.css) so the two files can't drift apart again: Partially
   // Paid and To Verify now match admin's existing blue/amber choices rather than
-  // keeping their own (this file previously had them swapped — To Verify was
+  // keeping their own (this file previously had them swapped - To Verify was
   // blue, Partially Paid was amber). Cancelled is a deliberately neutral gray,
-  // not red — see the --payment-cancelled-* comment in index.css for why.
+  // not red - see the --payment-cancelled-* comment in index.css for why.
   const getStatusColor = (bill) => {
     if (bill.isRefunded) return 'var(--payment-refunded-txt)';
     if (bill.isCancelled) return 'var(--payment-cancelled-txt)';
@@ -186,9 +197,9 @@ function Billings() {
       const formData = new FormData();
       if (proof) formData.append('proof', proof);
 
-      const res = await fetch(`http://localhost:5000/api/bookings/${selectedBill.id}/pay`, {
+      const res = await fetch(`${API_BASE}/api/bookings/${selectedBill.id}/pay`, {
         method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` }, // no Content-Type — browser sets it for FormData
+        headers: { Authorization: `Bearer ${token}` }, // no Content-Type - browser sets it for FormData
         body: formData,
       });
 
@@ -200,7 +211,7 @@ function Billings() {
 
       setShowPayment(false);
       fetchBookings();
-    } catch (err) {
+    } catch {
       alert('Could not connect to server.');
     }
   };
@@ -211,7 +222,7 @@ function Billings() {
       const formData = new FormData();
       if (proof) formData.append('proof', proof);
 
-      const res = await fetch(`http://localhost:5000/api/bookings/${selectedBill.id}/pay-balance`, {
+      const res = await fetch(`${API_BASE}/api/bookings/${selectedBill.id}/pay-balance`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -225,89 +236,83 @@ function Billings() {
 
       setShowPayment(false);
       fetchBookings();
-    } catch (err) {
+    } catch {
       alert('Could not connect to server.');
     }
   };
 
   return (
-    <CustomerLayout title="Billings">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+    <CustomerLayout
+      title="Billings"
+      searchValue={searchTerm}
+      onSearchChange={setSearchTerm}
+      searchPlaceholder="Search by ID, service, or address..."
+    >
+      <div className="customer-billings-x1">
+        <div className="customer-billings-x2">
           {filters.map((filter) => (
             <button
               key={filter}
               type="button"
               className={`filter-pill ${activeFilter === filter ? 'filter-pill--active' : ''}`}
+              style={getFilterPillStyle(filter, activeFilter === filter)}
               onClick={() => setActiveFilter(filter)}
             >
               {filter}
             </button>
           ))}
         </div>
-
-        <input
-          type="search"
-          placeholder="Search by ID, service, or address..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={{
-            padding: '10px 16px', borderRadius: '8px', border: '1px solid #d9d9d9',
-            minWidth: '260px', fontSize: '14px',
-          }}
-        />
       </div>
 
       {loading ? (
         <p>Loading bills...</p>
       ) : sortedBills.length === 0 ? (
-        <p style={{ color: '#666' }}>No matching bills found.</p>
+        <p className="customer-billings-x3">No matching bills found.</p>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div className="tech-job-list">
           {filteredBills.map((bill) => (
             <div
               key={bill.id}
-              style={{
-                background: '#fff', border: '1px solid var(--card-border)', borderRadius: '12px',
-                padding: '18px 20px', display: 'grid', gridTemplateColumns: '2fr 1.5fr 1.5fr 1.2fr',
-                alignItems: 'center',
-              }}
+              className="tech-job-card"
+              style={{ borderLeftColor: bill.isBackJob ? 'var(--success)' : getStatusColor(bill) }}
             >
-              <div>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap' }}>
-                  <small style={{ color: '#888' }}>{bill.date}</small>
-                  <span style={{ background: bill.isBackJob ? 'var(--success)' : getStatusColor(bill), color: '#fff', padding: '2px 8px', borderRadius: '999px', fontSize: '11px' }}>
+              <div className="tech-job-info">
+                <div className="tech-job-top-row customer-billings-x4">
+                  <small className="tech-job-date-label">{bill.date}</small>
+                  <span
+                    className="tech-job-status-badge"
+                    style={{ background: bill.isBackJob ? 'var(--success)' : getStatusColor(bill) }}
+                  >
                     {bill.isBackJob ? 'Free (Back Job)' : bill.status}
                   </span>
                   {bill.balanceNote && (
-                    <span style={{ color: bill.balanceNote.color, fontSize: '11px', fontWeight: 600 }}>
+                    <span className={`customer-billings-x5 balance-note--${bill.balanceNote.tone}`}>
                       {bill.balanceNote.text}
                     </span>
                   )}
                 </div>
 
-                <h3 style={{ margin: 0, fontSize: '18px' }}>{bill.service}</h3>
-                <p style={{ margin: '4px 0', color: '#666' }}>{bill.id}</p>
+                <div className="tech-job-service">{bill.service}</div>
+                <small className="tech-job-booking">{bill.id}</small>
                 {bill.isRejected && !bill.isCancelled && (
-                  <p style={{ margin: '4px 0', color: '#ef4444', fontSize: '13px' }}>
-                    Rejected — please resubmit
+                  <p className="customer-billings-x6">
+                    Rejected - please resubmit
                   </p>
                 )}
-
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <FiMapPin /> {bill.address}
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div className="tech-job-meta">
                 <FiClock /> {bill.date}
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+              <div className="tech-job-meta">
+                <FiMapPin /> {bill.address}
+              </div>
+
+              <div className="customer-billings-x7">
                 <button
                   type="button"
-                  style={{ background: 'transparent', border: '1px solid #d0dde8', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', color: '#333', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  className="view-details-btn"
                   onClick={() => navigate(`/customer/book_details/${bill.id}`)}
                 >
                   <FiEye size={14} /> View Details
@@ -315,7 +320,7 @@ function Billings() {
 
                 {bill.isFullyPaid && !bill.isCancelled && (
                   <button
-                    style={{ background: 'transparent', border: '1px solid #d0dde8', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', color: '#333', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    className="customer-billings-x8"
                     onClick={() => {
                       setSelectedBill(bill);
                       setShowReceipt(true);
@@ -328,8 +333,7 @@ function Billings() {
                 {!bill.paid && !bill.isCancelled && !bill.isBackJob && (
                   <button
                     type="button"
-                    className="bs-next-btn"
-                    style={{ padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    className="bs-next-btn customer-billings-x9"
                     onClick={() => {
                       setSelectedBill(bill);
                       setPaymentType('downpayment');
@@ -343,8 +347,7 @@ function Billings() {
                 {bill.isPartiallyPaid && !bill.isBalancePaid && !bill.isCancelled && (
                   <button
                     type="button"
-                    className="bs-next-btn"
-                    style={{ padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    className="bs-next-btn customer-billings-x9"
                     onClick={() => {
                       setSelectedBill(bill);
                       setPaymentType('balance');

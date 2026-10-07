@@ -1,17 +1,23 @@
 import { useState, useEffect } from 'react';
-import { buildTechnicianStats } from '../pages/admin/analytics';
+import { buildTechnicianStats } from '../utils/technicianStats';
+import { API_BASE } from '../config/api';
 
-const API_BASE = 'http://localhost:5000';
 
 const fmtHours = (h) => (h === null || h === undefined ? 'N/A' : `${h.toFixed(1)} hrs`);
 
-// Manage Accounts' "Performance Review" button — there's no per-technician page to
+function Stars({ count = 5 }) {
+  return <span className="ma-stars">{'★'.repeat(count)}{'☆'.repeat(5 - count)}</span>;
+}
+
+// Manage Accounts' "Performance Review" button - there's no per-technician page to
 // navigate into (Analytics is an aggregate dashboard, not a filterable list like
 // Bookings/Payments/Reports), so this fetches the same data Analytics does and
 // reuses its buildTechnicianStats to show just this one technician's row.
 function TechnicianPerformanceModal({ technician, onClose }) {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,6 +46,26 @@ function TechnicianPerformanceModal({ technician, onClose }) {
     return () => { cancelled = true; };
   }, [technician._id]);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadReviews() {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_BASE}/api/bookings/technicians/${technician._id}/feedback`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = res.ok ? await res.json() : [];
+        if (!cancelled) setReviews(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Error loading technician reviews:', err);
+      } finally {
+        if (!cancelled) setReviewsLoading(false);
+      }
+    }
+    loadReviews();
+    return () => { cancelled = true; };
+  }, [technician._id]);
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
@@ -48,7 +74,7 @@ function TechnicianPerformanceModal({ technician, onClose }) {
           <button className="modal-close-btn" onClick={onClose}>✕</button>
         </div>
 
-        <p className="ma-form-sub" style={{ marginTop: '-4px' }}>
+        <p className="ma-form-sub technician-performance-modal-x1">
           {technician.name || 'Technician'} · {technician._id}
         </p>
 
@@ -71,9 +97,35 @@ function TechnicianPerformanceModal({ technician, onClose }) {
           </div>
         )}
 
-        <p className="ma-form-sub" style={{ marginTop: '12px' }}>
+        <p className="ma-form-sub technician-performance-modal-x2">
           Same figures as this technician's row in Analytics &rarr; Technician Performance Analytics.
         </p>
+
+        <div className="tpm-reviews-section">
+          <p className="tpm-reviews-title">Customer Reviews</p>
+          {reviewsLoading ? (
+            <p className="ma-form-sub">Loading reviews...</p>
+          ) : reviews.length === 0 ? (
+            <p className="ma-form-sub">No customer reviews yet.</p>
+          ) : (
+            <div className="tpm-reviews-list">
+              {reviews.map((r, i) => (
+                <div className="tpm-review-card" key={i}>
+                  <div className="tpm-review-header">
+                    <span className="tpm-review-name">{r.name}</span>
+                    <Stars count={r.rating} />
+                  </div>
+                  {r.text && <p className="tpm-review-text">{r.text}</p>}
+                  {r.createdAt && (
+                    <span className="tpm-review-date">
+                      {new Date(r.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

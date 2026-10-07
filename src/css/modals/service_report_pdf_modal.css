@@ -116,7 +116,7 @@
   background: #ffffff;
 }
 
-/* Background/hover converged (Pass D) to var(--primary)/var(--primary-hover) —
+/* Background/hover converged (Pass D) to var(--primary)/var(--primary-hover) -
    inherited from .modal-submit-btn now that this no longer overrides it to a
    near-black color. */
 .report-pdf-print-btn {

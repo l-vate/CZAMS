@@ -1,14 +1,14 @@
 import { useEffect } from 'react';
 
 function formatDate(dateStr) {
-  if (!dateStr) return '—';
+  if (!dateStr) return '-';
   const d = new Date(dateStr);
   if (isNaN(d)) return dateStr;
   return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
 function formatDateTime(dateStr) {
-  if (!dateStr) return '—';
+  if (!dateStr) return '-';
   const d = new Date(dateStr);
   if (isNaN(d)) return dateStr;
   return d.toLocaleString('en-US', {
@@ -17,7 +17,7 @@ function formatDateTime(dateStr) {
 }
 
 // Same print mechanism as receipt_modal.jsx (window.print() + a print-only visible
-// area) but a distinct document — a service report, not an invoice — with its own
+// area) but a distinct document - a service report, not an invoice - with its own
 // classes rather than reusing the receipt's.
 function ServiceReportPdfModal({ report, reportItem, onClose }) {
   useEffect(() => {
@@ -67,7 +67,7 @@ function ServiceReportPdfModal({ report, reportItem, onClose }) {
                 <p className="report-pdf-text">{report.partsUsed}</p>
               </>
             )}
-            <div className="report-pdf-row"><span>Resolution</span><span>{report.issueResolution || '—'}</span></div>
+            <div className="report-pdf-row"><span>Resolution</span><span>{report.issueResolution || '-'}</span></div>
             {report.laborHours ? (
               <div className="report-pdf-row"><span>Labor Hours</span><span>{report.laborHours} hrs</span></div>
             ) : null}
@@ -90,7 +90,7 @@ function ServiceReportPdfModal({ report, reportItem, onClose }) {
           {report.followUpRequired && (
             <div className="report-pdf-section">
               <p className="report-pdf-section-title">Follow-up</p>
-              <p className="report-pdf-text">Required — {formatDate(report.followUpDate)}</p>
+              <p className="report-pdf-text">Required - {formatDate(report.followUpDate)}</p>
             </div>
           )}
 
@@ -113,7 +113,7 @@ function ServiceReportPdfModal({ report, reportItem, onClose }) {
             )}
             <div className="report-pdf-row">
               <span>Signed by</span>
-              <span>{report.clientConsent?.signedName || '—'}</span>
+              <span>{report.clientConsent?.signedName || '-'}</span>
             </div>
             <div className="report-pdf-row">
               <span>Date</span>

@@ -66,7 +66,7 @@ function FeedbackModal({ booking, readOnly = false, onClose, onSubmit, submittin
         </div>
 
         {error && (
-          <p style={{ fontSize: '12px', color: '#e05a5a', marginTop: '-8px', marginBottom: '12px' }}>
+          <p className="feedback-modal-x1">
             {error}
           </p>
         )}

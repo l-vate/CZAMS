@@ -1,20 +1,20 @@
 import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { FiWind, FiThermometer, FiZap, FiGrid, FiHome, FiSearch } from 'react-icons/fi';
+import { FiSearch, FiTool } from 'react-icons/fi';
 import { UNIT_TYPE_IMAGES } from '../../utils/unitTypeImages';
+import { COMPANY_PHONE } from '../../config/company';
+import { getBusinessHoursText } from '../../config/timeBlocks';
+import { usePublicPromos, describeDiscount } from '../../utils/promos';
+import AvailabilityCalendar from '../../components/availability_calendar';
 import '../../css/public.css'
+import { API_BASE } from '../../config/api';
+import { SERVICE_TYPE } from '../../constants/serviceTypes';
+import { UNIT_TYPES } from '../../constants/unitTypes';
 
-const API_BASE = 'http://localhost:5000';
 
 const NAV_SEARCH_RESULTS_LIMIT = 8;
 
-// Same canonical list booking uses (book_service.jsx UNIT_TYPES) — duplicated
-// here rather than imported since that module is customer/auth-flow code and
-// this component is the fully public landing page. Named distinctly from the
-// UNIT_TYPES below (that one's the "Coverage" section's icon list, a different,
-// looser set of labels — this one has to match booking's real unit types
-// exactly, since it's used to look up real per-type prices).
-const SEARCH_UNIT_TYPES = ['Window Type', 'Split Type', 'Floor Mounted', 'Cassette Type', 'Portable'];
 
 // Mirrors src/utils/bookingPricing.js getUnitPrice: a per-unit-type override if the
 // admin set one for this service, otherwise the flat base price.
@@ -23,6 +23,22 @@ function getUnitPrice(service, unitType) {
   return override ? override.price : (service?.price || 0);
 }
 
+// Generic terms a visitor might type without knowing a specific service or
+// technician name - "what do you offer" / "how much" style searches. Matching
+// these surfaces every service/technician instead of coming back empty just
+// because the query isn't literally a name substring.
+const GENERIC_SERVICE_TERMS = ['service', 'services', 'price', 'prices', 'pricing', 'cost', 'costs', 'rate', 'rates'];
+const GENERIC_TECH_TERMS = ['technician', 'technicians', 'staff', 'team', 'tech'];
+
+// Service.category accent - same idea as the announcement/status accents used
+// elsewhere in the app, just for the categories this model actually has.
+const SERVICE_CATEGORY_ACCENT = {
+  Cleaning: 'nav-search-badge--cleaning',
+  Installation: 'nav-search-badge--installation',
+  Maintenance: 'nav-search-badge--maintenance',
+  Repair: 'nav-search-badge--repair',
+};
+
 const CATEGORY_LABEL = {
   Holiday: '🎉 Holiday',
   Closure: '🚧 Closure',
@@ -30,36 +46,44 @@ const CATEGORY_LABEL = {
   General: '📢 Announcement',
 };
 
-/* ── Landing Page Module: navbar search ─────────────────────
-   Replaces the old dedicated "Search Before You Book" section (3 tabs incl. a
-   date-availability check) with a single normal search input in the navbar —
-   simple text match against service and technician names only. Date search was
-   dropped: it doesn't fit a plain text box the way name matching does, and per
-   the client this is better handled inside the actual booking flow later if it's
-   ever needed. Still real data (GET /api/services/public, GET /api/auth/technicians,
-   GET /api/bookings/public/feedback-summary — all public, no auth) and still
-   browse-only for an unauthenticated visitor.
-
-   Results open in a larger popup instead of a small inline list. A service
-   match shows that service's description and a full per-unit-type price
-   breakdown. A technician match deliberately does NOT show that person's own
-   schedule/rating/profile — this is a 4-person field team and an individual
-   public profile is a privacy concern the client specifically wants to avoid —
-   so it shows the matched name plus one shared, company-wide review aggregate
-   instead (same aggregate no matter which or how many technicians matched). */
-function NavSearch({ navigate }) {
-  const [query, setQuery] = useState('');
-  const [open, setOpen] = useState(false);
+/* ── Landing Page Module: public data hooks ─────────────────
+   Everything on this page that states a service, a price or a rating comes from
+   the database through public (no auth) endpoints; nothing is hardcoded. */
+function usePublicServices() {
   const [services, setServices] = useState([]);
-  const [technicians, setTechnicians] = useState([]);
-  const [feedbackSummary, setFeedbackSummary] = useState(null);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/services/public`)
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => setServices(Array.isArray(data) ? data : []))
-      .catch(() => setServices([]));
+      .catch(() => setServices([]))
+      .finally(() => setLoaded(true));
+  }, []);
 
+  return { services, loaded };
+}
+
+/* ── Landing Page Module: navbar search ─────────────────────
+   A single text input in the navbar that matches service and technician names
+   (there is no date or availability search). Data is real (GET /api/services/public,
+   GET /api/auth/technicians, GET /api/bookings/public/feedback-summary - all
+   public, no auth) and browse-only for an unauthenticated visitor.
+
+   Results open in a larger popup. A service match shows that service's
+   description and a full per-unit-type price breakdown. A technician match
+   deliberately does NOT show that person's own schedule, rating or reviews: this
+   is a small field team and an individual public profile is a privacy concern the
+   client wants to avoid. It shows the matched name(s) plus one shared,
+   company-wide review aggregate instead (same aggregate no matter which or how
+   many technicians matched). */
+function NavSearch({ navigate, services }) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const [technicians, setTechnicians] = useState([]);
+  const [feedbackSummary, setFeedbackSummary] = useState(null);
+
+  useEffect(() => {
     fetch(`${API_BASE}/api/auth/technicians`)
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => setTechnicians(Array.isArray(data) ? data : []))
@@ -74,6 +98,7 @@ function NavSearch({ navigate }) {
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (e) => { if (e.key === 'Escape') setOpen(false); };
+    // eslint-disable-next-line no-restricted-syntax -- Escape key: removed in this effect's cleanup
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [open]);
@@ -81,15 +106,30 @@ function NavSearch({ navigate }) {
   const serviceResults = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
-    // Capped (unlike the technician list, small enough to just show in full) —
+    // A generic "services"/"prices" search, or a unit-type name ("window
+    // type", "cassette"...), surfaces every service - there's no one service
+    // that specific term should narrow down to, so treat it as "show me what
+    // you've got" instead of coming back with no matches.
+    const isGenericBrowse =
+      GENERIC_SERVICE_TERMS.includes(q) || UNIT_TYPES.some((t) => t.toLowerCase().includes(q));
+    const matches = isGenericBrowse
+      ? services
+      : services.filter(
+          (s) =>
+            s.name?.toLowerCase().includes(q) ||
+            s.category?.toLowerCase().includes(q) ||
+            s.serviceType?.toLowerCase().includes(q)
+        );
+    // Capped (unlike the technician list, small enough to just show in full) -
     // each match renders as a full card with a description and unit-type grid,
     // so an uncapped list could get very long in the popup.
-    return services.filter((s) => s.name?.toLowerCase().includes(q)).slice(0, NAV_SEARCH_RESULTS_LIMIT);
+    return matches.slice(0, NAV_SEARCH_RESULTS_LIMIT);
   }, [services, query]);
 
   const technicianResults = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
+    if (GENERIC_TECH_TERMS.includes(q)) return technicians;
     return technicians.filter((t) => t.name?.toLowerCase().includes(q));
   }, [technicians, query]);
 
@@ -106,14 +146,22 @@ function NavSearch({ navigate }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setOpen(true)}
+          onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
         />
       </div>
 
-      {open && query.trim() && (
+      {open && query.trim() && createPortal(
         <div className="modal-overlay nav-search-modal-overlay" onClick={() => setOpen(false)}>
           <div className="nav-search-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <span className="nav-search-modal-title">Search Results for "{query.trim()}"</span>
+              {/* A single input (the navbar's) that never unmounts, raised above this
+                  overlay via z-index (see .nav-search-wrapper in public.css) so it
+                  stays visible and editable while the modal is open. A second input
+                  inside the modal used to steal and drop focus on every keystroke
+                  that crossed the empty/non-empty boundary. */}
+              <span className="nav-search-modal-title">
+                {totalResults > 0 ? `Results for "${query.trim()}"` : 'Search'}
+              </span>
               <button className="modal-close-btn" onClick={() => setOpen(false)}>✕</button>
             </div>
 
@@ -128,7 +176,14 @@ function NavSearch({ navigate }) {
                       {serviceResults.map((s) => (
                         <div className="nav-search-service-card" key={s._id}>
                           <div className="nav-search-service-header">
-                            <span className="nav-search-service-name">{s.name}</span>
+                            <div>
+                              <span className="nav-search-service-name">{s.name}</span>
+                              {s.category && (
+                                <span className={`nav-search-badge ${SERVICE_CATEGORY_ACCENT[s.category] || ''}`}>
+                                  {s.category}
+                                </span>
+                              )}
+                            </div>
                             <span className="nav-search-service-base-price">
                               From ₱{Number(s.price).toLocaleString()}
                             </span>
@@ -139,7 +194,7 @@ function NavSearch({ navigate }) {
 
                           <p className="nav-search-unit-heading">Pricing by unit type</p>
                           <div className="nav-search-unit-grid">
-                            {SEARCH_UNIT_TYPES.map((type) => (
+                            {UNIT_TYPES.map((type) => (
                               <div className="nav-search-unit-item" key={type}>
                                 <img
                                   src={UNIT_TYPE_IMAGES[type]}
@@ -161,25 +216,38 @@ function NavSearch({ navigate }) {
                   {technicianResults.length > 0 && (
                     <div className="nav-search-result-group">
                       <h4 className="nav-search-group-title">Technicians</h4>
-                      <div className="nav-search-tech-names">
-                        {technicianResults.map((t) => (
-                          <span className="nav-search-tech-chip" key={t._id}>{t.name}</span>
-                        ))}
-                      </div>
-
-                      {/* Company-wide aggregate only — never a per-technician score/profile. */}
                       <div className="nav-search-reviews-card">
-                        <p className="nav-search-reviews-title">Customer Reviews</p>
-                        {feedbackSummary?.totalReviews > 0 ? (
-                          <p className="nav-search-reviews-stat">
-                            ★ {feedbackSummary.averageRating} average from {feedbackSummary.totalReviews} review{feedbackSummary.totalReviews === 1 ? '' : 's'}
-                          </p>
-                        ) : (
-                          <p className="nav-search-reviews-stat nav-search-reviews-empty">No reviews yet.</p>
-                        )}
+                        <div className="nav-search-reviews-card-header">
+                          {technicianResults.map((t) => (
+                            <span className="nav-search-tech-chip" key={t._id}>{t.name}</span>
+                          ))}
+                        </div>
+
                         <p className="nav-search-reviews-note">
-                          Reflects all completed jobs company-wide, not a single technician.
+                          Our technicians are reviewed as one team. Individual ratings are not published.
                         </p>
+
+                        {feedbackSummary === null ? (
+                          <p className="nav-search-reviews-note">Loading reviews...</p>
+                        ) : feedbackSummary.totalReviews === 0 ? (
+                          <p className="nav-search-reviews-stat nav-search-reviews-empty">No reviews yet.</p>
+                        ) : (
+                          <>
+                            <span className="nav-search-reviews-stat">
+                              ★ {feedbackSummary.averageRating} average from {feedbackSummary.totalReviews} review{feedbackSummary.totalReviews === 1 ? '' : 's'}
+                            </span>
+                            <div className="nav-search-review-list">
+                              {(feedbackSummary.recentReviews || []).map((r, i) => (
+                                <div className="nav-search-review-item" key={i}>
+                                  <span className="nav-search-review-stars">
+                                    {'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}
+                                  </span>
+                                  <p className="nav-search-review-text">"{r.text}"</p>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   )}
@@ -191,7 +259,8 @@ function NavSearch({ navigate }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -199,9 +268,8 @@ function NavSearch({ navigate }) {
 
 /* ── Landing Page Module: announcements-in-hero hook ─────────
    Real data from GET /api/announcements/public (Announcement model, managed by
-   admin under Announcements). Previously rendered as its own section below the
-   hero; moved back into the hero carousel itself (one slide per announcement,
-   after the static booking slide) so it actually shows in the main top banner. */
+   admin under Announcements), shown as one hero carousel slide per announcement
+   after the static booking slide. */
 function useAnnouncements() {
   const [announcements, setAnnouncements] = useState([]);
 
@@ -215,55 +283,14 @@ function useAnnouncements() {
   return announcements;
 }
 
-/* ── Static Content ─────────────────────────────────────── */
-const STATS = [
-  { value: '15+', label: 'Years of Experience' },
-  { value: '2,000+', label: 'Units Serviced' },
-  { value: '500+', label: 'Happy Clients' },
-  { value: '4.9★', label: 'Average Rating' },
-];
-
-// Temporary placeholder photos (free Unsplash stock, aircon/HVAC-themed) —
-// /images/services/*.jpg never existed on disk (confirmed: public/images/ only
-// has logo.png), so these cards were rendering broken images. Swap for real CZA
-// photography when available.
-const SERVICES = [
-  {
-    image: 'https://images.unsplash.com/photo-1737012197886-7d5a52ded45b?auto=format&fit=crop&w=800&q=80',
-    title: 'Aircon Cleaning',
-    desc: 'Thorough deep-cleaning for fresh, healthy, efficient air circulation.',
-    price: 'From ₱650',
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1642749776312-aa42ce20c9f5?auto=format&fit=crop&w=800&q=80',
-    title: 'Repair & Diagnostics',
-    desc: 'Fast diagnosis and dependable repairs for all unit types and brands.',
-    price: 'From ₱1,200',
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1726614846573-c1ac2e6161d1?auto=format&fit=crop&w=800&q=80',
-    title: 'New Installation',
-    desc: 'Professional installation with proper setup, testing, and cleanup.',
-    price: 'From ₱3,500',
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1759772238012-9d5ad59ae637?auto=format&fit=crop&w=800&q=80',
-    title: 'Preventive Check-Up',
-    desc: 'Scheduled maintenance to avoid costly breakdowns before they happen.',
-    price: 'From ₱550',
-  },
-];
-
-// Icon-based, not photo-based — /images/units/ never existed on disk (confirmed:
-// only logo.png is present under public/images), so every box here was actually
-// rendering a broken image icon. .card-icon already existed in public.css for
-// exactly this treatment but had no consumer anywhere in the app.
-const UNIT_TYPES = [
-  { icon: <FiWind />, label: 'Window Type' },
-  { icon: <FiThermometer />, label: 'Split Type' },
-  { icon: <FiZap />, label: 'Inverter' },
-  { icon: <FiGrid />, label: 'Cassette' },
-  { icon: <FiHome />, label: 'Floor Mounted' },
+/* ── Static Content ───────────────────────────────────────── */
+// Shown only if the services API returns nothing (down, or no active services yet):
+// plain cards with no prices, so the page never states a price the database doesn't back.
+const FALLBACK_SERVICE_CARDS = [
+  { title: 'Aircon Cleaning', desc: 'Cleaning for healthier, more efficient air circulation.' },
+  { title: 'Repair & Diagnostics', desc: 'Diagnosis and repair for aircon units.' },
+  { title: 'New Installation', desc: 'Installation with proper setup and testing.' },
+  { title: 'Preventive Check-Up', desc: 'Scheduled maintenance to catch problems early.' },
 ];
 
 const HOW_IT_WORKS_STEPS = [
@@ -285,13 +312,18 @@ const HOW_IT_WORKS_STEPS = [
   {
     number: '04',
     title: 'Post-Service Support',
-    desc: '30-day service warranty. We stay available after the job is done.',
+    desc: 'Warranty coverage on completed work. We stay available after the job is done.',
   },
 ];
 
 function LandingPage() {
   const navigate = useNavigate();
   const announcements = useAnnouncements();
+  const { services, loaded: servicesLoaded } = usePublicServices();
+  const { promos } = usePublicPromos();
+  // Customer-bookable services only: the hidden cleaning tiers and the admin-only Leak
+  // Repair are not something a visitor picks from the menu.
+  const serviceCards = services.filter((s) => !s.hiddenFromDirectSelection && s.serviceType !== SERVICE_TYPE.LEAK_REPAIR);
   const [current, setCurrent] = useState(0);
   const totalSlides = 1 + announcements.length;
 
@@ -312,8 +344,9 @@ function LandingPage() {
             <a href="#home">HOME</a>
             <a href="#about">ABOUT US</a>
             <a href="#services">SERVICES</a>
+            <a href="#availability">AVAILABLE DATES</a>
           </nav>
-          <NavSearch navigate={navigate} />
+          <NavSearch navigate={navigate} services={services} />
           <button className="login-btn" onClick={() => navigate('/login')}>LOG IN</button>
         </div>
       </header>
@@ -323,9 +356,9 @@ function LandingPage() {
         <div className="slides">
           <div className={`slide slide-1 ${current === 0 ? 'active' : ''}`}>
             <div className="slide-content">
-              <span className="slide-eyebrow">Trusted since 2009</span>
+              <span className="slide-eyebrow">Serving Metro Manila and nearby areas since 2009</span>
               <h1>Cool comfort, clean air,<br />delivered to your door.</h1>
-              <p>Professional aircon cleaning, repair, and installation — fast, reliable, and affordable.</p>
+              <p>Professional aircon cleaning, repair, and installation.</p>
               <div className="slide-cta-row">
                 <button className="cta" onClick={() => navigate('/login')}>Book a Service</button>
               </div>
@@ -358,19 +391,9 @@ function LandingPage() {
         <span className="section-eyebrow">Who We Are</span>
         <h2 className="section-title">About Us</h2>
         <p>
-          Cooling Zone has been serving homes and businesses since 2009. With over
-          15 years of experience, we deliver reliable aircon cleaning, repair,
-          installation, and preventive maintenance services across Metro Manila.
+          Serving Metro Manila and nearby areas since 2009. We provide aircon cleaning,
+          repair, installation, and preventive maintenance for homes and businesses.
         </p>
-
-        <div className="stats">
-          {STATS.map((stat) => (
-            <div className="stat" key={stat.label}>
-              <h3>{stat.value}</h3>
-              <p>{stat.label}</p>
-            </div>
-          ))}
-        </div>
       </section>
 
       <div className="vent-divider" />
@@ -379,17 +402,25 @@ function LandingPage() {
       <section id="services" className="services">
         <span className="section-eyebrow">What We Offer</span>
         <h2 className="section-title">Our Services</h2>
-        <p className="section-subtitle">Base price only — final cost may vary depending on scope and materials.</p>
+        <p className="section-subtitle">Base price only - final cost may vary depending on scope and materials.</p>
 
         <div className="cards">
-          {SERVICES.map((service) => (
-            <div className="card" key={service.title}>
-              <img src={service.image} alt={service.title} className="card-photo" />
-              <h3>{service.title}</h3>
-              <p>{service.desc}</p>
-              <span className="card-price">{service.price}</span>
-            </div>
-          ))}
+          {serviceCards.length > 0
+            ? serviceCards.map((service) => (
+                <div className="card" key={service._id}>
+                  <span className="card-icon"><FiTool /></span>
+                  <h3>{service.name}</h3>
+                  {service.description && <p>{service.description}</p>}
+                  <span className="card-price">From ₱{Number(service.price).toLocaleString()}</span>
+                </div>
+              ))
+            : servicesLoaded && FALLBACK_SERVICE_CARDS.map((service) => (
+                <div className="card" key={service.title}>
+                  <span className="card-icon"><FiTool /></span>
+                  <h3>{service.title}</h3>
+                  <p>{service.desc}</p>
+                </div>
+              ))}
         </div>
 
         <div className="services-cta">
@@ -397,19 +428,47 @@ function LandingPage() {
         </div>
       </section>
 
+      {/* ============ CURRENT PROMOS (real data, only shown when there are any) ============ */}
+      {promos.length > 0 && (
+        <section id="promos" className="services">
+          <span className="section-eyebrow">Save More</span>
+          <h2 className="section-title">Current Promos</h2>
+          <div className="cards">
+            {promos.map((promo) => (
+              <div className="card" key={promo._id}>
+                <h3>{promo.name}</h3>
+                <p>{describeDiscount(promo)}{promo.minUnits > 1 ? ` when you book ${promo.minUnits} or more units` : ''}{promo.serviceNames.length > 0 ? ` of ${promo.serviceNames.join(', ')}` : ''}.</p>
+                {promo.description && <p>{promo.description}</p>}
+                <span className="card-price">Until {new Date(`${promo.endDate}T00:00:00`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* ============ UNIT TYPES ============ */}
       <section className="units">
         <span className="section-eyebrow">Coverage</span>
-        <h2 className="section-title">All Major Unit Types Covered</h2>
+        <h2 className="section-title">Unit Types We Service</h2>
 
         <div className="cards">
-          {UNIT_TYPES.map((unit) => (
-            <div className="card" key={unit.label}>
-              <span className="card-icon">{unit.icon}</span>
-              <p>{unit.label}</p>
+          {UNIT_TYPES.map((type) => (
+            <div className="card" key={type}>
+              <img src={UNIT_TYPE_IMAGES[type]} alt={type} className="card-photo card-photo--unit" />
+              <p>{type}</p>
             </div>
           ))}
         </div>
+      </section>
+
+      <div className="vent-divider" />
+
+      {/* ============ AVAILABLE DATES ============ */}
+      <section id="availability" className="services">
+        <span className="section-eyebrow">Plan Ahead</span>
+        <h2 className="section-title">Available Dates</h2>
+        <p className="section-subtitle">Bookings need at least 3 days notice. Morning and Afternoon are booked separately.</p>
+        <AvailabilityCalendar />
       </section>
 
 
@@ -419,7 +478,7 @@ function LandingPage() {
       <section className="how">
         <span className="section-eyebrow">The Process</span>
         <h2 className="section-title">How It Works</h2>
-        <p className="section-subtitle">From booking to post-service support — we've made it simple.</p>
+        <p className="section-subtitle">From booking to post-service support - we've made it simple.</p>
 
         <div className="steps">
           {HOW_IT_WORKS_STEPS.map((step) => (
@@ -440,18 +499,18 @@ function LandingPage() {
               <img src="/images/logo.png" alt="Logo" className="footer-logo" />
               <span className="footer-brand-name">COOLING ZONE</span>
             </div>
-            <p className="footer-brand-desc">Trusted aircon maintenance services since 2009. Serving homes and businesses across Metro Manila.</p>
+            <p className="footer-brand-desc">Serving Metro Manila and nearby areas since 2009.</p>
           </div>
 
           <div>
             <h4>Opening Hours</h4>
-            <p>Mon – Sat: 8:00 AM – 6:00 PM</p>
+            <p>Mon to Sat: {getBusinessHoursText()}</p>
             <p>Sunday: Closed</p>
           </div>
 
           <div>
             <h4>Contact Us</h4>
-            <p>📞 +63 900 000 0000</p>
+            <p>📞 {COMPANY_PHONE}</p>
             <p>✉️ coolingzoneaircon@yahoo.com</p>
           </div>
 

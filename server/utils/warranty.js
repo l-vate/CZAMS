@@ -1,6 +1,9 @@
-// Warranty Tracking Module — single source of truth for warranty date math, so
+// Warranty Tracking Module - single source of truth for warranty date math, so
 // Back Job Handling (and anything else that needs to know "is this still covered")
 // calls getWarrantyStatus(booking) instead of reimplementing these rules.
+
+const { SERVICE_TYPE } = require('../constants/serviceTypes');
+const { BOOKING_STATUS } = require('../constants/bookingStatus');
 
 // Coverage periods, from the client interview / CZAMS_Feature_Requirements.md
 // section 8. Named constants so a period change later is a one-line edit.
@@ -42,14 +45,14 @@ function getWarrantyStatus(booking) {
   const serviceType = booking?.service?.serviceType;
 
   // Nothing is "covered" until the job is actually done.
-  if (booking?.status !== 'Completed' || !booking?.completedAt) {
+  if (booking?.status !== BOOKING_STATUS.COMPLETED || !booking?.completedAt) {
     return NOT_APPLICABLE;
   }
 
   const now = new Date();
   const completedAt = booking.completedAt;
 
-  if (serviceType === 'Cleaning') {
+  if (serviceType === SERVICE_TYPE.CLEANING) {
     const expiresAt = addDays(completedAt, WARRANTY_PERIODS.CLEANING_DAYS);
     return {
       applicable: true,
@@ -60,7 +63,7 @@ function getWarrantyStatus(booking) {
     };
   }
 
-  if (serviceType === 'Installation') {
+  if (serviceType === SERVICE_TYPE.INSTALLATION) {
     const clientSupplied = !!booking.clientSuppliedUnit;
     const workmanshipMonths = clientSupplied
       ? WARRANTY_PERIODS.INSTALLATION_CLIENT_UNIT_WORKMANSHIP_MONTHS
@@ -68,7 +71,7 @@ function getWarrantyStatus(booking) {
     const workmanshipExpiresAt = addMonths(completedAt, workmanshipMonths);
 
     // Unit warranty (compressor/minor parts) only exists for a unit CZA actually
-    // supplied — a client-supplied unit has no unit warranty at all (that's what
+    // supplied - a client-supplied unit has no unit warranty at all (that's what
     // the waiver acknowledges).
     const unit = clientSupplied ? null : {
       compressorExpiresAt: addYears(completedAt, WARRANTY_PERIODS.UNIT_COMPRESSOR_YEARS),
@@ -87,11 +90,11 @@ function getWarrantyStatus(booking) {
     };
   }
 
-  // Leak Repair: a fifth, standalone warranty category — a paid repair (system
+  // Leak Repair: a fifth, standalone warranty category - a paid repair (system
   // reprocess/leak repair/flushing/vacuum/charging) triggered by a refrigerant
   // undercharge found during Cleaning or a paid check-up, distinct from the
   // Cleaning/Installation warranties above.
-  if (serviceType === 'Leak Repair') {
+  if (serviceType === SERVICE_TYPE.LEAK_REPAIR) {
     const expiresAt = addMonths(completedAt, WARRANTY_PERIODS.LEAK_REPAIR_MONTHS);
     return {
       applicable: true,

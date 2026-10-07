@@ -1,9 +1,14 @@
+const { NOTIFICATION_TYPE } = require('../constants/notificationTypes');
+const { ROLE } = require('../constants/roles');
+const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const Report = require('../models/Report');
 const Booking = require('../models/Booking');
 const User = require('../models/User'); // Add this import
+const { sendNotification } = require('../utils/notifications');
+const { getMemberIds, getLeadIds } = require('../utils/assignments');
 
 // ============================================
 // 1. CREATE REPORT
@@ -57,6 +62,15 @@ router.post('/', auth, async (req, res) => {
             return res.status(404).json({ message: 'Booking not found' });
         }
 
+        // A report is what finishes a job, so it is filed while the job is In Progress.
+        // (A Completed booking is still accepted if it has no report yet, so jobs that were
+        // completed before this rule existed can still get theirs.)
+        if (![BOOKING_STATUS.IN_PROGRESS, BOOKING_STATUS.COMPLETED].includes(booking.status)) {
+            return res.status(400).json({
+                message: 'A service report can only be submitted for a job that is in progress.'
+            });
+        }
+
         // Check if report already exists
         const existingReport = await Report.findOne({ bookingId });
         if (existingReport) {
@@ -71,8 +85,12 @@ router.post('/', auth, async (req, res) => {
 
         // Verify the technician is assigned to this booking
         // booking.technician is stored as a string (the custom ID like "STF3146")
-        if (booking.technician !== req.userId) {
+        if (!getMemberIds(booking).includes(req.userId)) {
             return res.status(403).json({ message: 'You are not assigned to this booking' });
+        }
+        // A team's helper can see the job but only a lead files the report.
+        if (!getLeadIds(booking).includes(req.userId)) {
+            return res.status(403).json({ message: 'Only the team lead can submit the service report.' });
         }
 
         // Create the report with string IDs
@@ -106,9 +124,26 @@ router.post('/', auth, async (req, res) => {
         // Update booking with report reference
         booking.reportId = report._id;
         booking.reportSubmitted = true;
-        booking.status = 'Completed';
-        booking.completedAt = new Date();
+        // Submitting the report is what completes the job (there is no manual "complete").
+        // completedAt starts the warranty clock, the return-customer count and the service
+        // reminder interval.
+        booking.status = BOOKING_STATUS.COMPLETED;
+        booking.completedAt = booking.completedAt || new Date();
+
+        // Commercial payment terms count from completion, so the due date is only known now.
+        if (booking.paymentTermsDays && !booking.paymentDueAt) {
+            const dueAt = new Date(booking.completedAt);
+            dueAt.setDate(dueAt.getDate() + booking.paymentTermsDays);
+            booking.paymentDueAt = dueAt;
+        }
         await booking.save();
+
+        await sendNotification(
+            booking.customer,
+            NOTIFICATION_TYPE.BOOKING_COMPLETED,
+            `Your service for booking ${booking.bookingId} is complete. You can now leave feedback from your booking details.`,
+            { booking }
+        );
 
         // Populate and return the report
         const populatedReport = await Report.findById(report._id)
@@ -151,7 +186,7 @@ router.get('/technician/mine', auth, async (req, res) => {
 // Get all reports (admin only)
 router.get('/', auth, async (req, res) => {
     try {
-        if (req.userRole !== 'admin') {
+        if (req.userRole !== ROLE.ADMIN) {
             return res.status(403).json({ message: 'Forbidden' });
         }
 
@@ -191,7 +226,7 @@ router.get('/:id', auth, async (req, res) => {
         }
 
         // Check if user has access to this report
-        if (req.userRole !== 'admin' && report.technicianId !== req.userId) {
+        if (req.userRole !== ROLE.ADMIN && report.technicianId !== req.userId) {
             return res.status(403).json({ message: 'Forbidden' });
         }
 
@@ -226,9 +261,9 @@ router.get('/booking/:bookingId', auth, async (req, res) => {
             return res.status(404).json({ message: 'Booking not found' });
         }
 
-        if (req.userRole !== 'admin' && 
+        if (req.userRole !== ROLE.ADMIN && 
             booking.customer !== req.userId && 
-            booking.technician !== req.userId) {
+            !getMemberIds(booking).includes(req.userId)) {
             return res.status(403).json({ message: 'Forbidden' });
         }
 
@@ -262,12 +297,12 @@ router.patch('/:id', auth, async (req, res) => {
         }
 
         // Check if user is the technician who submitted it or admin
-        if (req.userRole !== 'admin' && report.technicianId !== req.userId) {
+        if (req.userRole !== ROLE.ADMIN && report.technicianId !== req.userId) {
             return res.status(403).json({ message: 'Forbidden' });
         }
 
         // Don't allow updates to final reports
-        if (report.isFinal && req.userRole !== 'admin') {
+        if (report.isFinal && req.userRole !== ROLE.ADMIN) {
             return res.status(400).json({ message: 'This report is final and cannot be updated' });
         }
 
@@ -303,7 +338,7 @@ router.patch('/:id', auth, async (req, res) => {
 
 router.delete('/:id', auth, async (req, res) => {
     try {
-        if (req.userRole !== 'admin') {
+        if (req.userRole !== ROLE.ADMIN) {
             return res.status(403).json({ message: 'Forbidden' });
         }
 
@@ -318,7 +353,7 @@ router.delete('/:id', auth, async (req, res) => {
             { 
                 $unset: { reportId: 1 },
                 reportSubmitted: false,
-                status: 'In Progress'
+                status: BOOKING_STATUS.IN_PROGRESS
             }
         );
 

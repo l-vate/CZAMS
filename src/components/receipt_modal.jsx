@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
+import { API_BASE } from '../config/api';
 
 function formatDate(dateStr) {
-  if (!dateStr) return '—';
+  if (!dateStr) return '-';
   const d = new Date(dateStr);
   if (isNaN(d)) return dateStr;
   return d.toLocaleDateString('en-US', {
@@ -15,7 +16,8 @@ function ReceiptModal({ form, booking, onClose }) {
   const basePrice = form.basePrice || 0;
   const dpPercent = form.downPaymentPercent ?? 10;
   const toPayNow = form.toPayNow ?? Math.round(basePrice * (dpPercent / 100));
-  const remaining = basePrice - toPayNow;
+  const remaining = form.remaining ?? (basePrice - toPayNow);
+  const discountAmount = form.discountAmount || 0;
   const isFullyPaid = form.isFullyPaid;
 
   const proofFile = booking?.proofFile || form.proofFile;
@@ -23,6 +25,15 @@ function ReceiptModal({ form, booking, onClose }) {
   const paymentMode2 = booking?.paymentMode2 || form.paymentMode2;
   const balancePaid = booking?.balancePaid || form.balancePaid;
   const isSinglePayment = dpPercent === 100; // paid in full upfront, no separate balance stage
+
+  // Commercial Client Procedures - VAT/PO/payment-terms only ever apply to a
+  // walk-in booking made under a Commercial client account.
+  const isCommercial = booking?.isCommercial || form.isCommercial;
+  const vatAmount = booking?.vatAmount || form.vatAmount || 0;
+  const poNumber = booking?.poNumber || form.poNumber;
+  const paymentTermsDays = booking?.paymentTermsDays || form.paymentTermsDays;
+  const paymentDueAt = booking?.paymentDueAt || form.paymentDueAt;
+  const isBilledOnTerms = isCommercial && !!paymentTermsDays;
 
   useEffect(() => {
     document.body.classList.add('printing-receipt-active');
@@ -53,14 +64,15 @@ function ReceiptModal({ form, booking, onClose }) {
               <p className="receipt-invoice-title">Invoice</p>
               <p>Invoice No.: {booking?.id || form.id}</p>
               <p>Date: {formatDate(booking?.createdAt || form.createdAt)}</p>
+              {poNumber && <p>PO No.: {poNumber}</p>}
             </div>
           </div>
 
           <div className="receipt-section">
             <p className="receipt-section-title">Customer Information</p>
-            <div className="receipt-info-row"><span>Customer Name:</span><span>{form.customerName || '—'}</span></div>
-            <div className="receipt-info-row"><span>Address:</span><span>{form.address || '—'}</span></div>
-            <div className="receipt-info-row"><span>Contact Number:</span><span>{form.contactNumber || '—'}</span></div>
+            <div className="receipt-info-row"><span>Customer Name:</span><span>{form.customerName || '-'}</span></div>
+            <div className="receipt-info-row"><span>Address:</span><span>{form.address || '-'}</span></div>
+            <div className="receipt-info-row"><span>Contact Number:</span><span>{form.contactNumber || '-'}</span></div>
           </div>
 
           <div className="receipt-section">
@@ -75,16 +87,16 @@ function ReceiptModal({ form, booking, onClose }) {
               </thead>
               <tbody>
                 {form.lineItems?.length > 0 ? (
-                  form.lineItems.map((li, i) => (
+                  form.lineItems.filter((li) => !li.isDiscount).map((li, i) => (
                     <tr key={i}>
-                      <td>{form.service || '—'} — {li.type || '—'}{li.brandModel ? ` (${li.brandModel})` : ''}</td>
+                      <td>{form.service || '-'} - {li.type || '-'}{li.brandModel ? ` (${li.brandModel})` : ''}</td>
                       <td>{li.quantity}</td>
                       <td>₱{li.subtotal.toLocaleString()}</td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td>{form.service || '—'}</td>
+                    <td>{form.service || '-'}</td>
                     <td>1</td>
                     <td>₱{basePrice.toLocaleString()}</td>
                   </tr>
@@ -95,10 +107,36 @@ function ReceiptModal({ form, booking, onClose }) {
 
           <div className="receipt-section receipt-footer-info">
 
+            {discountAmount > 0 && (
+              <>
+                <div className="receipt-info-row">
+                  <span>Subtotal before discount</span>
+                  <span>₱{(basePrice + discountAmount).toLocaleString()}</span>
+                </div>
+                <div className="receipt-info-row">
+                  <span>{form.discountLabel || 'Discount'} (-₱{discountAmount.toLocaleString()})</span>
+                  <span>-₱{discountAmount.toLocaleString()}</span>
+                </div>
+              </>
+            )}
+
             <div className="receipt-info-row">
               <span>Subtotal</span>
               <span>₱{basePrice.toLocaleString()}</span>
             </div>
+
+            {isCommercial && (
+              <>
+                <div className="receipt-info-row">
+                  <span>VAT (12%)</span>
+                  <span>₱{vatAmount.toLocaleString()}</span>
+                </div>
+                <div className="receipt-info-row">
+                  <span>Total incl. VAT</span>
+                  <span>₱{(basePrice + vatAmount).toLocaleString()}</span>
+                </div>
+              </>
+            )}
 
             <div className="receipt-info-row">
               <span>Amount Paid</span>
@@ -107,14 +145,14 @@ function ReceiptModal({ form, booking, onClose }) {
 
             <div className="receipt-info-row">
               <span>Payment Method</span>
-              <span>{form.paymentMode || '—'}</span>
+              <span>{form.paymentMode || '-'}</span>
             </div>
 
             <div className="receipt-info-row">
               <span>Proof of Payment</span>
               <span>
                 {proofFile
-                  ? <a href={"http://localhost:5000" + proofFile} target="_blank" rel="noopener noreferrer">View File</a>
+                  ? <a href={`${API_BASE}` + proofFile} target="_blank" rel="noopener noreferrer">View File</a>
                   : 'None'}
               </span>
             </div>
@@ -127,30 +165,41 @@ function ReceiptModal({ form, booking, onClose }) {
                 </div>
                 <div className="receipt-info-row">
                   <span>Balance Payment Method</span>
-                  <span>{paymentMode2 || '—'}</span>
+                  <span>{paymentMode2 || '-'}</span>
                 </div>
                 {balanceProofFile && (
                   <div className="receipt-info-row">
                     <span>Balance Proof</span>
                     <span>
-                      <a href={"http://localhost:5000" + balanceProofFile} target="_blank" rel="noopener noreferrer">View File</a>
+                      <a href={`${API_BASE}` + balanceProofFile} target="_blank" rel="noopener noreferrer">View File</a>
                     </span>
                   </div>
                 )}
               </>
             )}
 
-            {!isSinglePayment && !balancePaid && (
+            {!isSinglePayment && !balancePaid && !isBilledOnTerms && (
               <div className="receipt-info-row">
                 <span>Balance Due</span>
                 <span>₱{remaining.toLocaleString()}</span>
               </div>
             )}
 
+            {isBilledOnTerms && (
+              <div className="receipt-info-row">
+                <span>Payment Due</span>
+                <span>
+                  {paymentDueAt
+                    ? formatDate(paymentDueAt)
+                    : `${paymentTermsDays} days after completion`}
+                </span>
+              </div>
+            )}
+
             <div className="receipt-info-row">
               <span>Status</span>
               <span className="receipt-status-paid">
-                {isFullyPaid ? 'Fully Paid' : `${dpPercent}% Paid`}
+                {isBilledOnTerms ? 'Billed on Terms' : isFullyPaid ? 'Fully Paid' : `${dpPercent}% Paid`}
               </span>
             </div>
 

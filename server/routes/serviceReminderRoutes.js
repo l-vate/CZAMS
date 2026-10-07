@@ -1,3 +1,4 @@
+const { ROLE } = require('../constants/roles');
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
@@ -7,7 +8,7 @@ const { runServiceReminderCheck, deliverPendingServiceReminders } = require('../
 // Admin: view the reminder log
 router.get('/', auth, async (req, res) => {
   try {
-    if (req.userRole !== 'admin') {
+    if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
@@ -24,10 +25,10 @@ router.get('/', auth, async (req, res) => {
 });
 
 // Admin: manually run the "who's due" check plus delivery on demand (the same two
-// steps the daily schedule runs) — useful for testing without waiting a day.
+// steps the daily schedule runs) - useful for testing without waiting a day.
 router.post('/run', auth, async (req, res) => {
   try {
-    if (req.userRole !== 'admin') {
+    if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 

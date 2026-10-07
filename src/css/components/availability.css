@@ -1,0 +1,98 @@
+/* Public availability calendar (components/availability_calendar.jsx). */
+
+.avail {
+  max-width: 460px;
+  margin: 24px auto 0;
+  background: var(--white);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+
+.avail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.avail-month { margin: 0; font-size: 18px; color: var(--navy); }
+
+.avail-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-full);
+  background: var(--white);
+  color: var(--navy);
+  cursor: pointer;
+}
+
+.avail-nav:disabled { opacity: 0.4; cursor: default; }
+
+.avail-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.avail-weekday {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.avail-day {
+  aspect-ratio: 1;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.avail-day:disabled { cursor: default; }
+.avail-day--selected { outline: 2px solid var(--navy); outline-offset: 1px; }
+
+.avail-day--open { background: var(--status-complete-bg); color: var(--status-complete-txt); }
+.avail-day--limited { background: var(--status-pending-bg); color: var(--status-pending-txt); }
+.avail-day--full { background: var(--status-cancel-bg); color: var(--status-cancel-txt); }
+.avail-day--closed,
+.avail-day--too-soon,
+.avail-day--past,
+.avail-day--loading { background: var(--bg-main); color: var(--ink-soft); }
+.avail-day--past { opacity: 0.5; }
+
+.avail-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.avail-legend li { display: flex; align-items: center; gap: 6px; }
+
+.avail-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+}
+
+.avail-detail {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--navy);
+}
+
+.avail-detail p { margin: 4px 0 10px; font-size: 14px; color: var(--ink-soft); }
+.avail-message { margin: 0 0 10px; font-size: 13px; color: var(--danger); }

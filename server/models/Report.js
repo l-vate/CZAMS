@@ -73,7 +73,7 @@ const reportSchema = new mongoose.Schema({
     },
 
     // Service Report hardening: technician must flag a pre-existing issue at time of
-    // service, not after — this is what lets Back Job Handling's admin review tell a
+    // service, not after - this is what lets Back Job Handling's admin review tell a
     // legitimate (workmanship-caused) claim apart from a pre-existing condition.
     preExistingIssue: {
         flagged: { type: Boolean, default: false },

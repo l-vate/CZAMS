@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 
-// Minimal hand-rolled canvas signature capture — no signing library exists
+// Minimal hand-rolled canvas signature capture - no signing library exists
 // anywhere in this codebase yet, and the need here (draw, clear, export as an
 // image) is small enough not to warrant a new dependency for it.
 function SignaturePad({ onChange }) {

@@ -1,9 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AdminLayout from './admin_layout';
 import AdminServiceDetailsModal from '../../components/admin_service_details_modal';
 import PersonFilterBanner from '../../components/person_filter_banner';
-import { getStatusColor } from '../../utils/statusColors';
+import { getStatusColor, getFilterPillStyle } from '../../utils/statusColors';
+import { FiEye } from 'react-icons/fi';
+import { API_BASE } from '../../config/api';
+import { getMembers, getMemberNames } from '../../utils/assignments';
+import PendingQueue from '../../components/pending_queue';
+import { BOOKING_STATUS_VALUES } from '../../constants/bookingStatus';
 
 function ServiceRequests() {
     const navigate = useNavigate();
@@ -11,13 +16,17 @@ function ServiceRequests() {
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeFilter, setActiveFilter] = useState('All');
+    const [searchQuery, setSearchQuery] = useState('');
     const [selectedBooking, setSelectedBooking] = useState(null);
+    // 'all' = every booking; 'queue' = the Pending queue (first come, first served, reorderable)
+    const [view, setView] = useState('all');
+    const [queueRefresh, setQueueRefresh] = useState(0);
     // Manage Accounts' "View Job History" (technician) / "View Bookings" (client)
     // links land here with a person filter pre-applied via navigation state, rather
     // than this page having its own duplicate list of every technician/client.
     const [personFilter, setPersonFilter] = useState(location.state?.personFilter || null);
 
-    const filters = ['All', 'Pending', 'Approved', 'In Progress', 'Completed', 'Cancelled'];
+    const filters = ['All', ...BOOKING_STATUS_VALUES];
 
     useEffect(() => {
         fetchRequests();
@@ -26,7 +35,7 @@ function ServiceRequests() {
     const fetchRequests = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch('http://localhost:5000/api/bookings', {
+            const response = await fetch(`${API_BASE}/api/bookings`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const data = await response.json();
@@ -53,20 +62,54 @@ function ServiceRequests() {
         .filter((req) => activeFilter === 'All' || req.status === activeFilter)
         .filter((req) => {
             if (!personFilter) return true;
-            const person = personFilter.type === 'technician' ? req.technician : req.customer;
-            return person?._id === personFilter.id;
+            if (personFilter.type === 'technician') return getMembers(req).some((m) => m._id === personFilter.id);
+            return req.customer?._id === personFilter.id;
+        })
+        .filter((req) => {
+            const term = searchQuery.trim().toLowerCase();
+            if (!term) return true;
+            const haystack = [
+                req.bookingId,
+                req.service?.name,
+                req.customer?.name,
+                getMemberNames(req, ''),
+            ].filter(Boolean).join(' ').toLowerCase();
+            return haystack.includes(term);
         });
 
     return (
-        <AdminLayout title="Bookings">
+        <AdminLayout
+            title="Bookings"
+            searchValue={searchQuery}
+            onSearchChange={setSearchQuery}
+            searchPlaceholder="Search by booking ID, service, customer, or technician..."
+        >
             <div className="page-container">
                 <h1 className="dashboard-welcome">Bookings</h1>
+                <div className="req-filters admin-service-requests-x1">
+                    {[['all', 'All Bookings'], ['queue', 'Pending Queue']].map(([key, label]) => (
+                        <button
+                            key={key}
+                            className={`filter-pill ${view === key ? 'filter-pill--active' : ''}`}
+                            onClick={() => setView(key)}
+                        >
+                            {label}
+                        </button>
+                    ))}
+                </div>
+
+                {view === 'queue' && (
+                    <PendingQueue refreshKey={queueRefresh} onViewDetails={handleViewDetails} />
+                )}
+
+                {view === 'all' && (<>
                 <div className="req-toolbar">
                     <div className="req-filters">
                         {filters.map((filter) => (
                             <button
                                 key={filter}
                                 className={`filter-pill ${activeFilter === filter ? 'filter-pill--active' : ''}`}
+                                style={getFilterPillStyle(filter, activeFilter === filter)}
                                 onClick={() => setActiveFilter(filter)}
                             >
                                 {filter}
@@ -113,7 +156,7 @@ function ServiceRequests() {
                                     <p className="req-title">{req.service?.name || 'N/A'}</p>
                                     <p className="req-id">{req.bookingId}</p>
                                     <p className="req-tech">
-                                        Technician: {req.technician?.name || 'Not Assigned'}
+                                        Team: {getMemberNames(req, 'Not Assigned')}
                                     </p>
                                     
                                     <div className="req-info-item">
@@ -132,30 +175,23 @@ function ServiceRequests() {
 
                                 <div className="req-card-bottom">
                                     <button
-                                        className="req-view-btn"
+                                        className="view-details-btn"
                                         onClick={() => handleViewDetails(req)}
                                     >
-                                        <svg
-                                            width="15" height="15" viewBox="0 0 24 24"
-                                            fill="none" stroke="currentColor" strokeWidth="2"
-                                            strokeLinecap="round" strokeLinejoin="round"
-                                        >
-                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                            <circle cx="12" cy="12" r="3" />
-                                        </svg>
-                                        View Details
+                                        <FiEye size={14} /> View Details
                                     </button>
                                 </div>
                             </div>
                         ))}
                     </div>
                 )}
+                </>)}
             </div>
 
             {selectedBooking && (
                 <AdminServiceDetailsModal
                     booking={selectedBooking}
-                    onClose={() => setSelectedBooking(null)}
+                    onClose={() => { setSelectedBooking(null); setQueueRefresh((n) => n + 1); }}
                     onUpdated={handleBookingUpdated}
                 />
             )}

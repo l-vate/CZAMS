@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import AdminLayout from './admin_layout';
 import { FiPlus } from 'react-icons/fi';
+import { API_BASE } from '../../config/api';
 
-const API_BASE = 'http://localhost:5000';
 
 const CATEGORIES = ['Holiday', 'Closure', 'Maintenance', 'General'];
 
@@ -42,7 +42,7 @@ function AnnouncementManage() {
       if (!res.ok) throw new Error('Failed to load announcements.');
       const data = await res.json();
       setAnnouncements(Array.isArray(data) ? data : []);
-    } catch (err) {
+    } catch {
       setError('Could not connect to the server or load announcements.');
     } finally {
       setLoading(false);
@@ -163,31 +163,25 @@ function AnnouncementManage() {
   );
 
   return (
-    <AdminLayout title="Announcements">
+    <AdminLayout
+      title="Announcements"
+      searchValue={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder="Search announcements..."
+    >
       <div className="ann-view">
 
         {/* Header & Actions */}
         <div className="ann-manage-header">
           <h1 className="dashboard-welcome">Announcements</h1>
           <button className="ann-add-btn" onClick={openAddModal}>
-            <FiPlus style={{ marginRight: '6px', verticalAlign: 'middle' }} /> Add Announcement
+            <FiPlus className="admin-announcements-x1" /> Add Announcement
           </button>
-        </div>
-
-        {/* Toolbar & Search */}
-        <div className="ann-toolbar">
-          <input
-            type="text"
-            className="ann-search ann-search-inline"
-            placeholder="Search announcements..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
         </div>
 
         {/* Error Banner */}
         {error && (
-          <div className="ma-form-error" style={{ marginBottom: '16px' }}>
+          <div className="ma-form-error admin-announcements-x2">
             {error}
           </div>
         )}
@@ -199,7 +193,7 @@ function AnnouncementManage() {
           ) : filteredAnnouncements.length === 0 ? (
             <div className="ann-empty">
               <p>No announcements found.</p>
-              <button className="ann-btn ann-btn-ghost" onClick={openAddModal} style={{ marginTop: '10px' }}>
+              <button className="ann-btn ann-btn-ghost admin-announcements-x3" onClick={openAddModal}>
                 Create your first announcement
               </button>
             </div>
@@ -238,7 +232,7 @@ function AnnouncementManage() {
             </div>
 
             <form onSubmit={handleSubmit}>
-              {formError && <p className="ma-form-error" style={{ marginBottom: '12px' }}>{formError}</p>}
+              {formError && <p className="ma-form-error admin-announcements-x4">{formError}</p>}
 
               <div className="ann-field">
                 <label>Title</label>

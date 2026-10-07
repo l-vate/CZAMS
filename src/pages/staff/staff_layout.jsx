@@ -22,7 +22,9 @@ function StaffLayout({ title, children }) {
             {sidebarOpen ? <FiX /> : <FiMenu />}
           </button>
           {title}
-          <NotificationBell />
+          <div className="dashboard-topbar-actions">
+            <NotificationBell />
+          </div>
         </div>
 
         <div className="dashboard-body">

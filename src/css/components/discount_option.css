@@ -1,0 +1,19 @@
+
+/* Extracted from inline styles in components/discount_option.jsx.
+   The class is doubled so it keeps the priority the inline style had over other rules. */
+.discount-option-x1.discount-option-x1 {
+  margin-top: 10px;
+}
+.discount-option-x2.discount-option-x2 {
+  display: none;
+}
+.discount-option-x3.discount-option-x3 {
+  font-size: 11px;
+  color: #e05a5a;
+  margin-top: 2px;
+}
+.discount-option-x4.discount-option-x4 {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-top: 6px;
+}

@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import { formatPeso } from '../utils/bookingPricing';
+
 function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], onClose, onSubmit }) {
   const basePrice = form.basePrice || 0;
   const dpPercent = form.downPaymentPercent ?? 10;
@@ -8,17 +10,15 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
 
   const isBalance = paymentType === 'balance';
   const amountDue = isBalance ? remaining : toPayNow;
-  const amountLabel = isBalance ? 'Remaining Balance Due' : 'Amount to Pay Now';
 
   // A balance payment uses whatever mode was picked for the *second* payment when
-  // the booking was made (paymentMode2) — form.paymentMode is the down payment's
+  // the booking was made (paymentMode2) - form.paymentMode is the down payment's
   // mode and would be wrong here for e.g. a booking paid down via GCash but
   // settling its balance via Bank Transfer.
   const selectedModeName = isBalance ? form.paymentMode2 : form.paymentMode;
   const accountDetails = paymentMethods.find((m) => m.name === selectedModeName)?.accountDetails || [];
 
   const [proof, setProof] = useState(null);
-  const [senior, setSenior] = useState(null);
   const [fileError, setFileError] = useState('');
 
   const MAX_SIZE = 5 * 1024 * 1024; // 5MB
@@ -56,10 +56,13 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
         <div className="modal-cost-rows">
           {form.lineItems?.map((li, i) => (
             <div className="modal-cost-row" key={i}>
-              <span>{li.type || '—'} × {li.quantity}</span>
-              <span>₱{li.subtotal.toLocaleString()}.00</span>
+              <span>{li.isDiscount ? li.type : `${li.type || '-'} × ${li.quantity}`}</span>
+              <span>{formatPeso(li.subtotal)}.00</span>
             </div>
           ))}
+          {form.discountAmount > 0 && !form.lineItems?.some((li) => li.isDiscount) && (
+            <div className="modal-cost-row"><span>{form.discountLabel || 'Discount'}</span><span>{formatPeso(-form.discountAmount)}.00</span></div>
+          )}
           <div className="modal-cost-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}.00</span></div>
           <div className="modal-cost-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
 
@@ -72,7 +75,7 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
             </>
           )}
 
-          <div className="modal-cost-row"><span>Payment Mode</span><span>{form.paymentMode || '—'}</span></div>
+          <div className="modal-cost-row"><span>Payment Mode</span><span>{form.paymentMode || '-'}</span></div>
         </div>
 
         <div className="modal-divider" />
@@ -96,43 +99,26 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
             {proof ? proof.name : '[Choose a file]'}
             <input
               type="file"
-              accept="image/*,.pdf"
-              style={{ display: 'none' }}
+              accept="image/jpeg,image/png,image/webp,.pdf"
+              className="payment-modal-x1"
               onChange={handleProofChange}
             />
           </label>
           {fileError && (
-            <p style={{ fontSize: '11px', color: '#e05a5a', marginTop: '2px' }}>
+            <p className="payment-modal-x2">
               {fileError}
             </p>
           )}
           {!proof && !fileError && (
-            <p style={{ fontSize: '11px', color: '#e05a5a', marginTop: '2px' }}>
+            <p className="payment-modal-x2">
               Proof of payment is required to submit.
             </p>
           )}
         </div>
 
-        {!isBalance && (
-          <div className="modal-upload-group">
-            <label className="modal-upload-label">
-              PWD/Senior Citizen <span className="modal-optional">(If Applicable):</span>
-            </label>
-            <label className="modal-file-btn">
-              {senior ? senior.name : '[Choose a file]'}
-              <input
-                type="file"
-                accept="image/*,.pdf"
-                style={{ display: 'none' }}
-                onChange={(e) => setSenior(e.target.files[0] || null)}
-              />
-            </label>
-          </div>
-        )}
-
         <button
           className="modal-submit-btn"
-          onClick={() => onSubmit({ proof, senior })}
+          onClick={() => onSubmit({ proof })}
           disabled={!proof}
         >
           SUBMIT

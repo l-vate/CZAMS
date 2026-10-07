@@ -11,7 +11,7 @@ const sharedRules = {
   'no-console': ['error', { allow: ['warn', 'error'] }],
   'no-var': 'error',
   'prefer-const': 'error',
-  'max-depth': ['warn', 3],
+  'max-depth': ['error', 3],
 }
 
 export default defineConfig([
@@ -37,7 +37,7 @@ export default defineConfig([
       'react-hooks/immutability': 'warn',
       // No vanilla DOM work in React (use refs and state). Listeners on window/document inside a
       // useEffect with cleanup, and window.print(), are the allowed exceptions.
-      'no-restricted-syntax': ['warn',
+      'no-restricted-syntax': ['error',
         {
           selector: "CallExpression[callee.object.name='document'][callee.property.name=/^(querySelector|querySelectorAll|getElementById|getElementsByClassName|getElementsByTagName)$/]",
           message: 'Use a React ref or state instead of querying the DOM.',

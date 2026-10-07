@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiClipboard, FiMapPin, FiCreditCard, FiEye, FiEyeOff } from 'react-icons/fi';
 import '../../css/public.css'
-import { API_BASE } from '../../config/api';
+import { ApiError } from '../../services/apiClient';
+import { register } from '../../services/authService';
 
 /* ── Static Content ─────────────────────────────────────── */
 const FEATURES = [
@@ -37,26 +38,15 @@ const handleSubmit = async (e) => {
   }
 
   try {
-    const res = await fetch(`${API_BASE}/api/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      alert(data.message || 'Registration failed');
-      return;
-    }
+    const data = await register(formData);
 
     localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(data.user));
 
     navigate('/customer/dashboard');
 
-  } catch {
-    alert('Could not connect to server. Is the backend running?');
+  } catch (err) {
+    alert(err instanceof ApiError ? err.message || 'Registration failed' : 'Could not connect to server. Is the backend running?');
   }
 };
 

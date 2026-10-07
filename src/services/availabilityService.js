@@ -1,4 +1,4 @@
-import { request } from './http';
+import { request } from './apiClient';
 
 // Public: [{ date, status, morning, afternoon }] for each day from `from` to `to` (YYYY-MM-DD).
 export function getAvailability(from, to) {

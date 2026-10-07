@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { API_BASE } from '../config/api';
+import { ApiError, attempt } from '../services/apiClient';
+import { updateUser, updateClassification } from '../services/userService';
 import { ROLE } from '../constants/roles';
 
 function Icon({ name }) {
@@ -70,40 +72,26 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
     setSaving(true);
     setError('');
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE}/api/users/${user._id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(formData),
-      });
-
-      let data = await response.json();
-      if (!response.ok) {
-        setError(data.message || 'Failed to update user details.');
+      const saved = await attempt(updateUser(user._id, formData), 'Failed to update user details.');
+      if (saved.error) {
+        setError(saved.error);
         return;
       }
+      let data = saved.data;
 
       // Customer Classification Module: sent separately, and only if it actually
       // changed, since it has its own dedicated endpoint/validation.
       const originalOverride = user.manualClassification || '';
       if (user.role === ROLE.CUSTOMER && formData.classificationChoice !== originalOverride) {
-        const classRes = await fetch(`${API_BASE}/api/users/${user._id}/classification`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ classification: formData.classificationChoice || null }),
-        });
-        const classData = await classRes.json();
-        if (!classRes.ok) {
-          setError(classData.message || 'Failed to update classification.');
+        const reclassified = await attempt(
+          updateClassification(user._id, formData.classificationChoice || null),
+          'Failed to update classification.'
+        );
+        if (reclassified.error) {
+          setError(reclassified.error);
           return;
         }
-        data = classData;
+        data = reclassified.data;
       }
 
       setIsEditing(false);
@@ -121,25 +109,15 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
     setError('');
     try {
       const updatedStatus = !formData.isActive;
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE}/api/users/${user._id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ isActive: updatedStatus }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        setError(data.message || 'Failed to update status.');
-        return;
-      }
+      const data = await updateUser(user._id, { isActive: updatedStatus });
 
       setFormData((prev) => ({ ...prev, isActive: updatedStatus }));
       onUpdated?.(data);
     } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message || 'Failed to update status.');
+        return;
+      }
       console.error('Error toggling status:', err);
       setError('Network error. Please try again.');
     } finally {

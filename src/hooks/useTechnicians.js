@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
-import { API_BASE } from '../config/api';
+import { orFallback } from '../services/apiClient';
+import { listPublicTechnicians } from '../services/authService';
 
 export function useTechnicians() {
   const [technicians, setTechnicians] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/auth/technicians`)
-      .then((res) => res.json())
+    orFallback(listPublicTechnicians(), [])
       .then((data) => {
         setTechnicians(Array.isArray(data) ? data : []);
         setLoading(false);

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { FiBell } from 'react-icons/fi';
-import { API_BASE } from '../config/api';
+import { orFallback } from '../services/apiClient';
+import { listNotifications, markNotificationRead, markAllNotificationsRead } from '../services/notificationService';
 
 
 function timeAgo(dateStr) {
@@ -31,10 +32,7 @@ function NotificationBell({ onNotificationClick }) {
     const token = localStorage.getItem('token');
     if (!token) return;
     setLoading(true);
-    fetch(`${API_BASE}/api/notifications`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
+    orFallback(listNotifications(), [])
       .then((data) => setNotifications(Array.isArray(data) ? data : []))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -69,17 +67,11 @@ function NotificationBell({ onNotificationClick }) {
     // Previously bailed out entirely for an already-read notification - meaning
     // clicking one a second time did nothing at all, not even navigate.
     if (!notification.read) {
-      const token = localStorage.getItem('token');
       try {
-        const res = await fetch(`${API_BASE}/api/notifications/${notification._id}/read`, {
-          method: 'PATCH',
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          setNotifications((prev) =>
-            prev.map((n) => (n._id === notification._id ? { ...n, read: true } : n))
-          );
-        }
+        await markNotificationRead(notification._id);
+        setNotifications((prev) =>
+          prev.map((n) => (n._id === notification._id ? { ...n, read: true } : n))
+        );
       } catch {
         // no-op - non-critical
       }
@@ -90,15 +82,9 @@ function NotificationBell({ onNotificationClick }) {
   };
 
   const handleMarkAllRead = async () => {
-    const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`${API_BASE}/api/notifications/read-all`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-      }
+      await markAllNotificationsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     } catch {
       // no-op - non-critical
     }

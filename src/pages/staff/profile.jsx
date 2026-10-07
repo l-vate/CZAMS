@@ -11,6 +11,13 @@ import {
   FiCamera,
 } from 'react-icons/fi';
 import { API_BASE } from '../../config/api';
+import { ApiError } from '../../services/apiClient';
+import { uploadProfilePhoto, updateProfile } from '../../services/authService';
+
+// Keeps the server's own message, with `text` standing in when it sent none.
+const withFallback = (text) => (err) => {
+  throw err instanceof ApiError ? new Error(err.message || text) : err;
+};
 
 
 function buildProfileFromUser(user) {
@@ -58,43 +65,23 @@ function Profile() {
   const handleSave = async () => {
     setSaving(true);
     setSaveError('');
-    const token = localStorage.getItem('token');
-
     try {
       let latestUser = JSON.parse(localStorage.getItem('user'));
 
       if (photoFile) {
-        const formData = new FormData();
-        formData.append('photo', photoFile);
-
-        const photoRes = await fetch(`${API_BASE}/api/auth/profile/photo`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          body: formData,
-        });
-        const photoData = await photoRes.json();
-        if (!photoRes.ok) throw new Error(photoData.message || 'Photo upload failed');
+        const photoData = await uploadProfilePhoto(photoFile).catch(withFallback('Photo upload failed'));
         latestUser = photoData.user;
       }
 
       const [firstName, ...rest] = editForm.name.trim().split(' ');
       const lastName = rest.join(' ');
 
-      const infoRes = await fetch(`${API_BASE}/api/auth/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          firstName,
-          lastName,
-          email: editForm.email,
-          phone: editForm.phone,
-        }),
-      });
-      const infoData = await infoRes.json();
-      if (!infoRes.ok) throw new Error(infoData.message || 'Update failed');
+      const infoData = await updateProfile({
+        firstName,
+        lastName,
+        email: editForm.email,
+        phone: editForm.phone,
+      }).catch(withFallback('Update failed'));
 
       latestUser = infoData.user;
 

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import AdminLayout from './admin_layout';
 import { API_BASE } from '../../config/api';
+import { orFallback } from '../../services/apiClient';
+import { listUsers } from '../../services/userService';
 
 const EMPTY_FORM = { name: '', lead: '', helper: '' };
 
@@ -21,12 +23,11 @@ function Teams() {
   const load = useCallback(async () => {
     try {
       const headers = authHeaders();
-      const [teamsRes, usersRes] = await Promise.all([
+      const [teamsRes, users] = await Promise.all([
         fetch(`${API_BASE}/api/teams`, { headers }),
-        fetch(`${API_BASE}/api/users?role=staff`, { headers }),
+        orFallback(listUsers('staff'), []),
       ]);
       setTeams(teamsRes.ok ? await teamsRes.json() : []);
-      const users = usersRes.ok ? await usersRes.json() : [];
       setTechnicians(users.filter((u) => u.isActive !== false));
     } catch (err) {
       console.error('Error loading teams:', err);

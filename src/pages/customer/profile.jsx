@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
 import { FiUser, FiX, FiCamera, FiEdit2, FiMail, FiCalendar, FiPhone, FiMapPin, FiLock, FiTrash2 } from 'react-icons/fi';
 import { API_BASE } from '../../config/api';
+import { ApiError } from '../../services/apiClient';
+import { uploadProfilePhoto, updateProfile, changePassword, deleteAccount } from '../../services/authService';
 
 /* ── Change Password Modal ─────────────────────────────── */
 function ChangePasswordModal({ onClose, onSubmit, submitting, serverError }) {
@@ -182,55 +184,25 @@ const [user, setUser] = useState(loadUserFromStorage);
 
   // upload to backend
   try {
-    const token = localStorage.getItem('token');
-    const formData = new FormData();
-    formData.append('photo', file);
-
-    const res = await fetch(`${API_BASE}/api/auth/profile/photo`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      alert(data.message || 'Failed to upload photo');
-      return;
-    }
+    const data = await uploadProfilePhoto(file);
 
     localStorage.setItem('user', JSON.stringify(data.user));
     setEditForm((prev) => ({ ...prev, photo: `${API_BASE}${data.user.profileImage}` }));
-  } catch {
-    alert('Could not connect to server for photo upload.');
+  } catch (err) {
+    alert(err instanceof ApiError ? err.message || 'Failed to upload photo' : 'Could not connect to server for photo upload.');
   }
 };
 
 
   const handleSaveProfile = async () => {
   try {
-    const token = localStorage.getItem('token');
-    const res = await fetch(`${API_BASE}/api/auth/profile`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        firstName: editForm.firstName,
-        lastName: editForm.lastName,
-        email: editForm.email,
-        phone: editForm.phone,
-        address: editForm.address,
-      }),
+    const data = await updateProfile({
+      firstName: editForm.firstName,
+      lastName: editForm.lastName,
+      email: editForm.email,
+      phone: editForm.phone,
+      address: editForm.address,
     });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      alert(data.message || 'Failed to update profile');
-      return;
-    }
 
     localStorage.setItem('user', JSON.stringify(data.user));
 
@@ -248,8 +220,8 @@ const [user, setUser] = useState(loadUserFromStorage);
     });
 
     setIsEditing(false);
-  } catch {
-    alert('Could not connect to server. Is the backend running?');
+  } catch (err) {
+    alert(err instanceof ApiError ? err.message || 'Failed to update profile' : 'Could not connect to server. Is the backend running?');
   }
 };
 
@@ -261,29 +233,14 @@ const [user, setUser] = useState(loadUserFromStorage);
     setPasswordSubmitting(true);
     setPasswordError('');
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/auth/change-password`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          currentPassword: form.currentPassword,
-          newPassword: form.newPassword,
-        }),
+      await changePassword({
+        currentPassword: form.currentPassword,
+        newPassword: form.newPassword,
       });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setPasswordError(data.message || 'Failed to update password');
-        setPasswordSubmitting(false);
-        return;
-      }
 
       setShowChangePassword(false);
-    } catch {
-      setPasswordError('Could not connect to server.');
+    } catch (err) {
+      setPasswordError(err instanceof ApiError ? err.message || 'Failed to update password' : 'Could not connect to server.');
     } finally {
       setPasswordSubmitting(false);
     }
@@ -292,25 +249,14 @@ const [user, setUser] = useState(loadUserFromStorage);
   const handleConfirmDelete = async () => {
     setDeleting(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/auth/account`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        alert(data.message || 'Failed to delete account');
-        setDeleting(false);
-        return;
-      }
+      await deleteAccount();
 
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       setShowDeleteConfirm(false);
       navigate('/register');
-    } catch {
-      alert('Could not connect to server.');
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message || 'Failed to delete account' : 'Could not connect to server.');
       setDeleting(false);
     }
   };

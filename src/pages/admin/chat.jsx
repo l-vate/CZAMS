@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import AdminLayout from './admin_layout';
 import ChatPanel from '../../components/chat_panel';
-import { API_BASE } from '../../config/api';
+import { orFallback } from '../../services/apiClient';
+import { listConversations } from '../../services/chatService';
 import { ROLE } from '../../constants/roles';
 
 
@@ -12,9 +13,7 @@ function AdminChat() {
 
   useEffect(() => {
     const fetchConversations = () => {
-      const token = localStorage.getItem('token');
-      fetch(`${API_BASE}/api/chat/conversations`, { headers: { Authorization: `Bearer ${token}` } })
-        .then((res) => (res.ok ? res.json() : []))
+      orFallback(listConversations(), [])
         .then((data) => setConversations(Array.isArray(data) ? data : []))
         .catch(() => setConversations([]))
         .finally(() => setLoading(false));

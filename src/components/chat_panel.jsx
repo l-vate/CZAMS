@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { FiSend, FiUser, FiMessageCircle } from 'react-icons/fi';
-import { API_BASE } from '../config/api';
+import { ApiError, orFallback } from '../services/apiClient';
+import { listMessages, sendMessage as postMessage } from '../services/chatService';
 import { ROLE } from '../constants/roles';
 
 const POLL_INTERVAL_MS = 15000;
@@ -24,17 +25,14 @@ function ChatPanel({ conversationId, emptyText, partnerName = 'Admin Support', p
   // effect also depends on `loading`/`messages` ticking on the poll interval.
   const initialMessageSentRef = useRef(false);
 
-  const base = isAdmin
-    ? `${API_BASE}/api/chat/conversations/${conversationId}`
-    : `${API_BASE}/api/chat/conversations/mine`;
+  // An admin reads the conversation they picked; everyone else reads their own.
+  const threadId = isAdmin ? conversationId : undefined;
 
   useEffect(() => {
     if (isAdmin && !conversationId) return;
     setLoading(true);
     const fetchMessages = () => {
-      const token = localStorage.getItem('token');
-      fetch(`${base}/messages`, { headers: { Authorization: `Bearer ${token}` } })
-        .then((res) => (res.ok ? res.json() : []))
+      orFallback(listMessages(threadId), [])
         .then((data) => setMessages(Array.isArray(data) ? data : []))
         .catch(() => {})
         .finally(() => setLoading(false));
@@ -55,19 +53,11 @@ function ChatPanel({ conversationId, emptyText, partnerName = 'Admin Support', p
     if (!messageText.trim() || sending) return;
     setSending(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${base}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ text: messageText.trim() }),
-      });
-      if (res.ok) {
-        const created = await res.json();
-        setMessages((prev) => [...prev, created]);
-        setText('');
-      }
+      const created = await postMessage(threadId, messageText.trim());
+      setMessages((prev) => [...prev, created]);
+      setText('');
     } catch (err) {
-      console.error('Failed to send message', err);
+      if (!(err instanceof ApiError)) console.error('Failed to send message', err);
     } finally {
       setSending(false);
     }

@@ -8,7 +8,8 @@ import {
   FiEyeOff,
 } from 'react-icons/fi';
 import '../../css/public.css'
-import { API_BASE } from '../../config/api';
+import { ApiError } from '../../services/apiClient';
+import { login } from '../../services/authService';
 import { ROLE } from '../../constants/roles';
 
 /* ── Static Content ─────────────────────────────────────── */
@@ -35,19 +36,7 @@ function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.message || 'Login failed');
-        setLoading(false);
-        return;
-      }
+      const data = await login(formData);
 
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
@@ -56,8 +45,8 @@ function LoginPage() {
       else if (data.user.role === ROLE.STAFF) navigate('/staff/dashboard');
       else navigate('/customer/dashboard');
 
-    } catch {
-      setError('Could not connect to server. Is the backend running?');
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message || 'Login failed' : 'Could not connect to server. Is the backend running?');
     } finally {
       setLoading(false);
     }

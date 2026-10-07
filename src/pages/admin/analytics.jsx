@@ -1,7 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import AdminLayout from './admin_layout';
+import { buildTechnicianStats } from '../../utils/technicianStats';
+import DashboardCharts from '../../components/dashboard_charts';
+import { API_BASE } from '../../config/api';
+import { BOOKING_STATUS } from '../../constants/bookingStatus';
 
-const API_BASE = 'http://localhost:5000';
 
 const CLIENT_TYPE_FILTERS = [
     { key: 'all', label: 'All Clients' },
@@ -11,7 +14,7 @@ const CLIENT_TYPE_FILTERS = [
 
 // How many bookings must have a recorded delay condition before a technician's
 // row is flagged as having a real delay pattern (kept as-is here for row display,
-// no threshold needed — every booking with a delay condition is counted directly).
+// no threshold needed - every booking with a delay condition is counted directly).
 const REQUEST_VOLUME_MONTHS = 6;
 
 // Service Request Analytics: "average response time" = time between a booking
@@ -40,53 +43,10 @@ function monthLabel(key) {
     return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 }
 
-// Technician Performance Analytics: completedJobs + delays come from Booking
-// (technician ref, status, disruption, extensionRequest); avgTime comes from
-// Report.laborHours (a separate collection, joined here by technician id).
-// "Delays" = booking.disruption.status !== 'None' OR
-// booking.extensionRequest.status === 'Approved' (Service Disruption & Extension
-// Module's existing fields). Missed assignments are intentionally omitted — there's
-// no existing field that reliably tracks a technician failing to show up for an
-// assignment, so this would have to be invented rather than computed.
-export function buildTechnicianStats(bookings, reports) {
-    const map = {};
-
-    bookings.forEach((b) => {
-        const tech = b.technician;
-        if (!tech?._id) return;
-        if (!map[tech._id]) {
-            map[tech._id] = { id: tech._id, name: tech.name || 'Unknown', completedJobs: 0, delays: 0, laborHours: [] };
-        }
-        if (b.status === 'Completed') map[tech._id].completedJobs += 1;
-
-        const hasDelay =
-            (b.disruption?.status && b.disruption.status !== 'None') ||
-            b.extensionRequest?.status === 'Approved';
-        if (hasDelay) map[tech._id].delays += 1;
-    });
-
-    reports.forEach((r) => {
-        const id = r.technicianId;
-        if (!id) return;
-        if (!map[id]) {
-            map[id] = { id, name: r.technician?.name || 'Unknown', completedJobs: 0, delays: 0, laborHours: [] };
-        }
-        if (typeof r.laborHours === 'number') map[id].laborHours.push(r.laborHours);
-    });
-
-    return Object.values(map)
-        .map((t) => ({
-            ...t,
-            avgTime: t.laborHours.length
-                ? t.laborHours.reduce((sum, h) => sum + h, 0) / t.laborHours.length
-                : null,
-        }))
-        .sort((a, b) => b.completedJobs - a.completedJobs);
-}
-
 function Analytics() {
     const [bookings, setBookings] = useState([]);
     const [reports, setReports] = useState([]);
+    const [backJobs, setBackJobs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeClientType, setActiveClientType] = useState('all');
 
@@ -97,13 +57,15 @@ function Analytics() {
                 const token = localStorage.getItem('token');
                 const headers = { Authorization: `Bearer ${token}` };
 
-                const [bookingsRes, reportsRes] = await Promise.all([
+                const [bookingsRes, reportsRes, backJobsRes] = await Promise.all([
                     fetch(`${API_BASE}/api/bookings`, { headers }),
                     fetch(`${API_BASE}/api/reports`, { headers }),
+                    fetch(`${API_BASE}/api/backjobs`, { headers }),
                 ]);
 
                 setBookings(bookingsRes.ok ? await bookingsRes.json() : []);
                 setReports(reportsRes.ok ? await reportsRes.json() : []);
+                setBackJobs(backJobsRes.ok ? await backJobsRes.json() : []);
             } catch (err) {
                 console.error('Error loading analytics data:', err);
             } finally {
@@ -127,20 +89,25 @@ function Analytics() {
     }, [reports, activeClientType]);
 
     // ── Service Request Analytics ──
+    // A free back-job repair visit is a redo of a service already counted, not a new
+    // request from a customer, so it is left out of every request metric below.
+    // Back jobs are reported separately in the Back Jobs card.
+    const requestBookings = useMemo(() => filteredBookings.filter((b) => !b.isBackJob), [filteredBookings]);
+
     const serviceAnalytics = useMemo(() => {
         const counts = {};
-        filteredBookings.forEach((b) => {
+        requestBookings.forEach((b) => {
             const name = b.service?.name || 'Unknown';
             counts[name] = (counts[name] || 0) + 1;
         });
         return Object.entries(counts)
             .map(([service, requests]) => ({ service, requests }))
             .sort((a, b) => b.requests - a.requests);
-    }, [filteredBookings]);
+    }, [requestBookings]);
 
     const requestVolumeByMonth = useMemo(() => {
         const counts = {};
-        filteredBookings.forEach((b) => {
+        requestBookings.forEach((b) => {
             if (!b.createdAt) return;
             const key = monthKey(b.createdAt);
             counts[key] = (counts[key] || 0) + 1;
@@ -149,9 +116,15 @@ function Analytics() {
             .sort(([a], [b]) => (a < b ? -1 : 1))
             .slice(-REQUEST_VOLUME_MONTHS)
             .map(([key, count]) => ({ label: monthLabel(key), count }));
-    }, [filteredBookings]);
+    }, [requestBookings]);
 
-    const avgResponseHours = useMemo(() => computeAvgResponseHours(filteredBookings), [filteredBookings]);
+    const avgResponseHours = useMemo(() => computeAvgResponseHours(requestBookings), [requestBookings]);
+
+    // Back jobs come straight from the BackJob collection (not the free bookings they
+    // spawn). Within warranty = a free visit was scheduled; Not Covered = outside the
+    // warranty window at the time the claim was filed.
+    const backJobWithin = backJobs.filter((bj) => bj.warrantyCheck?.withinWarranty === true).length;
+    const backJobNotCovered = backJobs.filter((bj) => bj.warrantyCheck?.withinWarranty === false).length;
 
     // ── Technician Performance Analytics ──
     const technicianAnalytics = useMemo(
@@ -161,7 +134,7 @@ function Analytics() {
 
     // ── Customer Analytics ──
     // New vs. Returning is deliberately independent of the Customer Classification
-    // Module (User.manualClassification / the 4-visits-in-12-months perk threshold) —
+    // Module (User.manualClassification / the 3-completed-bookings-in-12-months perk threshold) -
     // that field answers a different question and would call a genuinely returning
     // customer "new" until they cross that count. Here: total completed bookings per
     // customer, 1 = New, 2+ = Returning. A customer with 0 completed bookings hasn't
@@ -169,7 +142,7 @@ function Analytics() {
     const customerCompletedCounts = useMemo(() => {
         const counts = {};
         filteredBookings.forEach((b) => {
-            if (b.status !== 'Completed') return;
+            if (b.status !== BOOKING_STATUS.COMPLETED) return;
             const id = b.customer?._id;
             if (!id) return;
             counts[id] = (counts[id] || 0) + 1;
@@ -198,9 +171,9 @@ function Analytics() {
     );
 
     // ── Additional Business Analytics ──
-    const completedCount = filteredBookings.filter((b) => b.status === 'Completed').length;
-    const pendingCount = filteredBookings.filter((b) => b.status === 'Pending').length;
-    const cancelledCount = filteredBookings.filter((b) => b.status === 'Cancelled').length;
+    const completedCount = filteredBookings.filter((b) => b.status === BOOKING_STATUS.COMPLETED).length;
+    const pendingCount = filteredBookings.filter((b) => b.status === BOOKING_STATUS.PENDING).length;
+    const cancelledCount = filteredBookings.filter((b) => b.status === BOOKING_STATUS.CANCELLED).length;
     const completionRate = filteredBookings.length
         ? (completedCount / filteredBookings.length) * 100
         : 0;
@@ -230,24 +203,34 @@ function Analytics() {
                 <div className="analytics-cards">
                     <div className="analytics-card">
                         <h3>Total Service Requests</h3>
-                        <p>{loading ? '—' : filteredBookings.length}</p>
+                        <p>{loading ? '-' : requestBookings.length}</p>
                     </div>
 
                     <div className="analytics-card">
                         <h3>Average Response Time</h3>
-                        <p>{loading ? '—' : fmtHours(avgResponseHours)}</p>
+                        <p>{loading ? '-' : fmtHours(avgResponseHours)}</p>
                     </div>
 
                     <div className="analytics-card">
                         <h3>New Customers</h3>
-                        <p>{loading ? '—' : newCustomerCount}</p>
+                        <p>{loading ? '-' : newCustomerCount}</p>
+                    </div>
+
+                    <div className="analytics-card">
+                        <h3>Back Jobs</h3>
+                        <p>{loading ? '-' : backJobs.length}</p>
+                        {!loading && (
+                            <small>Within warranty: {backJobWithin} · Not covered: {backJobNotCovered}</small>
+                        )}
                     </div>
 
                     <div className="analytics-card">
                         <h3>Returning Customers</h3>
-                        <p>{loading ? '—' : returningCustomerCount}</p>
+                        <p>{loading ? '-' : returningCustomerCount}</p>
                     </div>
                 </div>
+
+                <DashboardCharts bookings={filteredBookings} />
 
                 {/* Service Request Analytics */}
                 <section className="analytics-section">

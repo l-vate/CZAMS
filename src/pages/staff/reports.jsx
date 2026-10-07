@@ -3,8 +3,10 @@ import StaffLayout from './staff_layout';
 import { FiClock, FiFileText, FiX, FiUser, FiMapPin } from 'react-icons/fi';
 import SignaturePad from '../../components/signature_pad';
 import ServiceReportPdfModal from '../../components/service_report_pdf_modal';
+import { getFilterPillStyle } from '../../utils/statusColors';
+import { API_BASE } from '../../config/api';
+import { BOOKING_STATUS } from '../../constants/bookingStatus';
 
-const API_BASE = 'http://localhost:5000';
 
 function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
   const [form, setForm] = useState({
@@ -67,7 +69,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
           </button>
         </div>
 
-        <div className="report-booking-info" style={{ marginBottom: '16px' }}>
+        <div className="report-booking-info staff-reports-x1">
           <p className="tech-job-detail-booking">
             {reportItem.service} · {reportItem.bookingId}
           </p>
@@ -102,17 +104,16 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="tech-profile-edit-form" style={{ maxWidth: '100%' }}>
+        <form onSubmit={handleSubmit} className="tech-profile-edit-form staff-reports-x2">
           {/* Work Summary */}
           <div className="form-group">
             <label htmlFor="workSummary" className="tech-stat-label">
-              Work Summary <span style={{ color: '#ef4444' }}>*</span>
+              Work Summary <span className="staff-reports-x3">*</span>
             </label>
             <textarea
               id="workSummary"
               name="workSummary"
-              className="tech-search-input"
-              style={{ minHeight: '80px', resize: 'vertical' }}
+              className="tech-search-input staff-reports-x4"
               placeholder="Describe the work performed, diagnosis, and actions taken..."
               value={form.workSummary}
               onChange={handleChange}
@@ -120,10 +121,10 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
           </div>
 
           {/* Labor Hours & Resolution */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div className="staff-reports-x5">
             <div className="form-group">
               <label htmlFor="laborHours" className="tech-stat-label">
-                Labor Hours <span style={{ fontSize: '11px', color: 'var(--ink-soft)' }}>(Optional)</span>
+                Labor Hours <span className="staff-reports-x6">(Optional)</span>
               </label>
               <input
                 type="number"
@@ -160,7 +161,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
           {/* Parts Used */}
           <div className="form-group">
             <label htmlFor="partsUsed" className="tech-stat-label">
-              Parts Used <span style={{ fontSize: '11px', color: 'var(--ink-soft)' }}>(Optional)</span>
+              Parts Used <span className="staff-reports-x6">(Optional)</span>
             </label>
             <input
               type="text"
@@ -174,16 +175,16 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
           </div>
 
           {/* Follow-up Checkbox */}
-          <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+          <div className="form-group staff-reports-x7">
             <input
               type="checkbox"
               id="followUpRequired"
               name="followUpRequired"
               checked={form.followUpRequired}
               onChange={handleChange}
-              style={{ accentColor: 'var(--navy)', width: '16px', height: '16px' }}
+              className="staff-reports-x8"
             />
-            <label htmlFor="followUpRequired" className="tech-stat-label" style={{ margin: 0, cursor: 'pointer' }}>
+            <label htmlFor="followUpRequired" className="tech-stat-label staff-reports-x9">
               Follow-up service required
             </label>
           </div>
@@ -192,7 +193,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
           {form.followUpRequired && (
             <div className="form-group">
               <label htmlFor="followUpDate" className="tech-stat-label">
-                Follow-up Date <span style={{ color: '#ef4444' }}>*</span>
+                Follow-up Date <span className="staff-reports-x3">*</span>
               </label>
               <input
                 type="date"
@@ -208,13 +209,12 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
           {/* Recommendations */}
           <div className="form-group">
             <label htmlFor="recommendations" className="tech-stat-label">
-              Recommendations <span style={{ fontSize: '11px', color: 'var(--ink-soft)' }}>(Optional)</span>
+              Recommendations <span className="staff-reports-x6">(Optional)</span>
             </label>
             <textarea
               id="recommendations"
               name="recommendations"
-              className="tech-search-input"
-              style={{ minHeight: '60px', resize: 'vertical' }}
+              className="tech-search-input staff-reports-x10"
               placeholder="Preventive maintenance tips, safety notes..."
               value={form.recommendations}
               onChange={handleChange}
@@ -224,13 +224,12 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
           {/* Additional Notes */}
           <div className="form-group">
             <label htmlFor="notes" className="tech-stat-label">
-              Additional Notes <span style={{ fontSize: '11px', color: 'var(--ink-soft)' }}>(Optional)</span>
+              Additional Notes <span className="staff-reports-x6">(Optional)</span>
             </label>
             <textarea
               id="notes"
               name="notes"
-              className="tech-search-input"
-              style={{ minHeight: '60px', resize: 'vertical' }}
+              className="tech-search-input staff-reports-x10"
               placeholder="Any other relevant details..."
               value={form.notes}
               onChange={handleChange}
@@ -238,16 +237,16 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
           </div>
 
           {/* Pre-existing Issue Checkbox */}
-          <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+          <div className="form-group staff-reports-x7">
             <input
               type="checkbox"
               id="preExistingIssueFlagged"
               name="preExistingIssueFlagged"
               checked={form.preExistingIssueFlagged}
               onChange={handleChange}
-              style={{ accentColor: 'var(--navy)', width: '16px', height: '16px' }}
+              className="staff-reports-x8"
             />
-            <label htmlFor="preExistingIssueFlagged" className="tech-stat-label" style={{ margin: 0, cursor: 'pointer' }}>
+            <label htmlFor="preExistingIssueFlagged" className="tech-stat-label staff-reports-x9">
               Unit had a pre-existing issue or sign of a problem, unrelated to this job
             </label>
           </div>
@@ -256,13 +255,12 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
           {form.preExistingIssueFlagged && (
             <div className="form-group">
               <label htmlFor="preExistingIssueDescription" className="tech-stat-label">
-                Describe what you found <span style={{ color: '#ef4444' }}>*</span>
+                Describe what you found <span className="staff-reports-x3">*</span>
               </label>
               <textarea
                 id="preExistingIssueDescription"
                 name="preExistingIssueDescription"
-                className="tech-search-input"
-                style={{ minHeight: '60px', resize: 'vertical' }}
+                className="tech-search-input staff-reports-x10"
                 placeholder="e.g. Compressor already showing signs of wear before we started..."
                 value={form.preExistingIssueDescription}
                 onChange={handleChange}
@@ -273,16 +271,15 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
           {/* Client Consent + E-Signature */}
           <div className="form-group">
             <label className="tech-stat-label">
-              Client Consent &amp; Signature <span style={{ color: '#ef4444' }}>*</span>
+              Client Consent &amp; Signature <span className="staff-reports-x3">*</span>
             </label>
-            <p style={{ fontSize: '11px', color: 'var(--ink-soft)', marginBottom: '8px' }}>
+            <p className="staff-reports-x11">
               Have the client review this report and sign below before submitting.
             </p>
             <input
               type="text"
               name="clientConsentSignedName"
-              className="tech-search-input"
-              style={{ marginBottom: '8px' }}
+              className="tech-search-input staff-reports-x12"
               placeholder="Client's full name"
               value={form.clientConsentSignedName}
               onChange={handleChange}
@@ -293,10 +290,10 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
           </div>
 
           {error && (
-            <p style={{ color: '#ef4444', fontSize: '13px', margin: '4px 0 0 0' }}>{error}</p>
+            <p className="staff-reports-x13">{error}</p>
           )}
 
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
+          <div className="staff-reports-x14">
             <button
               type="button"
               className="tech-sort-btn"
@@ -307,8 +304,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
             </button>
             <button
               type="submit"
-              className="tech-sort-btn"
-              style={{ background: 'var(--navy)', color: 'white', borderColor: 'var(--navy)' }}
+              className="tech-sort-btn staff-reports-x15"
               disabled={submitting}
             >
               {submitting ? 'Submitting...' : 'Submit Report'}
@@ -343,7 +339,7 @@ function ViewReportModal({ reportItem, onClose }) {
           <button className="modal-close-btn" onClick={onClose}><FiX /></button>
         </div>
 
-        <div className="report-booking-info" style={{ marginBottom: '16px' }}>
+        <div className="report-booking-info staff-reports-x1">
           <p className="tech-job-detail-booking">
             {reportItem.service} · {reportItem.bookingId}
           </p>
@@ -378,7 +374,7 @@ function ViewReportModal({ reportItem, onClose }) {
           </div>
         </div>
 
-        <div className="tech-job-detail-grid" style={{ gap: '14px 16px' }}>
+        <div className="tech-job-detail-grid staff-reports-x16">
           {/* Work Summary */}
           <div className="tech-job-detail-cell tech-job-detail-full">
             <span className="confirmation-detail-icon"><FiFileText /></span>
@@ -500,23 +496,21 @@ function ViewReportModal({ reportItem, onClose }) {
             <div>
               <p className="confirmation-detail-label">Submitted On</p>
               <p className="confirmation-detail-value">
-                {report.submittedAt ? new Date(report.submittedAt).toLocaleDateString() : '—'}
+                {report.submittedAt ? new Date(report.submittedAt).toLocaleDateString() : '-'}
               </p>
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
+        <div className="staff-reports-x17">
           <button
-            className="tech-sort-btn"
-            style={{ flex: 1, justifyContent: 'center' }}
+            className="tech-sort-btn staff-reports-x18"
             onClick={onClose}
           >
             Close
           </button>
           <button
-            className="tech-sort-btn"
-            style={{ flex: 1, justifyContent: 'center', background: 'var(--navy)', color: 'white', borderColor: 'var(--navy)' }}
+            className="tech-sort-btn staff-reports-x19"
             onClick={() => setShowPdf(true)}
           >
             <FiFileText /> Export PDF
@@ -576,11 +570,16 @@ function Reports() {
           return;
         }
 
-        // Get completed bookings (status is 'Completed')
-        const completedBookings = bookingsData.filter(b => b.status === 'Completed');
+        // A job is waiting for its report while it is In Progress (filing the report is what
+        // completes it). Completed jobs are listed too, so ones finished before this rule
+        // existed that still have no report can get one.
+        // Only the team lead files the report, so only the lead's jobs are listed here.
+        const reportableBookings = bookingsData.filter(b => [BOOKING_STATUS.IN_PROGRESS, BOOKING_STATUS.COMPLETED].includes(b.status) && b.myRole === 'Lead');
         
-        // For each completed booking, fetch its report from the reports collection
-        const reportPromises = completedBookings.map(async (booking) => {
+        // For each one, fetch its report from the reports collection
+        const reportPromises = reportableBookings.map(async (booking) => {
+          // An In Progress job cannot have a report yet.
+          if (booking.status === BOOKING_STATUS.IN_PROGRESS) return toReportItem(booking, null);
           try {
             const reportRes = await fetch(`${API_BASE}/api/reports/booking/${booking.bookingId}`, {
               headers: { Authorization: `Bearer ${token}` },
@@ -675,7 +674,8 @@ function Reports() {
           <button
             key={tab}
             type="button"
-            className={`report-tab${filter === tab ? ' active' : ''}`}
+            className={`filter-pill ${filter === tab ? 'filter-pill--active' : ''}`}
+            style={getFilterPillStyle(tab, filter === tab)}
             onClick={() => setFilter(tab)}
           >
             {tab}
@@ -692,21 +692,16 @@ function Reports() {
           visibleReports.map((r, i) => (
             <div className="tech-job-card tech-report-card" key={i}>
               <div className="tech-job-info">
-                <div className="tech-job-service">
-                  {r.service}{' '}
-                  <span
-                    className="tech-job-detail-link"
-                    onClick={() => handleOpenReport(r)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    · Detail
+                <div className="tech-job-top-row">
+                  <span className={`tech-job-status-badge ${r.status === 'Completed' ? 'tech-status-completed' : 'tech-status-pending'}`}>
+                    {r.status}
                   </span>
                 </div>
+                <div className="tech-job-service">{r.service}</div>
                 <small className="tech-job-booking">{r.bookingId}</small>
                 {r.customer && (
                   <small
-                    className="tech-job-customer"
-                    style={{ display: 'block', marginTop: '4px', color: 'var(--ink-soft)' }}
+                    className="tech-job-customer staff-reports-x20"
                   >
                     {r.customer}
                   </small>
@@ -718,9 +713,8 @@ function Reports() {
               </div>
 
               <button
-                className="tech-job-view-link"
+                className="tech-job-view-link staff-reports-x21"
                 onClick={() => handleOpenReport(r)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
               >
                 <FiFileText />{' '}
                 {r.status === 'Pending' ? 'Submit Report' : 'View Report'}

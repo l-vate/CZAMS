@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { API_BASE } from '../config/api';
+import { ROLE } from '../constants/roles';
 
 function Icon({ name }) {
   const common = {
@@ -37,7 +39,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
     email: '',
     phone: '',
     address: '',
-    role: 'customer',
+    role: ROLE.CUSTOMER,
     isActive: true,
     classificationChoice: '', // '' = auto-computed, else a manual override ('Regular' | 'Return')
     clientType: 'Residential',
@@ -53,7 +55,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
         email: user.email || '',
         phone: user.phone || '',
         address: user.address || '',
-        role: user.role || 'customer',
+        role: user.role || ROLE.CUSTOMER,
         isActive: user.isActive !== undefined ? user.isActive : true,
         classificationChoice: user.manualClassification || '',
         clientType: user.clientType || 'Residential',
@@ -69,7 +71,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
     setError('');
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/users/${user._id}`, {
+      const response = await fetch(`${API_BASE}/api/users/${user._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -87,8 +89,8 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
       // Customer Classification Module: sent separately, and only if it actually
       // changed, since it has its own dedicated endpoint/validation.
       const originalOverride = user.manualClassification || '';
-      if (user.role === 'customer' && formData.classificationChoice !== originalOverride) {
-        const classRes = await fetch(`http://localhost:5000/api/users/${user._id}/classification`, {
+      if (user.role === ROLE.CUSTOMER && formData.classificationChoice !== originalOverride) {
+        const classRes = await fetch(`${API_BASE}/api/users/${user._id}/classification`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
@@ -120,7 +122,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
     try {
       const updatedStatus = !formData.isActive;
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/users/${user._id}`, {
+      const response = await fetch(`${API_BASE}/api/users/${user._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -157,8 +159,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
               <p className="sdm-subtitle">Account ID: {user._id}</p>
             </div>
             <span
-              className="sdm-badge"
-              style={{ background: formData.isActive ? '#22c55e' : '#ef4444' }}
+              className={`sdm-badge ${formData.isActive ? 'sdm-badge-active' : 'sdm-badge-inactive'}`}
             >
               {formData.isActive ? 'Active' : 'Inactive'}
             </span>
@@ -170,20 +171,20 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
           <div className="sdm-customer-line">
             {user.profileImage ? (
               <img
-                src={`http://localhost:5000${user.profileImage}`}
+                src={`${API_BASE}${user.profileImage}`}
                 alt={formData.name}
-                style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }}
+                className="user-details-modal-x1"
               />
             ) : (
               <Icon name="user" />
             )}
-            <span style={{ fontWeight: 600 }}>{formData.name || 'No Name'}</span>
+            <span className="user-details-modal-x2">{formData.name || 'No Name'}</span>
             <span className="sdm-muted">· Role: {formData.role.toUpperCase()}</span>
           </div>
 
           {/* Details / Edit View */}
           <div className="sdm-columns">
-            <div className="sdm-col" style={{ width: '100%' }}>
+            <div className="sdm-col user-details-modal-x3">
               <div className="sdm-row">
                 <div className="sdm-row-icon"><Icon name="user" /></div>
                 <div>
@@ -196,7 +197,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     />
                   ) : (
-                    <p className="sdm-row-value">{formData.name || '—'}</p>
+                    <p className="sdm-row-value">{formData.name || '-'}</p>
                   )}
                 </div>
               </div>
@@ -213,7 +214,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     />
                   ) : (
-                    <p className="sdm-row-value">{formData.email || '—'}</p>
+                    <p className="sdm-row-value">{formData.email || '-'}</p>
                   )}
                 </div>
               </div>
@@ -230,7 +231,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     />
                   ) : (
-                    <p className="sdm-row-value">{formData.phone || '—'}</p>
+                    <p className="sdm-row-value">{formData.phone || '-'}</p>
                   )}
                 </div>
               </div>
@@ -247,7 +248,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                     />
                   ) : (
-                    <p className="sdm-row-value">{formData.address || '—'}</p>
+                    <p className="sdm-row-value">{formData.address || '-'}</p>
                   )}
                 </div>
               </div>
@@ -267,14 +268,14 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
                       <option value="admin">Admin</option>
                     </select>
                   ) : (
-                    <p className="sdm-row-value" style={{ textTransform: 'capitalize' }}>
+                    <p className="sdm-row-value user-details-modal-x4">
                       {formData.role}
                     </p>
                   )}
                 </div>
               </div>
 
-              {user.role === 'customer' && (
+              {user.role === ROLE.CUSTOMER && (
                 <div className="sdm-row">
                   <div className="sdm-row-icon"><Icon name="pin" /></div>
                   <div>
@@ -295,7 +296,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
                 </div>
               )}
 
-              {user.role === 'customer' && (
+              {user.role === ROLE.CUSTOMER && (
                 <div className="sdm-row">
                   <div className="sdm-row-icon"><Icon name="star" /></div>
                   <div>

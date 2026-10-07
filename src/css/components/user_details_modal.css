@@ -1,0 +1,25 @@
+
+/* Extracted from inline styles in components/user_details_modal.jsx.
+   The class is doubled so it keeps the priority the inline style had over other rules. */
+.user-details-modal-x1.user-details-modal-x1 {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.user-details-modal-x2.user-details-modal-x2 {
+  font-weight: 600;
+}
+.user-details-modal-x3.user-details-modal-x3 {
+  width: 100%;
+}
+.user-details-modal-x4.user-details-modal-x4 {
+  text-transform: capitalize;
+}
+
+.sdm-badge.sdm-badge-active {
+  background: #22c55e;
+}
+.sdm-badge.sdm-badge-inactive {
+  background: #ef4444;
+}

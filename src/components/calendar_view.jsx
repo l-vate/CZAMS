@@ -10,41 +10,6 @@ const MONTH_NAMES = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-// The calendar's own status vocabulary (matches the .cal-job-*/.cal-dot-* CSS
-// classes below) doesn't literally match Booking.status's enum — "Approved"
-// and "In Progress" had no mapping at all before this, so job blocks/chips for
-// those two statuses rendered with no color styling. Exported so both
-// admin/calendar.jsx and staff/calendar.jsx map bookings the same way.
-const CALENDAR_STATUS_MAP = {
-  pending: "pending",
-  approved: "confirmed",
-  "in progress": "in-progress",
-  completed: "completed",
-  cancelled: "cancelled",
-};
-
-export function mapBookingStatusToCalendarStatus(status) {
-  return CALENDAR_STATUS_MAP[(status || "pending").toLowerCase()] || "pending";
-}
-
-// Booking.time is literally the string "Morning" or "Afternoon" (Step3's time
-// toggle, book_service.jsx) — never a parseable "9:00 AM - 11:00 AM" range, and
-// there are no startTime/endTime fields on Booking at all. The Week/Day grid
-// still needs *some* start/end hour to position a block, so this maps each block
-// to a fixed range grounded in the app's own stated hours (landing_page.jsx
-// footer: Mon–Sat 8:00 AM–6:00 PM), with a lunch gap between them — so a
-// Morning-only booking visually reads as busy 8–12 and free in the afternoon,
-// not "busy all day" or an arbitrary slot unrelated to which block was actually booked.
-// Exported so both admin/calendar.jsx and staff/calendar.jsx derive this the same way.
-const TIME_BLOCK_HOURS = {
-  Morning: { startHour: 8, endHour: 12 },
-  Afternoon: { startHour: 13, endHour: 18 },
-};
-
-export function getTimeBlockHours(time) {
-  return TIME_BLOCK_HOURS[time] || { startHour: 8, endHour: 10 };
-}
-
 function startOfWeek(date) {
   const d = new Date(date);
   const day = d.getDay(); // 0 = Sun
@@ -70,7 +35,7 @@ function toKey(date) {
 }
 
 // 6 full weeks (42 days) covering the anchor month, starting on the Monday
-// on/before the 1st — a standard month-grid layout, distinct from the 7-day
+// on/before the 1st - a standard month-grid layout, distinct from the 7-day
 // week the Day/Week views use.
 function getMonthGridDays(anchorDate) {
   const firstOfMonth = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), 1);
@@ -113,7 +78,7 @@ export default function CalendarView({ jobs = [], title = "Calendar", onJobClick
 
   function goPrev() {
     // Month used a flat -30 days, which drifts across month boundaries (e.g. a
-    // 31-day month wouldn't actually reach the previous month's 1st) — a real
+    // 31-day month wouldn't actually reach the previous month's 1st) - a real
     // month step needs setMonth, not a fixed day count.
     if (view === "Month") {
       setAnchorDate((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
@@ -270,7 +235,7 @@ export default function CalendarView({ jobs = [], title = "Calendar", onJobClick
   );
 }
 
-// Traditional month grid (6 weeks x 7 days) — the "Month" toolbar toggle used to
+// Traditional month grid (6 weeks x 7 days) - the "Month" toolbar toggle used to
 // just relabel the view without actually rendering one; the hour-based grid the
 // Day/Week views use isn't suited to a month at a glance, so this renders day
 // cells with compact job chips instead.

@@ -5,10 +5,16 @@ function AdminSidebar({ onNavigate }) {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Routes that live under the "Services" dropdown - deliberately excludes
+  // /admin/services/requests, which is its own top-level "Service Requests"
+  // link despite sharing the /admin/services prefix.
+  const isServicesSubRoute =
+    location.pathname.startsWith("/admin/services/manage") ||
+    location.pathname.startsWith("/admin/services/reports") ||
+    location.pathname.startsWith("/admin/payment-settings");
+
   // Keep the dropdown open automatically if we're already on a services sub-route
-  const [servicesOpen, setServicesOpen] = useState(
-    location.pathname.startsWith("/admin/services")
-  );
+  const [servicesOpen, setServicesOpen] = useState(isServicesSubRoute);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -43,14 +49,17 @@ function AdminSidebar({ onNavigate }) {
           <NavLink to="/admin/dashboard" className={linkClass} onClick={onNavigate}>
             Dashboard
           </NavLink>
-          <NavLink to="/admin/analytics" className={linkClass} onClick={onNavigate}>
-            Analytics
-          </NavLink>
           <NavLink to="/admin/calendar" className={linkClass} onClick={onNavigate}>
             Calendar
           </NavLink>
+          <NavLink to="/admin/services/requests" className={linkClass} onClick={onNavigate}>
+            Service Requests
+          </NavLink>
           <NavLink to="/admin/manage_accounts" className={linkClass} onClick={onNavigate}>
             Manage Accounts
+          </NavLink>
+          <NavLink to="/admin/teams" className={linkClass} onClick={onNavigate}>
+            Teams
           </NavLink>
 
           {/* ── Services dropdown ───────────────────────── */}
@@ -58,7 +67,7 @@ function AdminSidebar({ onNavigate }) {
             <button
               type="button"
               className={`sidebar-link sidebar-dropdown-toggle ${
-                location.pathname.startsWith("/admin/services") ? "active" : ""
+                isServicesSubRoute ? "active" : ""
               }`}
               onClick={() => setServicesOpen((prev) => !prev)}
             >
@@ -87,11 +96,11 @@ function AdminSidebar({ onNavigate }) {
                 Manage Services
               </NavLink>
               <NavLink
-                to="/admin/services/requests"
+                to="/admin/payment-settings"
                 className={subLinkClass}
                 onClick={onNavigate}
               >
-                Service Requests
+                Manage Payment Settings
               </NavLink>
               <NavLink
                 to="/admin/services/reports"
@@ -103,6 +112,9 @@ function AdminSidebar({ onNavigate }) {
             </div>
           </div>
 
+          <NavLink to="/admin/promotions" className={linkClass} onClick={onNavigate}>
+            Promotions
+          </NavLink>
           <NavLink to="/admin/payments" className={linkClass} onClick={onNavigate}>
             Payments
           </NavLink>
@@ -111,6 +123,12 @@ function AdminSidebar({ onNavigate }) {
           </NavLink>
           <NavLink to="/admin/announcements" className={linkClass} onClick={onNavigate}>
             Announcements
+          </NavLink>
+          <NavLink to="/admin/analytics" className={linkClass} onClick={onNavigate}>
+            Analytics
+          </NavLink>
+          <NavLink to="/admin/reports" className={linkClass} onClick={onNavigate}>
+            Reports
           </NavLink>
         </nav>
       </div>

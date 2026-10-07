@@ -1,19 +1,19 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import AdminLayout from './admin_layout';
-import { FiSearch } from 'react-icons/fi';
 import PersonFilterBanner from '../../components/person_filter_banner';
 import { getBookingLineItems, getUnitsSummary } from '../../utils/bookingPricing';
+import { getMemberNames } from '../../utils/assignments';
+import { getFilterPillStyle } from '../../utils/statusColors';
+import { usePaymentSettings, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
+import { API_BASE } from '../../config/api';
+import { BOOKING_STATUS } from '../../constants/bookingStatus';
+import { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } from '../../constants/paymentStatus';
+import { REFUND_STATUS } from '../../constants/refundStatus';
 
-const API_BASE = 'http://localhost:5000';
-
-const TOP_TABS = [
-  { key: 'payments', label: 'Payments' },
-  { key: 'refunds', label: 'Refunds' },
-];
 
 function formatDate(dateStr) {
-  if (!dateStr) return '—';
+  if (!dateStr) return '-';
   const d = new Date(dateStr);
   if (isNaN(d)) return dateStr;
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -50,10 +50,6 @@ function FileIcon() {
   );
 }
 
-function SearchIcon() {
-  return <FiSearch className="icon-search" aria-hidden="true" />;
-}
-
 function StatusBadge({ status, meta }) {
   const m = meta[status];
   if (!m) return null;
@@ -69,6 +65,7 @@ const PAYMENT_FILTERS = [
   { key: 'partially_paid', label: 'Partially Paid' },
   { key: 'fully_paid', label: 'Fully Paid' },
   { key: 'rejected', label: 'Rejected' },
+  { key: 'refund', label: 'Refunds' },
 ];
 
 const PAYMENT_STATUS_META = {
@@ -79,20 +76,24 @@ const PAYMENT_STATUS_META = {
   rejected: { label: 'Rejected', className: 'status-pill status-pill--rejected' },
   balance_rejected: { label: 'Balance Rejected', className: 'status-pill status-pill--rejected' },
   // Once a booking is cancelled, paymentStatus reflects whatever it happened to be
-  // right before cancellation and no longer means what it used to — these three
+  // right before cancellation and no longer means what it used to - these three
   // override it so the badge reflects the booking's actual current state instead.
   refunded: { label: 'Refunded', className: 'status-pill status-pill--refunded' },
   cancelled: { label: 'Cancelled', className: 'status-pill status-pill--cancelled' },
   cancelled_refund_pending: { label: 'Cancelled – Refund Pending', className: 'status-pill status-pill--cancelled' },
+  // A warranty repair visit (back job) is free: nothing to collect or verify. Shown
+  // only under "All", same as the customer's Payment & Billing page.
+  free_back_job: { label: 'Free (Back Job)', className: 'status-pill status-pill--full' },
 };
 
-// Terminal states where there's nothing left to review — reviewing/approving a
+// Terminal states where there's nothing left to review - reviewing/approving a
 // cancelled booking's stale payment proof would either error out server-side
 // (admin-update blocks edits on cancelled bookings) or be actively misleading.
-const TERMINAL_PAYMENT_STATUSES = ['cancelled', 'cancelled_refund_pending', 'refunded'];
+const TERMINAL_PAYMENT_STATUSES = ['cancelled', 'cancelled_refund_pending', 'refunded', 'free_back_job'];
 
 /* ── Review Request Modal ──────────────────────────────── */
 function ReviewRequestModal({ payment, onClose, onSuccess }) {
+  const { downPaymentPercentages } = usePaymentSettings();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -104,16 +105,16 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
 
     try {
       const token = localStorage.getItem('token');
-      const isBalanceProof = Boolean(payment.raw?.balanceProofFile && payment.raw?.balancePaymentStatus === 'to_verify');
-      const isRejecting = status === 'rejected';
+      const isBalanceProof = Boolean(payment.raw?.balanceProofFile && payment.raw?.balancePaymentStatus === BALANCE_PAYMENT_STATUS.TO_VERIFY);
+      const isRejecting = status === PAYMENT_STATUS.REJECTED;
 
       // Decide target statuses based on whether it's a balance proof or down payment proof,
       // and whether this is an approval or a rejection. Rejecting a balance proof must NOT
-      // mark it paid — each track (down payment / balance) is rejected or approved independently.
+      // mark it paid - each track (down payment / balance) is rejected or approved independently.
       const payload = isBalanceProof
         ? (isRejecting
-            ? { balancePaymentStatus: 'rejected' }
-            : { balancePaymentStatus: 'paid', balancePaid: true })
+            ? { balancePaymentStatus: BALANCE_PAYMENT_STATUS.REJECTED }
+            : { balancePaymentStatus: BALANCE_PAYMENT_STATUS.PAID, balancePaid: true })
         : { paymentStatus: status }; // status can be 'partially_paid', 'fully_paid', or 'rejected'
 
       const res = await fetch(
@@ -148,7 +149,7 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card payment-review-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header" style={{ marginBottom: '4px' }}>
+        <div className="modal-header admin-payments-x1">
           <h4 className="modal-title">Review Payment Request</h4>
           <button className="modal-close-btn" onClick={onClose} disabled={submitting}>
             <CloseIcon />
@@ -160,65 +161,50 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
         </p>
 
         {error && (
-          <p style={{ color: 'var(--danger)', fontSize: '13px', marginBottom: '12px' }}>{error}</p>
+          <p className="admin-payments-x2">{error}</p>
         )}
 
         <div
-          className="payment-review-grid"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '14px 20px',
-            marginBottom: '20px',
-          }}
+          className="payment-review-grid admin-payments-x3"
         >
-          <div className="payment-review-cell" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div className="payment-review-cell admin-payments-x4">
             <span className="confirmation-detail-label">Client</span>
             <span className="confirmation-detail-value">{payment.clientName}</span>
           </div>
 
-          <div className="payment-review-cell" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div className="payment-review-cell admin-payments-x4">
             <span className="confirmation-detail-label">Technician</span>
             <span className="confirmation-detail-value">{payment.technician}</span>
           </div>
 
-          <div className="payment-review-cell" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div className="payment-review-cell admin-payments-x4">
             <span className="confirmation-detail-label">Date &amp; Time</span>
             <span className="confirmation-detail-value">{payment.date}, {payment.time}</span>
           </div>
 
-          <div className="payment-review-cell" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div className="payment-review-cell admin-payments-x4">
             <span className="confirmation-detail-label">Amount</span>
             <span className="confirmation-detail-value">{payment.amount}</span>
           </div>
 
-          <div className="payment-review-cell" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div className="payment-review-cell admin-payments-x4">
             <span className="confirmation-detail-label">Status</span>
             <span className="confirmation-detail-value"><StatusBadge status={payment.status} meta={PAYMENT_STATUS_META} /></span>
           </div>
         </div>
 
-        <div className="payment-review-attachment-section" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
+        <div className="payment-review-attachment-section admin-payments-x5">
           <span className="confirmation-detail-label">Attached File</span>
           {payment.hasAttachment ? (
             payment.attachmentUrl ? (
               isPdf ? (
-                <div style={{ textAlign: 'center', padding: '16px', border: '1px dashed #d1d5db', borderRadius: '8px' }}>
-                  <p style={{ fontSize: '13px', color: '#374151', marginBottom: '10px' }}>PDF Document Attached</p>
+                <div className="admin-payments-x6">
+                  <p className="admin-payments-x7">PDF Document Attached</p>
                   <a
                     href={payment.attachmentUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{
-                      display: 'inline-block',
-                      padding: '8px 16px',
-                      background: 'var(--primary)',
-                      color: '#fff',
-                      borderRadius: '6px',
-                      textDecoration: 'none',
-                      fontSize: '13px',
-                      fontWeight: '600',
-                    }}
+                    className="admin-payments-x8"
                   >
                     📄 View PDF Proof
                   </a>
@@ -228,41 +214,21 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
                   <img
                     src={payment.attachmentUrl}
                     alt="Payment proof"
-                    className="payment-review-attachment-img"
-                    style={{ width: '100%', maxHeight: '300px', objectFit: 'contain', borderRadius: '8px', border: '1px solid #e5e7eb' }}
+                    className="payment-review-attachment-img admin-payments-x9"
                   />
                 </a>
               )
             ) : (
               <div
-                className="payment-review-attachment-placeholder"
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '24px 16px',
-                  border: '1px dashed #d1d5db',
-                  borderRadius: '8px',
-                  color: '#6b7280',
-                  textAlign: 'center',
-                }}
+                className="payment-review-attachment-placeholder admin-payments-x10"
               >
                 <FileIcon />
-                <span style={{ fontWeight: 600, fontSize: '13px' }}>proof_of_payment_{payment.bookingId}</span>
+                <span className="admin-payments-x11">proof_of_payment_{payment.bookingId}</span>
               </div>
             )
           ) : (
             <div
-              className="payment-review-attachment-placeholder payment-review-attachment-placeholder--empty"
-              style={{
-                padding: '16px',
-                border: '1px dashed #d1d5db',
-                borderRadius: '8px',
-                color: '#9ca3af',
-                fontSize: '13px',
-                textAlign: 'center',
-              }}
+              className="payment-review-attachment-placeholder payment-review-attachment-placeholder--empty admin-payments-x12"
             >
               No file was attached to this request.
             </div>
@@ -270,11 +236,11 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
         </div>
 
 
-          <div className="cancel-confirm-actions" style={{ marginTop: '4px' }}>
+          <div className="cancel-confirm-actions admin-payments-x13">
           <button
             type="button"
             className="cancel-booking-btn"
-            onClick={() => handleUpdatePaymentStatus('rejected')} // Changed 'Rejected' to 'rejected'
+            onClick={() => handleUpdatePaymentStatus(PAYMENT_STATUS.REJECTED)}
             disabled={submitting}
           >
             {submitting ? 'Processing...' : 'Reject'}
@@ -284,8 +250,8 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
             className="bs-next-btn"
             onClick={() => {
               // Automatically check if it's 100% full payment or partial payment
-              const dpPercent = payment.raw?.downPaymentPercent ?? 10;
-              const targetStatus = dpPercent === 100 ? 'fully_paid' : 'partially_paid';
+              const dpPercent = payment.raw?.downPaymentPercent ?? getDefaultDownPaymentPercent(downPaymentPercentages);
+              const targetStatus = dpPercent === 100 ? PAYMENT_STATUS.FULLY_PAID : PAYMENT_STATUS.PARTIALLY_PAID;
               handleUpdatePaymentStatus(targetStatus);
             }}
             disabled={submitting}
@@ -299,7 +265,11 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
   );
 }
 
-function PaymentCard({ payment, onReviewRequest }) {
+function PaymentCard({ payment, onReviewRequest, onReviewRefund }) {
+  const isFlagged = Boolean(payment.refund?.customerFlag?.flagged && !payment.refund?.customerFlag?.resolved);
+  const isPendingRefund = payment.status === 'cancelled_refund_pending';
+  const isProcessedRefund = payment.status === 'refunded';
+
   return (
     <div className="payment-card">
       <div className="payment-card__main">
@@ -307,6 +277,7 @@ function PaymentCard({ payment, onReviewRequest }) {
           <span className="payment-card__client">{payment.clientName}</span>
           <span className="payment-card__dash">–</span>
           <StatusBadge status={payment.status} meta={PAYMENT_STATUS_META} />
+          {isFlagged && <span className="refund-card__flag-tag">Flagged</span>}
         </div>
         <div className="payment-card__service">
           <span className="payment-card__service-type">{payment.serviceType}</span>
@@ -332,24 +303,34 @@ function PaymentCard({ payment, onReviewRequest }) {
       </div>
 
       <div className="payment-card__action">
-        {!TERMINAL_PAYMENT_STATUSES.includes(payment.status) && (
+        {isPendingRefund || isProcessedRefund ? (
           <button
             type="button"
             className="payment-card__link payment-card__review-btn"
-            onClick={() => onReviewRequest(payment)}
+            onClick={() => onReviewRefund(payment)}
           >
-            Review Request
+            {isFlagged ? 'Review Flag' : isPendingRefund ? 'Review Refund' : 'View Refund'}
           </button>
+        ) : (
+          !TERMINAL_PAYMENT_STATUSES.includes(payment.status) && (
+            <button
+              type="button"
+              className="payment-card__link payment-card__review-btn"
+              onClick={() => onReviewRequest(payment)}
+            >
+              Review Request
+            </button>
+          )
         )}
       </div>
     </div>
   );
 }
 
-function PaymentsPanel({ personFilter, onClearPersonFilter }) {
+function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
   const [activeFilter, setActiveFilter] = useState('all');
-  const [search, setSearch] = useState('');
   const [selectedPayment, setSelectedPayment] = useState(null);
+  const [selectedRefund, setSelectedRefund] = useState(null);
   const [rawBookings, setRawBookings] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -377,32 +358,34 @@ function PaymentsPanel({ personFilter, onClearPersonFilter }) {
   const paymentsList = useMemo(() => {
     return rawBookings.map((b) => {
       const clientName = typeof b.customer === 'object' ? (b.customer?.name || 'Customer') : (b.customerName || 'Customer');
-      const technician = typeof b.technician === 'object' ? (b.technician?.name || 'Unassigned') : (b.technician || 'Unassigned');
+      const technician = getMemberNames(b);
       const serviceType = typeof b.service === 'object' ? (b.service?.name || 'Service') : (b.service || 'Service');
       const detail = getUnitsSummary(b) || b.brandModel || b.problemDescription || 'Detail';
 
       const { basePrice } = getBookingLineItems(b);
 
-      let status = 'unpaid';
-      if (b.refund?.status === 'Processed') {
+      let status;
+      if (b.isBackJob) {
+        status = 'free_back_job';
+      } else if (b.refund?.status === REFUND_STATUS.PROCESSED) {
         status = 'refunded';
-      } else if (b.status === 'Cancelled') {
-        status = b.refund?.status === 'Pending' ? 'cancelled_refund_pending' : 'cancelled';
-      } else if (b.paymentStatus === 'rejected') {
+      } else if (b.status === BOOKING_STATUS.CANCELLED) {
+        status = b.refund?.status === REFUND_STATUS.PENDING ? 'cancelled_refund_pending' : 'cancelled';
+      } else if (b.paymentStatus === PAYMENT_STATUS.REJECTED) {
         status = 'rejected';
-      } else if (b.paymentStatus === 'fully_paid' || b.balancePaid || b.balancePaymentStatus === 'paid') {
+      } else if (b.paymentStatus === PAYMENT_STATUS.FULLY_PAID || b.balancePaid || b.balancePaymentStatus === BALANCE_PAYMENT_STATUS.PAID) {
         status = 'fully_paid';
-      } else if (b.paymentStatus === 'partially_paid') {
-        if (b.balancePaymentStatus === 'rejected') status = 'balance_rejected';
-        else if (b.balancePaymentStatus === 'to_verify') status = 'to_verify';
+      } else if (b.paymentStatus === PAYMENT_STATUS.PARTIALLY_PAID) {
+        if (b.balancePaymentStatus === BALANCE_PAYMENT_STATUS.REJECTED) status = 'balance_rejected';
+        else if (b.balancePaymentStatus === BALANCE_PAYMENT_STATUS.TO_VERIFY) status = 'to_verify';
         else status = 'partially_paid';
-      } else if (b.paymentStatus === 'to_verify') {
+      } else if (b.paymentStatus === PAYMENT_STATUS.TO_VERIFY) {
         status = 'to_verify';
       } else {
         status = 'unpaid';
       }
 
-      const proofFile = b.balancePaymentStatus === 'to_verify'
+      const proofFile = b.balancePaymentStatus === BALANCE_PAYMENT_STATUS.TO_VERIFY
         ? (b.balanceProofFile || b.proofFile)
         : (b.proofFile || b.balanceProofFile);
       const attachmentUrl = proofFile
@@ -421,7 +404,8 @@ function PaymentsPanel({ personFilter, onClearPersonFilter }) {
         status,
         hasAttachment: Boolean(attachmentUrl),
         attachmentUrl,
-        amount: `₱${basePrice.toLocaleString()}`,
+        amount: b.isBackJob ? 'Free' : `₱${basePrice.toLocaleString()}`,
+        refund: b.refund && b.refund.status !== REFUND_STATUS.NONE ? b.refund : null,
         raw: b,
       };
     });
@@ -432,13 +416,14 @@ function PaymentsPanel({ personFilter, onClearPersonFilter }) {
       const matchesFilter =
         activeFilter === 'all' ||
         payment.status === activeFilter ||
-        (activeFilter === 'rejected' && payment.status === 'balance_rejected');
+        (activeFilter === 'rejected' && payment.status === 'balance_rejected') ||
+        (activeFilter === 'refund' && (payment.status === 'refunded' || payment.status === 'cancelled_refund_pending'));
       const query = search.trim().toLowerCase();
       const matchesSearch =
         !query ||
         payment.clientName.toLowerCase().includes(query) ||
         payment.bookingId.toLowerCase().includes(query);
-      // Billing History (Manage Accounts, client accounts) — this panel only ever
+      // Billing History (Manage Accounts, client accounts) - this panel only ever
       // receives a 'customer' person filter, never 'technician'.
       const matchesPerson = !personFilter || payment.raw?.customer?._id === personFilter.id;
       return matchesFilter && matchesSearch && matchesPerson;
@@ -447,6 +432,18 @@ function PaymentsPanel({ personFilter, onClearPersonFilter }) {
 
   const handleReviewRequest = (payment) => {
     setSelectedPayment(payment);
+  };
+
+  const handleReviewRefund = (payment) => {
+    // RefundReviewModal expects the raw refund shape (status: 'Pending'/'Processed',
+    // not the payment card's derived 'refunded'/'cancelled_refund_pending' status).
+    setSelectedRefund({
+      id: payment.id,
+      bookingId: payment.bookingId,
+      clientName: payment.clientName,
+      serviceType: payment.serviceType,
+      ...payment.refund,
+    });
   };
 
   return (
@@ -458,21 +455,12 @@ function PaymentsPanel({ personFilter, onClearPersonFilter }) {
               key={filter.key}
               type="button"
               className={`filter-pill ${activeFilter === filter.key ? 'filter-pill--active' : ''}`}
+              style={getFilterPillStyle(filter.key, activeFilter === filter.key)}
               onClick={() => setActiveFilter(filter.key)}
             >
               {filter.label}
             </button>
           ))}
-        </div>
-
-        <div className="payments-search">
-          <SearchIcon />
-          <input
-            type="text"
-            placeholder="Search by name, booking id..."
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
         </div>
       </div>
 
@@ -490,6 +478,7 @@ function PaymentsPanel({ personFilter, onClearPersonFilter }) {
                 key={payment.id}
                 payment={payment}
                 onReviewRequest={handleReviewRequest}
+                onReviewRefund={handleReviewRefund}
               />
             ))
           )}
@@ -503,22 +492,25 @@ function PaymentsPanel({ personFilter, onClearPersonFilter }) {
           onSuccess={fetchBookings}
         />
       )}
+
+      {selectedRefund && (
+        <RefundReviewModal
+          refund={selectedRefund}
+          onClose={() => setSelectedRefund(null)}
+          onSuccess={fetchBookings}
+        />
+      )}
     </>
   );
 }
 
 /* =====================================================================
-   REFUNDS PANEL
+   REFUNDS - folded back into the Payments tab as a "Refunds" filter pill
+   (PaymentCard/handleReviewRefund above) rather than its own top-level page.
+   RefundReviewModal below is still used for that review action.
    ===================================================================== */
-const REFUND_FILTERS = [
-  { key: 'all', label: 'All' },
-  { key: 'Pending', label: 'Pending' },
-  { key: 'Processed', label: 'Processed' },
-  { key: 'Flagged', label: 'Flagged' },
-];
-
 // Reuses the existing status-pill color language: amber for "awaiting admin action",
-// green for "done" — same as PAYMENT_STATUS_META's to_verify/fully_paid colors.
+// green for "done" - same as PAYMENT_STATUS_META's to_verify/fully_paid colors.
 const REFUND_STATUS_META = {
   Pending: { label: 'Pending', className: 'status-pill status-pill--verify' },
   Processed: { label: 'Processed', className: 'status-pill status-pill--full' },
@@ -534,7 +526,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
 
   if (!refund) return null;
 
-  const isPending = refund.status === 'Pending';
+  const isPending = refund.status === REFUND_STATUS.PENDING;
   const isFlagged = Boolean(refund.customerFlag?.flagged && !refund.customerFlag?.resolved);
   const deductionNum = Number(dispatchDeduction) || 0;
   const previewRefundable = refund.isSameDay
@@ -561,7 +553,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
 
       const res = await fetch(`${API_BASE}/api/bookings/${refund.bookingId}/refund`, {
         method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` }, // no Content-Type — browser sets it for FormData
+        headers: { Authorization: `Bearer ${token}` }, // no Content-Type - browser sets it for FormData
         body: formData,
       });
 
@@ -604,7 +596,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card payment-review-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header" style={{ marginBottom: '4px' }}>
+        <div className="modal-header admin-payments-x1">
           <h4 className="modal-title">{isPending ? 'Review Refund Request' : 'Refund Details'}</h4>
           <button className="modal-close-btn" onClick={onClose} disabled={submitting || resolvingFlag}>
             <CloseIcon />
@@ -614,7 +606,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
         <p className="payment-review-booking">{refund.serviceType} · {refund.bookingId}</p>
 
         {error && (
-          <p style={{ color: 'var(--danger)', fontSize: '13px', marginBottom: '12px' }}>{error}</p>
+          <p className="admin-payments-x2">{error}</p>
         )}
 
         {isFlagged && (
@@ -662,13 +654,13 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
         )}
 
         {refund.isSameDay && !isPending && (
-          <div className="payment-review-cell" style={{ marginBottom: '16px' }}>
+          <div className="payment-review-cell admin-payments-x14">
             <span className="confirmation-detail-label">Dispatch / Transportation Deduction</span>
             <span className="confirmation-detail-value">₱{refund.dispatchDeduction?.toLocaleString()}</span>
           </div>
         )}
 
-        <div className="payment-review-cell" style={{ marginBottom: '20px' }}>
+        <div className="payment-review-cell admin-payments-x15">
           <span className="confirmation-detail-label">
             {isPending ? 'Refundable Amount' : 'Refunded Amount'}
           </span>
@@ -685,12 +677,12 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
               <input
                 type="file"
                 accept="image/*,.pdf"
-                style={{ display: 'none' }}
+                className="admin-payments-x16"
                 onChange={(e) => setProof(e.target.files[0] || null)}
               />
             </label>
             {!proof && (
-              <p style={{ fontSize: '11px', color: 'var(--danger)', marginTop: '2px' }}>
+              <p className="admin-payments-x17">
                 Required before this refund can be marked processed.
               </p>
             )}
@@ -698,7 +690,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
         )}
 
         {!isPending && refund.proofFile && (
-          <div className="payment-review-cell" style={{ marginBottom: '16px' }}>
+          <div className="payment-review-cell admin-payments-x14">
             <span className="confirmation-detail-label">Proof of Refund</span>
             <a
               href={`${API_BASE}${refund.proofFile}`}
@@ -730,7 +722,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
             </button>
           </div>
         ) : (
-          <button type="button" className="bs-next-btn" style={{ width: '100%' }} onClick={onClose}>
+          <button type="button" className="bs-next-btn admin-payments-x18" onClick={onClose}>
             Close
           </button>
         )}
@@ -739,201 +731,30 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
   );
 }
 
-function RefundCard({ refund, onReview }) {
-  const isFlagged = Boolean(refund.customerFlag?.flagged && !refund.customerFlag?.resolved);
-
-  return (
-    <div className="refund-card">
-      <div className="refund-card__main">
-        <div className="refund-card__header">
-          <span className="refund-card__client">{refund.clientName}</span>
-          <span className="refund-card__dot">·</span>
-          <StatusBadge status={refund.status} meta={REFUND_STATUS_META} />
-          {refund.isSameDay && <span className="refund-card__same-day-tag">Same-day cancellation</span>}
-          {isFlagged && <span className="refund-card__flag-tag">Flagged</span>}
-        </div>
-        <div className="refund-card__service">
-          <span className="refund-card__service-type">{refund.serviceType}</span>
-          <span className="refund-card__dot">·</span>
-          <span className="refund-card__detail">{refund.bookingId}</span>
-        </div>
-      </div>
-
-      <div className="refund-card__amount">
-        <span className="refund-card__amount-label">
-          {refund.status === 'Processed' ? 'Refunded' : 'Down Payment'}
-        </span>
-        <span className="refund-card__amount-value">
-          ₱{(refund.status === 'Processed' ? refund.refundableAmount : refund.downPaymentAmount)?.toLocaleString()}
-        </span>
-      </div>
-
-      <div className="refund-card__action">
-        <button type="button" className="refund-card__review-btn" onClick={() => onReview(refund)}>
-          {isFlagged ? 'Review Flag' : refund.status === 'Pending' ? 'Review' : 'View'}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function RefundsPanel() {
-  const [activeFilter, setActiveFilter] = useState('all');
-  const [search, setSearch] = useState('');
-  const [selectedRefund, setSelectedRefund] = useState(null);
-  const [rawBookings, setRawBookings] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchBookings = async () => {
-    setLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/bookings`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Failed to fetch bookings');
-      const data = await res.json();
-      setRawBookings(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error('Error fetching refunds:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchBookings();
-  }, []);
-
-  // Only bookings that actually opened a refund request are relevant here —
-  // a cancelled cleaning booking with no down payment never gets a refund object.
-  const refundsList = useMemo(() => {
-    return rawBookings
-      .filter((b) => b.refund && b.refund.status !== 'None')
-      .map((b) => {
-        const clientName = typeof b.customer === 'object' ? (b.customer?.name || 'Customer') : 'Customer';
-        const serviceType = typeof b.service === 'object' ? (b.service?.name || 'Service') : 'Service';
-
-        return {
-          id: b._id || b.bookingId,
-          bookingId: b.bookingId,
-          clientName,
-          serviceType,
-          status: b.refund.status,
-          isSameDay: b.refund.isSameDay,
-          downPaymentAmount: b.refund.downPaymentAmount,
-          dispatchDeduction: b.refund.dispatchDeduction,
-          refundableAmount: b.refund.refundableAmount,
-          proofFile: b.refund.proofFile,
-          customerFlag: b.refund.customerFlag,
-          requestedAt: b.refund.requestedAt,
-        };
-      })
-      .sort((a, b) => new Date(b.requestedAt || 0) - new Date(a.requestedAt || 0));
-  }, [rawBookings]);
-
-  const filteredRefunds = useMemo(() => {
-    return refundsList.filter((refund) => {
-      const isFlagged = Boolean(refund.customerFlag?.flagged && !refund.customerFlag?.resolved);
-      const matchesFilter =
-        activeFilter === 'all' ||
-        (activeFilter === 'Flagged' ? isFlagged : refund.status === activeFilter);
-      const query = search.trim().toLowerCase();
-      const matchesSearch =
-        !query ||
-        refund.clientName.toLowerCase().includes(query) ||
-        refund.bookingId.toLowerCase().includes(query);
-      return matchesFilter && matchesSearch;
-    });
-  }, [refundsList, activeFilter, search]);
-
-  const handleReview = (refund) => {
-    setSelectedRefund(refund);
-  };
-
-  return (
-    <>
-      <div className="refunds-toolbar">
-        <div className="refunds-filters">
-          {REFUND_FILTERS.map((filter) => (
-            <button
-              key={filter.key}
-              type="button"
-              className={`filter-pill ${activeFilter === filter.key ? 'filter-pill--active' : ''}`}
-              onClick={() => setActiveFilter(filter.key)}
-            >
-              {filter.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="refunds-search">
-          <SearchIcon />
-          <input
-            type="text"
-            placeholder="Search by name, booking id..."
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="refunds-empty">Loading refund requests...</div>
-      ) : (
-        <div className="refunds-list">
-          {filteredRefunds.length === 0 ? (
-            <div className="refunds-empty">No refund requests match your search.</div>
-          ) : (
-            filteredRefunds.map((refund) => (
-              <RefundCard key={refund.id} refund={refund} onReview={handleReview} />
-            ))
-          )}
-        </div>
-      )}
-
-      {selectedRefund && (
-        <RefundReviewModal
-          refund={selectedRefund}
-          onClose={() => setSelectedRefund(null)}
-          onSuccess={fetchBookings}
-        />
-      )}
-    </>
-  );
-}
-
 /* =====================================================================
-   MAIN — tab switch between Payments and Refunds
+   MAIN - Refunds folded back into this page as a filter pill (see above);
+   no longer its own top-level route.
    ===================================================================== */
 function Payments() {
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState('payments');
   // Manage Accounts' "Billing History" (client accounts) lands here with a person
-  // filter pre-applied via navigation state — Payments tab only, Refunds is unrelated.
+  // filter pre-applied via navigation state.
   const [personFilter, setPersonFilter] = useState(location.state?.personFilter || null);
+  const [search, setSearch] = useState('');
 
   return (
-    <AdminLayout title="Payments">
+    <AdminLayout
+      title="Payments"
+      searchValue={search}
+      onSearchChange={setSearch}
+      searchPlaceholder="Search by name, booking id..."
+    >
       <h1 className="dashboard-welcome">Payments</h1>
-      <div className="payments-top-tabs">
-        {TOP_TABS.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            className={`filter-pill payments-top-tab ${activeTab === tab.key ? 'filter-pill--active' : ''}`}
-            onClick={() => setActiveTab(tab.key)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === 'payments' ? (
-        <PaymentsPanel personFilter={personFilter} onClearPersonFilter={() => setPersonFilter(null)} />
-      ) : (
-        <RefundsPanel />
-      )}
+      <PaymentsPanel
+        personFilter={personFilter}
+        onClearPersonFilter={() => setPersonFilter(null)}
+        search={search}
+      />
     </AdminLayout>
   );
 }

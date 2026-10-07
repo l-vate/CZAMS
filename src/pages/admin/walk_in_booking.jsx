@@ -2,19 +2,24 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminLayout from './admin_layout';
 import {
-  useServices,
-  useTechnicians,
-  getCostBreakdown,
   StepIndicator,
   Step1,
   Step2,
   Step3,
   Step5,
 } from '../customer/book_service';
-import { usePaymentSettings, getDownPaymentOptions } from '../../utils/paymentSettings';
+import DiscountOption from '../../components/discount_option';
+import { useServices } from '../../hooks/useServices';
+import { useTechnicians } from '../../hooks/useTechnicians';
+import { getCostBreakdown } from '../../utils/costBreakdown';
+import { usePublicPromos } from '../../utils/promos';
+import { isValidContactNumber } from '../../utils/contact';
+import { usePaymentSettings, getDownPaymentOptions, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
 import { FiCheck, FiArrowLeft, FiArrowRight, FiUserPlus } from 'react-icons/fi';
+import { API_BASE } from '../../config/api';
+import { ROLE } from '../../constants/roles';
+import { SERVICE_TYPE } from '../../constants/serviceTypes';
 
-const API_BASE = 'http://localhost:5000';
 const TOTAL_STEPS = 6;
 const STEP_LABELS = ['Customer', 'Choose Service', 'Unit Details', 'Location & Schedule', 'Payment', 'Booking Summary'];
 
@@ -42,7 +47,7 @@ function useCustomers() {
 function CustomerStep({ customers, loadingCustomers, selectedCustomer, onSelectCustomer, onCustomerCreated }) {
   const [mode, setMode] = useState('existing'); // 'existing' | 'new'
   const [search, setSearch] = useState('');
-  const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '', address: '' });
+  const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '', address: '', clientType: 'Residential' });
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
 
@@ -77,7 +82,8 @@ function CustomerStep({ customers, loadingCustomers, selectedCustomer, onSelectC
           email: newCustomer.email.trim(),
           phone: newCustomer.phone.trim(),
           address: newCustomer.address.trim(),
-          role: 'customer',
+          role: ROLE.CUSTOMER,
+          clientType: newCustomer.clientType,
         }),
       });
       const data = await res.json();
@@ -86,7 +92,7 @@ function CustomerStep({ customers, loadingCustomers, selectedCustomer, onSelectC
         return;
       }
       onCustomerCreated(data);
-    } catch (err) {
+    } catch {
       setError('Could not connect to server.');
     } finally {
       setCreating(false);
@@ -100,7 +106,12 @@ function CustomerStep({ customers, loadingCustomers, selectedCustomer, onSelectC
         <p className="bs-card-sub">Booking this service on behalf of:</p>
         <div className="walkin-selected-customer">
           <div>
-            <p className="walkin-selected-customer-name">{selectedCustomer.name || 'No Name Provided'}</p>
+            <p className="walkin-selected-customer-name">
+              {selectedCustomer.name || 'No Name Provided'}
+              {selectedCustomer.clientType === 'Commercial' && (
+                <span className="svc-service-price-note admin-walk-in-booking-x1">Commercial</span>
+              )}
+            </p>
             <p className="walkin-selected-customer-meta">
               {selectedCustomer.email} · {selectedCustomer.phone || 'No phone on file'}
             </p>
@@ -162,7 +173,7 @@ function CustomerStep({ customers, loadingCustomers, selectedCustomer, onSelectC
                   onClick={() => onSelectCustomer(c)}
                 >
                   <span className="walkin-customer-row-name">{c.name || 'No Name Provided'}</span>
-                  <span className="walkin-customer-row-meta">{c.email} · {c.phone || '—'}</span>
+                  <span className="walkin-customer-row-meta">{c.email} · {c.phone || '-'}</span>
                 </button>
               ))
             )}
@@ -216,8 +227,24 @@ function CustomerStep({ customers, loadingCustomers, selectedCustomer, onSelectC
             />
           </div>
 
+          <div className="bs-field-group">
+            <label className="bs-label">Client Type</label>
+            <div className="time-toggle">
+              {['Residential', 'Commercial'].map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  className={`time-btn ${newCustomer.clientType === t ? 'selected' : ''}`}
+                  onClick={() => setNewCustomer({ ...newCustomer, clientType: t })}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {error && (
-            <p style={{ fontSize: '12px', color: '#e05a5a', marginBottom: '12px' }}>{error}</p>
+            <p className="admin-walk-in-booking-x2">{error}</p>
           )}
 
           <button type="submit" className="bs-next-btn" disabled={creating}>
@@ -229,12 +256,14 @@ function CustomerStep({ customers, loadingCustomers, selectedCustomer, onSelectC
   );
 }
 
-/* ── Step 5: Payment — admin is recording an in-person/phone payment, not
+/* ── Step 5: Payment - admin is recording an in-person/phone payment, not
    walking a remote customer through where to send money, so this skips the
    customer-facing PaymentModal and just records the mode + an optional proof. ── */
-function WalkInPaymentStep({ form, setForm, services, isReturnCustomer, paymentMethods, downPaymentPercentages }) {
-  const { basePrice, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services);
+function WalkInPaymentStep({ form, setForm, services, isReturnCustomer, isCommercial, paymentMethods, downPaymentPercentages, discountPercent, promos }) {
+  const { basePrice, discountAmount, discountLabel, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages), discountPercent, promos);
   const isNoDownPayment = dpPercent === 0;
+  const isBilledOnTerms = isCommercial && !!form.paymentTermsDays;
+  const vatAmount = isCommercial ? Math.round(basePrice * 0.12) : 0;
 
   const handleProofChange = (e) => {
     const file = e.target.files[0] || null;
@@ -247,29 +276,83 @@ function WalkInPaymentStep({ form, setForm, services, isReturnCustomer, paymentM
         <h3 className="bs-card-title">Payment</h3>
         <p className="bs-card-sub">Record how the customer is paying.</p>
 
-        <div className="bs-field-group">
-          <label className="bs-label">Down Payment</label>
-          <div className="dp-radio-grid">
-            {getDownPaymentOptions(isReturnCustomer, downPaymentPercentages).map((opt) => (
-              <label key={opt.value} className="dp-radio-label">
-                <input
-                  type="radio"
-                  name="downPayment"
-                  value={opt.value}
-                  checked={dpPercent === opt.value}
-                  onChange={() =>
-                    setForm({ ...form, downPaymentPercent: opt.value, paymentMode: '', paymentMode2: '' })
-                  }
-                  className="dp-radio-input"
-                />
-                {opt.label}
-              </label>
-            ))}
+        {isCommercial && (
+          <div className="bs-field-group">
+            <label className="bs-label">
+              PO Number <span className="bs-label-hint">(Optional)</span>
+            </label>
+            <input
+              type="text"
+              className="bs-input"
+              placeholder="e.g. PO-2026-0451"
+              value={form.poNumber || ''}
+              onChange={(e) => setForm({ ...form, poNumber: e.target.value })}
+            />
           </div>
-        </div>
+        )}
 
-        {isNoDownPayment ? (
-          <p style={{ fontSize: '12px', color: 'var(--ink-soft)' }}>
+        {isCommercial && (
+          <div className="bs-field-group">
+            <label className="waiver-checkbox-label">
+              <input
+                type="checkbox"
+                checked={isBilledOnTerms}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    paymentTermsDays: e.target.checked ? 7 : null,
+                    downPaymentPercent: e.target.checked ? 0 : form.downPaymentPercent,
+                    paymentMode: '',
+                    paymentMode2: '',
+                  })
+                }
+              />
+              Bill on Terms - no down payment collected now, full amount invoiced and due a set number of days after the job is completed.
+            </label>
+            {isBilledOnTerms && (
+              <div className="bs-field-group">
+                <label className="bs-label">Payment Terms</label>
+                <select
+                  className="bs-select"
+                  value={form.paymentTermsDays || 7}
+                  onChange={(e) => setForm({ ...form, paymentTermsDays: Number(e.target.value) })}
+                >
+                  {[7, 8, 9, 10].map((d) => (
+                    <option key={d} value={d}>{d} days after completion</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        )}
+
+        <DiscountOption form={form} setForm={setForm} appliesNow percent={discountPercent} />
+
+        {!isBilledOnTerms && (
+          <div className="bs-field-group">
+            <label className="bs-label">Down Payment</label>
+            <div className="dp-radio-grid">
+              {getDownPaymentOptions(isReturnCustomer, downPaymentPercentages).map((opt) => (
+                <label key={opt.value} className="dp-radio-label">
+                  <input
+                    type="radio"
+                    name="downPayment"
+                    value={opt.value}
+                    checked={dpPercent === opt.value}
+                    onChange={() =>
+                      setForm({ ...form, downPaymentPercent: opt.value, paymentMode: '', paymentMode2: '' })
+                    }
+                    className="dp-radio-input"
+                  />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {isBilledOnTerms ? null : isNoDownPayment ? (
+          <p className="admin-walk-in-booking-x3">
             This customer is a return customer, so no down payment is required. The full amount is due upon completion of service.
           </p>
         ) : (
@@ -306,14 +389,14 @@ function WalkInPaymentStep({ form, setForm, services, isReturnCustomer, paymentM
 
             <div className="bs-field-group">
               <label className="bs-label">
-                Proof of Payment <span className="bs-label-hint">(Optional — e.g. a GCash screenshot; not needed for cash)</span>
+                Proof of Payment <span className="bs-label-hint">(Optional - e.g. a GCash screenshot; not needed for cash)</span>
               </label>
               {/* Same upload button pattern/class as the customer-facing PaymentModal
-                  (.modal-file-btn, css/modals/payment_modal.css) — was a bare native
+                  (.modal-file-btn, css/modals/payment_modal.css) - was a bare native
                   file input here, visually inconsistent with the rest of the app. */}
               <label className="modal-file-btn">
                 {form.proofFile || '[Choose a file]'}
-                <input type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={handleProofChange} />
+                <input type="file" accept="image/*,.pdf" className="admin-walk-in-booking-x4" onChange={handleProofChange} />
               </label>
             </div>
           </>
@@ -322,10 +405,28 @@ function WalkInPaymentStep({ form, setForm, services, isReturnCustomer, paymentM
 
       <div className="cost-breakdown-card">
         <h4 className="cost-breakdown-title">Cost Breakdown</h4>
+        {discountAmount > 0 && (
+          <div className="cost-row"><span>{discountLabel}</span><span>-₱{discountAmount.toLocaleString()}.00</span></div>
+        )}
         <div className="cost-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}.00</span></div>
-        <div className="cost-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
-        <div className="cost-row"><span>To Pay Now</span><span>₱{toPayNow.toLocaleString()}.00</span></div>
-        <div className="cost-row"><span>Remaining Balance</span><span>₱{remaining.toLocaleString()}.00</span></div>
+        {isCommercial && (
+          <>
+            <div className="cost-row"><span>VAT (12%)</span><span>₱{vatAmount.toLocaleString()}.00</span></div>
+            <div className="cost-row"><span>Total incl. VAT</span><span>₱{(basePrice + vatAmount).toLocaleString()}.00</span></div>
+          </>
+        )}
+        {isBilledOnTerms ? (
+          <div className="cost-row">
+            <span>Payment Due</span>
+            <span>{form.paymentTermsDays} days after completion</span>
+          </div>
+        ) : (
+          <>
+            <div className="cost-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
+            <div className="cost-row"><span>To Pay Now</span><span>₱{toPayNow.toLocaleString()}.00</span></div>
+            <div className="cost-row"><span>Remaining Balance</span><span>₱{remaining.toLocaleString()}.00</span></div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -336,7 +437,8 @@ function WalkInBooking() {
   const { services, loading: loadingServices } = useServices();
   const { technicians } = useTechnicians();
   const { customers, loading: loadingCustomers } = useCustomers();
-  const { paymentMethods, downPaymentPercentages } = usePaymentSettings();
+  const { paymentMethods, downPaymentPercentages, seniorPwdDiscountPercent, loading: loadingPaymentSettings } = usePaymentSettings();
+  const { promos } = usePublicPromos();
   const navigate = useNavigate();
 
   const [step, setStep] = useState(1);
@@ -351,13 +453,32 @@ function WalkInBooking() {
     time: '',
     technician: '',
     address: '',
-    downPaymentPercent: 30,
+    contactNumber: '',
+    discountType: '',
+    discountIdFileObj: null,
+    downPaymentPercent: null,
     paymentMode: '',
     paymentMode2: '',
   });
 
-  const { isFullPay, dpPercent } = getCostBreakdown(form, services);
+  // Start on the first configured down payment option rather than a hardcoded value.
+  useEffect(() => {
+    if (!loadingPaymentSettings && form.downPaymentPercent == null) {
+      setForm((prev) => ({ ...prev, downPaymentPercent: getDefaultDownPaymentPercent(downPaymentPercentages) }));
+    }
+  }, [loadingPaymentSettings, downPaymentPercentages, form.downPaymentPercent]);
+
+  // Picking (or changing) the customer prefills the contact number from their profile
+  // phone; the admin can still edit it on the schedule step.
+  const chooseCustomer = (c) => {
+    setCustomer(c);
+    setForm((prev) => ({ ...prev, contactNumber: c?.phone || '' }));
+  };
+
+  const { isFullPay, dpPercent } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages), seniorPwdDiscountPercent, promos);
   const isReturnCustomer = customer?.classification === 'Return';
+  const isCommercial = customer?.clientType === 'Commercial';
+  const isBilledOnTerms = isCommercial && !!form.paymentTermsDays;
 
   const canNext = () => {
     if (step === 1) return !!customer;
@@ -367,14 +488,14 @@ function WalkInBooking() {
       if (units.length === 0) return false;
       if (units.some((u) => !u.type || !u.quantity || u.quantity < 1)) return false;
       const selectedService = services.find((s) => s.id === form.service);
-      const isInstallation = selectedService?.serviceType === 'Installation';
+      const isInstallation = selectedService?.serviceType === SERVICE_TYPE.INSTALLATION;
       if (isInstallation && form.clientSuppliedUnit) {
         return !!form.unitWaiverAcknowledged && !!(form.unitWaiverName || '').trim();
       }
       return true;
     }
     if (step === 4) {
-      if (!form.date || !form.time || !form.address) return false;
+      if (!form.date || !form.time || !form.address || !isValidContactNumber(form.contactNumber)) return false;
       const minDate = new Date();
       minDate.setDate(minDate.getDate() + 3);
       minDate.setHours(0, 0, 0, 0);
@@ -382,6 +503,7 @@ function WalkInBooking() {
       return selected >= minDate;
     }
     if (step === 5) {
+      if (isBilledOnTerms) return true;
       if (dpPercent === 0) return true;
       return !!form.paymentMode && (isFullPay || !!form.paymentMode2);
     }
@@ -402,6 +524,11 @@ function WalkInBooking() {
       formData.append('time', form.time);
       formData.append('technician', form.technician || '');
       formData.append('address', form.address);
+      formData.append('contactNumber', form.contactNumber || '');
+      if (form.discountType) {
+        formData.append('discountType', form.discountType);
+        if (form.discountIdFileObj) formData.append('discountId', form.discountIdFileObj);
+      }
       formData.append('clientSuppliedUnit', form.clientSuppliedUnit || false);
       if (form.clientSuppliedUnit) {
         formData.append('unitWaiverAcknowledged', form.unitWaiverAcknowledged || false);
@@ -411,6 +538,8 @@ function WalkInBooking() {
       formData.append('paymentMode', form.paymentMode || '');
       formData.append('paymentMode2', form.paymentMode2 || '');
       if (form.proofFileObj) formData.append('proof', form.proofFileObj);
+      if (isCommercial && form.poNumber) formData.append('poNumber', form.poNumber);
+      if (isCommercial && form.paymentTermsDays) formData.append('paymentTermsDays', form.paymentTermsDays);
 
       const res = await fetch(`${API_BASE}/api/bookings`, {
         method: 'POST',
@@ -426,7 +555,7 @@ function WalkInBooking() {
       }
 
       navigate('/admin/services/requests');
-    } catch (err) {
+    } catch {
       alert('Could not connect to server. Is the backend running?');
     } finally {
       setSubmitting(false);
@@ -444,8 +573,8 @@ function WalkInBooking() {
           customers={customers}
           loadingCustomers={loadingCustomers}
           selectedCustomer={customer}
-          onSelectCustomer={setCustomer}
-          onCustomerCreated={(c) => setCustomer(c)}
+          onSelectCustomer={chooseCustomer}
+          onCustomerCreated={chooseCustomer}
         />
       )}
 
@@ -463,17 +592,20 @@ function WalkInBooking() {
                 setForm={setForm}
                 services={services}
                 isReturnCustomer={isReturnCustomer}
+                isCommercial={isCommercial}
                 paymentMethods={paymentMethods}
                 downPaymentPercentages={downPaymentPercentages}
+                discountPercent={seniorPwdDiscountPercent}
+                promos={promos}
               />
             )}
             {step === 6 && (
               <>
-                <Step5 form={form} services={services} technicians={technicians} />
-                <div className="bs-card" style={{ marginTop: '16px' }}>
+                <Step5 form={form} services={services} technicians={technicians} downPaymentPercentages={downPaymentPercentages} discountPercent={seniorPwdDiscountPercent} promos={promos} />
+                <div className="bs-card admin-walk-in-booking-x5">
                   <p className="summary-section-title">Customer</p>
-                  <div className="summary-row"><span>Name</span><span>{customer?.name || '—'}</span></div>
-                  <div className="summary-row"><span>Contact</span><span>{customer?.email} · {customer?.phone || '—'}</span></div>
+                  <div className="summary-row"><span>Name</span><span>{customer?.name || '-'}</span></div>
+                  <div className="summary-row"><span>Contact</span><span>{customer?.email} · {customer?.phone || '-'}</span></div>
                 </div>
               </>
             )}
@@ -483,7 +615,7 @@ function WalkInBooking() {
 
       <div className="bs-nav-row">
         <span className="bs-step-label">
-          Step {step} of {TOTAL_STEPS} — {STEP_LABELS[step - 1]}
+          Step {step} of {TOTAL_STEPS} - {STEP_LABELS[step - 1]}
         </span>
 
         <div className="bs-nav-btns">

@@ -5,16 +5,16 @@
   width: 100%;
   overflow: hidden;
   border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
-  color: #111827;
+  border: 1px solid var(--card-border);
+  background: var(--white);
+  color: var(--navy);
 }
 
 /* Sidebar */
 .cal-sidebar {
   width: 240px;
   flex-shrink: 0;
-  border-right: 1px solid #e5e7eb;
+  border-right: 1px solid var(--card-border);
   padding: 16px;
 }
 
@@ -38,24 +38,24 @@
   height: 32px;
   width: 32px;
   border-radius: 8px;
-  background: #111827;
-  color: #fff;
+  background: var(--navy);
+  color: var(--white);
 }
 
 .cal-today-btn {
   width: 100%;
   padding: 6px 0;
   margin-bottom: 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--card-border);
   border-radius: 6px;
-  background: #fff;
+  background: var(--white);
   font-size: 12px;
   font-weight: 500;
-  color: #4b5563;
+  color: var(--ink-soft);
   cursor: pointer;
 }
 
-.cal-today-btn:hover { background: #f9fafb; }
+.cal-today-btn:hover { background: var(--bg-main); }
 
 .cal-mini-header {
   display: flex;
@@ -75,10 +75,10 @@
   border-radius: 4px;
   cursor: pointer;
   display: flex;
-  color: #374151;
+  color: var(--ink-soft);
 }
 
-.cal-icon-btn-sm:hover { background: #f3f4f6; }
+.cal-icon-btn-sm:hover { background: var(--bg-main); }
 
 .cal-mini-weekdays,
 .cal-mini-days {
@@ -90,7 +90,7 @@
 .cal-mini-weekdays {
   font-size: 10px;
   font-weight: 500;
-  color: #9ca3af;
+  color: var(--ink-soft);
   margin-bottom: 4px;
 }
 
@@ -110,12 +110,12 @@
   border: none;
   background: none;
   cursor: pointer;
-  color: #374151;
+  color: var(--ink-soft);
 }
 
-.cal-mini-day:hover { background: #f3f4f6; }
+.cal-mini-day:hover { background: var(--bg-main); }
 .cal-mini-day-today { color: var(--primary); font-weight: 600; }
-.cal-mini-day-selected { background: var(--primary); color: #fff; }
+.cal-mini-day-selected { background: var(--primary); color: var(--white); }
 
 .cal-legend { margin-top: 24px; }
 
@@ -124,7 +124,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: #9ca3af;
+  color: var(--ink-soft);
   margin-bottom: 8px;
 }
 
@@ -133,7 +133,7 @@
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: #4b5563;
+  color: var(--ink-soft);
   text-transform: capitalize;
   margin-bottom: 6px;
 }
@@ -157,7 +157,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--card-border);
   padding: 12px 24px;
 }
 
@@ -186,10 +186,10 @@
   border-radius: 999px;
   cursor: pointer;
   display: flex;
-  color: #374151;
+  color: var(--ink-soft);
 }
 
-.cal-icon-btn:hover { background: #f3f4f6; }
+.cal-icon-btn:hover { background: var(--bg-main); }
 
 .cal-toolbar-right {
   display: flex;
@@ -199,7 +199,7 @@
 
 .cal-view-toggle {
   display: flex;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--card-border);
   border-radius: 8px;
   padding: 2px;
 }
@@ -211,30 +211,30 @@
   border-radius: 6px;
   font-size: 13px;
   font-weight: 500;
-  color: #4b5563;
+  color: var(--ink-soft);
   cursor: pointer;
 }
 
-.cal-view-btn:hover { background: #f3f4f6; }
+.cal-view-btn:hover { background: var(--bg-main); }
 
-.cal-view-btn-active { background: #111827; color: #fff; }
-.cal-view-btn-active:hover { background: #111827; }
+.cal-view-btn-active { background: var(--navy); color: var(--white); }
+.cal-view-btn-active:hover { background: var(--navy); }
 
 /* Day Headers */
 .cal-day-headers {
   display: grid;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--card-border);
   text-align: center;
 }
 
 .cal-day-header { padding: 8px 0; }
-.cal-day-header-today { background: #eff6ff; }
+.cal-day-header-today { background: rgba(37, 99, 235, 0.06); }
 
 .cal-day-name {
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.03em;
-  color: #6b7280;
+  color: var(--ink-soft);
 }
 
 .cal-day-number {
@@ -247,10 +247,10 @@
   border-radius: 999px;
   font-size: 14px;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--navy);
 }
 
-.cal-day-number-today { background: var(--primary); color: #fff; }
+.cal-day-number-today { background: var(--primary); color: var(--white); }
 
 /* Grid Timeline Layout */
 .cal-grid-scroll {
@@ -269,16 +269,16 @@
   padding-right: 8px;
   text-align: right;
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--ink-soft);
 }
 
 .cal-day-column {
   position: relative;
-  border-left: 1px solid #f3f4f6;
+  border-left: 1px solid var(--border-subtle);
 }
 
-.cal-day-column-today { background: rgba(239, 246, 255, 0.4); }
-.cal-hour-row { border-bottom: 1px solid #f3f4f6; }
+.cal-day-column-today { background: rgba(37, 99, 235, 0.04); }
+.cal-hour-row { border-bottom: 1px solid var(--border-subtle); }
 
 .cal-job-block {
   position: absolute;
@@ -312,7 +312,7 @@
   text-overflow: ellipsis;
 }
 
-/* Month View Grid — the "Month" toolbar toggle previously had no grid of its own
+/* Month View Grid - the "Month" toolbar toggle previously had no grid of its own
    and silently fell back to the week view. */
 .cal-month-grid-scroll {
   flex: 1;
@@ -324,7 +324,7 @@
 .cal-month-weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--card-border);
   text-align: center;
 }
 
@@ -333,7 +333,7 @@
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.03em;
-  color: #6b7280;
+  color: var(--ink-soft);
 }
 
 .cal-month-grid {
@@ -347,8 +347,8 @@
 
 .cal-month-day-cell {
   min-height: 96px;
-  border-left: 1px solid #f3f4f6;
-  border-bottom: 1px solid #f3f4f6;
+  border-left: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
   padding: 6px;
   display: flex;
   flex-direction: column;
@@ -356,8 +356,8 @@
   min-width: 0;
 }
 
-.cal-month-day-cell-outside { background: #fafafa; color: #d1d5db; }
-.cal-month-day-cell-outside .cal-month-day-number { color: #d1d5db; }
+.cal-month-day-cell-outside { background: var(--bg-main); color: var(--mist); }
+.cal-month-day-cell-outside .cal-month-day-number { color: var(--mist); }
 
 .cal-month-day-number {
   height: 24px;
@@ -368,7 +368,7 @@
   border-radius: 999px;
   font-size: 13px;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--navy);
 }
 
 .cal-month-day-jobs {
@@ -396,16 +396,16 @@
 
 .cal-month-more {
   font-size: 10.5px;
-  color: #6b7280;
+  color: var(--ink-soft);
   padding: 0 2px;
 }
 
 /* Event Status Highlights */
-/* Converged (Pass E, deferred from Pass B) to the shared status tokens — this
+/* Converged (Pass E, deferred from Pass B) to the shared status tokens - this
    legend previously had its own blue/green palette not tied to any token.
    "Cancelled" uses --payment-cancelled-* (neutral gray) rather than the red
    --status-cancel-*: a cancelled slot on a schedule reads as "not happening,"
-   informational, not a warning — same reasoning as the payment-status Cancelled
+   informational, not a warning - same reasoning as the payment-status Cancelled
    decision in Pass B. */
 .cal-job-confirmed { background: var(--status-approved-bg); border-color: var(--primary); color: var(--status-approved-txt); }
 .cal-job-pending   { background: var(--status-pending-bg); border-color: var(--warning); color: var(--status-pending-txt); }
@@ -432,7 +432,7 @@
 .cal-detail-panel {
   width: 280px;
   flex-shrink: 0;
-  border-left: 1px solid #e5e7eb;
+  border-left: 1px solid var(--card-border);
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -446,7 +446,7 @@
 }
 
 .cal-detail-title { font-size: 16px; font-weight: 600; margin: 0; }
-.cal-detail-time { margin-top: 4px; font-size: 13px; color: #6b7280; }
+.cal-detail-time { margin-top: 4px; font-size: 13px; color: var(--ink-soft); }
 
 .cal-detail-fields {
   margin-top: 16px;
@@ -461,11 +461,11 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: #9ca3af;
+  color: var(--ink-soft);
   margin: 0;
 }
 
-.cal-detail-value { color: #1f2937; margin: 2px 0 0; }
+.cal-detail-value { color: var(--navy); margin: 2px 0 0; }
 
 @media (max-width: 768px) {
   .cal-sidebar { display: none; }

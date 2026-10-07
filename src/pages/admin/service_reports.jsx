@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import AdminLayout from './admin_layout';
-import { FiClock, FiFileText, FiUser, FiMapPin, FiSearch, FiX, FiEye, FiCheckCircle, FiAlertCircle, FiClock as FiClockIcon } from 'react-icons/fi';
+import { FiClock, FiFileText, FiUser, FiMapPin, FiX, FiEye, FiCheckCircle, FiAlertCircle } from 'react-icons/fi';
 import ServiceReportPdfModal from '../../components/service_report_pdf_modal';
 import PersonFilterBanner from '../../components/person_filter_banner';
 import { getUnitsSummary } from '../../utils/bookingPricing';
+import { getFilterPillStyle } from '../../utils/statusColors';
+import { API_BASE } from '../../config/api';
 
-const API_BASE = 'http://localhost:5000';
 
 // Filter options
 const FILTERS = [
@@ -58,10 +59,6 @@ function EyeIcon() {
 
 function CloseIcon() {
   return <FiX className="icon-close" aria-hidden="true" />;
-}
-
-function SearchIcon() {
-  return <FiSearch className="icon-search" aria-hidden="true" />;
 }
 
 function CheckIcon() {
@@ -249,17 +246,15 @@ function ViewReportModal({ report, onClose }) {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div className="admin-service-reports-x1">
           <button
-            className="report-view-close-btn"
-            style={{ flex: 1 }}
+            className="report-view-close-btn admin-service-reports-x2"
             onClick={onClose}
           >
             Close
           </button>
           <button
-            className="report-view-close-btn"
-            style={{ flex: 1, background: '#2563eb', color: '#fff', borderColor: '#2563eb' }}
+            className="report-view-close-btn admin-service-reports-x3"
             onClick={() => setShowPdf(true)}
           >
             <FiFileText /> Export PDF
@@ -274,7 +269,7 @@ function ViewReportModal({ report, onClose }) {
             bookingId: report.bookingId,
             service: report.bookingDetails?.service?.name || 'Service',
             customer: report.bookingDetails?.customer?.name || 'Customer',
-            address: report.bookingDetails?.address || '—',
+            address: report.bookingDetails?.address || '-',
             bookingDate: formatDate(report.bookingDetails?.date),
           }}
           onClose={() => setShowPdf(false)}
@@ -427,7 +422,12 @@ function ServiceReports() {
   };
 
   return (
-    <AdminLayout title="Service Reports">
+    <AdminLayout
+      title="Service Reports"
+      searchValue={search}
+      onSearchChange={setSearch}
+      searchPlaceholder="Search by booking ID, customer, technician..."
+    >
       <h1 className="dashboard-welcome">Service Reports</h1>
       <div className="reports-toolbar">
         <div className="reports-filters">
@@ -436,6 +436,7 @@ function ServiceReports() {
               key={filter.key}
               type="button"
               className={`filter-pill ${activeFilter === filter.key ? 'filter-pill--active' : ''}`}
+              style={getFilterPillStyle(filter.key, activeFilter === filter.key)}
               onClick={() => setActiveFilter(filter.key)}
             >
               {filter.label}
@@ -456,15 +457,6 @@ function ServiceReports() {
           ))}
         </div>
 
-        <div className="reports-search">
-          <SearchIcon />
-          <input
-            type="text"
-            placeholder="Search by booking ID, customer, technician..."
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-        </div>
       </div>
 
       <PersonFilterBanner filter={personFilter} onClear={() => setPersonFilter(null)} />

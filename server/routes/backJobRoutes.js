@@ -1,3 +1,9 @@
+const { NOTIFICATION_TYPE } = require('../constants/notificationTypes');
+const { TIME_BLOCK } = require('../constants/timeBlocks');
+const { ROLE } = require('../constants/roles');
+const { BACK_JOB_STATUS } = require('../constants/backJobStatus');
+const { PAYMENT_STATUS } = require('../constants/paymentStatus');
+const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
@@ -5,8 +11,9 @@ const Booking = require('../models/Booking');
 const BackJob = require('../models/BackJob');
 const Report = require('../models/Report');
 const { getWarrantyStatus } = require('../utils/warranty');
+const { notifyAdmins } = require('../utils/notifications');
 
-// "Typically 2-3 days after the report is filed" — the paper gives a range, not an
+// "Typically 2-3 days after the report is filed" - the paper gives a range, not an
 // exact number; this picks the sooner end as the auto-scheduled default. Admin can
 // always reschedule afterward through the normal reschedule/admin-update routes.
 const BACK_JOB_SCHEDULE_LEAD_DAYS = 2;
@@ -49,7 +56,7 @@ router.post('/', auth, async (req, res) => {
       return res.status(404).json({ message: 'Booking not found' });
     }
 
-    if (originalBooking.status !== 'Completed') {
+    if (originalBooking.status !== BOOKING_STATUS.COMPLETED) {
       return res.status(400).json({ message: 'A back job can only be reported on a completed booking.' });
     }
 
@@ -75,14 +82,16 @@ router.post('/', auth, async (req, res) => {
         bookingId: generateBookingId(),
         customer: originalBooking.customer,
         service: originalBooking.service._id,
+        units: (originalBooking.units || []).map(({ type, quantity, brandModel }) => ({ type, quantity, brandModel })),
         unitTypes: originalBooking.unitTypes,
         brandModel: originalBooking.brandModel,
         problemDescription: issueDescription.trim(),
         date: toDateString(scheduledDate),
-        time: originalBooking.time || 'Morning',
+        time: originalBooking.time || TIME_BLOCK.MORNING,
         address: originalBooking.address,
+        contactNumber: originalBooking.contactNumber,
         downPaymentPercent: 0,
-        paymentStatus: 'Unpaid',
+        paymentStatus: PAYMENT_STATUS.UNPAID,
         clientSuppliedUnit: originalBooking.clientSuppliedUnit,
         isBackJob: true,
         backJobId,
@@ -100,10 +109,18 @@ router.post('/', auth, async (req, res) => {
         coverageType: warranty.type || null,
         checkedAt: new Date(),
       },
-      status: withinWarranty ? 'Scheduled' : 'Not Covered',
+      status: withinWarranty ? BACK_JOB_STATUS.SCHEDULED : BACK_JOB_STATUS.NOT_COVERED,
       resultingBooking: resultingBooking?._id || null,
       resultingBookingId: resultingBooking?.bookingId || null,
     });
+
+    await notifyAdmins(
+      NOTIFICATION_TYPE.BACKJOB_FILED,
+      withinWarranty
+        ? `Back job ${backJobId} filed on booking ${originalBooking.bookingId}: WITHIN warranty (${warranty.type}). A free repair visit was scheduled for ${resultingBooking.date}.`
+        : `Back job ${backJobId} filed on booking ${originalBooking.bookingId}: NOT covered by warranty. Needs your review.`,
+      { booking: originalBooking }
+    );
 
     const populated = await BackJob.findById(backJob._id).populate('resultingBooking');
     res.status(201).json(populated);
@@ -116,7 +133,7 @@ router.post('/', auth, async (req, res) => {
 // Admin: list all back job claims (the review queue)
 router.get('/', auth, async (req, res) => {
   try {
-    if (req.userRole !== 'admin') {
+    if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
@@ -126,7 +143,7 @@ router.get('/', auth, async (req, res) => {
       .populate('resultingBooking')
       .sort({ reportedAt: -1 });
 
-    // Surface the original service report's pre-existing-issue flag right here —
+    // Surface the original service report's pre-existing-issue flag right here -
     // this is exactly what lets admin tell a legitimate (workmanship-caused) claim
     // apart from a pre-existing condition, without hunting down the report separately.
     const enriched = await Promise.all(backJobs.map(async (bj) => {
@@ -145,7 +162,7 @@ router.get('/', auth, async (req, res) => {
 });
 
 // Check whether a specific booking already has a back job report (and its
-// outcome) — lets the customer's booking details page show the existing claim
+// outcome) - lets the customer's booking details page show the existing claim
 // instead of the report form, and blocks duplicate submissions client-side too.
 router.get('/booking/:bookingId', auth, async (req, res) => {
   try {
@@ -156,7 +173,7 @@ router.get('/booking/:bookingId', auth, async (req, res) => {
       return res.status(404).json({ message: 'No back job report found for this booking' });
     }
 
-    if (req.userRole !== 'admin' && backJob.customer !== req.userId) {
+    if (req.userRole !== ROLE.ADMIN && backJob.customer !== req.userId) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
@@ -168,23 +185,23 @@ router.get('/booking/:bookingId', auth, async (req, res) => {
 });
 
 // Admin: mark a Not Covered claim as reviewed, once it's been handled manually
-// (the paper doesn't specify what "handled" means here — outside warranty could
+// (the paper doesn't specify what "handled" means here - outside warranty could
 // become a new paid booking, or something else entirely; this route only records
 // that admin has looked at it, it doesn't automate any outcome).
 router.patch('/:backJobId/review', auth, async (req, res) => {
   try {
-    if (req.userRole !== 'admin') {
+    if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
     const backJob = await BackJob.findOne({ backJobId: req.params.backJobId });
     if (!backJob) return res.status(404).json({ message: 'Back job report not found' });
 
-    if (backJob.status !== 'Not Covered') {
+    if (backJob.status !== BACK_JOB_STATUS.NOT_COVERED) {
       return res.status(400).json({ message: 'Only a Not Covered claim can be marked reviewed.' });
     }
 
-    backJob.status = 'Reviewed';
+    backJob.status = BACK_JOB_STATUS.REVIEWED;
     backJob.reviewedAt = new Date();
     backJob.reviewedBy = req.userId;
     await backJob.save();

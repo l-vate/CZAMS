@@ -1,3 +1,4 @@
+const { ROLE } = require('../constants/roles');
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
@@ -5,7 +6,7 @@ const Announcement = require('../models/Announcement');
 const auth = require('../middleware/auth');
 
 // ============================================
-// PUBLIC ROUTE (no auth — Landing Page announcement board)
+// PUBLIC ROUTE (no auth - Landing Page announcement board)
 // ============================================
 router.get('/public', async (req, res) => {
   try {
@@ -24,7 +25,7 @@ router.get('/public', async (req, res) => {
 // GET all announcements, active and inactive (admin management page)
 router.get('/', auth, async (req, res) => {
   try {
-    if (req.userRole !== 'admin') {
+    if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
@@ -38,7 +39,7 @@ router.get('/', auth, async (req, res) => {
 
 router.post('/', auth, async (req, res) => {
   try {
-    if (req.userRole !== 'admin') {
+    if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
@@ -69,7 +70,7 @@ router.post('/', auth, async (req, res) => {
 
 router.put('/:id', auth, async (req, res) => {
   try {
-    if (req.userRole !== 'admin') {
+    if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
@@ -104,7 +105,7 @@ router.put('/:id', auth, async (req, res) => {
 
 router.delete('/:id', auth, async (req, res) => {
   try {
-    if (req.userRole !== 'admin') {
+    if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 

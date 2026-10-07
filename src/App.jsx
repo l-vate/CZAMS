@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 import LandingPage from './pages/public/landing_page';
 import LoginPage from './pages/public/login_page';
@@ -10,25 +10,32 @@ import CustomerBookings from './pages/customer/my_bookings';
 import CustomerBillings from './pages/customer/billings';
 import CustomerProfile from './pages/customer/profile';
 import CustomerBookDetails from './pages/customer/book_details';
+import CustomerChat from './pages/customer/chat';
 
 import StaffDashboard from './pages/staff/dashboard';
 import StaffMyJobs from './pages/staff/my_jobs';
 import StaffCalendar from './pages/staff/calendar';
 import StaffReports from './pages/staff/reports';
 import StaffProfile from './pages/staff/profile';
+import StaffChat from './pages/staff/chat';
 
 import AdminDashboard from './pages/admin/dashboard';
 import AdminManageAccounts from './pages/admin/manage_accounts';
 import AdminCalendar from './pages/admin/calendar';
 import AdminServices from './pages/admin/services';
 import AdminServiceManage from './pages/admin/service_manage';
+import AdminManagePaymentSettings from './pages/admin/manage_payment_settings';
 import AdminServiceRequests from './pages/admin/service_requests';
 import AdminWalkInBooking from './pages/admin/walk_in_booking';
 import AdminServiceReports from './pages/admin/service_reports';
 import AdminPayments from './pages/admin/payments';
 import AdminBackJobs from './pages/admin/back_jobs';
 import AdminAnalytics from './pages/admin/analytics';
+import AdminReports from './pages/admin/reports';
+import AdminTeams from './pages/admin/teams';
+import AdminPromotions from './pages/admin/promotions';
 import AdminAnnouncements from './pages/admin/announcements';
+import AdminChat from './pages/admin/chat';
 
 function App() {
   return (
@@ -47,6 +54,7 @@ function App() {
         <Route path="/customer/billings" element={<CustomerBillings />} />
         <Route path="/customer/profile" element={<CustomerProfile />} />
         <Route path="/customer/book_details/:bookingId" element={<CustomerBookDetails />} />
+        <Route path="/customer/chat" element={<CustomerChat />} />
 
         {/* Staff Pages */}
         <Route path="/staff/dashboard" element={<StaffDashboard />} />
@@ -54,6 +62,7 @@ function App() {
         <Route path="/staff/calendar" element={<StaffCalendar />} />
         <Route path="/staff/reports" element={<StaffReports />} />
         <Route path="/staff/profile" element={<StaffProfile />} />
+        <Route path="/staff/chat" element={<StaffChat />} />
 
         {/* Admin Pages */}
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
@@ -61,13 +70,20 @@ function App() {
         <Route path="/admin/calendar" element={<AdminCalendar />} />
         <Route path="/admin/services" element={<AdminServices />} />
         <Route path="/admin/services/manage" element={<AdminServiceManage />} />
+        <Route path="/admin/payment-settings" element={<AdminManagePaymentSettings />} />
         <Route path="/admin/services/requests" element={<AdminServiceRequests />} />
         <Route path="/admin/services/requests/new" element={<AdminWalkInBooking />} />
         <Route path="/admin/services/reports" element={<AdminServiceReports />} />
         <Route path="/admin/payments" element={<AdminPayments />} />
+        {/* Refunds is now a filter pill on the Payments tab, not its own page. */}
+        <Route path="/admin/refunds" element={<Navigate to="/admin/payments" replace />} />
         <Route path="/admin/back-jobs" element={<AdminBackJobs />} />
         <Route path="/admin/analytics" element={<AdminAnalytics />} />
+        <Route path="/admin/reports" element={<AdminReports />} />
+        <Route path="/admin/teams" element={<AdminTeams />} />
+        <Route path="/admin/promotions" element={<AdminPromotions />} />
         <Route path="/admin/announcements" element={<AdminAnnouncements />} />
+        <Route path="/admin/chat" element={<AdminChat />} />
 
       </Routes>
     </BrowserRouter>

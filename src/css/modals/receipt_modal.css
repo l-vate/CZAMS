@@ -77,7 +77,7 @@
   font-style: italic;
 }
 
-/* Background/hover converged (Pass D) to var(--primary)/var(--primary-hover) —
+/* Background/hover converged (Pass D) to var(--primary)/var(--primary-hover) -
    inherited from .modal-submit-btn now that this no longer overrides it to a
    near-black color. */
 .receipt-print-btn {
@@ -102,11 +102,18 @@
     left: 0;
     top: 0;
     width: 100%;
+    max-height: none;
+    overflow: visible;
     box-shadow: none;
     border: none;
   }
   .modal-close-btn,
   .receipt-print-btn {
     display: none !important;
+  }
+  .printing-receipt-active .receipt-print-area a {
+    color: inherit;
+    text-decoration: none;
+    pointer-events: none;
   }
 }

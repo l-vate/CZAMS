@@ -1,0 +1,124 @@
+
+/* Extracted from inline styles in components/admin_service_details_modal.jsx.
+   The class is doubled so it keeps the priority the inline style had over other rules. */
+.admin-service-details-modal-x1.admin-service-details-modal-x1 {
+  flex: 1;
+}
+.admin-service-details-modal-x2.admin-service-details-modal-x2 {
+  width: 100%;
+  margin-top: 4px;
+}
+.admin-service-details-modal-x3.admin-service-details-modal-x3 {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.admin-service-details-modal-x4.admin-service-details-modal-x4 {
+  margin-top: 4px;
+}
+.admin-service-details-modal-x5.admin-service-details-modal-x5 {
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+.admin-service-details-modal-x6.admin-service-details-modal-x6 {
+  margin: 0 0 4px;
+}
+.admin-service-details-modal-x7.admin-service-details-modal-x7 {
+  margin: 0 0 10px;
+}
+.admin-service-details-modal-x8.admin-service-details-modal-x8 {
+  display: flex;
+  gap: 8px;
+}
+.admin-service-details-modal-x9.admin-service-details-modal-x9 {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.admin-service-details-modal-x10.admin-service-details-modal-x10 {
+  display: block;
+  margin-bottom: 4px;
+}
+.admin-service-details-modal-x11.admin-service-details-modal-x11 {
+  margin-bottom: 14px;
+}
+.admin-service-details-modal-x12.admin-service-details-modal-x12 {
+  max-width: 100%;
+  max-height: 220px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+.admin-service-details-modal-x13.admin-service-details-modal-x13 {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.admin-service-details-modal-x14.admin-service-details-modal-x14 {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.admin-service-details-modal-x15.admin-service-details-modal-x15 {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+.admin-service-details-modal-x16.admin-service-details-modal-x16 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+.admin-service-details-modal-x17.admin-service-details-modal-x17 {
+  width: 110px;
+}
+.admin-service-details-modal-x18.admin-service-details-modal-x18 {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+.admin-service-details-modal-x19.admin-service-details-modal-x19 {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 4px 0;
+}
+.admin-service-details-modal-x20.admin-service-details-modal-x20 {
+  font-weight: 700;
+  color: #9a3412;
+}
+.admin-service-details-modal-x21.admin-service-details-modal-x21 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  color: #9a3412;
+}
+.admin-service-details-modal-x22.admin-service-details-modal-x22 {
+  padding: 2px 8px;
+  font-size: 0.75rem;
+}
+.admin-service-details-modal-x23.admin-service-details-modal-x23 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.admin-service-details-modal-x24.admin-service-details-modal-x24 {
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.admin-service-details-modal-x25.admin-service-details-modal-x25 {
+  display: none;
+}
+
+/* Active / expired colors for the warranty rows. */
+.sdm-list-value.sdm-state-ok {
+  color: #22c55e;
+}
+.sdm-list-value.sdm-state-bad {
+  color: #ef4444;
+}

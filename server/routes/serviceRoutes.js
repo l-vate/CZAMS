@@ -1,10 +1,12 @@
+const { SERVICE_TYPE } = require('../constants/serviceTypes');
+const { ROLE } = require('../constants/roles');
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
 const Service = require('../models/Service');
 const auth = require('../middleware/auth');
 
-// GET all active services, safe fields only (no auth — Landing Page Module public
+// GET all active services, safe fields only (no auth - Landing Page Module public
 // search). Kept separate from the auth-gated route below rather than loosening it.
 router.get('/public', async (req, res) => {
   try {
@@ -12,7 +14,7 @@ router.get('/public', async (req, res) => {
       .select('name description price durationMinutes category icon serviceType unitTypePricing hiddenFromDirectSelection')
       .sort({ category: 1, name: 1 });
     res.json(services);
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -22,7 +24,7 @@ router.get('/', auth, async (req, res) => {
   try {
     const services = await Service.find({ isActive: true }).sort({ category: 1, name: 1 });
     res.json(services);
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -30,13 +32,13 @@ router.get('/', auth, async (req, res) => {
 // GET all services regardless of active status (admin services.jsx page)
 router.get('/admin/all', auth, async (req, res) => {
   try {
-    if (req.userRole !== 'admin') {
+    if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
     const services = await Service.find({}).sort({ category: 1, name: 1 });
     res.json(services);
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -47,7 +49,7 @@ router.get('/:id', auth, async (req, res) => {
     const service = await Service.findById(req.params.id);
     if (!service) return res.status(404).json({ message: 'Service not found' });
     res.json(service);
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -55,12 +57,15 @@ router.get('/:id', auth, async (req, res) => {
 // POST create new service
 router.post('/', auth, async (req, res) => {
   try {
-    if (req.userRole !== 'admin') {
+    if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const { name, description, price, durationMinutes, category, icon, isActive, serviceType, unitTypePricing, hiddenFromDirectSelection } = req.body;
+    const { name, description, price, durationMinutes, category, icon, isActive, serviceType, unitTypePricing, hiddenFromDirectSelection, minTechnicians } = req.body;
 
+    if (minTechnicians !== undefined && minTechnicians !== null && minTechnicians !== '' && ![1, 2].includes(Number(minTechnicians))) {
+      return res.status(400).json({ message: 'Technicians needed must be 1 or 2.' });
+    }
     if (!name || !name.trim()) {
       return res.status(400).json({ message: 'Name is required' });
     }
@@ -77,13 +82,14 @@ router.post('/', auth, async (req, res) => {
       category: category || '',
       icon: icon || '',
       isActive: isActive !== undefined ? isActive : true,
-      serviceType: serviceType || 'Other',
+      serviceType: serviceType || SERVICE_TYPE.OTHER,
       unitTypePricing: Array.isArray(unitTypePricing) ? unitTypePricing : [],
       hiddenFromDirectSelection: !!hiddenFromDirectSelection,
+      ...(minTechnicians !== undefined && minTechnicians !== null && minTechnicians !== '' ? { minTechnicians: Number(minTechnicians) } : {}),
     });
 
     res.status(201).json(service);
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -91,12 +97,15 @@ router.post('/', auth, async (req, res) => {
 // PUT update existing service
 router.put('/:id', auth, async (req, res) => {
   try {
-    if (req.userRole !== 'admin') {
+    if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const { name, description, price, durationMinutes, category, icon, isActive, serviceType, unitTypePricing, hiddenFromDirectSelection } = req.body;
+    const { name, description, price, durationMinutes, category, icon, isActive, serviceType, unitTypePricing, hiddenFromDirectSelection, minTechnicians } = req.body;
 
+    if (minTechnicians !== undefined && minTechnicians !== null && minTechnicians !== '' && ![1, 2].includes(Number(minTechnicians))) {
+      return res.status(400).json({ message: 'Technicians needed must be 1 or 2.' });
+    }
     if (name !== undefined && !name.trim()) {
       return res.status(400).json({ message: 'Name cannot be empty' });
     }
@@ -115,6 +124,11 @@ router.put('/:id', auth, async (req, res) => {
     if (serviceType !== undefined) update.serviceType = serviceType;
     if (unitTypePricing !== undefined) update.unitTypePricing = Array.isArray(unitTypePricing) ? unitTypePricing : [];
     if (hiddenFromDirectSelection !== undefined) update.hiddenFromDirectSelection = !!hiddenFromDirectSelection;
+    // blank = back to the default (1 for a Check-up, 2 for everything else)
+    if (minTechnicians !== undefined) {
+      update[minTechnicians === null || minTechnicians === '' ? '$unset' : 'minTechnicians'] =
+        minTechnicians === null || minTechnicians === '' ? { minTechnicians: 1 } : Number(minTechnicians);
+    }
 
     const service = await Service.findByIdAndUpdate(req.params.id, update, {
       new: true,
@@ -123,7 +137,7 @@ router.put('/:id', auth, async (req, res) => {
 
     if (!service) return res.status(404).json({ message: 'Service not found' });
     res.json(service);
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -131,7 +145,7 @@ router.put('/:id', auth, async (req, res) => {
 // PATCH toggle active status
 router.patch('/:id/toggle-active', auth, async (req, res) => {
   try {
-    if (req.userRole !== 'admin') {
+    if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
@@ -141,7 +155,7 @@ router.patch('/:id/toggle-active', auth, async (req, res) => {
     service.isActive = !service.isActive;
     await service.save();
     res.json(service);
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -149,14 +163,14 @@ router.patch('/:id/toggle-active', auth, async (req, res) => {
 // DELETE a service
 router.delete('/:id', auth, async (req, res) => {
   try {
-    if (req.userRole !== 'admin') {
+    if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
     const service = await Service.findByIdAndDelete(req.params.id);
     if (!service) return res.status(404).json({ message: 'Service not found' });
     res.json({ message: 'Service deleted' });
-  } catch (err) {
+  } catch {
     res.status(500).json({ message: 'Server error' });
   }
 });

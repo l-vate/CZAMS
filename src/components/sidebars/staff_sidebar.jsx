@@ -40,6 +40,9 @@ function Sidebar({ onNavigate }) {
           <NavLink to="/staff/reports" className={linkClass} onClick={onNavigate}>
             Reports
           </NavLink>
+          <NavLink to="/staff/chat" className={linkClass} onClick={onNavigate}>
+            Chat
+          </NavLink>
           <NavLink to="/staff/profile" className={linkClass} onClick={onNavigate}>
             Profile
           </NavLink>

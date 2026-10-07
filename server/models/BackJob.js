@@ -1,3 +1,4 @@
+const { BACK_JOB_STATUS_VALUES } = require('../constants/backJobStatus');
 const mongoose = require('mongoose');
 
 const backJobSchema = new mongoose.Schema({
@@ -33,16 +34,16 @@ const backJobSchema = new mongoose.Schema({
     },
 
     // 'Scheduled': within warranty, a free resulting Booking was auto-created.
-    // 'Not Covered': outside warranty — the paper doesn't specify what happens
+    // 'Not Covered': outside warranty - the paper doesn't specify what happens
     // next, so this just flags the claim for admin to decide manually.
     // 'Reviewed': admin has looked at a Not Covered claim and handled it outside the system.
     status: {
         type: String,
-        enum: ['Scheduled', 'Not Covered', 'Reviewed'],
+        enum: BACK_JOB_STATUS_VALUES,
         required: true,
     },
 
-    // Only set when status is 'Scheduled' — the free follow-up repair visit.
+    // Only set when status is 'Scheduled' - the free follow-up repair visit.
     resultingBooking: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Booking',

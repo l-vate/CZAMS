@@ -1,24 +1,17 @@
-// Frontend mirror of server/utils/serviceArea.js — keep the two in sync. Used by
-// Step3 (book_service.jsx) to warn the customer in real time; the server re-checks
-// independently at booking creation (this is a UX convenience, not the enforcement
-// point — a customer could still bypass client-side JS entirely).
-export const SERVICE_AREA_KEYWORDS = [
-  'quezon city', 'qc',
-  'pasig',
-  'manila',
-  'cavite',
-  'alabang',
-  'general mariano alvarez', 'gma',
-  'carmona',
-];
+// Frontend side of the service area. The matching keywords and the real check live on the server
+// (server/utils/serviceArea.js, run at booking creation); this file only holds what the
+// screens display and the Quezon City test behind the distance charge warning in Step3.
 
-export function isWithinServiceArea(address) {
-  const normalized = (address || '').toLowerCase();
-  return SERVICE_AREA_KEYWORDS.some((keyword) => normalized.includes(keyword));
-}
-
-// Customer-facing display list — separate from the matching keywords above,
-// which include short aliases (qc, gma) not fit for display.
+// Customer-facing display list of the confirmed service areas.
 export const SERVICE_AREA_DISPLAY_NAMES = [
   'Quezon City', 'Pasig', 'Manila', 'Cavite', 'Alabang', 'GMA (General Mariano Alvarez)', 'Carmona',
 ];
+
+// Quezon City is CZA's home base: addresses outside it may incur a distance-based
+// transportation charge.
+const QUEZON_CITY_KEYWORDS = ['quezon city', 'qc'];
+
+export function isWithinQuezonCity(address) {
+  const normalized = (address || '').toLowerCase();
+  return QUEZON_CITY_KEYWORDS.some((keyword) => normalized.includes(keyword));
+}

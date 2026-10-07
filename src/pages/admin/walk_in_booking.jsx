@@ -17,6 +17,8 @@ import { isValidContactNumber } from '../../utils/contact';
 import { usePaymentSettings, getDownPaymentOptions, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
 import { FiCheck, FiArrowLeft, FiArrowRight, FiUserPlus } from 'react-icons/fi';
 import { API_BASE } from '../../config/api';
+import { ApiError, orFallback } from '../../services/apiClient';
+import { listUsers, createUser } from '../../services/userService';
 import { ROLE } from '../../constants/roles';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
 
@@ -28,11 +30,7 @@ function useCustomers() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    fetch(`${API_BASE}/api/users?role=customer`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
+    orFallback(listUsers('customer'), [])
       .then((data) => {
         setCustomers(Array.isArray(data) ? data : []);
         setLoading(false);
@@ -70,30 +68,17 @@ function CustomerStep({ customers, loadingCustomers, selectedCustomer, onSelectC
     setError('');
     setCreating(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/users`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: newCustomer.name.trim(),
-          email: newCustomer.email.trim(),
-          phone: newCustomer.phone.trim(),
-          address: newCustomer.address.trim(),
-          role: ROLE.CUSTOMER,
-          clientType: newCustomer.clientType,
-        }),
+      const data = await createUser({
+        name: newCustomer.name.trim(),
+        email: newCustomer.email.trim(),
+        phone: newCustomer.phone.trim(),
+        address: newCustomer.address.trim(),
+        role: ROLE.CUSTOMER,
+        clientType: newCustomer.clientType,
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.message || 'Failed to create customer account.');
-        return;
-      }
       onCustomerCreated(data);
-    } catch {
-      setError('Could not connect to server.');
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message || 'Failed to create customer account.' : 'Could not connect to server.');
     } finally {
       setCreating(false);
     }

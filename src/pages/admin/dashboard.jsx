@@ -12,6 +12,8 @@ import {
   FiEye,
 } from 'react-icons/fi';
 import { API_BASE } from '../../config/api';
+import { orFallback } from '../../services/apiClient';
+import { listUsers } from '../../services/userService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
 
 // Same badge/left-accent classes used by the customer's My Bookings and the
@@ -65,14 +67,13 @@ function Dashboard() {
         const token = localStorage.getItem('token');
         const headers = { Authorization: `Bearer ${token}` };
 
-        const [bookingsRes, staffRes, workloadRes] = await Promise.all([
+        const [bookingsRes, staffData, workloadRes] = await Promise.all([
           fetch(`${API_BASE}/api/bookings`, { headers }),
-          fetch(`${API_BASE}/api/users?role=staff`, { headers }),
+          orFallback(listUsers('staff'), []),
           fetch(`${API_BASE}/api/bookings/technician-workload`, { headers }),
         ]);
 
         const bookingsData = bookingsRes.ok ? await bookingsRes.json() : [];
-        const staffData = staffRes.ok ? await staffRes.json() : [];
         const workloadData = workloadRes.ok ? await workloadRes.json() : [];
         setWorkload(Array.isArray(workloadData) ? workloadData : []);
 

@@ -9,6 +9,8 @@ import { usePublicPromos, describeDiscount } from '../../utils/promos';
 import AvailabilityCalendar from '../../components/availability_calendar';
 import '../../css/public.css'
 import { API_BASE } from '../../config/api';
+import { orFallback } from '../../services/apiClient';
+import { listPublicTechnicians } from '../../services/authService';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
 import { UNIT_TYPES } from '../../constants/unitTypes';
 
@@ -84,8 +86,7 @@ function NavSearch({ navigate, services }) {
   const [feedbackSummary, setFeedbackSummary] = useState(null);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/auth/technicians`)
-      .then((res) => (res.ok ? res.json() : []))
+    orFallback(listPublicTechnicians(), [])
       .then((data) => setTechnicians(Array.isArray(data) ? data : []))
       .catch(() => setTechnicians([]));
 

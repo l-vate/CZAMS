@@ -4,7 +4,8 @@ import AdminLayout from './admin_layout';
 import UserDetailsModal from '../../components/user_details_modal';
 import TechnicianPerformanceModal from '../../components/technician_performance_modal';
 import { getFilterPillStyle } from '../../utils/statusColors';
-import { API_BASE } from '../../config/api';
+import { ApiError } from '../../services/apiClient';
+import { listUsers, createUser } from '../../services/userService';
 import { ROLE } from '../../constants/roles';
 
 /* ── Small Icon Helpers ───────────────────────────────────── */
@@ -156,16 +157,10 @@ function ManageAccounts() {
 
   const fetchAllUsers = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE}/api/users`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setUsers(Array.isArray(data) ? data : []);
-      }
+      const data = await listUsers();
+      setUsers(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error('Error fetching users:', err);
+      if (!(err instanceof ApiError)) console.error('Error fetching users:', err);
     } finally {
       setLoading(false);
     }
@@ -173,33 +168,21 @@ function ManageAccounts() {
 
   const handleRegisterSubmit = async (values) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE}/api/users`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: values.name.trim(),
-          email: values.email.trim(),
-          phone: values.phone.trim(),
-          address: values.address.trim(),
-          role: registerRole,
-        }),
+      const newAccount = await createUser({
+        name: values.name.trim(),
+        email: values.email.trim(),
+        phone: values.phone.trim(),
+        address: values.address.trim(),
+        role: registerRole,
       });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        alert(errData.message || 'Error creating user');
-        return;
-      }
-
-      const newAccount = await response.json();
       setUsers((prev) => [newAccount, ...prev]);
       setJustAdded(newAccount);
       setView('list');
     } catch (err) {
+      if (err instanceof ApiError) {
+        alert(err.message || 'Error creating user');
+        return;
+      }
       console.error('Error creating user:', err);
     }
   };

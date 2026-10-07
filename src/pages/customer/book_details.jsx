@@ -14,6 +14,8 @@ import {
   FiUser, FiAlertTriangle, FiX, FiArrowRight, FiStar, FiPhone,
 } from 'react-icons/fi';
 import { API_BASE } from '../../config/api';
+import { orFallback } from '../../services/apiClient';
+import { listNotifications } from '../../services/notificationService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
 import { REFUND_STATUS } from '../../constants/refundStatus';
 import { TIME_BLOCK_VALUES } from '../../constants/timeBlocks';
@@ -328,11 +330,7 @@ function BookDetails() {
   // Real in-app notification created alongside this booking (Notification Sender) -
   // the confirmation screen's "In-app notification" card reflects this, not a static label.
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    fetch(`${API_BASE}/api/notifications`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => (res.ok ? res.json() : []))
+    orFallback(listNotifications(), [])
       .then((data) => {
         const match = (Array.isArray(data) ? data : []).find(
           (n) => n.relatedBookingId === bookingId && n.type === NOTIFICATION_TYPE.BOOKING_CREATED

@@ -12,17 +12,12 @@ const BackJob = require('../models/BackJob');
 const Report = require('../models/Report');
 const { getWarrantyStatus } = require('../utils/warranty');
 const { notifyAdmins } = require('../utils/notifications');
+const { createWithUniqueBookingId, BookingIdExhaustedError } = require('../utils/bookingId');
 
 // "Typically 2-3 days after the report is filed" - the paper gives a range, not an
 // exact number; this picks the sooner end as the auto-scheduled default. Admin can
 // always reschedule afterward through the normal reschedule/admin-update routes.
 const BACK_JOB_SCHEDULE_LEAD_DAYS = 2;
-
-function generateBookingId() {
-  const year = new Date().getFullYear();
-  const rand = Math.floor(1000 + Math.random() * 9000);
-  return `CZ-${year}-${rand}`;
-}
 
 function generateBackJobId() {
   const year = new Date().getFullYear();
@@ -78,8 +73,8 @@ router.post('/', auth, async (req, res) => {
       const scheduledDate = new Date();
       scheduledDate.setDate(scheduledDate.getDate() + BACK_JOB_SCHEDULE_LEAD_DAYS);
 
-      resultingBooking = await Booking.create({
-        bookingId: generateBookingId(),
+      resultingBooking = await createWithUniqueBookingId((bookingId) => Booking.create({
+        bookingId,
         customer: originalBooking.customer,
         service: originalBooking.service._id,
         units: (originalBooking.units || []).map(({ type, quantity, brandModel }) => ({ type, quantity, brandModel })),
@@ -95,7 +90,7 @@ router.post('/', auth, async (req, res) => {
         clientSuppliedUnit: originalBooking.clientSuppliedUnit,
         isBackJob: true,
         backJobId,
-      });
+      }));
     }
 
     const backJob = await BackJob.create({
@@ -126,6 +121,7 @@ router.post('/', auth, async (req, res) => {
     res.status(201).json(populated);
   } catch (err) {
     console.error(err);
+    if (err instanceof BookingIdExhaustedError) return res.status(500).json({ message: err.message });
     res.status(500).json({ message: 'Server error' });
   }
 });

@@ -15,7 +15,7 @@ const sharedRules = {
 }
 
 export default defineConfig([
-  globalIgnores(['dist', 'client', 'server/uploads']),
+  globalIgnores(['dist', 'server/uploads']),
 
   // Frontend (React + Vite)
   {

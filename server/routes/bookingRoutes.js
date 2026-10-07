@@ -30,6 +30,7 @@ const { getOrCreateSettings } = require('../utils/paymentSettings');
 const Team = require('../models/Team');
 const { proposeAssignment } = require('../utils/autoAssign');
 const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/queue');
+const { generateBookingId, createWithUniqueBookingId, BookingIdExhaustedError } = require('../utils/bookingId');
 const {
   ASSIGNMENT_POPULATE, getMemberIds, getLeadIds, getRoleFor, getMinTechnicians,
   memberFilter, findConflictingBooking, getBusyTechnicianIds,
@@ -78,13 +79,6 @@ const upload = multer({
     }
   },
 });
-
-// Generate unique booking ID
-function generateBookingId() {
-  const year = new Date().getFullYear();
-  const rand = Math.floor(1000 + Math.random() * 9000);
-  return `CZ-${year}-${rand}`;
-}
 
 // Validate date (must be at least 3 days from today)
 function isDateAllowed(dateStr) {
@@ -447,9 +441,10 @@ router.post('/', auth, (req, res, next) => {
     const selectedService = await Service.findById(service).select('serviceType');
     const isCleaningService = selectedService?.serviceType === SERVICE_TYPE.CLEANING;
 
-    const booking = await Booking.create({
-      bookingId: req.generatedBookingId,
-      queueRank: await nextQueueRank(), // last in line: first come, first served
+    const queueRank = await nextQueueRank(); // last in line: first come, first served
+    const booking = await createWithUniqueBookingId((bookingId) => Booking.create({
+      bookingId,
+      queueRank,
       customer: bookingCustomerId,
       service, units, problemDescription,
       date, time, requestedTechnician: technician || undefined, address, contactNumber: cleanContactNumber,
@@ -470,7 +465,7 @@ router.post('/', auth, (req, res, next) => {
       poNumber: isCommercial && poNumber ? String(poNumber).trim() : null,
       paymentTermsDays: isCommercial && paymentTermsDays ? Number(paymentTermsDays) : null,
       ...(discount ? { discount } : {}),
-    });
+    }), { firstId: req.generatedBookingId });
 
     const populated = await booking.populate('service');
 
@@ -530,6 +525,7 @@ router.post('/', auth, (req, res, next) => {
     res.status(201).json(withWarranty(populated));
   } catch (err) {
     console.error(err);
+    if (err instanceof BookingIdExhaustedError) return res.status(500).json({ message: err.message });
     res.status(500).json({ message: 'Server error' });
   }
 });

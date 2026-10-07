@@ -4,7 +4,7 @@ import StaffLayout from './staff_layout';
 import { FiUser, FiTool, FiCheckCircle, FiFileText, FiStar, FiEye, FiCalendar, FiClock, FiMapPin } from 'react-icons/fi';
 import { orFallback, bodyEvenIfError } from '../../services/apiClient';
 import { getTechnicianStats, listTechnicianJobs } from '../../services/bookingService';
-import { API_BASE } from '../../config/api';
+import { listPublicAnnouncements } from '../../services/announcementService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
 
 
@@ -66,8 +66,7 @@ function Dashboard() {
     // Same public endpoint the landing page uses - no reason to gate this behind
     // a technician-only route, and it keeps the "active announcements" logic in
     // exactly one place (Announcement.isActive, filtered server-side).
-    fetch(`${API_BASE}/api/announcements/public`)
-      .then((res) => (res.ok ? res.json() : []))
+    orFallback(listPublicAnnouncements(), [])
       .then((data) => setAnnouncements(Array.isArray(data) ? data : []))
       .catch(() => setAnnouncements([]));
   }, []);

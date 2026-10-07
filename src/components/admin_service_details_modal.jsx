@@ -4,7 +4,8 @@ import AssignmentPanel from './assignment_panel';
 import { getMemberIds } from '../utils/assignments';
 import { isWithinQuezonCity } from '../utils/serviceArea';
 import { API_BASE } from '../config/api';
-import { attempt } from '../services/apiClient';
+import { attempt, orFallback } from '../services/apiClient';
+import { getReportForBooking } from '../services/reportService';
 import {
     adminUpdateBooking, uploadUnitPurchaseProof, rescheduleAfterDisruption, decideDiscount, decideReschedule, decideExtension,
 } from '../services/bookingService';
@@ -85,15 +86,7 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
             return;
         }
         try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(`${API_BASE}/api/reports/booking/${booking.bookingId}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (!response.ok) {
-                setReport(null);
-                return;
-            }
-            const data = await response.json();
+            const data = await orFallback(getReportForBooking(booking.bookingId), null);
             setReport(data);
         } catch (err) {
             console.error('Error fetching report:', err);

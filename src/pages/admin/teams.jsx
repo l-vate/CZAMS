@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import AdminLayout from './admin_layout';
-import { API_BASE } from '../../config/api';
-import { orFallback } from '../../services/apiClient';
+import { attempt, orFallback } from '../../services/apiClient';
+import { listTeams, createTeam, updateTeam } from '../../services/teamService';
 import { listUsers } from '../../services/userService';
 
 const EMPTY_FORM = { name: '', lead: '', helper: '' };
@@ -18,16 +18,13 @@ function Teams() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
-
   const load = useCallback(async () => {
     try {
-      const headers = authHeaders();
-      const [teamsRes, users] = await Promise.all([
-        fetch(`${API_BASE}/api/teams`, { headers }),
+      const [teamList, users] = await Promise.all([
+        orFallback(listTeams(), []),
         orFallback(listUsers('staff'), []),
       ]);
-      setTeams(teamsRes.ok ? await teamsRes.json() : []);
+      setTeams(teamList);
       setTechnicians(users.filter((u) => u.isActive !== false));
     } catch (err) {
       console.error('Error loading teams:', err);
@@ -54,14 +51,9 @@ function Teams() {
     }
     setSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/api/teams${editingId ? `/${editingId}` : ''}`, {
-        method: editingId ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.message || 'Could not save the team.');
+      const saved = await attempt(editingId ? updateTeam(editingId, form) : createTeam(form), 'Could not save the team.');
+      if (saved.error) {
+        setError(saved.error);
         return;
       }
       setForm(EMPTY_FORM);
@@ -77,14 +69,9 @@ function Teams() {
 
   const toggleActive = async (team) => {
     setError('');
-    const res = await fetch(`${API_BASE}/api/teams/${team._id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ isActive: !team.isActive }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.message || 'Could not update the team.');
+    const updated = await attempt(updateTeam(team._id, { isActive: !team.isActive }), 'Could not update the team.');
+    if (updated.error) {
+      setError(updated.error);
       return;
     }
     await load();

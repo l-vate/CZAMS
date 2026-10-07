@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FiWind, FiTool, FiThermometer, FiSettings } from 'react-icons/fi';
-import { API_BASE } from '../config/api';
+import { listServices } from '../services/serviceCatalogService';
 
 const ICON_MAP = {
   FiWind: <FiWind />,
@@ -14,11 +14,7 @@ export function useServices() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    fetch(`${API_BASE}/api/services`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
+    listServices()
       .then((data) => {
         const mapped = data.map((s) => ({
           id: s._id,

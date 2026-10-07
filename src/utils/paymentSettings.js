@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { API_BASE } from '../config/api';
+import { bodyEvenIfError } from '../services/apiClient';
+import { getPaymentSettings } from '../services/paymentSettingsService';
 
 
 // Admin-managed payment methods (with per-method account details) and down
@@ -12,11 +13,7 @@ export function usePaymentSettings() {
 
   const refetch = useCallback(() => {
     setLoading(true);
-    const token = localStorage.getItem('token');
-    return fetch(`${API_BASE}/api/payment-settings`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
+    return bodyEvenIfError(getPaymentSettings())
       .then((data) => {
         setSettings({
           paymentMethods: Array.isArray(data.paymentMethods) ? data.paymentMethods : [],

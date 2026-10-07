@@ -6,7 +6,7 @@ import ServiceReportPdfModal from '../../components/service_report_pdf_modal';
 import PersonFilterBanner from '../../components/person_filter_banner';
 import { getUnitsSummary } from '../../utils/bookingPricing';
 import { getFilterPillStyle } from '../../utils/statusColors';
-import { API_BASE } from '../../config/api';
+import { listReports } from '../../services/reportService';
 
 
 // Filter options
@@ -369,12 +369,7 @@ function ServiceReports() {
   const fetchReports = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/reports`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Failed to fetch reports');
-      const data = await res.json();
+      const data = await listReports();
       setReports(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error fetching reports:', err);

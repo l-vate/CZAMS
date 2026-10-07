@@ -4,9 +4,9 @@ import { FiClock, FiFileText, FiX, FiUser, FiMapPin } from 'react-icons/fi';
 import SignaturePad from '../../components/signature_pad';
 import ServiceReportPdfModal from '../../components/service_report_pdf_modal';
 import { getFilterPillStyle } from '../../utils/statusColors';
-import { orFallback } from '../../services/apiClient';
+import { orFallback, withFallback } from '../../services/apiClient';
 import { listTechnicianJobs } from '../../services/bookingService';
-import { API_BASE } from '../../config/api';
+import { getReportForBooking, submitReport } from '../../services/reportService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
 
 
@@ -558,8 +558,7 @@ function Reports() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      
+
       try {
         // First, get all bookings assigned to the technician
         const bookingsData = await orFallback(listTechnicianJobs(), null);
@@ -580,18 +579,9 @@ function Reports() {
           // An In Progress job cannot have a report yet.
           if (booking.status === BOOKING_STATUS.IN_PROGRESS) return toReportItem(booking, null);
           try {
-            const reportRes = await fetch(`${API_BASE}/api/reports/booking/${booking.bookingId}`, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            
-            if (reportRes.ok) {
-              const reportData = await reportRes.json();
-              return toReportItem(booking, reportData);
-            } else {
-              // No report found, but booking is completed
-              // You might want to handle this case - maybe the report was created differently
-              return toReportItem(booking, null);
-            }
+            // No report found, but booking is completed: the item is listed without one.
+            const reportData = await orFallback(getReportForBooking(booking.bookingId), null);
+            return toReportItem(booking, reportData);
           } catch (err) {
             console.error(`Error fetching report for booking ${booking.bookingId}:`, err);
             return toReportItem(booking, null);
@@ -629,26 +619,13 @@ function Reports() {
 
   const handleSubmitReport = async (form) => {
     setSubmitting(true);
-    const token = localStorage.getItem('token');
     try {
       // Create report in reports collection
-      const res = await fetch(
-        `${API_BASE}/api/reports`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            bookingId: activeReport.bookingId,
-            ...form,
-            submittedAt: new Date().toISOString()
-          }),
-        }
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to submit report');
+      const data = await submitReport({
+        bookingId: activeReport.bookingId,
+        ...form,
+        submittedAt: new Date().toISOString()
+      }).catch(withFallback('Failed to submit report'));
 
       // Update local state
       setReports((prev) =>

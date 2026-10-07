@@ -11,13 +11,8 @@ import {
   FiCamera,
 } from 'react-icons/fi';
 import { API_BASE } from '../../config/api';
-import { ApiError } from '../../services/apiClient';
+import { withFallback } from '../../services/apiClient';
 import { uploadProfilePhoto, updateProfile } from '../../services/authService';
-
-// Keeps the server's own message, with `text` standing in when it sent none.
-const withFallback = (text) => (err) => {
-  throw err instanceof ApiError ? new Error(err.message || text) : err;
-};
 
 
 function buildProfileFromUser(user) {

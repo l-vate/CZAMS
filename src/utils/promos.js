@@ -1,7 +1,8 @@
 // Promotional packages, client side. The same rules as server/utils/promos.js: the server's
 // answer is the one saved on a booking, this copy only lets the booking forms preview it.
 import { useState, useEffect } from 'react';
-import { API_BASE } from '../config/api';
+import { orFallback } from '../services/apiClient';
+import { listPublicPromos } from '../services/promotionService';
 
 // Today's date in Philippine time as YYYY-MM-DD (what promo start and end dates are compared against).
 export function manilaToday() {
@@ -47,8 +48,7 @@ export function usePublicPromos() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/promos/public`)
-      .then((res) => (res.ok ? res.json() : []))
+    orFallback(listPublicPromos(), [])
       .then((data) => setPromos(Array.isArray(data) ? data : []))
       .catch(() => setPromos([]))
       .finally(() => setLoaded(true));

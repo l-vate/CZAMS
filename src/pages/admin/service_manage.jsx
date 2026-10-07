@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import AdminLayout from './admin_layout';
 import { FiPlus, FiSettings, FiTool, FiWind, FiThermometer } from 'react-icons/fi';
 import { UNIT_TYPES } from '../../constants/unitTypes';
-import { API_BASE } from '../../config/api';
+import { withMessage, withFallback } from '../../services/apiClient';
+import { listServices, createService, updateService, deleteService } from '../../services/serviceCatalogService';
 import { SERVICE_TYPE, SERVICE_TYPE_VALUES } from '../../constants/serviceTypes';
 
 
@@ -55,15 +56,7 @@ function ServiceManage() {
     setLoading(true);
     setError('');
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/services`, {
-        headers: {
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
-
-      if (!res.ok) throw new Error('Failed to load services.');
-      const data = await res.json();
+      const data = await listServices();
       setServices(Array.isArray(data) ? data : []);
     } catch {
       setError('Could not connect to the server or load services.');
@@ -165,25 +158,10 @@ function ServiceManage() {
 
     setSaving(true);
     try {
-      const token = localStorage.getItem('token');
-      const url = editingService
-        ? `${API_BASE}/api/services/${editingService._id}`
-        : `${API_BASE}/api/services`;
-      const method = editingService ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || 'Failed to save service.');
-      }
+      const pendingSave = editingService
+        ? updateService(editingService._id, payload)
+        : createService(payload);
+      await pendingSave.catch(withFallback('Failed to save service.'));
 
       await fetchServices();
       closeModal();
@@ -200,15 +178,7 @@ function ServiceManage() {
     if (!confirmed) return;
 
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/services/${editingService._id}`, {
-        method: 'DELETE',
-        headers: {
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
-
-      if (!res.ok) throw new Error('Failed to delete service.');
+      await deleteService(editingService._id).catch(withMessage('Failed to delete service.'));
       
       setServices((prev) => prev.filter((s) => s._id !== editingService._id));
       closeModal();

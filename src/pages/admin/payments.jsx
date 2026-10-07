@@ -7,6 +7,9 @@ import { getMemberNames } from '../../utils/assignments';
 import { getFilterPillStyle } from '../../utils/statusColors';
 import { usePaymentSettings, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
 import { API_BASE } from '../../config/api';
+import { withFallback } from '../../services/apiClient';
+import { listBookings, adminUpdateBooking } from '../../services/bookingService';
+import { processRefund, resolveRefundFlag } from '../../services/refundService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
 import { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } from '../../constants/paymentStatus';
 import { REFUND_STATUS } from '../../constants/refundStatus';
@@ -104,7 +107,6 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
     setError('');
 
     try {
-      const token = localStorage.getItem('token');
       const isBalanceProof = Boolean(payment.raw?.balanceProofFile && payment.raw?.balancePaymentStatus === BALANCE_PAYMENT_STATUS.TO_VERIFY);
       const isRejecting = status === PAYMENT_STATUS.REJECTED;
 
@@ -117,22 +119,7 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
             : { balancePaymentStatus: BALANCE_PAYMENT_STATUS.PAID, balancePaid: true })
         : { paymentStatus: status }; // status can be 'partially_paid', 'fully_paid', or 'rejected'
 
-      const res = await fetch(
-        `${API_BASE}/api/bookings/${payment.bookingId}/admin-update`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(payload),
-        }
-      );
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Failed to update payment status.');
-      }
+      await adminUpdateBooking(payment.bookingId, payload).catch(withFallback('Failed to update payment status.'));
 
       onSuccess?.();
       onClose();
@@ -337,12 +324,7 @@ function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
   const fetchBookings = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/bookings`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Failed to fetch bookings');
-      const data = await res.json();
+      const data = await listBookings();
       setRawBookings(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error fetching payments:', err);
@@ -546,21 +528,10 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
     setSubmitting(true);
     setError('');
     try {
-      const token = localStorage.getItem('token');
-      const formData = new FormData();
-      formData.append('proof', proof);
-      if (refund.isSameDay) formData.append('dispatchDeduction', deductionNum);
-
-      const res = await fetch(`${API_BASE}/api/bookings/${refund.bookingId}/refund`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` }, // no Content-Type - browser sets it for FormData
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Failed to process refund.');
-      }
+      await processRefund(refund.bookingId, {
+        proof,
+        dispatchDeduction: refund.isSameDay ? deductionNum : undefined,
+      }).catch(withFallback('Failed to process refund.'));
 
       onSuccess?.();
       onClose();
@@ -576,13 +547,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
     setResolvingFlag(true);
     setError('');
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/bookings/${refund.bookingId}/refund/flag/resolve`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to resolve flag.');
+      await resolveRefundFlag(refund.bookingId).catch(withFallback('Failed to resolve flag.'));
       onSuccess?.();
       onClose();
     } catch (err) {

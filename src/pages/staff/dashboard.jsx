@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import StaffLayout from './staff_layout';
 import { FiUser, FiTool, FiCheckCircle, FiFileText, FiStar, FiEye, FiCalendar, FiClock, FiMapPin } from 'react-icons/fi';
+import { orFallback, bodyEvenIfError } from '../../services/apiClient';
+import { getTechnicianStats, listTechnicianJobs } from '../../services/bookingService';
 import { API_BASE } from '../../config/api';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
 
@@ -52,19 +54,12 @@ function Dashboard() {
   const [announcements, setAnnouncements] = useState([]);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    fetch(`${API_BASE}/api/bookings/technician/mine/stats`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
+    bodyEvenIfError(getTechnicianStats())
       .then((data) => setStats(data))
       .catch((err) => console.error('Failed to load stats', err))
       .finally(() => setLoading(false));
 
-    fetch(`${API_BASE}/api/bookings/technician/mine`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => (res.ok ? res.json() : []))
+    orFallback(listTechnicianJobs(), [])
       .then((data) => setJobs(Array.isArray(data) ? data : []))
       .catch(() => setJobs([]));
 

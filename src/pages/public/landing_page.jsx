@@ -11,6 +11,7 @@ import '../../css/public.css'
 import { API_BASE } from '../../config/api';
 import { orFallback } from '../../services/apiClient';
 import { listPublicTechnicians } from '../../services/authService';
+import { getPublicFeedbackSummary } from '../../services/bookingService';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
 import { UNIT_TYPES } from '../../constants/unitTypes';
 
@@ -90,8 +91,7 @@ function NavSearch({ navigate, services }) {
       .then((data) => setTechnicians(Array.isArray(data) ? data : []))
       .catch(() => setTechnicians([]));
 
-    fetch(`${API_BASE}/api/bookings/public/feedback-summary`)
-      .then((res) => (res.ok ? res.json() : null))
+    orFallback(getPublicFeedbackSummary(), null)
       .then((data) => setFeedbackSummary(data))
       .catch(() => setFeedbackSummary(null));
   }, []);

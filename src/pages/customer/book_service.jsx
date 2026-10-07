@@ -24,7 +24,8 @@ import {
   FiPlus,
   FiX,
 } from 'react-icons/fi';
-import { API_BASE } from '../../config/api';
+import { ApiError, orFallback } from '../../services/apiClient';
+import { getBusyTechnicians, createBooking } from '../../services/bookingService';
 import { PAYMENT_STATUS } from '../../constants/paymentStatus';
 import { TIME_BLOCK_VALUES, TIME_BLOCK } from '../../constants/timeBlocks';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
@@ -390,11 +391,7 @@ export function Step3({ form, setForm, technicians }) {
   const [busyTechIds, setBusyTechIds] = useState([]);
   useEffect(() => {
     if (!form.date || !form.time) { setBusyTechIds([]); return; }
-    const token = localStorage.getItem('token');
-    fetch(`${API_BASE}/api/bookings/busy-technicians?date=${form.date}&time=${form.time}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => (res.ok ? res.json() : { busyTechIds: [] }))
+    orFallback(getBusyTechnicians(form.date, form.time), { busyTechIds: [] })
       .then((data) => setBusyTechIds(data.busyTechIds || []))
       .catch(() => setBusyTechIds([]));
   }, [form.date, form.time]);
@@ -808,8 +805,6 @@ const canNext = () => {
 
  const handleConfirmBooking = async () => {
     try {
-      const token = localStorage.getItem('token');
-
       const formData = new FormData();
       formData.append('service', form.service);
       // Sent as a JSON string, not repeated fields, since this is multipart/form-data
@@ -840,22 +835,11 @@ const canNext = () => {
         if (form.discountIdFileObj) formData.append('discountId', form.discountIdFileObj);
       }
 
-      const res = await fetch(`${API_BASE}/api/bookings`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` }, // no Content-Type for FormData
-        body: formData,
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        alert(data.message || 'Failed to create booking');
-        return;
-      }
+      const data = await createBooking(formData);
 
       navigate(`/customer/book_details/${data.bookingId}`, { state: { booking: data } });
-    } catch {
-      alert('Could not connect to server. Is the backend running?');
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message || 'Failed to create booking' : 'Could not connect to server. Is the backend running?');
     }
   };
 

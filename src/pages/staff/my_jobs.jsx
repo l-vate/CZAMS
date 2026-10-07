@@ -5,7 +5,8 @@ import {
 } from 'react-icons/fi';
 import { getUnitsSummary } from '../../utils/bookingPricing';
 import { getFilterPillStyle } from '../../utils/statusColors';
-import { API_BASE } from '../../config/api';
+import { ApiError, orFallback } from '../../services/apiClient';
+import { listTechnicianJobs, reportDisruption, requestExtension } from '../../services/bookingService';
 import { getAssignedNames } from '../../utils/assignments';
 import { BOOKING_STATUS, BOOKING_STATUS_VALUES } from '../../constants/bookingStatus';
 
@@ -254,11 +255,7 @@ function MyJobs() {
   const sortWrapperRef = useRef(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    fetch(`${API_BASE}/api/bookings/technician/mine`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
+    orFallback(listTechnicianJobs(), [])
       .then((data) => setJobs(Array.isArray(data) ? data.map(toViewJob) : []))
       .catch((err) => console.error('Failed to load jobs', err))
       .finally(() => setLoading(false));
@@ -272,30 +269,14 @@ function MyJobs() {
     if (!reportModal) return;
     setSubmittingReport(true);
     try {
-      const token = localStorage.getItem('token');
-      const endpoint = reportModal.kind === 'disruption'
-        ? `${API_BASE}/api/bookings/${reportModal.job.bookingId}/disruption/report`
-        : `${API_BASE}/api/bookings/${reportModal.job.bookingId}/extension/request`;
-
-      const res = await fetch(endpoint, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ reason: reasonText }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.message || 'Failed to submit.');
-        return;
-      }
+      const send = reportModal.kind === 'disruption' ? reportDisruption : requestExtension;
+      const data = await send(reportModal.job.bookingId, reasonText);
       // the action response is not per-technician, so keep the role already known for this job
       const updatedJob = { ...toViewJob(data), myRole: reportModal.job.myRole };
       setJobs((prev) => prev.map((j) => (j.bookingId === updatedJob.bookingId ? updatedJob : j)));
       setReportModal({ kind: reportModal.kind, job: updatedJob });
-    } catch {
-      alert('Could not connect to server.');
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message || 'Failed to submit.' : 'Could not connect to server.');
     } finally {
       setSubmittingReport(false);
     }

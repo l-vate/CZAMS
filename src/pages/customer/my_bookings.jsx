@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { FiClock, FiMapPin, FiEye, FiStar } from 'react-icons/fi';
 import FeedbackModal from '../../components/feedback_modal';
 import { getFilterPillStyle } from '../../utils/statusColors';
-import { API_BASE } from '../../config/api';
+import { ApiError, orFallback } from '../../services/apiClient';
+import { listMyBookings, submitFeedback } from '../../services/bookingService';
 import { getMemberNames } from '../../utils/assignments';
 import { BOOKING_STATUS, BOOKING_STATUS_VALUES } from '../../constants/bookingStatus';
 
@@ -49,11 +50,7 @@ function MyBookings() {
   const filters = ['All', ...BOOKING_STATUS_VALUES];
 
   const fetchBookings = () => {
-    const token = localStorage.getItem('token');
-    fetch(`${API_BASE}/api/bookings/mine`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
+    orFallback(listMyBookings(), [])
       .then((data) => {
         setBookings(Array.isArray(data) ? data : []);
         setLoading(false);
@@ -73,24 +70,11 @@ function MyBookings() {
   const handleFeedbackSubmit = async ({ rating, text }) => {
     setSubmittingFeedback(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/bookings/${feedbackBooking.bookingId}/feedback`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ rating, text }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.message || 'Failed to submit feedback');
-        return;
-      }
+      await submitFeedback(feedbackBooking.bookingId, { rating, text });
       setFeedbackBooking(null);
       fetchBookings();
-    } catch {
-      alert('Could not connect to server.');
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message || 'Failed to submit feedback' : 'Could not connect to server.');
     } finally {
       setSubmittingFeedback(false);
     }

@@ -16,8 +16,8 @@ import { usePublicPromos } from '../../utils/promos';
 import { isValidContactNumber } from '../../utils/contact';
 import { usePaymentSettings, getDownPaymentOptions, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
 import { FiCheck, FiArrowLeft, FiArrowRight, FiUserPlus } from 'react-icons/fi';
-import { API_BASE } from '../../config/api';
 import { ApiError, orFallback } from '../../services/apiClient';
+import { createBooking } from '../../services/bookingService';
 import { listUsers, createUser } from '../../services/userService';
 import { ROLE } from '../../constants/roles';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
@@ -498,8 +498,6 @@ function WalkInBooking() {
   const handleConfirmBooking = async () => {
     setSubmitting(true);
     try {
-      const token = localStorage.getItem('token');
-
       const formData = new FormData();
       formData.append('customer', customer._id);
       formData.append('service', form.service);
@@ -526,22 +524,11 @@ function WalkInBooking() {
       if (isCommercial && form.poNumber) formData.append('poNumber', form.poNumber);
       if (isCommercial && form.paymentTermsDays) formData.append('paymentTermsDays', form.paymentTermsDays);
 
-      const res = await fetch(`${API_BASE}/api/bookings`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` }, // no Content-Type for FormData
-        body: formData,
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        alert(data.message || 'Failed to create booking');
-        return;
-      }
+      await createBooking(formData);
 
       navigate('/admin/services/requests');
-    } catch {
-      alert('Could not connect to server. Is the backend running?');
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message || 'Failed to create booking' : 'Could not connect to server. Is the backend running?');
     } finally {
       setSubmitting(false);
     }

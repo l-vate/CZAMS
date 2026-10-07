@@ -4,6 +4,10 @@ import AssignmentPanel from './assignment_panel';
 import { getMemberIds } from '../utils/assignments';
 import { isWithinQuezonCity } from '../utils/serviceArea';
 import { API_BASE } from '../config/api';
+import { attempt } from '../services/apiClient';
+import {
+    adminUpdateBooking, uploadUnitPurchaseProof, rescheduleAfterDisruption, decideDiscount, decideReschedule, decideExtension,
+} from '../services/bookingService';
 import { BOOKING_STATUS } from '../constants/bookingStatus';
 import { TIME_BLOCK } from '../constants/timeBlocks';
 import { SERVICE_TYPE } from '../constants/serviceTypes';
@@ -101,24 +105,12 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
         setSaving(true);
         setError('');
         try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(
-                `${API_BASE}/api/bookings/${booking.bookingId}/admin-update`,
-                {
-                    method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify(body),
-                }
-            );
-            const data = await response.json();
-            if (!response.ok) {
-                setError(data.message || 'Something went wrong.');
+            const updated = await attempt(adminUpdateBooking(booking.bookingId, body), 'Something went wrong.');
+            if (updated.error) {
+                setError(updated.error);
                 return false;
             }
-            onUpdated?.(data);
+            onUpdated?.(updated.data);
             return true;
         } catch (err) {
             console.error('Error updating booking:', err);
@@ -157,19 +149,12 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
         setUploadingProof(true);
         setError('');
         try {
-            const token = localStorage.getItem('token');
-            const formData = new FormData();
-            formData.append('proof', file);
-            const response = await fetch(
-                `${API_BASE}/api/bookings/${booking.bookingId}/unit-purchase-proof`,
-                { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: formData }
-            );
-            const data = await response.json();
-            if (!response.ok) {
-                setError(data.message || 'Failed to upload proof of purchase.');
+            const uploaded = await attempt(uploadUnitPurchaseProof(booking.bookingId, file), 'Failed to upload proof of purchase.');
+            if (uploaded.error) {
+                setError(uploaded.error);
                 return;
             }
-            onUpdated?.(data);
+            onUpdated?.(uploaded.data);
         } catch (err) {
             console.error('Error uploading unit purchase proof:', err);
             setError('Network error. Please try again.');
@@ -189,24 +174,15 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
         setSaving(true);
         setError('');
         try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(
-                `${API_BASE}/api/bookings/${booking.bookingId}/disruption/reschedule`,
-                {
-                    method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({ date: disruptionDate, time: disruptionTime }),
-                }
+            const moved = await attempt(
+                rescheduleAfterDisruption(booking.bookingId, { date: disruptionDate, time: disruptionTime }),
+                'Failed to reschedule.'
             );
-            const data = await response.json();
-            if (!response.ok) {
-                setError(data.message || 'Failed to reschedule.');
+            if (moved.error) {
+                setError(moved.error);
                 return;
             }
-            onUpdated?.(data);
+            onUpdated?.(moved.data);
         } catch (err) {
             console.error('Error rescheduling after disruption:', err);
             setError('Network error. Please try again.');
@@ -225,23 +201,17 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
         setSaving(true);
         setError('');
         try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(
-                `${API_BASE}/api/bookings/${booking.bookingId}/discount/${decision}`,
-                {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                    body: JSON.stringify(decision === 'reject' ? { reason: discountRejectReason.trim() } : {}),
-                }
+            const decided = await attempt(
+                decideDiscount(booking.bookingId, decision, discountRejectReason.trim()),
+                'Failed to update the discount request.'
             );
-            const data = await response.json();
-            if (!response.ok) {
-                setError(data.message || 'Failed to update the discount request.');
+            if (decided.error) {
+                setError(decided.error);
                 return;
             }
             setRejectingDiscount(false);
             setDiscountRejectReason('');
-            onUpdated?.(data);
+            onUpdated?.(decided.data);
         } catch (err) {
             console.error('Error updating discount request:', err);
             setError('Network error. Please try again.');
@@ -256,20 +226,12 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
         setSaving(true);
         setError('');
         try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(
-                `${API_BASE}/api/bookings/${booking.bookingId}/reschedule/${decision}`,
-                {
-                    method: 'PATCH',
-                    headers: { Authorization: `Bearer ${token}` },
-                }
-            );
-            const data = await response.json();
-            if (!response.ok) {
-                setError(data.message || 'Failed to update the reschedule request.');
+            const decided = await attempt(decideReschedule(booking.bookingId, decision), 'Failed to update the reschedule request.');
+            if (decided.error) {
+                setError(decided.error);
                 return;
             }
-            onUpdated?.(data);
+            onUpdated?.(decided.data);
         } catch (err) {
             console.error('Error updating reschedule request:', err);
             setError('Network error. Please try again.');
@@ -282,20 +244,12 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
         setSaving(true);
         setError('');
         try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(
-                `${API_BASE}/api/bookings/${booking.bookingId}/extension/${decision}`,
-                {
-                    method: 'PATCH',
-                    headers: { Authorization: `Bearer ${token}` },
-                }
-            );
-            const data = await response.json();
-            if (!response.ok) {
-                setError(data.message || 'Failed to update extension request.');
+            const decided = await attempt(decideExtension(booking.bookingId, decision), 'Failed to update extension request.');
+            if (decided.error) {
+                setError(decided.error);
                 return;
             }
-            onUpdated?.(data);
+            onUpdated?.(decided.data);
         } catch (err) {
             console.error('Error updating extension request:', err);
             setError('Network error. Please try again.');

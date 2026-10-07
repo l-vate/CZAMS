@@ -7,7 +7,9 @@ import { FiClock, FiMapPin, FiFileText, FiCreditCard, FiEye } from 'react-icons/
 import { getBookingLineItems, getPaymentBreakdown } from '../../utils/bookingPricing';
 import { usePaymentSettings } from '../../utils/paymentSettings';
 import { getFilterPillStyle } from '../../utils/statusColors';
-import { API_BASE } from '../../config/api';
+import { ApiError, orFallback } from '../../services/apiClient';
+import { listMyBookings } from '../../services/bookingService';
+import { submitPayment, submitBalancePayment } from '../../services/paymentService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
 import { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } from '../../constants/paymentStatus';
 import { REFUND_STATUS } from '../../constants/refundStatus';
@@ -29,11 +31,7 @@ function Billings() {
   const filters = ['All', 'To Verify', 'Partially Paid', 'Fully Paid', 'Unpaid', 'Refunded'];
 
   const fetchBookings = () => {
-    const token = localStorage.getItem('token');
-    fetch(`${API_BASE}/api/bookings/mine`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
+    orFallback(listMyBookings(), [])
       .then((data) => {
         const mapped = (Array.isArray(data) ? data : []).map((b) => {
 
@@ -193,51 +191,23 @@ function Billings() {
 
   const handlePaymentSubmit = async ({ proof }) => {
     try {
-      const token = localStorage.getItem('token');
-      const formData = new FormData();
-      if (proof) formData.append('proof', proof);
-
-      const res = await fetch(`${API_BASE}/api/bookings/${selectedBill.id}/pay`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` }, // no Content-Type - browser sets it for FormData
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        alert(data.message || 'Failed to submit payment');
-        return;
-      }
+      await submitPayment(selectedBill.id, proof);
 
       setShowPayment(false);
       fetchBookings();
-    } catch {
-      alert('Could not connect to server.');
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message || 'Failed to submit payment' : 'Could not connect to server.');
     }
   };
 
   const handleBalancePaymentSubmit = async ({ proof }) => {
     try {
-      const token = localStorage.getItem('token');
-      const formData = new FormData();
-      if (proof) formData.append('proof', proof);
-
-      const res = await fetch(`${API_BASE}/api/bookings/${selectedBill.id}/pay-balance`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        alert(data.message || 'Failed to submit payment');
-        return;
-      }
+      await submitBalancePayment(selectedBill.id, proof);
 
       setShowPayment(false);
       fetchBookings();
-    } catch {
-      alert('Could not connect to server.');
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message || 'Failed to submit payment' : 'Could not connect to server.');
     }
   };
 

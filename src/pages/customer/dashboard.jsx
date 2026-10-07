@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
 import { FiThermometer, FiArrowRight, FiEye, FiCalendar, FiClock, FiMapPin } from 'react-icons/fi';
-import { API_BASE } from '../../config/api';
+import { orFallback } from '../../services/apiClient';
+import { listMyBookings } from '../../services/bookingService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
 
 // Same badge/accent classes as the technician dashboard's "Upcoming jobs" card
@@ -43,11 +44,7 @@ function Dashboard() {
   useEffect(() => {
     const fetchBookings = async () => {
       try {
-        const token = localStorage.getItem('token');
-        const res = await fetch(`${API_BASE}/api/bookings/mine`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
+        const data = await orFallback(listMyBookings(), []);
         setBookings(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error('Failed to load bookings:', err);

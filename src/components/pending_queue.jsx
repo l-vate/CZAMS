@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { FiArrowUp, FiArrowDown, FiChevronsUp, FiEye, FiZap } from 'react-icons/fi';
-import { API_BASE } from '../config/api';
+import { ApiError } from '../services/apiClient';
+import { getQueue, moveInQueue, autoAssignBooking } from '../services/bookingService';
 import { getMemberNames } from '../utils/assignments';
 
 // The Pending queue: first come, first served, and the admin can move a request up, down or
@@ -13,15 +14,15 @@ function PendingQueue({ refreshKey, onViewDetails }) {
   const [message, setMessage] = useState({}); // bookingId -> { text, isError }
   const [error, setError] = useState('');
 
-  const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
-
   const load = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/bookings/queue`, { headers: authHeaders() });
-      setQueue(res.ok ? await res.json() : []);
-      if (!res.ok) setError('Could not load the queue.');
+      setQueue(await getQueue());
     } catch (err) {
-      console.error('Error loading queue:', err);
+      if (err instanceof ApiError) {
+        setQueue([]);
+      } else {
+        console.error('Error loading queue:', err);
+      }
       setError('Could not load the queue.');
     } finally {
       setLoading(false);
@@ -36,19 +37,14 @@ function PendingQueue({ refreshKey, onViewDetails }) {
     setBusyId(bookingId);
     setError('');
     try {
-      const res = await fetch(`${API_BASE}/api/bookings/${bookingId}/queue`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ action }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.message || 'Could not move that request.');
+      const data = await moveInQueue(bookingId, action);
+      setQueue(data);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message || 'Could not move that request.');
         await load();
         return;
       }
-      setQueue(data);
-    } catch (err) {
       console.error('Error moving request:', err);
       setError('Network error. Please try again.');
     } finally {
@@ -59,21 +55,18 @@ function PendingQueue({ refreshKey, onViewDetails }) {
   const autoAssign = async (bookingId) => {
     setBusyId(bookingId);
     try {
-      const res = await fetch(`${API_BASE}/api/bookings/${bookingId}/auto-assign`, {
-        method: 'POST',
-        headers: authHeaders(),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        const dates = (data.suggestedDates || []).join(', ');
-        setMessage((prev) => ({ ...prev, [bookingId]: { isError: true, text: `${data.message}${dates ? ` Next free dates: ${dates}.` : ''}` } }));
-      } else {
-        setMessage((prev) => ({ ...prev, [bookingId]: { isError: false, text: `Assigned. ${data.autoAssignNote}` } }));
-      }
+      const data = await autoAssignBooking(bookingId);
+      setMessage((prev) => ({ ...prev, [bookingId]: { isError: false, text: `Assigned. ${data.autoAssignNote}` } }));
       await load();
     } catch (err) {
-      console.error('Error auto-assigning:', err);
-      setMessage((prev) => ({ ...prev, [bookingId]: { isError: true, text: 'Network error. Please try again.' } }));
+      if (err instanceof ApiError) {
+        const dates = (err.data?.suggestedDates || []).join(', ');
+        setMessage((prev) => ({ ...prev, [bookingId]: { isError: true, text: `${err.data?.message}${dates ? ` Next free dates: ${dates}.` : ''}` } }));
+        await load();
+      } else {
+        console.error('Error auto-assigning:', err);
+        setMessage((prev) => ({ ...prev, [bookingId]: { isError: true, text: 'Network error. Please try again.' } }));
+      }
     } finally {
       setBusyId(null);
     }

@@ -5,7 +5,8 @@ import AdminServiceDetailsModal from '../../components/admin_service_details_mod
 import PersonFilterBanner from '../../components/person_filter_banner';
 import { getStatusColor, getFilterPillStyle } from '../../utils/statusColors';
 import { FiEye } from 'react-icons/fi';
-import { API_BASE } from '../../config/api';
+import { orFallback } from '../../services/apiClient';
+import { listBookings } from '../../services/bookingService';
 import { getMembers, getMemberNames } from '../../utils/assignments';
 import PendingQueue from '../../components/pending_queue';
 import { BOOKING_STATUS_VALUES } from '../../constants/bookingStatus';
@@ -34,11 +35,7 @@ function ServiceRequests() {
 
     const fetchRequests = async () => {
         try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(`${API_BASE}/api/bookings`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            const data = await response.json();
+            const data = await orFallback(listBookings(), []);
             setRequests(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error('Error fetching bookings:', error);

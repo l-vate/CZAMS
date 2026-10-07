@@ -117,7 +117,8 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: -0.01em;
 }
 
-section {
+/* Default padding for the landing page sections (the only <section>s that rely on it). */
+.landing-section {
   padding: 90px 40px;
 }
 
@@ -158,19 +159,6 @@ section {
    3. SHARED UTILITIES & COMPONENTS
    ========================================================================== */
 
-/* The one page-title standard (Pass E) - was already the most-used class name
-   for this across all three dashboard portals (admin/customer/staff), just
-   never actually had CSS written for it, so it rendered at whatever size the
-   browser's default <h1> happened to be. Every page-title-sized heading now
-   converges here instead of three competing sizes (32px, 1.9rem/800, 22px) plus
-   several pages having no in-page title at all. */
-.dashboard-welcome {
-  font-family: 'Outfit', sans-serif;
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--navy);
-  margin: 0 0 8px;
-}
 
 .vent-divider {
   height: 1px;
@@ -190,14 +178,6 @@ section {
   border-radius: var(--radius-full);
   padding: 6px 14px;
   margin-bottom: 14px;
-}
-
-.section-title {
-  font-size: 36px;
-  font-weight: 700;
-  color: var(--navy);
-  margin-bottom: 14px;
-  line-height: 1.15;
 }
 
 .section-subtitle {
@@ -487,10 +467,6 @@ section {
 
 /* Responsive Rules for Dashboard Frame */
 @media (max-width: 900px) {
-  .sidebar-toggle-btn { 
-    display: inline-flex; 
-    align-items: center; 
-  }
   
   .dashboard-shell { 
     position: relative; 
@@ -521,7 +497,7 @@ section {
 }
 
 @media (max-width: 768px) {
-  section { 
+  .landing-section {
     padding: 60px 20px; 
   }
   

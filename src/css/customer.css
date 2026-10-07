@@ -1,5 +1,9 @@
+/* Classes named *-xN were extracted from inline styles. Rename when the page is next edited. */
 /* ============ CLIENT DASHBOARD ============ */
+/* The one page-title standard (Pass E), used by all three portals (admin/customer/staff)
+   so every page-title-sized heading shares one size instead of competing ones. */
 .dashboard-welcome {
+  margin: 0 0 8px;
   font-family: 'Outfit', sans-serif;
   font-size: 32px;
   font-weight: 700;
@@ -158,34 +162,6 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-}
-
-.recent-activity-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.recent-activity-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 14px 4px;
-  border-bottom: 1px solid #f1f5f9;
-}
-
-.recent-activity-item:last-child {
-  border-bottom: none;
-}
-
-.recent-activity-text {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
 }
 
 .recent-activity-status {
@@ -1104,34 +1080,6 @@
 .modal-account-row span:first-child { color: var(--ink-soft); }
 .modal-account-row span:last-child  { font-weight: 600; color: var(--navy); }
 
-.modal-upload-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.modal-upload-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--navy);
-}
-
-.modal-optional {
-  font-weight: 400;
-  color: var(--ink-soft);
-}
-
-.modal-file-btn {
-  display: inline-block;
-  font-size: 13px;
-  color: var(--navy-soft);
-  font-weight: 600;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.modal-file-btn:hover { color: var(--navy); }
-
 /* Same shared "primary submit" role/token as .bs-next-btn above - also used well
    beyond this file (feedback/back-job/payment/receipt/service-report-pdf modals).
    Was separately duplicated (as flat #2563eb, coincidentally close to --primary
@@ -1339,21 +1287,6 @@
   flex-shrink: 0;
 }
 
-.confirmation-detail-label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #a0b4c4;
-  margin-bottom: 2px;
-}
-
-.confirmation-detail-value {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--navy);
-}
-
 .confirmation-technician-row {
   display: flex;
   align-items: center;
@@ -1424,13 +1357,6 @@
   line-height: 1.6;
 }
 
-.cancel-confirm-actions {
-  display: flex;
-  gap: 10px;
-  width: 100%;
-  margin-top: 6px;
-}
-
 .cancel-confirm-actions .bs-back-btn,
 .cancel-confirm-actions .bs-next-btn,
 .cancel-confirm-actions .cancel-booking-btn {
@@ -1482,19 +1408,6 @@
 
 .receipt-brand-icon { font-size: 22px; }
 
-.receipt-brand-name {
-  font-size: 16px;
-  font-weight: 700;
-  color: #0B2545;
-  margin: 0;
-}
-
-.receipt-brand-sub {
-  margin-top: 3px;
-  font-size: 12px;
-  color: #6B7280;
-}
-
 .receipt-invoice-meta { text-align: right; }
 
 .receipt-invoice-title {
@@ -1520,18 +1433,6 @@
   color: #0E8C8C;
   margin-bottom: 6px;
 }
-
-.receipt-info-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 3px 0;
-  border-bottom: 1px solid #EEF2F7;
-  font-size: 12px;
-}
-
-.receipt-info-row span:first-child { color: #64748B; font-weight: 500; }
-.receipt-info-row span:last-child  { color: #0F172A; font-weight: 600; text-align: right; }
 
 .receipt-table {
   width: 100%;
@@ -1566,40 +1467,6 @@
 .receipt-footer-info {
   border-top: 2px solid #E6EEF5;
   padding-top: 10px;
-}
-
-.receipt-status-paid {
-  background: #DCFCE7;
-  color: #15803D;
-  padding: 6px 14px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.receipt-thanks {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px dashed #CBD5E1;
-  text-align: center;
-  font-size: 11px;
-  color: #64748B;
-  line-height: 1.4;
-}
-
-.receipt-print-btn {
-  width: 160px;
-  margin: 8px auto;
-  display: block;
-  background: #0B2545;
-  color: white;
-  border: none;
-  border-radius: 12px;
-  padding: 9px;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: .25s;
 }
 
 .receipt-print-btn:hover { background: #143A63; }
@@ -1649,6 +1516,7 @@
 }
 
 .recent-activity-list {
+  width: 100%;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -1683,6 +1551,7 @@
 }
 
 .recent-activity-text {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 2px;

@@ -6,6 +6,7 @@ const Team = require('../models/Team');
 const User = require('../models/User');
 const { getBusyTechnicianIds } = require('../utils/assignments');
 const { TIME_BLOCKS } = require('../utils/timeBlocks');
+const { invalid, sendProblem } = require('../utils/validation');
 
 function adminOnly(req, res, next) {
   if (req.userRole !== ROLE.ADMIN) {
@@ -20,17 +21,17 @@ const POPULATE = [
 ];
 
 // A team is valid when both members are different, active technicians who are not already
-// on another ACTIVE team. Returns an error message, or null when fine.
+// on another ACTIVE team. Returns null when fine, otherwise { status, message }.
 async function validateMembers(leadId, helperId, ignoreTeamId) {
-  if (!leadId || !helperId) return 'A team needs both a lead and a helper.';
-  if (leadId === helperId) return 'The lead and the helper must be two different technicians.';
+  if (!leadId || !helperId) return invalid('A team needs both a lead and a helper.');
+  if (leadId === helperId) return invalid('The lead and the helper must be two different technicians.');
 
   const members = await User.find({ _id: { $in: [leadId, helperId] } }).select('name role isActive');
   if (members.length !== 2 || members.some((u) => u.role !== ROLE.STAFF)) {
-    return 'The lead and the helper must both be technician accounts.';
+    return invalid('The lead and the helper must both be technician accounts.');
   }
   const inactive = members.find((u) => u.isActive === false);
-  if (inactive) return `${inactive.name} is deactivated and cannot be on a team.`;
+  if (inactive) return invalid(`${inactive.name} is deactivated and cannot be on a team.`);
 
   const clash = await Team.findOne({
     isActive: true,
@@ -39,7 +40,7 @@ async function validateMembers(leadId, helperId, ignoreTeamId) {
   });
   if (clash) {
     const busy = members.find((u) => [clash.lead, clash.helper].includes(u._id));
-    return `${busy?.name || 'A technician'} is already on the active team "${clash.name}". A technician can only be on one active team at a time.`;
+    return invalid(`${busy?.name || 'A technician'} is already on the active team "${clash.name}". A technician can only be on one active team at a time.`);
   }
   return null;
 }
@@ -109,7 +110,7 @@ router.post('/', auth, adminOnly, async (req, res) => {
     if (!name) return res.status(400).json({ message: 'A team name is required.' });
 
     const problem = await validateMembers(lead, helper);
-    if (problem) return res.status(400).json({ message: problem });
+    if (problem) return sendProblem(res, problem);
 
     const team = await Team.create({ name, lead, helper, isActive: true });
     res.status(201).json(await team.populate(POPULATE));
@@ -136,7 +137,7 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
     // Members only matter while the team is active; a deactivated team frees its technicians.
     if (isActive) {
       const problem = await validateMembers(lead, helper, team._id);
-      if (problem) return res.status(400).json({ message: problem });
+      if (problem) return sendProblem(res, problem);
     } else if (!lead || !helper || lead === helper) {
       return res.status(400).json({ message: 'The lead and the helper must be two different technicians.' });
     }

@@ -102,6 +102,8 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
 
   if (!payment) return null;
 
+  const isPdf = payment.attachmentUrl?.toLowerCase().endsWith('.pdf');
+
   const handleUpdatePaymentStatus = async (status) => {
     setSubmitting(true);
     setError('');
@@ -130,8 +132,6 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
       setSubmitting(false);
     }
   };
-
-  const isPdf = payment.attachmentUrl?.toLowerCase().endsWith('.pdf');
 
   return (
     <div className="modal-overlay" onClick={onClose}>

@@ -47,6 +47,8 @@ function AssignmentPanel({ booking, onUpdated }) {
   const saved = currentSelections().filter(Boolean);
   const dirty = JSON.stringify(chosen) !== JSON.stringify(saved);
 
+  const names = getAssignments(booking);
+
   const updateRow = (index, value) => setRows((prev) => prev.map((r, i) => (i === index ? value : r)));
 
   const save = async () => {
@@ -95,8 +97,6 @@ function AssignmentPanel({ booking, onUpdated }) {
     const [y, m, d] = key.split('-').map(Number);
     return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   };
-
-  const names = getAssignments(booking);
 
   return (
     <div className="sdm-tech-strip assignment-panel-x1">

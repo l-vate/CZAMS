@@ -62,24 +62,6 @@ function MyBookings() {
     fetchBookings();
   }, []);
 
-  const handleOpenFeedback = (booking, action) => {
-    setFeedbackBooking(booking);
-    setFeedbackAction(action);
-  };
-
-  const handleFeedbackSubmit = async ({ rating, text }) => {
-    setSubmittingFeedback(true);
-    try {
-      await submitFeedback(feedbackBooking.bookingId, { rating, text });
-      setFeedbackBooking(null);
-      fetchBookings();
-    } catch (err) {
-      alert(err instanceof ApiError ? err.message || 'Failed to submit feedback' : 'Could not connect to server.');
-    } finally {
-      setSubmittingFeedback(false);
-    }
-  };
-
   // Helper functions to safely render potential object fields
   const formatAddress = (address) => {
     if (!address) return 'N/A';
@@ -88,16 +70,6 @@ function MyBookings() {
       return address.fullAddress || address.street || address.city || JSON.stringify(address);
     }
     return String(address);
-  };
-
-  // The whole team (lead and helper of every assigned team), or a single technician.
-  const formatTechnician = (booking) => getMemberNames(booking, 'Not Assigned');
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    const parsed = new Date(dateString);
-    if (isNaN(parsed.getTime())) return String(dateString);
-    return parsed.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
   };
 
   const filteredBookings = bookings
@@ -129,6 +101,34 @@ function MyBookings() {
     });
     return idx;
   })();
+
+  const handleOpenFeedback = (booking, action) => {
+    setFeedbackBooking(booking);
+    setFeedbackAction(action);
+  };
+
+  const handleFeedbackSubmit = async ({ rating, text }) => {
+    setSubmittingFeedback(true);
+    try {
+      await submitFeedback(feedbackBooking.bookingId, { rating, text });
+      setFeedbackBooking(null);
+      fetchBookings();
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message || 'Failed to submit feedback' : 'Could not connect to server.');
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
+
+  // The whole team (lead and helper of every assigned team), or a single technician.
+  const formatTechnician = (booking) => getMemberNames(booking, 'Not Assigned');
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const parsed = new Date(dateString);
+    if (isNaN(parsed.getTime())) return String(dateString);
+    return parsed.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
+  };
 
   return (
     <CustomerLayout

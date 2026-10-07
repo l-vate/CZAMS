@@ -31,6 +31,11 @@ function AnnouncementManage() {
     fetchAnnouncements();
   }, []);
 
+  const filteredAnnouncements = announcements.filter((a) =>
+    a.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    a.message?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   async function fetchAnnouncements() {
     setLoading(true);
     setError('');
@@ -130,11 +135,6 @@ function AnnouncementManage() {
       setFormError(err.message || 'Could not delete announcement.');
     }
   }
-
-  const filteredAnnouncements = announcements.filter((a) =>
-    a.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    a.message?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   return (
     <AdminLayout

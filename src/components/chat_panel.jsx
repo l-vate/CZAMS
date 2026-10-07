@@ -63,11 +63,6 @@ function ChatPanel({ conversationId, emptyText, partnerName = 'Admin Support', p
     }
   };
 
-  const handleSend = (e) => {
-    e.preventDefault();
-    sendMessage(text);
-  };
-
   useEffect(() => {
     if (!initialMessage || loading || sending || initialMessageSentRef.current) return;
     if (messages.length > 0) {
@@ -80,6 +75,11 @@ function ChatPanel({ conversationId, emptyText, partnerName = 'Admin Support', p
     sendMessage(initialMessage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, messages]);
+
+  const handleSend = (e) => {
+    e.preventDefault();
+    sendMessage(text);
+  };
 
   if (isAdmin && !conversationId) {
     return <div className="chat-empty">Select a conversation to start chatting.</div>;

@@ -261,27 +261,6 @@ function MyJobs() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleViewDetails = (job) => setSelectedJob(job);
-  const handleCloseDetails = () => setSelectedJob(null);
-  const handleSelectSort = (value) => { setSortBy(value); setShowSortMenu(false); };
-
-  const handleSubmitReport = async (reasonText) => {
-    if (!reportModal) return;
-    setSubmittingReport(true);
-    try {
-      const send = reportModal.kind === 'disruption' ? reportDisruption : requestExtension;
-      const data = await send(reportModal.job.bookingId, reasonText);
-      // the action response is not per-technician, so keep the role already known for this job
-      const updatedJob = { ...toViewJob(data), myRole: reportModal.job.myRole };
-      setJobs((prev) => prev.map((j) => (j.bookingId === updatedJob.bookingId ? updatedJob : j)));
-      setReportModal({ kind: reportModal.kind, job: updatedJob });
-    } catch (err) {
-      alert(err instanceof ApiError ? err.message || 'Failed to submit.' : 'Could not connect to server.');
-    } finally {
-      setSubmittingReport(false);
-    }
-  };
-
   useEffect(() => {
     if (!showSortMenu) return;
     const handleClickOutside = (event) => {
@@ -318,6 +297,29 @@ function MyJobs() {
       return sortBy === 'newest' ? -diff : diff;
     });
   }, [jobs, searchTerm, activeFilter, sortBy]);
+
+  const handleViewDetails = (job) => setSelectedJob(job);
+
+  const handleCloseDetails = () => setSelectedJob(null);
+
+  const handleSelectSort = (value) => { setSortBy(value); setShowSortMenu(false); };
+
+  const handleSubmitReport = async (reasonText) => {
+    if (!reportModal) return;
+    setSubmittingReport(true);
+    try {
+      const send = reportModal.kind === 'disruption' ? reportDisruption : requestExtension;
+      const data = await send(reportModal.job.bookingId, reasonText);
+      // the action response is not per-technician, so keep the role already known for this job
+      const updatedJob = { ...toViewJob(data), myRole: reportModal.job.myRole };
+      setJobs((prev) => prev.map((j) => (j.bookingId === updatedJob.bookingId ? updatedJob : j)));
+      setReportModal({ kind: reportModal.kind, job: updatedJob });
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message || 'Failed to submit.' : 'Could not connect to server.');
+    } finally {
+      setSubmittingReport(false);
+    }
+  };
 
   return (
     <StaffLayout title="My Jobs">

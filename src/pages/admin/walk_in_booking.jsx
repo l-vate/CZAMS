@@ -453,17 +453,17 @@ function WalkInBooking() {
     }
   }, [loadingPaymentSettings, downPaymentPercentages, form.downPaymentPercent]);
 
+  const { isFullPay, dpPercent } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages), seniorPwdDiscountPercent, promos);
+  const isReturnCustomer = customer?.classification === 'Return';
+  const isCommercial = customer?.clientType === 'Commercial';
+  const isBilledOnTerms = isCommercial && !!form.paymentTermsDays;
+
   // Picking (or changing) the customer prefills the contact number from their profile
   // phone; the admin can still edit it on the schedule step.
   const chooseCustomer = (c) => {
     setCustomer(c);
     setForm((prev) => ({ ...prev, contactNumber: c?.phone || '' }));
   };
-
-  const { isFullPay, dpPercent } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages), seniorPwdDiscountPercent, promos);
-  const isReturnCustomer = customer?.classification === 'Return';
-  const isCommercial = customer?.clientType === 'Commercial';
-  const isBilledOnTerms = isCommercial && !!form.paymentTermsDays;
 
   const canNext = () => {
     if (step === 1) return !!customer;

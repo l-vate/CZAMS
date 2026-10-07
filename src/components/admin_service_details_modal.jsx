@@ -78,6 +78,17 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
         fetchReport();
     }, [booking]);
 
+    if (!booking) return null;
+
+    const canCancel = ![BOOKING_STATUS.COMPLETED, BOOKING_STATUS.CANCELLED].includes(booking.status);
+    const nextSteps = NEXT_STATUS[booking.status] || [];
+    const hasAssignment = getMemberIds(booking).length > 0;
+
+    const { lineItems, basePrice } = getBookingLineItems(booking);
+    const paymentBreakdown = getPaymentBreakdown({ ...booking, downPaymentPercent: booking.downPaymentPercent ?? 0 });
+    const downPaymentAmount = paymentBreakdown.downPayment;
+    const discountIdIsPdf = /\.pdf$/i.test(booking.discount?.idFile || '');
+
     // Reports live in the separate Report collection, not the deprecated embedded
     // booking.report field (never populated by the current report-submission flow).
     const fetchReport = async () => {
@@ -250,17 +261,6 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
             setSaving(false);
         }
     };
-
-    if (!booking) return null;
-
-    const canCancel = ![BOOKING_STATUS.COMPLETED, BOOKING_STATUS.CANCELLED].includes(booking.status);
-    const nextSteps = NEXT_STATUS[booking.status] || [];
-    const hasAssignment = getMemberIds(booking).length > 0;
-
-    const { lineItems, basePrice } = getBookingLineItems(booking);
-    const paymentBreakdown = getPaymentBreakdown({ ...booking, downPaymentPercent: booking.downPaymentPercent ?? 0 });
-    const downPaymentAmount = paymentBreakdown.downPayment;
-    const discountIdIsPdf = /\.pdf$/i.test(booking.discount?.idFile || '');
 
     return (
         <div className="sdm-overlay" onClick={onClose}>

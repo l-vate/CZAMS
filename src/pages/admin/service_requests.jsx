@@ -33,6 +33,25 @@ function ServiceRequests() {
         fetchRequests();
     }, []);
 
+    const filteredRequests = requests
+        .filter((req) => activeFilter === 'All' || req.status === activeFilter)
+        .filter((req) => {
+            if (!personFilter) return true;
+            if (personFilter.type === 'technician') return getMembers(req).some((m) => m._id === personFilter.id);
+            return req.customer?._id === personFilter.id;
+        })
+        .filter((req) => {
+            const term = searchQuery.trim().toLowerCase();
+            if (!term) return true;
+            const haystack = [
+                req.bookingId,
+                req.service?.name,
+                req.customer?.name,
+                getMemberNames(req, ''),
+            ].filter(Boolean).join(' ').toLowerCase();
+            return haystack.includes(term);
+        });
+
     const fetchRequests = async () => {
         try {
             const data = await orFallback(listBookings(), []);
@@ -54,25 +73,6 @@ function ServiceRequests() {
         );
         setSelectedBooking(updatedBooking);
     };
-
-    const filteredRequests = requests
-        .filter((req) => activeFilter === 'All' || req.status === activeFilter)
-        .filter((req) => {
-            if (!personFilter) return true;
-            if (personFilter.type === 'technician') return getMembers(req).some((m) => m._id === personFilter.id);
-            return req.customer?._id === personFilter.id;
-        })
-        .filter((req) => {
-            const term = searchQuery.trim().toLowerCase();
-            if (!term) return true;
-            const haystack = [
-                req.bookingId,
-                req.service?.name,
-                req.customer?.name,
-                getMemberNames(req, ''),
-            ].filter(Boolean).join(' ').toLowerCase();
-            return haystack.includes(term);
-        });
 
     return (
         <AdminLayout

@@ -155,6 +155,21 @@ function ManageAccounts() {
     fetchAllUsers();
   }, []);
 
+  // Filter users according to search query and selected filter pill
+  const filteredUsers = users.filter((u) => {
+    const matchesSearch =
+      (u.name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (u._id || '').toLowerCase().includes(search.toLowerCase()) ||
+      (u.email || '').toLowerCase().includes(search.toLowerCase());
+
+    const matchesFilter =
+      activeFilter === 'Technicians'
+        ? u.role === ROLE.STAFF
+        : u.role === ROLE.CUSTOMER;
+
+    return matchesSearch && matchesFilter;
+  }).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
   const fetchAllUsers = async () => {
     try {
       const data = await listUsers();
@@ -230,21 +245,6 @@ function ManageAccounts() {
     setRegisterRole(activeFilter === 'Technicians' ? ROLE.STAFF : ROLE.CUSTOMER);
     setView('register');
   };
-
-  // Filter users according to search query and selected filter pill
-  const filteredUsers = users.filter((u) => {
-    const matchesSearch =
-      (u.name || '').toLowerCase().includes(search.toLowerCase()) ||
-      (u._id || '').toLowerCase().includes(search.toLowerCase()) ||
-      (u.email || '').toLowerCase().includes(search.toLowerCase());
-
-    const matchesFilter =
-      activeFilter === 'Technicians'
-        ? u.role === ROLE.STAFF
-        : u.role === ROLE.CUSTOMER;
-
-    return matchesSearch && matchesFilter;
-  }).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
   return (
     <AdminLayout

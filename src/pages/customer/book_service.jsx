@@ -225,6 +225,8 @@ export function Step2({ form, setForm, services = [] }) {
   const units = form.units && form.units.length > 0 ? form.units : [EMPTY_UNIT_ENTRY];
   const selectedService = services.find((s) => s.id === form.service);
 
+  const isInstallation = selectedService?.serviceType === SERVICE_TYPE.INSTALLATION;
+
   const updateUnit = (index, patch) => {
     const updated = units.map((u, i) => (i === index ? { ...u, ...patch } : u));
     setForm({ ...form, units: updated });
@@ -238,8 +240,6 @@ export function Step2({ form, setForm, services = [] }) {
     const updated = units.filter((_, i) => i !== index);
     setForm({ ...form, units: updated.length > 0 ? updated : [{ ...EMPTY_UNIT_ENTRY }] });
   };
-
-  const isInstallation = selectedService?.serviceType === SERVICE_TYPE.INSTALLATION;
 
   const setClientSuppliedUnit = (clientSupplied) => {
     setForm({
@@ -769,6 +769,8 @@ function BookService() {
     }
   }, [loadingPaymentSettings, downPaymentPercentages, form.downPaymentPercent]);
 
+  const stepLabels = ['Choose Service', 'Unit Details', 'Location & Schedule', 'Payment', 'Booking Summary'];
+
 const canNext = () => {
     if (step === 1) return !!form.service;
     if (step === 2) {
@@ -800,8 +802,6 @@ const canNext = () => {
     }
     return true;
   };
-
-  const stepLabels = ['Choose Service', 'Unit Details', 'Location & Schedule', 'Payment', 'Booking Summary'];
 
  const handleConfirmBooking = async () => {
     try {

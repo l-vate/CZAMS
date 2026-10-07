@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import AdminLayout from './admin_layout';
 import { buildTechnicianStats } from '../../utils/technicianStats';
 import DashboardCharts from '../../components/dashboard_charts';
-import { API_BASE } from '../../config/api';
+import { loadAnalyticsData } from '../../services/analyticsService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
 
 
@@ -54,18 +54,10 @@ function Analytics() {
         async function fetchData() {
             setLoading(true);
             try {
-                const token = localStorage.getItem('token');
-                const headers = { Authorization: `Bearer ${token}` };
-
-                const [bookingsRes, reportsRes, backJobsRes] = await Promise.all([
-                    fetch(`${API_BASE}/api/bookings`, { headers }),
-                    fetch(`${API_BASE}/api/reports`, { headers }),
-                    fetch(`${API_BASE}/api/backjobs`, { headers }),
-                ]);
-
-                setBookings(bookingsRes.ok ? await bookingsRes.json() : []);
-                setReports(reportsRes.ok ? await reportsRes.json() : []);
-                setBackJobs(backJobsRes.ok ? await backJobsRes.json() : []);
+                const data = await loadAnalyticsData();
+                setBookings(data.bookings);
+                setReports(data.reports);
+                setBackJobs(data.backJobs);
             } catch (err) {
                 console.error('Error loading analytics data:', err);
             } finally {

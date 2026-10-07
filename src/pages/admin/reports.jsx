@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import AdminLayout from './admin_layout';
 import ReportSheet from '../../components/report_sheet';
-import { API_BASE } from '../../config/api';
+import { loadReportData } from '../../services/analyticsService';
 import { toLocalDateKey } from '../../utils/date';
 import {
   REPORT_TYPES, BUILDERS, formatRange, formatGeneratedAt,
@@ -36,18 +36,7 @@ function Reports() {
   useEffect(() => {
     async function load() {
       try {
-        const token = localStorage.getItem('token');
-        const headers = { Authorization: `Bearer ${token}` };
-        const get = async (path) => {
-          const res = await fetch(`${API_BASE}${path}`, { headers });
-          if (!res.ok) throw new Error(path);
-          return res.json();
-        };
-        const [bookings, reports, backJobs, customers, technicians] = await Promise.all([
-          get('/api/bookings'), get('/api/reports'), get('/api/backjobs'),
-          get('/api/users?role=customer'), get('/api/users?role=staff'),
-        ]);
-        setData({ bookings, reports, backJobs, customers, technicians });
+        setData(await loadReportData());
       } catch (err) {
         console.error('Error loading report data:', err);
         setLoadError('Could not load the data for reports. Please refresh the page.');

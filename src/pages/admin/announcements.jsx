@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import AdminLayout from './admin_layout';
 import { FiPlus } from 'react-icons/fi';
-import { API_BASE } from '../../config/api';
+import { withMessage, withFallback } from '../../services/apiClient';
+import { listAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement } from '../../services/announcementService';
 
 
 const CATEGORIES = ['Holiday', 'Closure', 'Maintenance', 'General'];
@@ -34,13 +35,7 @@ function AnnouncementManage() {
     setLoading(true);
     setError('');
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/announcements`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!res.ok) throw new Error('Failed to load announcements.');
-      const data = await res.json();
+      const data = await listAnnouncements();
       setAnnouncements(Array.isArray(data) ? data : []);
     } catch {
       setError('Could not connect to the server or load announcements.');
@@ -107,25 +102,10 @@ function AnnouncementManage() {
 
     setSaving(true);
     try {
-      const token = localStorage.getItem('token');
-      const url = editingAnnouncement
-        ? `${API_BASE}/api/announcements/${editingAnnouncement._id}`
-        : `${API_BASE}/api/announcements`;
-      const method = editingAnnouncement ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || 'Failed to save announcement.');
-      }
+      const pendingSave = editingAnnouncement
+        ? updateAnnouncement(editingAnnouncement._id, payload)
+        : createAnnouncement(payload);
+      await pendingSave.catch(withFallback('Failed to save announcement.'));
 
       await fetchAnnouncements();
       closeModal();
@@ -142,13 +122,7 @@ function AnnouncementManage() {
     if (!confirmed) return;
 
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/announcements/${editingAnnouncement._id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!res.ok) throw new Error('Failed to delete announcement.');
+      await deleteAnnouncement(editingAnnouncement._id).catch(withMessage('Failed to delete announcement.'));
 
       setAnnouncements((prev) => prev.filter((a) => a._id !== editingAnnouncement._id));
       closeModal();

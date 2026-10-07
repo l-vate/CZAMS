@@ -83,3 +83,8 @@ export async function bodyEvenIfError(promise) {
     throw err;
   }
 }
+
+// Like withFallback, but always uses `text`, even when the server sent a message of its own.
+export const withMessage = (text) => (err) => {
+  throw err instanceof ApiError ? new Error(text) : err;
+};

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { buildTechnicianStats } from '../utils/technicianStats';
-import { API_BASE } from '../config/api';
 import { orFallback } from '../services/apiClient';
-import { getTechnicianFeedback } from '../services/bookingService';
+import { listBookings, getTechnicianFeedback } from '../services/bookingService';
+import { listReports } from '../services/reportService';
 
 
 const fmtHours = (h) => (h === null || h === undefined ? 'N/A' : `${h.toFixed(1)} hrs`);
@@ -25,14 +25,10 @@ function TechnicianPerformanceModal({ technician, onClose }) {
     let cancelled = false;
     async function load() {
       try {
-        const token = localStorage.getItem('token');
-        const headers = { Authorization: `Bearer ${token}` };
-        const [bookingsRes, reportsRes] = await Promise.all([
-          fetch(`${API_BASE}/api/bookings`, { headers }),
-          fetch(`${API_BASE}/api/reports`, { headers }),
+        const [bookings, reports] = await Promise.all([
+          orFallback(listBookings(), []),
+          orFallback(listReports(), []),
         ]);
-        const bookings = bookingsRes.ok ? await bookingsRes.json() : [];
-        const reports = reportsRes.ok ? await reportsRes.json() : [];
         if (cancelled) return;
         const all = buildTechnicianStats(bookings, reports);
         setStats(all.find((t) => t.id === technician._id) || {

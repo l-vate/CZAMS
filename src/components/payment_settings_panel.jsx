@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { FiPlus, FiTrash2 } from 'react-icons/fi';
 import { usePaymentSettings } from '../utils/paymentSettings';
-import { API_BASE } from '../config/api';
+import { attempt } from '../services/apiClient';
+import { updatePaymentSettings } from '../services/paymentSettingsService';
 
 
 // Admin editor for the System Configuration Module's payment settings - payment
@@ -100,14 +101,8 @@ function PaymentSettingsPanel() {
 
     setSaving(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/payment-settings`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
+      const saved = await attempt(
+        updatePaymentSettings({
           paymentMethods: methods.map((m) => ({
             name: m.name.trim(),
             accountDetails: m.accountDetails
@@ -117,11 +112,10 @@ function PaymentSettingsPanel() {
           downPaymentPercentages: percentages.map(Number),
           seniorPwdDiscountPercent: Number(discountPercent),
         }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.message || 'Failed to save payment settings.');
+        'Failed to save payment settings.'
+      );
+      if (saved.error) {
+        setError(saved.error);
         return;
       }
 

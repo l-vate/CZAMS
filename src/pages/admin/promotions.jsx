@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import AdminLayout from './admin_layout';
-import { API_BASE } from '../../config/api';
+import { attempt, orFallback } from '../../services/apiClient';
+import { listPromos, createPromo, updatePromo, deletePromo } from '../../services/promotionService';
+import { listAllServices } from '../../services/serviceCatalogService';
 import { manilaToday, describeDiscount } from '../../utils/promos';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
 
@@ -36,16 +38,13 @@ function Promotions() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const headers = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
-
   const load = useCallback(async () => {
     try {
-      const [promosRes, servicesRes] = await Promise.all([
-        fetch(`${API_BASE}/api/promos`, { headers: headers() }),
-        fetch(`${API_BASE}/api/services/admin/all`, { headers: headers() }),
+      const [promoList, all] = await Promise.all([
+        orFallback(listPromos(), []),
+        orFallback(listAllServices(), []),
       ]);
-      setPromos(promosRes.ok ? await promosRes.json() : []);
-      const all = servicesRes.ok ? await servicesRes.json() : [];
+      setPromos(promoList);
       setServices(all.filter((s) => !s.hiddenFromDirectSelection && s.serviceType !== SERVICE_TYPE.LEAK_REPAIR));
     } catch (err) {
       console.error('Error loading promos:', err);
@@ -76,14 +75,10 @@ function Promotions() {
     setError('');
     setSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/api/promos${editingId ? `/${editingId}` : ''}`, {
-        method: editingId ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json', ...headers() },
-        body: JSON.stringify({ ...form, minUnits: form.minUnits === '' ? 1 : Number(form.minUnits), discountValue: Number(form.discountValue) }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.message || 'Could not save the promotion.');
+      const fields = { ...form, minUnits: form.minUnits === '' ? 1 : Number(form.minUnits), discountValue: Number(form.discountValue) };
+      const saved = await attempt(editingId ? updatePromo(editingId, fields) : createPromo(fields), 'Could not save the promotion.');
+      if (saved.error) {
+        setError(saved.error);
         return;
       }
       reset();
@@ -108,19 +103,15 @@ function Promotions() {
   };
 
   const toggleActive = async (promo) => {
-    const res = await fetch(`${API_BASE}/api/promos/${promo._id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', ...headers() },
-      body: JSON.stringify({ isActive: !promo.isActive }),
-    });
-    if (!res.ok) setError((await res.json()).message || 'Could not update the promotion.');
+    const updated = await attempt(updatePromo(promo._id, { isActive: !promo.isActive }), 'Could not update the promotion.');
+    if (updated.error) setError(updated.error);
     await load();
   };
 
   const remove = async (promo) => {
     if (!window.confirm(`Delete "${promo.name}"? Bookings that already used it keep their discount.`)) return;
-    const res = await fetch(`${API_BASE}/api/promos/${promo._id}`, { method: 'DELETE', headers: headers() });
-    if (!res.ok) setError((await res.json()).message || 'Could not delete the promotion.');
+    const removed = await attempt(deletePromo(promo._id), 'Could not delete the promotion.');
+    if (removed.error) setError(removed.error);
     if (editingId === promo._id) reset();
     await load();
   };

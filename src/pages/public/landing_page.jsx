@@ -8,10 +8,11 @@ import { getBusinessHoursText } from '../../config/timeBlocks';
 import { usePublicPromos, describeDiscount } from '../../utils/promos';
 import AvailabilityCalendar from '../../components/availability_calendar';
 import '../../css/public.css'
-import { API_BASE } from '../../config/api';
 import { orFallback } from '../../services/apiClient';
 import { listPublicTechnicians } from '../../services/authService';
 import { getPublicFeedbackSummary } from '../../services/bookingService';
+import { listPublicServices } from '../../services/serviceCatalogService';
+import { listPublicAnnouncements } from '../../services/announcementService';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
 import { UNIT_TYPES } from '../../constants/unitTypes';
 
@@ -57,8 +58,7 @@ function usePublicServices() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/services/public`)
-      .then((res) => (res.ok ? res.json() : []))
+    orFallback(listPublicServices(), [])
       .then((data) => setServices(Array.isArray(data) ? data : []))
       .catch(() => setServices([]))
       .finally(() => setLoaded(true));
@@ -275,8 +275,7 @@ function useAnnouncements() {
   const [announcements, setAnnouncements] = useState([]);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/announcements/public`)
-      .then((res) => (res.ok ? res.json() : []))
+    orFallback(listPublicAnnouncements(), [])
       .then((data) => setAnnouncements(Array.isArray(data) ? data : []))
       .catch(() => setAnnouncements([]));
   }, []);

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { API_BASE } from '../config/api';
-import { ApiError, attempt } from '../services/apiClient';
+import { ApiError, attempt, orFallback } from '../services/apiClient';
+import { getTeamAvailability } from '../services/teamService';
 import { assignBooking, autoAssignBooking } from '../services/bookingService';
 import { getAssignments, getMinTechnicians } from '../utils/assignments';
 import { BOOKING_STATUS } from '../constants/bookingStatus';
@@ -34,12 +34,10 @@ function AssignmentPanel({ booking, onUpdated }) {
     setRows(initialRows());
     setError('');
     if (!editable || !booking.date || !booking.time) return;
-    const token = localStorage.getItem('token');
-    fetch(
-      `${API_BASE}/api/teams/availability?date=${booking.date}&time=${encodeURIComponent(booking.time)}&excludeBookingId=${booking.bookingId}`,
-      { headers: { Authorization: `Bearer ${token}` } }
+    orFallback(
+      getTeamAvailability({ date: booking.date, time: booking.time, excludeBookingId: booking.bookingId }),
+      { teams: [], technicians: [] }
     )
-      .then((res) => (res.ok ? res.json() : { teams: [], technicians: [] }))
       .then((data) => setAvailability({ teams: data.teams || [], technicians: data.technicians || [] }))
       .catch(() => setAvailability({ teams: [], technicians: [] }));
     // eslint-disable-next-line react-hooks/exhaustive-deps

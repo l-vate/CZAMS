@@ -52,6 +52,11 @@ function ServiceManage() {
     fetchServices();
   }, []);
 
+  const filteredServices = services.filter((s) =>
+    s.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    s.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   async function fetchServices() {
     setLoading(true);
     setError('');
@@ -186,11 +191,6 @@ function ServiceManage() {
       setFormError(err.message || 'Could not delete service.');
     }
   }
-
-  const filteredServices = services.filter((s) =>
-    s.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   return (
     <AdminLayout

@@ -23,14 +23,14 @@ function AdminChat() {
     return () => clearInterval(interval);
   }, []);
 
+  const selectedConversation = conversations.find((c) => c._id === selectedId);
+
   const handleSelect = (id) => {
     setSelectedId(id);
     // Clear the unread dot locally right away - the panel's own message fetch
     // marks it read server-side; this just avoids a stale badge until next poll.
     setConversations((prev) => prev.map((c) => (c._id === id ? { ...c, unread: false } : c)));
   };
-
-  const selectedConversation = conversations.find((c) => c._id === selectedId);
 
   return (
     <AdminLayout title="Chat">

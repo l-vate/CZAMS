@@ -6,6 +6,7 @@ const Booking = require('../models/Booking');
 const Service = require('../models/Service');
 const ServiceReminder = require('../models/ServiceReminder');
 const { sendNotification } = require('../utils/notifications');
+const { effectiveCompletedAt } = require('../utils/completion');
 
 // "3-4 months since the last cleaning" - a range, not an exact number. This uses
 // the sooner end as the trigger point (a customer becomes due once 3 months have
@@ -34,8 +35,9 @@ async function runServiceReminderCheck() {
     service: { $in: cleaningServiceIds },
     status: BOOKING_STATUS.COMPLETED,
     isBackJob: { $ne: true },
-    completedAt: { $ne: null },
-  }).sort({ completedAt: -1 });
+  });
+  // Newest first by the effective completion date, so bookings with no completedAt still count.
+  cleaningBookings.sort((a, b) => effectiveCompletedAt(b) - effectiveCompletedAt(a));
 
   // Most recent qualifying cleaning per customer (bookings are already sorted
   // newest-first, so the first one seen per customer is their latest).
@@ -51,7 +53,8 @@ async function runServiceReminderCheck() {
 
   let remindersCreated = 0;
   for (const [customerId, booking] of latestByCustomer) {
-    if (booking.completedAt > dueCutoff) continue; // not due yet
+    const completedAt = effectiveCompletedAt(booking);
+    if (completedAt > dueCutoff) continue; // not due yet
 
     // One reminder per (customer, last cleaning) - skip if this cycle already flagged.
     const alreadyFlagged = await ServiceReminder.findOne({
@@ -60,14 +63,14 @@ async function runServiceReminderCheck() {
     });
     if (alreadyFlagged) continue;
 
-    const dueAt = new Date(booking.completedAt);
+    const dueAt = new Date(completedAt);
     dueAt.setMonth(dueAt.getMonth() + SERVICE_REMINDER_TRIGGER_MONTHS);
 
     await ServiceReminder.create({
       customer: customerId,
       lastCleaningBooking: booking._id,
       lastCleaningBookingId: booking.bookingId,
-      lastCleaningDate: booking.completedAt,
+      lastCleaningDate: completedAt,
       dueAt,
       status: 'Pending Notification',
     });

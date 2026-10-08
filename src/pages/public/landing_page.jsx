@@ -346,7 +346,7 @@ function LandingPage() {
             <a href="#services">SERVICES</a>
             <a href="#availability">AVAILABLE DATES</a>
           </nav>
-          <NavSearch navigate={navigate} services={services} />
+          <NavSearch navigate={navigate} services={serviceCards} />
           <button className="login-btn" onClick={() => navigate('/login')}>LOG IN</button>
         </div>
       </header>

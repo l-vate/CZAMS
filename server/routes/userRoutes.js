@@ -6,6 +6,30 @@ const User = require('../models/User');
 const auth = require('../middleware/auth');
 const { resolveClassification } = require('../utils/classification');
 const { hashPassword } = require('../utils/password');
+const { invalid, sendProblem } = require('../utils/validation');
+
+// The system must always keep at least one active admin. Returns null when the change is fine,
+// otherwise { status, message }. `target` is the account being changed, `changes` the requested
+// { role, isActive }, `actingId` the admin making the request.
+async function validateAdminSafety(target, changes, actingId) {
+  if (target.role !== ROLE.ADMIN) return null;
+
+  const losesAdminRole = changes.role !== undefined && changes.role !== ROLE.ADMIN;
+  if (losesAdminRole && String(target._id) === String(actingId)) {
+    return invalid('You cannot change your own role.');
+  }
+
+  const getsDeactivated = changes.isActive === false && target.isActive !== false;
+  if (!losesAdminRole && !getsDeactivated) return null;
+
+  const otherActiveAdmins = await User.countDocuments({ role: ROLE.ADMIN, isActive: { $ne: false }, _id: { $ne: target._id } });
+  if (otherActiveAdmins === 0) {
+    return invalid(losesAdminRole
+      ? 'This is the last active admin. Make another account an active admin before changing the role of this account.'
+      : 'This is the last active admin. Activate or create another admin before deactivating this account.');
+  }
+  return null;
+}
 
 // GET users by role (e.g., /api/users?role=staff or /api/users?role=customer)
 router.get('/', auth, async (req, res) => {
@@ -102,6 +126,13 @@ router.put('/:id', auth, async (req, res) => {
     }
 
     const { name, email, phone, address, role, isActive, clientType } = req.body;
+
+    const target = await User.findById(req.params.id);
+    if (!target) return res.status(404).json({ message: 'User not found' });
+
+    // Checked first so that the last admin gets the clearer "last active admin" message.
+    const adminProblem = await validateAdminSafety(target, { role, isActive }, req.userId);
+    if (adminProblem) return sendProblem(res, adminProblem);
 
     // An admin who deactivates their own account would lock themselves out.
     if (isActive === false && req.params.id === req.userId) {

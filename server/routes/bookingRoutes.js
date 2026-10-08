@@ -33,6 +33,7 @@ const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/que
 const { generateBookingId, createWithUniqueBookingId, BookingIdExhaustedError } = require('../utils/bookingId');
 const { invalid, sendProblem } = require('../utils/validation');
 const { readPaymentSubmission, findSameReference } = require('../utils/paymentReference');
+const { resolveRefundAmounts } = require('../utils/refundAmounts');
 const {
   ASSIGNMENT_POPULATE, getMemberIds, getLeadIds, getRoleFor, getMinTechnicians,
   memberFilter, findConflictingBooking, getBusyTechnicianIds,
@@ -1794,13 +1795,23 @@ router.patch('/:bookingId/refund', auth, upload.single('proof'), async (req, res
       return res.status(400).json({ message: 'Proof that the refund was sent is required before marking it processed.' });
     }
 
-    if (booking.refund.isSameDay) {
-      const dispatchDeduction = Number(req.body.dispatchDeduction);
-      if (isNaN(dispatchDeduction) || dispatchDeduction < 0) {
-        return res.status(400).json({ message: 'A valid dispatch/transportation deduction amount is required for a same-day cancellation.' });
-      }
-      booking.refund.dispatchDeduction = dispatchDeduction;
-      booking.refund.refundableAmount = Math.max(booking.refund.downPaymentAmount - dispatchDeduction, 0);
+    const amounts = resolveRefundAmounts({
+      amountPaid: booking.refund.downPaymentAmount,
+      isSameDay: booking.refund.isSameDay,
+      dispatchDeduction: req.body.dispatchDeduction,
+      finalAmount: req.body.finalAmount,
+      reason: req.body.adjustmentReason,
+    });
+    if (amounts.problem) return sendProblem(res, amounts.problem);
+
+    if (booking.refund.isSameDay) booking.refund.dispatchDeduction = Number(req.body.dispatchDeduction);
+    booking.refund.refundableAmount = amounts.values.finalAmount;
+    booking.refund.computedAmount = amounts.values.computedAmount;
+    booking.refund.finalAmount = amounts.values.finalAmount;
+    if (amounts.values.adjusted) {
+      booking.refund.adjustmentReason = amounts.values.adjustmentReason;
+      booking.refund.adjustedBy = req.userId;
+      booking.refund.adjustedAt = new Date();
     }
 
     booking.refund.proofFile = `/uploads/proofs/${req.file.filename}`;
@@ -1820,6 +1831,42 @@ router.patch('/:bookingId/refund', auth, upload.single('proof'), async (req, res
     const populated = await booking.populate([
       { path: 'service' },
       { path: 'customer', select: 'name email phone' },
+      { path: 'technician', select: 'name' },
+      ...ASSIGNMENT_POPULATE,
+    ]);
+
+    res.json(withWarranty(populated));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Customer: confirm the refund money arrived. Once only; it never blocks the admin and does not
+// touch a dispute flag.
+router.patch('/:bookingId/refund/received', auth, async (req, res) => {
+  try {
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId, customer: req.userId });
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    if (booking.refund?.status !== REFUND_STATUS.PROCESSED) {
+      return res.status(400).json({ message: 'This refund has not been processed yet.' });
+    }
+    if (booking.refund.receivedConfirmedAt) {
+      return res.status(400).json({ message: 'You have already confirmed this refund.' });
+    }
+
+    booking.refund.receivedConfirmedAt = new Date();
+    await booking.save();
+
+    await notifyAdmins(
+      NOTIFICATION_TYPE.REFUND_CONFIRMED,
+      `The customer confirmed they received the refund of ₱${(booking.refund.refundableAmount || 0).toLocaleString()} for booking ${booking.bookingId}.`,
+      { booking }
+    );
+
+    const populated = await booking.populate([
+      { path: 'service' },
       { path: 'technician', select: 'name' },
       ...ASSIGNMENT_POPULATE,
     ]);

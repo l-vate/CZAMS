@@ -512,6 +512,8 @@ const REFUND_STATUS_META = {
 /* ── Refund Review Modal ──────────────────────────────── */
 function RefundReviewModal({ refund, onClose, onSuccess }) {
   const [dispatchDeduction, setDispatchDeduction] = useState('');
+  const [finalAmount, setFinalAmount] = useState('');
+  const [adjustmentReason, setAdjustmentReason] = useState('');
   const [proof, setProof] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [resolvingFlag, setResolvingFlag] = useState(false);
@@ -525,8 +527,20 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
   const previewRefundable = refund.isSameDay
     ? Math.max(refund.downPaymentAmount - deductionNum, 0)
     : refund.downPaymentAmount;
+  // The admin may refund less than the computed amount, never more than the customer paid.
+  const finalNum = finalAmount === '' ? previewRefundable : Number(finalAmount);
+  const isAdjusted = finalAmount !== '' && finalNum !== previewRefundable;
+  const adjustmentReasonText = adjustmentReason.trim();
 
   const handleProcess = async () => {
+    if (finalAmount !== '' && (isNaN(finalNum) || finalNum < 0 || finalNum > refund.downPaymentAmount)) {
+      setError(`The refund must be between ₱0 and the ₱${refund.downPaymentAmount?.toLocaleString()} the customer paid.`);
+      return;
+    }
+    if (isAdjusted && (adjustmentReasonText.length < 3 || adjustmentReasonText.length > 300)) {
+      setError('Give a reason of 3 to 300 characters for changing the refund amount.');
+      return;
+    }
     if (refund.isSameDay && (dispatchDeduction === '' || isNaN(Number(dispatchDeduction)) || Number(dispatchDeduction) < 0)) {
       setError('Enter a valid dispatch/transportation deduction amount.');
       return;
@@ -542,7 +556,9 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
       await processRefund(refund.bookingId, {
         proof,
         dispatchDeduction: refund.isSameDay ? deductionNum : undefined,
-      }).catch(withFallback('Failed to process refund.'));
+        finalAmount: isAdjusted ? finalNum : undefined,
+        adjustmentReason: isAdjusted ? adjustmentReasonText : undefined,
+}).catch(withFallback('Failed to process refund.'));
 
       onSuccess?.();
       onClose();
@@ -646,6 +662,36 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
         </div>
 
         {isPending && (
+          <div className="bs-field-group">
+            <label className="bs-label" htmlFor="refund-final-amount">Amount to refund (₱) <span className="bs-label-hint">(Optional, leave blank to refund the amount above)</span></label>
+            <input
+              id="refund-final-amount"
+              type="number"
+              min="0"
+              max={refund.downPaymentAmount}
+              step="0.01"
+              className="bs-input"
+              placeholder={String(previewRefundable)}
+              value={finalAmount}
+              onChange={(e) => setFinalAmount(e.target.value)}
+            />
+            {isAdjusted && (
+              <>
+                <label className="bs-label" htmlFor="refund-adjust-reason">Reason for the change</label>
+                <textarea
+                  id="refund-adjust-reason"
+                  className="bs-textarea"
+                  rows={2}
+                  maxLength={300}
+                  value={adjustmentReason}
+                  onChange={(e) => setAdjustmentReason(e.target.value)}
+                />
+              </>
+            )}
+          </div>
+        )}
+
+        {isPending && (
           <div className="modal-upload-group">
             <label className="modal-upload-label">Proof the refund was sent</label>
             <label className="modal-file-btn">
@@ -662,6 +708,24 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
                 Required before this refund can be marked processed.
               </p>
             )}
+          </div>
+        )}
+
+        {!isPending && refund.adjustmentReason && (
+          <div className="payment-review-cell admin-payments-x14">
+            <span className="confirmation-detail-label">
+              Adjusted from ₱{refund.computedAmount?.toLocaleString()} to ₱{refund.finalAmount?.toLocaleString()} on {formatDate(refund.adjustedAt)}
+            </span>
+            <span className="confirmation-detail-value">{refund.adjustmentReason}</span>
+          </div>
+        )}
+
+        {!isPending && (
+          <div className="payment-review-cell admin-payments-x14">
+            <span className="confirmation-detail-label">Customer confirmation</span>
+            <span className="confirmation-detail-value">
+              {refund.receivedConfirmedAt ? `Received, confirmed on ${formatDate(refund.receivedConfirmedAt)}` : 'Not confirmed yet'}
+            </span>
           </div>
         )}
 

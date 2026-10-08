@@ -10,6 +10,16 @@ export function getMe() {
   return request('/api/users/me');
 }
 
+// Admin: a customer's history (latest bookings, counts, total paid, feedback given).
+export function getCustomerHistory(userId) {
+  return request(`/api/users/${userId}/history`);
+}
+
+// The logged-in customer's own history summary.
+export function getMyHistory() {
+  return request('/api/users/me/history');
+}
+
 export function createUser(fields) {
   return request('/api/users', { method: 'POST', body: fields });
 }

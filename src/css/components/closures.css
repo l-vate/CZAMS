@@ -43,3 +43,9 @@
 .assignment-history-list { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 8px; }
 .assignment-history-list li { display: grid; gap: 2px; font-size: 0.875rem; }
 .assignment-history-when { font-weight: 600; }
+
+/* Booking history in the admin account modal and on the customer profile. */
+.customer-history-counts { margin: 4px 0 8px; font-weight: 600; }
+.customer-history-table { width: 100%; font-size: 0.8125rem; }
+.customer-history-feedback-list { margin: 4px 0 0; padding-left: 18px; font-size: 0.875rem; }
+.customer-history-feedback { margin: 2px 0; font-size: 0.875rem; }

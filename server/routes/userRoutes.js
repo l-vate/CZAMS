@@ -8,6 +8,9 @@ const { resolveClassification } = require('../utils/classification');
 const { hashPassword, generateTemporaryPassword } = require('../utils/password');
 const { invalid, sendProblem } = require('../utils/validation');
 const { readProfileFields } = require('../utils/profileFields');
+const Booking = require('../models/Booking');
+const BackJob = require('../models/BackJob');
+const { summarizeHistory } = require('../utils/customerHistory');
 
 const CLIENT_TYPES = ['Residential', 'Commercial'];
 const clientTypeProblem = (value) => (CLIENT_TYPES.includes(value) ? null : invalid('Client type must be Residential or Commercial.'));
@@ -78,6 +81,39 @@ router.get('/me', auth, async (req, res) => {
       userObj.classification = await resolveClassification(user);
     }
     res.json(userObj);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// A customer's history summary: latest bookings, counts, total paid and the feedback they gave.
+async function loadHistory(customerId) {
+  const [bookings, backJobClaims] = await Promise.all([
+    Booking.find({ customer: customerId }).populate('service', 'name price unitTypePricing').lean(),
+    BackJob.countDocuments({ customer: customerId }),
+  ]);
+  return summarizeHistory(bookings, backJobClaims);
+}
+
+// The logged-in customer's own history, for the profile page. Always the caller's own id.
+router.get('/me/history', auth, async (req, res) => {
+  try {
+    if (req.userRole !== ROLE.CUSTOMER) return res.status(403).json({ message: 'Forbidden' });
+    res.json(await loadHistory(req.userId));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: any customer's history, for the account modal.
+router.get('/:id/history', auth, async (req, res) => {
+  try {
+    if (req.userRole !== ROLE.ADMIN) return res.status(403).json({ message: 'Forbidden' });
+    const customer = await User.findOne({ _id: req.params.id, role: ROLE.CUSTOMER }).select('_id');
+    if (!customer) return res.status(404).json({ message: 'Customer not found' });
+    res.json(await loadHistory(customer._id));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });

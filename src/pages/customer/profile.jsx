@@ -4,6 +4,7 @@ import CustomerLayout from './customer_layout';
 import { FiUser, FiX, FiCamera, FiEdit2, FiMail, FiCalendar, FiPhone, FiMapPin, FiLock, FiTrash2 } from 'react-icons/fi';
 import { API_BASE } from '../../config/api';
 import { ApiError } from '../../services/apiClient';
+import CustomerHistory from '../../components/customer_history';
 import { uploadProfilePhoto, updateProfile, changePassword, deleteAccount } from '../../services/authService';
 
 /* ── Change Password Modal ─────────────────────────────── */
@@ -429,6 +430,12 @@ const [user, setUser] = useState(loadUserFromStorage);
               </div>
             </div>
           )}
+        </div>
+
+        {/* Booking history summary */}
+        <div className="profile-card">
+          <h3 className="section-title">My Booking History</h3>
+          <CustomerHistory />
         </div>
 
         {/* Account Settings */}

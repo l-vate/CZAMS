@@ -288,3 +288,5 @@
     page-break-inside: avoid;
   }
 }
+
+.statement-outstanding { margin: 12px 0 4px; font-size: 1rem; }

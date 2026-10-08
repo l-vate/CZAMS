@@ -17,6 +17,7 @@ export function csvCell(value) {
 export function buildCsv(report) {
   const lines = [report.columns, ...report.rows];
   if (report.totalRow) lines.push(report.totalRow);
+  if (report.footerRows) lines.push(...report.footerRows);
   return UTF8_BOM + lines.map((row) => row.map(csvCell).join(',')).join('\r\n') + '\r\n';
 }
 

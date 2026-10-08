@@ -38,3 +38,9 @@ test('the file name carries the report, the period and the date basis', async ()
   assert.equal(csvFilename('payments', { fromKey: '2026-09-01', toKey: '2026-09-30', dateBasis: 'requested' }),
     'CZAMS_payments_2026-09-01_2026-09-30_requested.csv');
 });
+
+test('footer rows (such as the outstanding balance) are written after the totals row', async () => {
+  const { buildCsv } = await load();
+  const csv = buildCsv({ columns: ['A', 'B'], rows: [['1', '2']], totalRow: ['Total', '2'], footerRows: [['Outstanding balance', '5']] });
+  assert.deepEqual(csv.slice(1).split('\r\n'), ['A,B', '1,2', 'Total,2', 'Outstanding balance,5', '']);
+});

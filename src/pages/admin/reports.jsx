@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import AdminLayout from './admin_layout';
 import ReportSheet from '../../components/report_sheet';
+import StatementOfAccount from '../../components/statement_of_account';
 import { loadReportData } from '../../services/analyticsService';
 import { toLocalDateKey } from '../../utils/date';
 import { csvFilename, downloadCsv } from '../../utils/csvExport';
@@ -26,6 +27,7 @@ function defaultRange() {
 // screen, then print it or save it as a PDF. Nothing here is a new data source; it reads
 // the same admin endpoints the other pages use.
 function Reports() {
+  const [tab, setTab] = useState('reports'); // 'reports' | 'statement'
   const [reportType, setReportType] = useState('requests');
   const [filters, setFilters] = useState({ ...defaultRange(), clientType: 'all', dateBasis: 'service' });
   const [data, setData] = useState(null);
@@ -85,6 +87,15 @@ meta: {
     <AdminLayout title="Reports">
       <h1 className="dashboard-welcome report-no-print">Reports</h1>
 
+      <div className="report-tabs report-no-print">
+        <button type="button" className={`filter-pill ${tab === 'reports' ? 'filter-pill--active' : ''}`} onClick={() => setTab('reports')}>Reports</button>
+        <button type="button" className={`filter-pill ${tab === 'statement' ? 'filter-pill--active' : ''}`} onClick={() => setTab('statement')}>Statement of Account</button>
+      </div>
+
+      {tab === 'statement' && data && <StatementOfAccount data={data} />}
+      {tab === 'statement' && !data && !loadError && <p className="report-no-print">Loading data...</p>}
+
+      {tab === 'reports' && (<>
       <section className="report-controls report-no-print">
         <div className="report-control">
           <label htmlFor="report-type">Report</label>
@@ -158,6 +169,8 @@ meta: {
       )}
 
       {generated && <ReportSheet report={generated.report} meta={generated.meta} />}
+      </>)}
+      {tab === 'statement' && loadError && <p className="ma-form-error report-no-print">{loadError}</p>}
     </AdminLayout>
   );
 }

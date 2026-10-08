@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminLayout from './admin_layout';
 import UserDetailsModal from '../../components/user_details_modal';
+import GeneratedPasswordNotice from '../../components/generated_password_notice';
 import TechnicianPerformanceModal from '../../components/technician_performance_modal';
 import { getFilterPillStyle } from '../../utils/statusColors';
 import { ApiError } from '../../services/apiClient';
@@ -295,6 +296,7 @@ function ManageAccounts() {
               <div className="ma-success-banner admin-manage-accounts-x3">
                 ✓ {justAdded.name} was successfully registered as a{' '}
                 {justAdded.role === ROLE.STAFF ? 'Technician' : 'Client'} ({justAdded._id}).
+                {justAdded.generatedPassword && <GeneratedPasswordNotice password={justAdded.generatedPassword} />}
               </div>
             )}
 

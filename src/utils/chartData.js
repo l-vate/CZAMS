@@ -18,7 +18,8 @@ function monthStart(date) {
 // `from`/`to` (Dates) set the span; without them it is the last `months` calendar months
 // ending this month. A free back-job repair visit is a redo of an already counted
 // service, not a new request, so it is not counted.
-export function getRequestsPerMonth(bookings, { from, to, months = 6 } = {}) {
+// `dateOf` says which date puts a booking in a month (default: when it was requested).
+export function getRequestsPerMonth(bookings, { from, to, months = 6, dateOf = (b) => b.createdAt } = {}) {
   const end = monthStart(to || new Date());
   let start = from ? monthStart(from) : new Date(end.getFullYear(), end.getMonth() - (months - 1), 1);
   // never more than a year of bars
@@ -36,8 +37,10 @@ export function getRequestsPerMonth(bookings, { from, to, months = 6 } = {}) {
   }
 
   bookings.forEach((b) => {
-    if (b.isBackJob || !b.createdAt) return;
-    const created = new Date(b.createdAt);
+    const when = dateOf(b);
+    if (b.isBackJob || !when) return;
+    // A plain YYYY-MM-DD (a service date) is read as that local day, not as UTC midnight.
+    const created = /^\d{4}-\d{2}-\d{2}$/.test(when) ? new Date(...when.split('-').map((n, i) => (i === 1 ? Number(n) - 1 : Number(n)))) : new Date(when);
     const bucket = buckets.find((x) => x.key === `${created.getFullYear()}-${created.getMonth()}`);
     if (bucket) bucket.value += 1;
   });

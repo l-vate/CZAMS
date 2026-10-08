@@ -325,7 +325,7 @@ function ReportCard({ report, onViewReport }) {
           <ClockIcon />
           <span>Submitted: {formatDate(report.submittedAt)}</span>
         </div>
-        {report.laborHours && (
+        {report.laborHours > 0 && (
           <div className="report-card__hours">
             <span>⏱ {report.laborHours} hrs</span>
           </div>

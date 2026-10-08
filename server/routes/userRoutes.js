@@ -8,6 +8,9 @@ const { resolveClassification } = require('../utils/classification');
 const { hashPassword, generateTemporaryPassword } = require('../utils/password');
 const { invalid, sendProblem } = require('../utils/validation');
 
+const CLIENT_TYPES = ['Residential', 'Commercial'];
+const clientTypeProblem = (value) => (CLIENT_TYPES.includes(value) ? null : invalid('Client type must be Residential or Commercial.'));
+
 // The system must always keep at least one active admin. Returns null when the change is fine,
 // otherwise { status, message }. `target` is the account being changed, `changes` the requested
 // { role, isActive }, `actingId` the admin making the request.
@@ -100,6 +103,11 @@ router.post('/', auth, async (req, res) => {
     }
 
     const accountRole = role || ROLE.CUSTOMER;
+    if (clientType !== undefined && accountRole === ROLE.CUSTOMER) {
+      const problem = clientTypeProblem(clientType);
+      if (problem) return sendProblem(res, problem);
+    }
+
     // No password typed (a walk-in): make a random one and hand it back once, in this response only.
     const typedPassword = typeof password === 'string' && password.length > 0 ? password : null;
     const plainPassword = typedPassword || generateTemporaryPassword();
@@ -113,7 +121,8 @@ router.post('/', auth, async (req, res) => {
       address: address ? address.trim() : '',
       role: accountRole,
       isActive: true,
-      ...(clientType !== undefined ? { clientType } : {}),
+      // Only customers have a client type.
+      ...(clientType !== undefined && accountRole === ROLE.CUSTOMER ? { clientType } : {}),
     });
 
     res.status(201).json({ ...newUser.toObject(), ...(typedPassword ? {} : { generatedPassword: plainPassword }) });
@@ -144,6 +153,12 @@ router.put('/:id', auth, async (req, res) => {
       return res.status(400).json({ message: 'You cannot deactivate your own account.' });
     }
 
+    const finalRole = role !== undefined ? role : target.role;
+    if (clientType !== undefined && finalRole === ROLE.CUSTOMER) {
+      const problem = clientTypeProblem(clientType);
+      if (problem) return sendProblem(res, problem);
+    }
+
     const update = {};
     if (name !== undefined) update.name = name.trim();
     if (email !== undefined) update.email = email.trim().toLowerCase();
@@ -151,7 +166,7 @@ router.put('/:id', auth, async (req, res) => {
     if (address !== undefined) update.address = address.trim();
     if (role !== undefined) update.role = role;
     if (isActive !== undefined) update.isActive = isActive;
-    if (clientType !== undefined) update.clientType = clientType;
+    if (clientType !== undefined && finalRole === ROLE.CUSTOMER) update.clientType = clientType;
 
     const updatedUser = await User.findByIdAndUpdate(req.params.id, update, {
       new: true,

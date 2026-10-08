@@ -25,6 +25,8 @@ const discountSchema = new mongoose.Schema({
     rejectionReason: String,
     requestedAt: Date,
     reviewedAt: Date,
+    // The admin who approved or rejected it (for a walk-in, the admin who approved it on the spot).
+    reviewedBy: { type: String, ref: 'User' },
 }, { _id: false });
 
 const bookingSchema = new mongoose.Schema({

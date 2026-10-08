@@ -14,6 +14,9 @@ const ASSIGNMENT_POPULATE = [
   { path: 'assignments.lead', select: 'name' },
   { path: 'assignments.helper', select: 'name' },
   { path: 'assignments.team', select: 'name' },
+  // Not an assignment, but every route that returns a booking already spreads this list, so the
+  // name of the admin who reviewed the discount rides along with it.
+  { path: 'discount.reviewedBy', select: 'name' },
 ];
 
 // The booking's assignments as plain { team, lead, helper } with string ids. A booking with

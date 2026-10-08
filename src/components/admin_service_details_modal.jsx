@@ -484,7 +484,12 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                         </div>
                                         <div className="sdm-list-row">
                                             <span>Status</span>
-                                            <span className="sdm-list-value">{booking.discount.status}</span>
+                                            <span className="sdm-list-value">
+                                                {booking.discount.status}
+                                                {booking.discount.reviewedBy?.name && ['Approved', 'Rejected'].includes(booking.discount.status)
+                                                    ? ` by ${booking.discount.reviewedBy.name}`
+                                                    : ''}
+                                            </span>
                                         </div>
                                         {booking.discount.status === 'Approved' && (
                                             <div className="sdm-list-row">

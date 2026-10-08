@@ -421,7 +421,7 @@ router.post('/', auth, (req, res, next) => {
         ? {
             type: discountType, idFile: discountIdPath, status: 'Approved',
             percent: Number(paymentSettings.seniorPwdDiscountPercent ?? 20),
-            dpPaidBeforeApproval: 0, requestedAt: now, reviewedAt: now,
+            dpPaidBeforeApproval: 0, requestedAt: now, reviewedAt: now, reviewedBy: req.userId,
           }
         : { type: discountType, idFile: discountIdPath, status: 'Pending', requestedAt: now };
     }
@@ -777,6 +777,7 @@ router.patch('/:bookingId/discount/approve', auth, async (req, res) => {
     booking.discount.dpPaidBeforeApproval = dpPaid;
     booking.discount.rejectionReason = undefined;
     booking.discount.reviewedAt = new Date();
+    booking.discount.reviewedBy = req.userId;
     booking.discount.amount = getSeniorDiscountAmount(booking);
 
     if (booking.isCommercial) {
@@ -836,6 +837,7 @@ router.patch('/:bookingId/discount/reject', auth, async (req, res) => {
     booking.discount.status = 'Rejected';
     booking.discount.rejectionReason = reason;
     booking.discount.reviewedAt = new Date();
+    booking.discount.reviewedBy = req.userId;
     await booking.save();
 
     await sendNotification(

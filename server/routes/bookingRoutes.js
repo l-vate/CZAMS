@@ -743,6 +743,50 @@ router.patch('/:bookingId/pay-balance', auth, upload.single('proof'), async (req
   }
 });
 
+// Customer: ask for the Senior Citizen / PWD discount on a booking they already made. Same ID
+// upload and same admin approval flow as asking at booking time. Allowed while the booking is
+// Pending or Approved, and only if there is no request yet or the last one was rejected.
+router.patch('/:bookingId/discount/request', auth, upload.single('discountId'), async (req, res) => {
+  try {
+    const { discountType } = req.body;
+    if (discountType !== 'Senior' && discountType !== 'PWD') {
+      return res.status(400).json({ message: 'Choose either Senior Citizen or PWD for the discount.' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ message: 'Upload a photo of a valid ID to request the Senior Citizen / PWD discount.' });
+    }
+
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId, customer: req.userId }).populate('service');
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    if (![BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED].includes(booking.status)) {
+      return res.status(400).json({ message: 'A discount can only be requested while the booking is Pending or Approved.' });
+    }
+    if (['Pending', 'Approved'].includes(booking.discount?.status)) {
+      return res.status(400).json({ message: 'This booking already has a discount request.' });
+    }
+
+    booking.discount = { type: discountType, idFile: `/uploads/proofs/${req.file.filename}`, status: 'Pending', requestedAt: new Date() };
+    await booking.save();
+
+    await notifyAdmins(
+      NOTIFICATION_TYPE.DISCOUNT_REQUESTED,
+      `Booking ${booking.bookingId}: the customer requested the ${discountType === 'PWD' ? 'PWD' : 'Senior Citizen'} discount. Review the uploaded ID.`,
+      { booking }
+    );
+
+    const populated = await booking.populate([
+      { path: 'service' },
+      { path: 'technician', select: 'name' },
+      ...ASSIGNMENT_POPULATE,
+    ]);
+    res.json(withWarranty(populated));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Admin: approve a pending Senior Citizen / PWD discount. The rate comes from Payment
 // Settings at this moment and is frozen on the booking. Nothing is refunded
 // automatically: if a down payment was already verified, it is recorded so the balance

@@ -65,6 +65,15 @@ export function rescheduleBooking(bookingId, { date, time }) {
   return request(`${booking(bookingId)}/reschedule`, { method: 'PATCH', body: { date, time } });
 }
 
+// Ask for the Senior Citizen / PWD discount on an existing booking. `type` is 'Senior' | 'PWD',
+// `idFile` the photo of a valid ID.
+export function requestDiscount(bookingId, { type, idFile }) {
+  const formData = new FormData();
+  formData.append('discountType', type);
+  formData.append('discountId', idFile);
+  return upload(`${booking(bookingId)}/discount/request`, formData, { method: 'PATCH' });
+}
+
 export function submitFeedback(bookingId, { rating, text }) {
   return request(`${booking(bookingId)}/feedback`, { method: 'PATCH', body: { rating, text } });
 }

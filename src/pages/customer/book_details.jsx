@@ -14,7 +14,7 @@ import {
   FiUser, FiAlertTriangle, FiX, FiArrowRight, FiStar, FiPhone,
 } from 'react-icons/fi';
 import { API_BASE } from '../../config/api';
-import { ApiError, orFallback, bodyEvenIfError } from '../../services/apiClient';
+import { ApiError, orFallback } from '../../services/apiClient';
 import { getBooking, cancelBooking, rescheduleBooking, submitFeedback, requestDiscount } from '../../services/bookingService';
 import DiscountOption from '../../components/discount_option';
 import { flagRefund } from '../../services/refundService';
@@ -342,22 +342,31 @@ function BookDetails() {
   const [submittingBackJob, setSubmittingBackJob] = useState(false);
   const [backJob, setBackJob] = useState(null);
   const [bookingNotification, setBookingNotification] = useState(null);
+  const [loadError, setLoadError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    bodyEvenIfError(getBooking(bookingId))
+    getBooking(bookingId)
       .then((data) => {
         setBooking(data);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
-  }, [bookingId]);
+      .catch((err) => {
+        // A failed load is an error state, never data: the error reply is not shown as a booking.
+        setLoadError(err instanceof ApiError && err.status === 404 ? 'Booking not found.' : 'Could not load this booking. Try again.');
+        setLoading(false);
+      });
+  }, [bookingId, reloadKey]);
 
-  // Check whether an issue was already reported for this booking (Back Job Handling)
+  // Check whether an issue was already reported for this booking (Back Job Handling). Only a
+  // completed booking can have one, so no other booking asks.
+  const isCompleted = booking?.status === BOOKING_STATUS.COMPLETED;
   useEffect(() => {
+    if (!isCompleted) return;
     orFallback(getBackJobForBooking(bookingId), null)
       .then((data) => setBackJob(data))
       .catch(() => {});
-  }, [bookingId]);
+  }, [bookingId, isCompleted]);
 
   // Real in-app notification created alongside this booking (Notification Sender) -
   // the confirmation screen's "In-app notification" card reflects this, not a static label.
@@ -383,7 +392,10 @@ function BookDetails() {
   if (!booking) {
     return (
       <CustomerLayout title="Booking Details">
-        <p className="customer-book-details-x5">Booking not found.</p>
+        <p className="customer-book-details-x5">{loadError || 'Booking not found.'}</p>
+        {loadError && loadError !== 'Booking not found.' && (
+          <button type="button" className="bs-next-btn" onClick={() => { setLoadError(''); setLoading(true); setReloadKey((k) => k + 1); }}>Try again</button>
+        )}
       </CustomerLayout>
     );
   }

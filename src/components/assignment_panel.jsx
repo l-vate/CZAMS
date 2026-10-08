@@ -26,7 +26,8 @@ function AssignmentPanel({ booking, onUpdated }) {
   const initialRows = () => (currentSelections().length > 0 ? currentSelections() : ['']);
   const [rows, setRows] = useState(initialRows());
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  const [reason, setReason] = useState('');
+const [error, setError] = useState('');
   const [autoNote, setAutoNote] = useState(null); // { bookingId, text }
   const [suggestedDates, setSuggestedDates] = useState([]);
 
@@ -56,7 +57,7 @@ function AssignmentPanel({ booking, onUpdated }) {
     setError('');
     try {
       const assignments = chosen.map((v) => (v.startsWith('team:') ? { teamId: v.slice(5) } : { technicianId: v.slice(5) }));
-      const saved = await attempt(assignBooking(booking.bookingId, assignments), 'Could not save the assignment.');
+      const saved = await attempt(assignBooking(booking.bookingId, assignments, reason.trim()), 'Could not save the assignment.');
       if (saved.error) {
         setError(saved.error);
         return;
@@ -172,6 +173,16 @@ function AssignmentPanel({ booking, onUpdated }) {
                 {saving ? 'Saving...' : 'Save assignment'}
               </button>
             </div>
+            <input
+              type="text"
+              className="ma-input"
+              aria-label="Reason for the change"
+              placeholder="Reason for the change (optional, kept in the assignment history)"
+              maxLength={200}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              disabled={saving}
+            />
             {needsOnlyOne ? (
               <p className="sdm-muted assignment-panel-x7">This service needs 1 technician, so a single technician is allowed.</p>
             ) : (

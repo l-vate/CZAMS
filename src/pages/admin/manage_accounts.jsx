@@ -28,6 +28,7 @@ function RegisterForm({ type, onCancel, onSubmit }) {
     phone: '',
     address: '',
     specialization: '',
+    clientType: 'Residential',
   });
   const [error, setError] = useState('');
 
@@ -91,6 +92,16 @@ function RegisterForm({ type, onCancel, onSubmit }) {
                 onChange={update('phone')}
               />
             </div>
+
+            {!isTech && (
+              <div className="ma-field-group">
+                <label className="ma-label">Client Type</label>
+                <select className="ma-input" value={values.clientType} onChange={update('clientType')}>
+                  <option value="Residential">Residential</option>
+                  <option value="Commercial">Commercial</option>
+                </select>
+              </div>
+            )}
 
             {isTech && (
               <div className="ma-field-group">
@@ -190,6 +201,7 @@ function ManageAccounts() {
         phone: values.phone.trim(),
         address: values.address.trim(),
         role: registerRole,
+        ...(registerRole === ROLE.CUSTOMER ? { clientType: values.clientType } : {}),
       });
       setUsers((prev) => [newAccount, ...prev]);
       setJustAdded(newAccount);

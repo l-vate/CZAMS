@@ -20,6 +20,7 @@ import { ApiError, orFallback } from '../../services/apiClient';
 import { createBooking } from '../../services/bookingService';
 import GeneratedPasswordNotice from '../../components/generated_password_notice';
 import PaymentSettingsUnavailable from '../../components/payment_settings_unavailable';
+import { REFERENCE_MAX, referenceError } from '../../utils/paymentReference';
 import { listUsers, createUser } from '../../services/userService';
 import { ROLE } from '../../constants/roles';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
@@ -387,6 +388,24 @@ function WalkInPaymentStep({ form, setForm, services, isReturnCustomer, isCommer
                 <input type="file" accept="image/*,.pdf" className="admin-walk-in-booking-x4" onChange={handleProofChange} />
               </label>
             </div>
+
+            <div className="bs-field-group">
+              <label className="bs-label" htmlFor="walkin-reference">
+                Reference Number <span className="bs-label-hint">(Optional - the GCash or bank transfer reference)</span>
+              </label>
+              <input
+                id="walkin-reference"
+                type="text"
+                className="bs-input"
+                maxLength={REFERENCE_MAX}
+                autoComplete="off"
+                value={form.referenceNumber || ''}
+                onChange={(e) => setForm({ ...form, referenceNumber: e.target.value })}
+              />
+              {form.referenceNumber && form.referenceNumber.trim() && referenceError(form.referenceNumber) && (
+                <p className="admin-walk-in-booking-x4">{referenceError(form.referenceNumber)}</p>
+              )}
+            </div>
           </>
         )}
       </div>
@@ -524,6 +543,7 @@ function WalkInBooking() {
       formData.append('paymentMode', form.paymentMode || '');
       formData.append('paymentMode2', form.paymentMode2 || '');
       if (form.proofFileObj) formData.append('proof', form.proofFileObj);
+      if (form.referenceNumber && form.referenceNumber.trim()) formData.append('referenceNumber', form.referenceNumber.trim());
       if (isCommercial && form.poNumber) formData.append('poNumber', form.poNumber);
       if (isCommercial && form.paymentTermsDays) formData.append('paymentTermsDays', form.paymentTermsDays);
 

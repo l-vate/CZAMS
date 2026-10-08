@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { formatPeso } from '../utils/bookingPricing';
+import { needsReference, normalizeReference, referenceError, REFERENCE_MAX } from '../utils/paymentReference';
 
 function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], onClose, onSubmit }) {
   const basePrice = form.basePrice || 0;
@@ -22,6 +23,14 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
 
   const [proof, setProof] = useState(null);
   const [fileError, setFileError] = useState('');
+  const [referenceNumber, setReferenceNumber] = useState('');
+
+  // GCash and Bank Transfer need the proof file and the reference number together. Cash needs
+  // neither. A booking with no mode on record keeps the old rule (proof required, no reference).
+  const requiresReference = needsReference(selectedModeName);
+  const proofRequired = requiresReference || !selectedModeName;
+  const referenceProblem = requiresReference ? referenceError(referenceNumber) : '';
+  const canSubmit = (!proofRequired || !!proof) && !referenceProblem;
 
   const MAX_SIZE = 5 * 1024 * 1024; // 5MB
   const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
@@ -111,17 +120,41 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
               {fileError}
             </p>
           )}
-          {!proof && !fileError && (
+          {proofRequired && !proof && !fileError && (
             <p className="payment-modal-x2">
               Proof of payment is required to submit.
             </p>
           )}
         </div>
 
+        {requiresReference && (
+          <div className="modal-upload-group">
+            <label className="modal-upload-label" htmlFor="payment-reference">
+              Reference number of your {selectedModeName} payment:
+            </label>
+            <input
+              id="payment-reference"
+              type="text"
+              className="bs-input"
+              maxLength={REFERENCE_MAX}
+              autoComplete="off"
+              value={referenceNumber}
+              onChange={(e) => setReferenceNumber(e.target.value)}
+              placeholder="e.g. 1234567890"
+            />
+            {referenceProblem && referenceNumber !== '' && (
+              <p className="payment-modal-x2">{referenceProblem}</p>
+            )}
+            {referenceNumber === '' && (
+              <p className="payment-modal-x2">The reference number is required to submit.</p>
+            )}
+          </div>
+        )}
+
         <button
           className="modal-submit-btn"
-          onClick={() => onSubmit({ proof })}
-          disabled={!proof}
+          onClick={() => onSubmit({ proof, referenceNumber: requiresReference ? normalizeReference(referenceNumber) : undefined })}
+          disabled={!canSubmit}
         >
           SUBMIT
         </button>

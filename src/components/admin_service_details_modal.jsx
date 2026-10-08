@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getBookingLineItems, getPaymentBreakdown, formatPeso } from '../utils/bookingPricing';
 import AssignmentPanel from './assignment_panel';
+import PaymentReference from './payment_reference';
 import { getMemberIds } from '../utils/assignments';
 import { isWithinQuezonCity } from '../utils/serviceArea';
 import { API_BASE } from '../config/api';
@@ -728,6 +729,12 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                         ) : (
                                             'N/A'
                                         )}
+                                    </span>
+                                </div>
+                                <div className="sdm-list-row">
+                                    <span>Reference Number</span>
+                                    <span className="sdm-list-value">
+                                        <PaymentReference booking={booking} />
                                     </span>
                                 </div>
                                 <div className="sdm-list-row">

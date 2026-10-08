@@ -513,8 +513,8 @@ function Step4({ form, setForm, services, isReturnCustomer, paymentMethods, down
   // Everything else the admin has configured (GCash, Bank Transfer, ...) is fair game.
   const firstPaymentMethods = paymentMethods.filter((m) => !['Cash', 'Cheque'].includes(m.name));
 
-const handleSubmitPayment = ({ proof }) => {
-    setForm({ ...form, paymentStatus: PAYMENT_STATUS.TO_VERIFY, proofFile: proof?.name || null, proofFileObj: proof || null });
+const handleSubmitPayment = ({ proof, referenceNumber }) => {
+    setForm({ ...form, paymentStatus: PAYMENT_STATUS.TO_VERIFY, proofFile: proof?.name || null, proofFileObj: proof || null, referenceNumber: referenceNumber || '' });
     setShowModal(false);
   };
 
@@ -651,6 +651,12 @@ const handleSubmitPayment = ({ proof }) => {
                 <span>Proof of Payment</span>
                 <span className="cost-link">{form.proofFile || '-'}</span>
               </div>
+              {form.referenceNumber && (
+                <div className="cost-row">
+                  <span>Reference Number</span>
+                  <span>{form.referenceNumber}</span>
+                </div>
+              )}
 
               <button
                 className="pay-down-btn"
@@ -831,6 +837,7 @@ const canNext = () => {
         formData.append('isActivelyLeaking', form.isActivelyLeaking);
       }
       if (form.proofFileObj) formData.append('proof', form.proofFileObj);
+      if (form.referenceNumber) formData.append('referenceNumber', form.referenceNumber);
       if (form.discountType) {
         formData.append('discountType', form.discountType);
         if (form.discountIdFileObj) formData.append('discountId', form.discountIdFileObj);

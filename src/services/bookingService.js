@@ -1,4 +1,4 @@
-import { request, upload } from './apiClient';
+import { request, upload, orFallback } from './apiClient';
 
 const booking = (bookingId) => `/api/bookings/${bookingId}`;
 
@@ -50,6 +50,13 @@ export function getBusyTechnicians(date, time) {
 // ---- One booking ----
 export function getBooking(bookingId) {
   return request(booking(bookingId));
+}
+
+// Admin: other bookings with the same payment reference number, as [{ bookingId, reference }].
+// The badge is only a warning, so a failed lookup shows no badge.
+export async function getReferenceDuplicates(bookingId) {
+  const result = await orFallback(request(`${booking(bookingId)}/reference-duplicates`), { duplicates: [] });
+  return result.duplicates || [];
 }
 
 // `formData` is the multipart booking form (with optional proof and discount ID files).

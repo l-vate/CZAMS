@@ -93,7 +93,9 @@ function Billings() {
             paymentMode2: b.paymentMode2,
             proofFile: b.proofFile,
             balanceProofFile: b.balanceProofFile,
-            paymentStatus: b.paymentStatus,
+            referenceNumber: b.referenceNumber,
+            balanceReferenceNumber: b.balanceReferenceNumber,
+paymentStatus: b.paymentStatus,
             balancePaymentStatus: b.balancePaymentStatus,
             downPaymentPercent: dpPercent,
             balancePaid: b.balancePaid,
@@ -191,9 +193,9 @@ function Billings() {
     return 'var(--danger)';
   };
 
-  const handlePaymentSubmit = async ({ proof }) => {
+  const handlePaymentSubmit = async ({ proof, referenceNumber }) => {
     try {
-      await submitPayment(selectedBill.id, proof);
+      await submitPayment(selectedBill.id, proof, referenceNumber);
 
       setShowPayment(false);
       fetchBookings();
@@ -202,9 +204,9 @@ function Billings() {
     }
   };
 
-  const handleBalancePaymentSubmit = async ({ proof }) => {
+  const handleBalancePaymentSubmit = async ({ proof, referenceNumber }) => {
     try {
-      await submitBalancePayment(selectedBill.id, proof);
+      await submitBalancePayment(selectedBill.id, proof, referenceNumber);
 
       setShowPayment(false);
       fetchBookings();

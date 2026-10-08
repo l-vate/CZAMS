@@ -3,6 +3,7 @@ import { API_BASE } from '../config/api';
 import { ApiError, attempt } from '../services/apiClient';
 import { updateUser, updateClassification } from '../services/userService';
 import { ROLE } from '../constants/roles';
+import CustomerHistory from './customer_history';
 import { POSITION_MAX, POSITION_SUGGESTIONS, COMPANY_NAME_MAX, REPRESENTATIVE_NAME_MAX } from '../constants/profileFields';
 
 function Icon({ name }) {
@@ -379,6 +380,15 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
                     <p className="sdm-row-value">
                       {new Date(user.createdAt).toLocaleDateString()}
                     </p>
+                  </div>
+                </div>
+              )}
+
+              {user.role === ROLE.CUSTOMER && (
+                <div className="sdm-row">
+                  <div>
+                    <span className="sdm-row-label">HISTORY</span>
+                    <CustomerHistory userId={user._id} />
                   </div>
                 </div>
               )}

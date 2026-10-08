@@ -12,18 +12,15 @@ const BackJob = require('../models/BackJob');
 const Report = require('../models/Report');
 const { getWarrantyStatus } = require('../utils/warranty');
 const { notifyAdmins } = require('../utils/notifications');
-const { createWithUniqueBookingId, BookingIdExhaustedError } = require('../utils/bookingId');
+const {
+  createWithUniqueBookingId, BookingIdExhaustedError,
+  createWithUniqueBackJobId, BackJobIdExhaustedError, isBackJobIdCollision,
+} = require('../utils/bookingId');
 
 // "Typically 2-3 days after the report is filed" - the paper gives a range, not an
 // exact number; this picks the sooner end as the auto-scheduled default. Admin can
 // always reschedule afterward through the normal reschedule/admin-update routes.
 const BACK_JOB_SCHEDULE_LEAD_DAYS = 2;
-
-function generateBackJobId() {
-  const year = new Date().getFullYear();
-  const rand = Math.floor(1000 + Math.random() * 9000);
-  return `BJ-${year}-${rand}`;
-}
 
 function toDateString(d) {
   const yyyy = d.getFullYear();
@@ -66,54 +63,63 @@ router.post('/', auth, async (req, res) => {
     const warranty = getWarrantyStatus(originalBooking);
     const withinWarranty = !!warranty.applicable && !!warranty.workmanship?.active;
 
-    const backJobId = generateBackJobId();
-    let resultingBooking = null;
+    // The free repair visit (when covered) and the back job record share the back job ID. If the
+    // ID turns out to be taken, the visit made for it is removed and both are made again with a new one.
+    const { backJob, resultingBooking } = await createWithUniqueBackJobId(async (backJobId) => {
+      let resultingBooking = null;
 
-    if (withinWarranty) {
-      const scheduledDate = new Date();
-      scheduledDate.setDate(scheduledDate.getDate() + BACK_JOB_SCHEDULE_LEAD_DAYS);
+      if (withinWarranty) {
+        const scheduledDate = new Date();
+        scheduledDate.setDate(scheduledDate.getDate() + BACK_JOB_SCHEDULE_LEAD_DAYS);
 
-      resultingBooking = await createWithUniqueBookingId((bookingId) => Booking.create({
-        bookingId,
-        customer: originalBooking.customer,
-        service: originalBooking.service._id,
-        units: (originalBooking.units || []).map(({ type, quantity, brandModel }) => ({ type, quantity, brandModel })),
-        unitTypes: originalBooking.unitTypes,
-        brandModel: originalBooking.brandModel,
-        problemDescription: issueDescription.trim(),
-        date: toDateString(scheduledDate),
-        time: originalBooking.time || TIME_BLOCK.MORNING,
-        address: originalBooking.address,
-        contactNumber: originalBooking.contactNumber,
-        downPaymentPercent: 0,
-        paymentStatus: PAYMENT_STATUS.UNPAID,
-        clientSuppliedUnit: originalBooking.clientSuppliedUnit,
-        isBackJob: true,
-        backJobId,
-      }));
-    }
+        resultingBooking = await createWithUniqueBookingId((bookingId) => Booking.create({
+          bookingId,
+          customer: originalBooking.customer,
+          service: originalBooking.service._id,
+          units: (originalBooking.units || []).map(({ type, quantity, brandModel }) => ({ type, quantity, brandModel })),
+          unitTypes: originalBooking.unitTypes,
+          brandModel: originalBooking.brandModel,
+          problemDescription: issueDescription.trim(),
+          date: toDateString(scheduledDate),
+          time: originalBooking.time || TIME_BLOCK.MORNING,
+          address: originalBooking.address,
+          contactNumber: originalBooking.contactNumber,
+          downPaymentPercent: 0,
+          paymentStatus: PAYMENT_STATUS.UNPAID,
+          clientSuppliedUnit: originalBooking.clientSuppliedUnit,
+          isBackJob: true,
+          backJobId,
+        }));
+      }
 
-    const backJob = await BackJob.create({
-      backJobId,
-      originalBookingId: originalBooking.bookingId,
-      originalBooking: originalBooking._id,
-      customer: req.userId,
-      issueDescription: issueDescription.trim(),
-      warrantyCheck: {
-        withinWarranty,
-        coverageType: warranty.type || null,
-        checkedAt: new Date(),
-      },
-      status: withinWarranty ? BACK_JOB_STATUS.SCHEDULED : BACK_JOB_STATUS.NOT_COVERED,
-      resultingBooking: resultingBooking?._id || null,
-      resultingBookingId: resultingBooking?.bookingId || null,
+      try {
+        const backJob = await BackJob.create({
+          backJobId,
+          originalBookingId: originalBooking.bookingId,
+          originalBooking: originalBooking._id,
+          customer: req.userId,
+          issueDescription: issueDescription.trim(),
+          warrantyCheck: {
+            withinWarranty,
+            coverageType: warranty.type || null,
+            checkedAt: new Date(),
+          },
+          status: withinWarranty ? BACK_JOB_STATUS.SCHEDULED : BACK_JOB_STATUS.NOT_COVERED,
+          resultingBooking: resultingBooking?._id || null,
+          resultingBookingId: resultingBooking?.bookingId || null,
+        });
+        return { backJob, resultingBooking };
+      } catch (err) {
+        if (resultingBooking && isBackJobIdCollision(err)) await Booking.deleteOne({ _id: resultingBooking._id });
+        throw err;
+      }
     });
 
     await notifyAdmins(
       NOTIFICATION_TYPE.BACKJOB_FILED,
       withinWarranty
-        ? `Back job ${backJobId} filed on booking ${originalBooking.bookingId}: WITHIN warranty (${warranty.type}). A free repair visit was scheduled for ${resultingBooking.date}.`
-        : `Back job ${backJobId} filed on booking ${originalBooking.bookingId}: NOT covered by warranty. Needs your review.`,
+        ? `Back job ${backJob.backJobId} filed on booking ${originalBooking.bookingId}: WITHIN warranty (${warranty.type}). A free repair visit was scheduled for ${resultingBooking.date}.`
+        : `Back job ${backJob.backJobId} filed on booking ${originalBooking.bookingId}: NOT covered by warranty. Needs your review.`,
       { booking: originalBooking }
     );
 
@@ -121,7 +127,7 @@ router.post('/', auth, async (req, res) => {
     res.status(201).json(populated);
   } catch (err) {
     console.error(err);
-    if (err instanceof BookingIdExhaustedError) return res.status(500).json({ message: err.message });
+    if (err instanceof BookingIdExhaustedError || err instanceof BackJobIdExhaustedError) return res.status(500).json({ message: err.message });
     res.status(500).json({ message: 'Server error' });
   }
 });

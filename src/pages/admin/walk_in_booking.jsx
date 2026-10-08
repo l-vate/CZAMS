@@ -18,6 +18,7 @@ import { usePaymentSettings, getDownPaymentOptions, getDefaultDownPaymentPercent
 import { FiCheck, FiArrowLeft, FiArrowRight, FiUserPlus } from 'react-icons/fi';
 import { ApiError, orFallback } from '../../services/apiClient';
 import { createBooking } from '../../services/bookingService';
+import GeneratedPasswordNotice from '../../components/generated_password_notice';
 import { listUsers, createUser } from '../../services/userService';
 import { ROLE } from '../../constants/roles';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
@@ -100,6 +101,7 @@ function CustomerStep({ customers, loadingCustomers, selectedCustomer, onSelectC
             <p className="walkin-selected-customer-meta">
               {selectedCustomer.email} · {selectedCustomer.phone || 'No phone on file'}
             </p>
+            {selectedCustomer.generatedPassword && <GeneratedPasswordNotice password={selectedCustomer.generatedPassword} />}
           </div>
           <button type="button" className="bs-back-btn" onClick={() => onSelectCustomer(null)}>
             Change

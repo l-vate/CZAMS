@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 const { resolveClassification } = require('../utils/classification');
-const { hashPassword } = require('../utils/password');
+const { hashPassword, generateTemporaryPassword } = require('../utils/password');
 const { invalid, sendProblem } = require('../utils/validation');
 
 // The system must always keep at least one active admin. Returns null when the change is fine,
@@ -99,19 +99,24 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ message: 'Email already exists' });
     }
 
+    const accountRole = role || ROLE.CUSTOMER;
+    // No password typed (a walk-in): make a random one and hand it back once, in this response only.
+    const typedPassword = typeof password === 'string' && password.length > 0 ? password : null;
+    const plainPassword = typedPassword || generateTemporaryPassword();
+
     const newUser = await User.create({
       _id: crypto.randomUUID(),
       name: name ? name.trim() : '',
       email: email.trim().toLowerCase(),
-      password: await hashPassword(password || 'DefaultPassword123!'),
+      password: await hashPassword(plainPassword),
       phone: phone ? phone.trim() : '',
       address: address ? address.trim() : '',
-      role: role || ROLE.CUSTOMER,
+      role: accountRole,
       isActive: true,
       ...(clientType !== undefined ? { clientType } : {}),
     });
 
-    res.status(201).json(newUser);
+    res.status(201).json({ ...newUser.toObject(), ...(typedPassword ? {} : { generatedPassword: plainPassword }) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });

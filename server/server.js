@@ -26,6 +26,7 @@ app.use('/api/chat', require('./routes/chatRoutes'));
 app.use('/api/teams', require('./routes/teamRoutes'));
 app.use('/api/promos', require('./routes/promoRoutes'));
 app.use('/api/availability', require('./routes/availabilityRoutes'));
+app.use('/api/closures', require('./routes/closureRoutes'));
 
 const { startServiceReminderSchedule } = require('./jobs/serviceReminderJob');
 startServiceReminderSchedule();

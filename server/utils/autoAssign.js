@@ -14,6 +14,7 @@ const { ROLE } = require('../constants/roles');
 const Team = require('../models/Team');
 const User = require('../models/User');
 const Booking = require('../models/Booking');
+const Closure = require('../models/Closure');
 const { ACTIVE_STATUSES, getMemberIds, getMinTechnicians } = require('./assignments');
 const { manilaTodayKey } = require('./timeBlocks');
 
@@ -137,16 +138,17 @@ function pickAssignment({
 }
 
 /**
- * Up to `limit` later dates (Sundays skipped, the shop is closed) on which someone is free in
- * the same time block. busyByDate maps a date key to the set of busy technician ids.
+ * Up to `limit` later dates (Sundays and the admin's closure dates skipped, the shop is closed)
+ * on which someone is free in the same time block. busyByDate maps a date key to the set of busy
+ * technician ids; closedDates is a Set of closure date keys.
  */
 function findNextFreeDates({
-  minTechnicians, teams, technicians, afterDateKey, busyByDate, limit = 3, searchDays = 60,
+  minTechnicians, teams, technicians, afterDateKey, busyByDate, closedDates = new Set(), limit = 3, searchDays = 60,
 }) {
   const found = [];
   for (let i = 1; i <= searchDays && found.length < limit; i += 1) {
     const key = addDays(afterDateKey, i);
-    if (isSunday(key)) continue;
+    if (isSunday(key) || closedDates.has(key)) continue;
     const busy = busyByDate.get(key) || new Set();
     const someoneFree = minTechnicians <= 1
       ? technicians.some((t) => !busy.has(t._id))
@@ -191,6 +193,7 @@ async function proposeAssignment(booking) {
     getMemberIds(b).forEach((id) => busyByDate.get(b.date).add(id));
   });
   const busyIds = busyByDate.get(booking.date) || new Set();
+  const closedDates = new Set((await Closure.find({ date: { $gte: today, $lte: horizon } }).select('date').lean()).map((c) => c.date));
 
   const decision = pickAssignment({
     minTechnicians, teams, technicians, busyIds,
@@ -203,7 +206,7 @@ async function proposeAssignment(booking) {
   return {
     ...decision,
     suggestedDates: findNextFreeDates({
-      minTechnicians, teams, technicians, afterDateKey: booking.date, busyByDate,
+      minTechnicians, teams, technicians, afterDateKey: booking.date, busyByDate, closedDates,
     }),
   };
 }

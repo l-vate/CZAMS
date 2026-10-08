@@ -16,6 +16,7 @@ import {
 import { API_BASE } from '../../config/api';
 import { ApiError, orFallback } from '../../services/apiClient';
 import { getBooking, cancelBooking, rescheduleBooking, submitFeedback, requestDiscount } from '../../services/bookingService';
+import ClosureDateInput from '../../components/closure_date_input';
 import DiscountOption from '../../components/discount_option';
 import { flagRefund, confirmRefundReceived } from '../../services/refundService';
 import { getBackJobForBooking, reportBackJob } from '../../services/backJobService';
@@ -126,13 +127,7 @@ function RescheduleModal({ booking, onClose, onSubmit, submitting }) {
 
         <div className="bs-field-group">
           <label className="bs-label">New Date</label>
-          <input
-            type="date"
-            className="bs-input"
-            min={minDate}
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
+          <ClosureDateInput min={minDate} value={date} onChange={setDate} />
           <p className="customer-book-details-x1">
             Earliest available date is {new Date(minDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.
           </p>

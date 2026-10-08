@@ -10,6 +10,7 @@ const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const Team = require('../models/Team');
 const User = require('../models/User');
 const Booking = require('../models/Booking');
+const Closure = require('../models/Closure');
 const { ACTIVE_STATUSES, getMemberIds } = require('./assignments');
 const { TIME_BLOCKS, manilaTodayKey } = require('./timeBlocks');
 
@@ -28,17 +29,20 @@ const isSunday = (key) => new Date(`${key}T00:00:00Z`).getUTCDay() === 0;
 const KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 // Returns [{ date, status, morning, afternoon }] for every day from `from` to `to` (inclusive).
-// status: 'open' | 'limited' (one block open) | 'full' | 'closed' (Sunday) | 'too-soon' | 'past'
+// status: 'open' | 'limited' (one block open) | 'full' | 'closed' (Sunday) | 'shop-closed' (a closure
+// the admin added, with its `reason`) | 'too-soon' | 'past'
 async function getAvailability(from, to) {
   const today = manilaTodayKey();
   const firstBookable = addDays(today, MIN_LEAD_DAYS);
 
-  const [teams, technicians, bookings] = await Promise.all([
+  const [teams, technicians, bookings, closures] = await Promise.all([
     Team.find({ isActive: true }).select('lead helper'),
     User.find({ role: ROLE.STAFF, isActive: true }).select('_id'),
     Booking.find({ status: { $in: ACTIVE_STATUSES }, date: { $gte: from, $lte: to } })
       .select('date time status technician assignments'),
+    Closure.find({ date: { $gte: from, $lte: to } }).select('date reason').lean(),
   ]);
+  const closureReason = new Map(closures.map((c) => [c.date, c.reason]));
 
   const activeIds = new Set(technicians.map((t) => t._id));
   const usableTeams = teams.filter((t) => activeIds.has(t.lead) && activeIds.has(t.helper));
@@ -46,6 +50,7 @@ async function getAvailability(from, to) {
   const days = [];
   for (let key = from; key <= to; key = addDays(key, 1)) {
     if (key < today) { days.push({ date: key, status: 'past' }); continue; }
+    if (closureReason.has(key)) { days.push({ date: key, status: 'shop-closed', reason: closureReason.get(key) }); continue; }
     if (isSunday(key)) { days.push({ date: key, status: 'closed' }); continue; }
     if (key < firstBookable) { days.push({ date: key, status: 'too-soon' }); continue; }
 

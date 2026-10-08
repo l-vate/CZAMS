@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
 import PaymentModal from '../../components/payment_modal';
+import ClosureDateInput from '../../components/closure_date_input';
 import DiscountOption from '../../components/discount_option';
 import { usePublicPromos } from '../../utils/promos';
 import { getCostBreakdown } from '../../utils/costBreakdown';
@@ -414,12 +415,10 @@ export function Step3({ form, setForm, technicians }) {
       <div className="bs-two-col">
         <div className="bs-field-group">
           <label className="bs-label">Date &amp; Time</label>
-          <input
-            type="date"
-            className="bs-input"
+          <ClosureDateInput
             min={minDate}
-            value={form.date || ''}
-            onChange={(e) => setForm({ ...form, date: e.target.value })}
+            value={form.date}
+            onChange={(date) => setForm({ ...form, date })}
           />
           <p className="customer-book-service-x2">
             Earliest available date is {new Date(minDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.

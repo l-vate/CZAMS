@@ -34,6 +34,8 @@ const { generateBookingId, createWithUniqueBookingId, BookingIdExhaustedError } 
 const { invalid, sendProblem } = require('../utils/validation');
 const { readPaymentSubmission, findSameReference } = require('../utils/paymentReference');
 const { resolveRefundAmounts } = require('../utils/refundAmounts');
+const Closure = require('../models/Closure');
+const { closureProblemFor } = require('../utils/closures');
 const {
   ASSIGNMENT_POPULATE, getMemberIds, getLeadIds, getRoleFor, getMinTechnicians,
   memberFilter, findConflictingBooking, getBusyTechnicianIds,
@@ -295,6 +297,9 @@ router.post('/', auth, (req, res, next) => {
         message: 'Selected date must be at least 3 days from today.'
       });
     }
+
+    const closedOnCreate = await closureProblemFor(Closure, date);
+    if (closedOnCreate) return sendProblem(res, closedOnCreate);
 
     if (!TIME_BLOCKS.includes(time)) {
       return res.status(400).json({ message: 'Time must be Morning or Afternoon.' });
@@ -997,6 +1002,9 @@ router.patch('/:bookingId/reschedule', auth, async (req, res) => {
       });
     }
 
+    const closedOnReschedule = await closureProblemFor(Closure, date);
+    if (closedOnReschedule) return sendProblem(res, closedOnReschedule);
+
     if (!TIME_BLOCKS.includes(time)) {
       return res.status(400).json({ message: 'Time must be Morning or Afternoon.' });
     }
@@ -1311,6 +1319,10 @@ router.patch('/:bookingId/reschedule/approve', auth, async (req, res) => {
     if (booking.rescheduleRequest?.status !== 'Pending') {
       return res.status(400).json({ message: 'No pending reschedule request.' });
     }
+
+    // The shop may have been closed on that date after the customer asked.
+    const closedOnApprove = await closureProblemFor(Closure, booking.rescheduleRequest.requestedDate);
+    if (closedOnApprove) return sendProblem(res, closedOnApprove);
 
     const conflict = await findConflictingBooking(
       getMemberIds(booking),
@@ -1983,6 +1995,9 @@ router.patch('/:bookingId/disruption/reschedule', auth, async (req, res) => {
     if (!TIME_BLOCKS.includes(time)) {
       return res.status(400).json({ message: 'Time must be Morning or Afternoon.' });
     }
+
+    const closedOnDisruption = await closureProblemFor(Closure, date);
+    if (closedOnDisruption) return sendProblem(res, closedOnDisruption);
 
     const conflict = await findConflictingBooking(getMemberIds(booking), date, time, booking.bookingId);
     if (conflict) {

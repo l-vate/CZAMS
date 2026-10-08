@@ -3,6 +3,8 @@ import { useLocation } from 'react-router-dom';
 import AdminLayout from './admin_layout';
 import PersonFilterBanner from '../../components/person_filter_banner';
 import PaymentReference from '../../components/payment_reference';
+import ReceiptModal from '../../components/receipt_modal';
+import { buildReceiptForm } from '../../utils/receiptData';
 import { getBookingLineItems, getUnitsSummary } from '../../utils/bookingPricing';
 import { getMemberNames } from '../../utils/assignments';
 import { getFilterPillStyle } from '../../utils/statusColors';
@@ -263,7 +265,7 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
   );
 }
 
-function PaymentCard({ payment, onReviewRequest, onReviewRefund }) {
+function PaymentCard({ payment, onReviewRequest, onReviewRefund, onViewInvoice }) {
   const isFlagged = Boolean(payment.refund?.customerFlag?.flagged && !payment.refund?.customerFlag?.resolved);
   const isPendingRefund = payment.status === 'cancelled_refund_pending';
   const isProcessedRefund = payment.status === 'refunded';
@@ -301,6 +303,13 @@ function PaymentCard({ payment, onReviewRequest, onReviewRefund }) {
       </div>
 
       <div className="payment-card__action">
+        <button
+          type="button"
+          className="payment-card__link payment-card__review-btn"
+          onClick={() => onViewInvoice(payment)}
+        >
+          Invoice
+        </button>
         {isPendingRefund || isProcessedRefund ? (
           <button
             type="button"
@@ -329,6 +338,7 @@ function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
   const [activeFilter, setActiveFilter] = useState('all');
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [selectedRefund, setSelectedRefund] = useState(null);
+  const [invoicePayment, setInvoicePayment] = useState(null);
   const [rawBookings, setRawBookings] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -472,6 +482,7 @@ function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
                 payment={payment}
                 onReviewRequest={handleReviewRequest}
                 onReviewRefund={handleReviewRefund}
+                onViewInvoice={setInvoicePayment}
               />
             ))
           )}
@@ -491,6 +502,21 @@ function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
           refund={selectedRefund}
           onClose={() => setSelectedRefund(null)}
           onSuccess={fetchBookings}
+        />
+      )}
+
+      {invoicePayment && (
+        <ReceiptModal
+          form={buildReceiptForm(invoicePayment.raw, {
+            customerName: invoicePayment.raw.customer?.name,
+            contactNumber: invoicePayment.raw.contactNumber || invoicePayment.raw.customer?.phone,
+          })}
+          booking={invoicePayment.raw}
+          billTo={{
+            companyName: invoicePayment.raw.customer?.companyName,
+            representativeName: invoicePayment.raw.customer?.representativeName,
+          }}
+          onClose={() => setInvoicePayment(null)}
         />
       )}
     </>

@@ -1407,6 +1407,14 @@
 }
 
 .receipt-brand-icon { font-size: 22px; }
+.receipt-logo { height: 44px; width: auto; flex: none; }
+
+/* On a phone the title block drops under the brand instead of squeezing the company name. */
+@media (max-width: 480px) {
+  .receipt-top-row { flex-direction: column; gap: 10px; }
+  .receipt-invoice-meta,
+  .receipt-invoice-meta p { text-align: left; }
+}
 
 .receipt-invoice-meta { text-align: right; }
 

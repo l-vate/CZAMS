@@ -7,6 +7,7 @@ const fs = require('fs');
 const { hashPassword, verifyPassword } = require('../utils/password');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { readProfileFields } = require('../utils/profileFields');
 const auth = require('../middleware/auth');
 
 // Simple ID generator matching your ADM001-style pattern
@@ -47,6 +48,10 @@ router.post('/register', async (req, res) => {
   try {
     const { firstName, lastName, email, phone, password, clientType } = req.body;
 
+    // Company details only apply to a Commercial customer; anything else is ignored.
+    const profile = readProfileFields({ role: ROLE.CUSTOMER, clientType, body: req.body });
+    if (profile.problem) return res.status(profile.problem.status).json({ message: profile.problem.message });
+
     const existing = await User.findOne({ email });
     if (existing) {
       return res.status(400).json({ message: 'Email already registered' });
@@ -70,7 +75,8 @@ router.post('/register', async (req, res) => {
       // Only meaningful for customer accounts - staff/admin registrations ignore it
       // and keep the schema default.
       ...(mappedRole === ROLE.CUSTOMER && clientType === 'Commercial' ? { clientType: 'Commercial' } : {}),
-    });
+      ...profile.values,
+});
 
     const token = jwt.sign(
       { id: user._id, role: user.role },
@@ -259,7 +265,7 @@ router.delete('/account', auth, async (req, res) => {
 // GET all active technicians (for client-side booking dropdown)
 router.get('/technicians', async (req, res) => {
   try {
-    const technicians = await User.find({ role: ROLE.STAFF, isActive: true }).select('_id name');
+    const technicians = await User.find({ role: ROLE.STAFF, isActive: true }).select('_id name position');
     res.json(technicians);
   } catch (err) {
     console.error(err);

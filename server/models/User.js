@@ -21,6 +21,13 @@ const userSchema = new mongoose.Schema({
   // rot unset the way serviceType did - see CZAMS_Build_Order.md #11), admin can
   // correct it afterward. Only meaningful for customer accounts.
   clientType: { type: String, enum: ['Residential', 'Commercial'], default: 'Residential' },
+
+  // Staff only: a free-text job title (the form suggests Technician, Secretary and Cashier).
+  position: { type: String, maxlength: 40 },
+
+  // Commercial customers only, shown on their invoice. Accounts made before these existed have none.
+  companyName: { type: String, maxlength: 80 },
+  representativeName: { type: String, maxlength: 80 },
 }, { timestamps: true, collection: 'users' });
 
 module.exports = mongoose.model('User', userSchema);

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { FiClipboard, FiMapPin, FiCreditCard, FiEye, FiEyeOff } from 'react-icons/fi';
 import '../../css/public.css'
 import { ApiError } from '../../services/apiClient';
+import { COMPANY_NAME_MAX, REPRESENTATIVE_NAME_MAX } from '../../constants/profileFields';
 import { register } from '../../services/authService';
 
 /* ── Static Content ─────────────────────────────────────── */
@@ -19,6 +20,8 @@ function RegisterPage() {
     email: '',
     phone: '',
     clientType: 'Residential',
+    companyName: '',
+    representativeName: '',
     password: '',
     confirmPassword: '',
   });
@@ -158,6 +161,33 @@ const handleSubmit = async (e) => {
                 <option value="Commercial">Commercial</option>
               </select>
             </div>
+
+            {formData.clientType === 'Commercial' && (
+              <>
+                <div className="form-group">
+                  <label htmlFor="companyName">Company name</label>
+                  <input
+                    type="text"
+                    id="companyName"
+                    name="companyName"
+                    maxLength={COMPANY_NAME_MAX}
+                    value={formData.companyName}
+                    onChange={handleChange}
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="representativeName">Representative name</label>
+                  <input
+                    type="text"
+                    id="representativeName"
+                    name="representativeName"
+                    maxLength={REPRESENTATIVE_NAME_MAX}
+                    value={formData.representativeName}
+                    onChange={handleChange}
+                  />
+                </div>
+              </>
+            )}
 
             <div className="form-group">
               <label htmlFor="password">Password</label>

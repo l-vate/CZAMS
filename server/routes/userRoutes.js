@@ -7,6 +7,7 @@ const auth = require('../middleware/auth');
 const { resolveClassification } = require('../utils/classification');
 const { hashPassword, generateTemporaryPassword } = require('../utils/password');
 const { invalid, sendProblem } = require('../utils/validation');
+const { readProfileFields } = require('../utils/profileFields');
 
 const CLIENT_TYPES = ['Residential', 'Commercial'];
 const clientTypeProblem = (value) => (CLIENT_TYPES.includes(value) ? null : invalid('Client type must be Residential or Commercial.'));
@@ -108,6 +109,13 @@ router.post('/', auth, async (req, res) => {
       if (problem) return sendProblem(res, problem);
     }
 
+    const profile = readProfileFields({
+      role: accountRole,
+      clientType: accountRole === ROLE.CUSTOMER ? (clientType || 'Residential') : undefined,
+      body: req.body,
+    });
+    if (profile.problem) return sendProblem(res, profile.problem);
+
     // No password typed (a walk-in): make a random one and hand it back once, in this response only.
     const typedPassword = typeof password === 'string' && password.length > 0 ? password : null;
     const plainPassword = typedPassword || generateTemporaryPassword();
@@ -123,6 +131,7 @@ router.post('/', auth, async (req, res) => {
       isActive: true,
       // Only customers have a client type.
       ...(clientType !== undefined && accountRole === ROLE.CUSTOMER ? { clientType } : {}),
+      ...profile.values,
     });
 
     res.status(201).json({ ...newUser.toObject(), ...(typedPassword ? {} : { generatedPassword: plainPassword }) });
@@ -159,7 +168,14 @@ router.put('/:id', auth, async (req, res) => {
       if (problem) return sendProblem(res, problem);
     }
 
-    const update = {};
+    const profile = readProfileFields({
+      role: finalRole,
+      clientType: finalRole === ROLE.CUSTOMER ? (clientType !== undefined ? clientType : target.clientType) : undefined,
+      body: req.body,
+    });
+    if (profile.problem) return sendProblem(res, profile.problem);
+
+    const update = { ...profile.values };
     if (name !== undefined) update.name = name.trim();
     if (email !== undefined) update.email = email.trim().toLowerCase();
     if (phone !== undefined) update.phone = phone.trim();

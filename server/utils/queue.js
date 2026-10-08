@@ -35,7 +35,7 @@ function serialized(task) {
 
 const POPULATE = [
   { path: 'service' },
-  { path: 'customer', select: 'name email phone clientType' },
+  { path: 'customer', select: 'name email phone clientType companyName representativeName' },
   { path: 'technician', select: 'name' },
   ...ASSIGNMENT_POPULATE,
 ];

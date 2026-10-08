@@ -452,7 +452,7 @@ export function Step3({ form, setForm, technicians }) {
         >
           <option value="">No preference</option>
           {availableTechnicians.map((t) => (
-            <option key={t._id} value={t._id}>{t.name}</option>
+            <option key={t._id} value={t._id}>{t.name}{t.position ? ` (${t.position})` : ''}</option>
           ))}
         </select>
         {form.date && form.time && busyTechIds.length > 0 && (

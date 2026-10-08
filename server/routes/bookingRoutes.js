@@ -881,7 +881,7 @@ router.patch('/:bookingId/discount/approve', auth, async (req, res) => {
 
     const populated = await booking.populate([
       { path: 'service' },
-      { path: 'customer', select: 'name email phone' },
+      { path: 'customer', select: 'name email phone clientType companyName representativeName' },
       { path: 'technician', select: 'name' },
       ...ASSIGNMENT_POPULATE,
     ]);
@@ -930,7 +930,7 @@ router.patch('/:bookingId/discount/reject', auth, async (req, res) => {
 
     const populated = await booking.populate([
       { path: 'service' },
-      { path: 'customer', select: 'name email phone' },
+      { path: 'customer', select: 'name email phone clientType companyName representativeName' },
       { path: 'technician', select: 'name' },
       ...ASSIGNMENT_POPULATE,
     ]);
@@ -1279,7 +1279,7 @@ router.get('/', auth, async (req, res) => {
 
     const bookings = await Booking.find()
       .populate('service')
-      .populate('customer', 'name email phone clientType')
+      .populate('customer', 'name email phone clientType companyName representativeName')
       .populate('technician', 'name').populate(ASSIGNMENT_POPULATE)
       .sort({ createdAt: -1 });
 
@@ -1343,7 +1343,7 @@ router.patch('/:bookingId/reschedule/approve', auth, async (req, res) => {
 
     const populated = await booking.populate([
       { path: 'service' },
-      { path: 'customer', select: 'name email phone' },
+      { path: 'customer', select: 'name email phone clientType companyName representativeName' },
       { path: 'technician', select: 'name' },
       ...ASSIGNMENT_POPULATE,
     ]);
@@ -1383,7 +1383,7 @@ router.patch('/:bookingId/reschedule/deny', auth, async (req, res) => {
 
     const populated = await booking.populate([
       { path: 'service' },
-      { path: 'customer', select: 'name email phone' },
+      { path: 'customer', select: 'name email phone clientType companyName representativeName' },
       { path: 'technician', select: 'name' },
       ...ASSIGNMENT_POPULATE,
     ]);
@@ -1481,7 +1481,7 @@ async function performAssignment(booking, requested) {
 
 const ASSIGN_RESPONSE_POPULATE = [
   { path: 'service' },
-  { path: 'customer', select: 'name email phone' },
+  { path: 'customer', select: 'name email phone clientType companyName representativeName' },
   { path: 'technician', select: 'name' },
   ...ASSIGNMENT_POPULATE,
 ];
@@ -1761,7 +1761,7 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
 
     const populated = await booking.populate([
       { path: 'service' },
-      { path: 'customer', select: 'name email phone' },
+      { path: 'customer', select: 'name email phone clientType companyName representativeName' },
       { path: 'technician', select: 'name' },
       ...ASSIGNMENT_POPULATE,
     ]);
@@ -1830,7 +1830,7 @@ router.patch('/:bookingId/refund', auth, upload.single('proof'), async (req, res
 
     const populated = await booking.populate([
       { path: 'service' },
-      { path: 'customer', select: 'name email phone' },
+      { path: 'customer', select: 'name email phone clientType companyName representativeName' },
       { path: 'technician', select: 'name' },
       ...ASSIGNMENT_POPULATE,
     ]);
@@ -1947,7 +1947,7 @@ router.patch('/:bookingId/refund/flag/resolve', auth, async (req, res) => {
 
     const populated = await booking.populate([
       { path: 'service' },
-      { path: 'customer', select: 'name email phone' },
+      { path: 'customer', select: 'name email phone clientType companyName representativeName' },
       { path: 'technician', select: 'name' },
       ...ASSIGNMENT_POPULATE,
     ]);
@@ -2007,7 +2007,7 @@ router.patch('/:bookingId/disruption/reschedule', auth, async (req, res) => {
 
     const populated = await booking.populate([
       { path: 'service' },
-      { path: 'customer', select: 'name email phone' },
+      { path: 'customer', select: 'name email phone clientType companyName representativeName' },
       { path: 'technician', select: 'name' },
       ...ASSIGNMENT_POPULATE,
     ]);
@@ -2050,7 +2050,7 @@ router.patch('/:bookingId/extension/approve', auth, async (req, res) => {
 
     const populated = await booking.populate([
       { path: 'service' },
-      { path: 'customer', select: 'name email phone' },
+      { path: 'customer', select: 'name email phone clientType companyName representativeName' },
       { path: 'technician', select: 'name' },
       ...ASSIGNMENT_POPULATE,
     ]);
@@ -2092,7 +2092,7 @@ router.patch('/:bookingId/extension/deny', auth, async (req, res) => {
 
     const populated = await booking.populate([
       { path: 'service' },
-      { path: 'customer', select: 'name email phone' },
+      { path: 'customer', select: 'name email phone clientType companyName representativeName' },
       { path: 'technician', select: 'name' },
       ...ASSIGNMENT_POPULATE,
     ]);

@@ -8,6 +8,7 @@ import { getFilterPillStyle } from '../../utils/statusColors';
 import { ApiError, orFallback } from '../../services/apiClient';
 import { listTechnicianJobs, reportDisruption, requestExtension } from '../../services/bookingService';
 import { getAssignedNames } from '../../utils/assignments';
+import AssignmentHistory from '../../components/assignment_history';
 import { JOB_SORT, JOB_SORT_OPTIONS, sortJobs } from '../../utils/jobSort';
 import { BOOKING_STATUS, BOOKING_STATUS_VALUES } from '../../constants/bookingStatus';
 
@@ -101,6 +102,8 @@ function JobDetailsModal({ job, onClose }) {
             </div>
           </div>
         )}
+
+        <AssignmentHistory bookingId={job.bookingId} />
 
         <button className="bs-back-btn staff-my-jobs-x2" onClick={onClose}>
           Close

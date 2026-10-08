@@ -4,6 +4,7 @@ import AssignmentPanel from './assignment_panel';
 import PaymentReference from './payment_reference';
 import ClosureDateInput from './closure_date_input';
 import ReceiptModal from './receipt_modal';
+import AssignmentHistory from './assignment_history';
 import { buildReceiptForm } from '../utils/receiptData';
 import { getMemberIds } from '../utils/assignments';
 import { isWithinQuezonCity } from '../utils/serviceArea';
@@ -931,7 +932,8 @@ const [report, setReport] = useState(null);
                     </div>
 
                     <AssignmentPanel booking={booking} onUpdated={onUpdated} />
-                </div>
+                    <AssignmentHistory bookingId={booking.bookingId} admin refreshKey={JSON.stringify(booking.assignments || [])} />
+</div>
 
                 <div className="sdm-footer">
                     {canCancel && (

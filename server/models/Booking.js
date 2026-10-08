@@ -77,6 +77,20 @@ const bookingSchema = new mongoose.Schema({
       helper: { type: String, ref: 'User', default: null },
       _id: false,
     }],
+    // Every admin change of who does the job, oldest first. Appended on the first assignment and on
+    // every reassignment, never rewritten; bookings assigned before this existed have none. Not
+    // selected unless asked for, so it only leaves the server through the assignment-history route.
+    assignmentHistory: {
+      type: [{
+        previous: [{ lead: String, helper: String, _id: false }],
+        next: [{ lead: String, helper: String, _id: false }],
+        changedBy: String,
+        changedAt: Date,
+        reason: String,
+        _id: false,
+      }],
+      select: false,
+    },
     // The technician the customer asked for when booking. A preference only: it assigns
     // nobody and blocks nobody. Auto-assign uses it as a tie-breaker.
     requestedTechnician: { type: String, ref: 'User' },

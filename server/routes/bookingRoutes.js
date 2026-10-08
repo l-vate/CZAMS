@@ -38,8 +38,9 @@ const Closure = require('../models/Closure');
 const { closureProblemFor } = require('../utils/closures');
 const {
   ASSIGNMENT_POPULATE, getMemberIds, getLeadIds, getRoleFor, getMinTechnicians,
-  memberFilter, findConflictingBooking, getBusyTechnicianIds,
+  memberFilter, findConflictingBooking, getBusyTechnicianIds, getAssignments,
 } = require('../utils/assignments');
+const { readReason, buildHistoryEntry, viewHistory, idsIn } = require('../utils/assignmentHistory');
 const { resolveClassification } = require('../utils/classification');
 
 const { TIME_BLOCKS } = require('../utils/timeBlocks');
@@ -1413,7 +1414,7 @@ router.patch('/:bookingId/reschedule/deny', auth, async (req, res) => {
 // the previous assignment, so it is also how a booking is reassigned. Every member of every
 // team must be free in the booking's date and time block, and a single technician is only
 // allowed for a service that needs just one. Returns { error: { status, message } } or { ok: true }.
-async function performAssignment(booking, requested) {
+async function performAssignment(booking, requested, { changedBy, reason } = {}) {
   if ([BOOKING_STATUS.COMPLETED, BOOKING_STATUS.CANCELLED].includes(booking.status)) {
     return { error: { status: 400, message: 'A completed or cancelled booking cannot be reassigned.' } };
   }
@@ -1470,9 +1471,16 @@ async function performAssignment(booking, requested) {
   }
 
   const before = new Set(getMemberIds(booking));
+  const previousAssignments = getAssignments(booking);
   booking.assignments = resolved;
   booking.technician = resolved[0].lead;
   await booking.save();
+
+  // The trail of who was on the job. Appended on the first assignment and on every change after.
+  await Booking.updateOne(
+    { _id: booking._id },
+    { $push: { assignmentHistory: buildHistoryEntry({ before: previousAssignments, after: resolved, changedBy, reason }) } }
+  );
 
   // Tell technicians who are newly on the job, and those who were taken off it.
   const after = new Set(getMemberIds(booking));
@@ -1510,14 +1518,39 @@ router.patch('/:bookingId/assign', auth, async (req, res) => {
       return res.status(400).json({ message: 'Choose at least one team or technician.' });
     }
 
+    const reasonInput = readReason(req.body.reason);
+    if (reasonInput.problem) return sendProblem(res, reasonInput.problem);
+
     const booking = await Booking.findOne({ bookingId: req.params.bookingId }).populate('service');
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
-    const result = await performAssignment(booking, requested);
+    const result = await performAssignment(booking, requested, { changedBy: req.userId, reason: reasonInput.reason });
     if (result.error) return res.status(result.error.status).json({ message: result.error.message });
 
     const populated = await booking.populate(ASSIGN_RESPONSE_POPULATE);
     res.json(withWarranty(populated));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Who was assigned to a booking over time. An admin sees who changed it and why. A technician on
+// the booking sees only the people and the dates. Anyone else, customers included, is refused.
+router.get('/:bookingId/assignment-history', auth, async (req, res) => {
+  try {
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId }).select('+assignmentHistory');
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    const isAdmin = req.userRole === ROLE.ADMIN;
+    if (!isAdmin && !getMemberIds(booking).includes(req.userId)) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const entries = booking.assignmentHistory || [];
+    const users = await User.find({ _id: { $in: idsIn(entries) } }).select('name');
+    const names = new Map(users.map((u) => [String(u._id), u.name]));
+    res.json({ history: viewHistory(entries, names, { admin: isAdmin }) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -1552,7 +1585,7 @@ router.post('/:bookingId/auto-assign', auth, async (req, res) => {
       });
     }
 
-    const result = await performAssignment(booking, [proposal.assignment]);
+    const result = await performAssignment(booking, [proposal.assignment], { changedBy: req.userId, reason: 'Auto-assigned' });
     if (result.error) return res.status(result.error.status).json({ message: result.error.message });
 
     const populated = await booking.populate(ASSIGN_RESPONSE_POPULATE);

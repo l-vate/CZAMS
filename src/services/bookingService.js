@@ -91,8 +91,16 @@ export function adminUpdateBooking(bookingId, body) {
   return request(`${booking(bookingId)}/admin-update`, { method: 'PATCH', body });
 }
 
-export function assignBooking(bookingId, assignments) {
-  return request(`${booking(bookingId)}/assign`, { method: 'PATCH', body: { assignments } });
+// `reason` is optional and goes into the assignment history.
+export function assignBooking(bookingId, assignments, reason) {
+  return request(`${booking(bookingId)}/assign`, { method: 'PATCH', body: { assignments, ...(reason ? { reason } : {}) } });
+}
+
+// Who was assigned over time, as [{ changedAt, previous, next, changedBy?, reason? }]. An admin gets
+// the admin name and reason; a technician on the booking gets neither.
+export async function getAssignmentHistory(bookingId) {
+  const result = await orFallback(request(`${booking(bookingId)}/assignment-history`), { history: [] });
+  return result.history || [];
 }
 
 export function autoAssignBooking(bookingId) {

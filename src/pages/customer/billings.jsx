@@ -78,8 +78,9 @@ function Billings() {
           const paid = isFullyPaid || isPartiallyPaid || isToVerify;
 
           const { lineItems, basePrice, discountAmount, discountLabel } = getBookingLineItems(b);
-          const dpPercent = b.downPaymentPercent ?? 10;
-          const { downPayment: toPayNow, balance: remaining } = getPaymentBreakdown({ ...b, downPaymentPercent: dpPercent });
+          // The stored percent, as is: a booking with none shows "Not set" in the modals.
+          const dpPercent = b.downPaymentPercent ?? null;
+          const { downPayment: toPayNow, balance: remaining } = getPaymentBreakdown(b);
 
           return {
             id: b.bookingId,

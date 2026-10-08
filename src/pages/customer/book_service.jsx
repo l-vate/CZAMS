@@ -729,7 +729,7 @@ export function Step5({ form, services, technicians, downPaymentPercentages, dis
       </div>
       <p className="summary-note">
         <FiClock /> Service is typically completed within <strong>1–3 days</strong> after confirmation.<br />
-        Cancellation or rescheduling requests must be made at least <strong>3 hours</strong> prior to the scheduled service.
+        You can cancel before the service starts. Cancelling on the day of the service may include a dispatch charge deduction from your refund. A new service date must be at least <strong>3 days</strong> from today.
       </p>
     </div>
   );

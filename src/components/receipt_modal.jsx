@@ -14,8 +14,9 @@ function formatDate(dateStr) {
 
 function ReceiptModal({ form, booking, onClose }) {
   const basePrice = form.basePrice || 0;
-  const dpPercent = form.downPaymentPercent ?? 10;
-  const toPayNow = form.toPayNow ?? Math.round(basePrice * (dpPercent / 100));
+  // The booking's stored down payment percent. No invented default (see payment_modal.jsx).
+  const dpPercent = form.downPaymentPercent ?? null;
+  const toPayNow = form.toPayNow ?? (dpPercent === null ? 0 : Math.round(basePrice * (dpPercent / 100)));
   const remaining = form.remaining ?? (basePrice - toPayNow);
   const discountAmount = form.discountAmount || 0;
   const isFullyPaid = form.isFullyPaid;
@@ -199,7 +200,7 @@ function ReceiptModal({ form, booking, onClose }) {
             <div className="receipt-info-row">
               <span>Status</span>
               <span className="receipt-status-paid">
-                {isBilledOnTerms ? 'Billed on Terms' : isFullyPaid ? 'Fully Paid' : `${dpPercent}% Paid`}
+                {isBilledOnTerms ? 'Billed on Terms' : isFullyPaid ? 'Fully Paid' : dpPercent === null ? 'Down payment not set' : `${dpPercent}% Paid`}
               </span>
             </div>
 

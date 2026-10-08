@@ -4,8 +4,10 @@ import { formatPeso } from '../utils/bookingPricing';
 
 function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], onClose, onSubmit }) {
   const basePrice = form.basePrice || 0;
-  const dpPercent = form.downPaymentPercent ?? 10;
-  const toPayNow = form.toPayNow ?? Math.round(basePrice * (dpPercent / 100));
+  // The booking's stored down payment percent. No invented default: when it is missing the
+  // percent shows as "Not set" and the amount comes from the stored figures only.
+  const dpPercent = form.downPaymentPercent ?? null;
+  const toPayNow = form.toPayNow ?? (dpPercent === null ? 0 : Math.round(basePrice * (dpPercent / 100)));
   const remaining = form.remaining ?? (basePrice - toPayNow);
 
   const isBalance = paymentType === 'balance';
@@ -64,7 +66,7 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
             <div className="modal-cost-row"><span>{form.discountLabel || 'Discount'}</span><span>{formatPeso(-form.discountAmount)}.00</span></div>
           )}
           <div className="modal-cost-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}.00</span></div>
-          <div className="modal-cost-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
+          <div className="modal-cost-row"><span>Down Payment</span><span>{dpPercent === null ? 'Not set' : `${dpPercent}%`}</span></div>
 
           {isBalance ? (
             <div className="modal-cost-row"><span>Remaining Balance Due</span><span>₱{amountDue.toLocaleString()}.00</span></div>

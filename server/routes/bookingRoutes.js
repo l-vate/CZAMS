@@ -697,6 +697,8 @@ router.patch('/:bookingId/cancel', auth, async (req, res) => {
     openRefundIfEligible(booking);
 
     booking.status = BOOKING_STATUS.CANCELLED;
+    booking.cancelledAt = new Date();
+    booking.cancelledBy = 'customer';
     await booking.save();
 
     if (booking.refund?.status === REFUND_STATUS.PENDING) {
@@ -1703,6 +1705,10 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
 
     // Update status
     if (status) booking.status = status;
+    if (status === BOOKING_STATUS.CANCELLED && prev.status !== BOOKING_STATUS.CANCELLED) {
+      booking.cancelledAt = new Date();
+      booking.cancelledBy = 'admin';
+    }
 
     // ── Down payment track ──
     if (paymentStatus === PAYMENT_STATUS.REJECTED) {

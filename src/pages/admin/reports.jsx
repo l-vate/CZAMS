@@ -3,6 +3,7 @@ import AdminLayout from './admin_layout';
 import ReportSheet from '../../components/report_sheet';
 import { loadReportData } from '../../services/analyticsService';
 import { toLocalDateKey } from '../../utils/date';
+import { csvFilename, downloadCsv } from '../../utils/csvExport';
 import {
   REPORT_TYPES, DATE_BASES, BUILDERS, formatRange, formatGeneratedAt,
 } from '../../utils/reportBuilders';
@@ -68,7 +69,9 @@ function Reports() {
     const report = BUILDERS[reportType](data, filters);
     setGenerated({
       report,
-      meta: {
+      // Kept with the report so the CSV file name matches what is on screen, not later filter edits.
+      csvName: csvFilename(reportType, filters),
+meta: {
         range: formatRange(filters.fromKey, filters.toKey),
         clientType: CLIENT_TYPES.find((c) => c.key === filters.clientType).label,
         dateBasis: DATE_BASES.find((d) => d.key === filters.dateBasis).label,
@@ -138,6 +141,9 @@ function Reports() {
           </button>
           <button type="button" className="svc-btn svc-btn-ghost" onClick={() => window.print()} disabled={!generated}>
             Print / Save as PDF
+          </button>
+          <button type="button" className="svc-btn svc-btn-ghost" onClick={() => downloadCsv(generated.report, generated.csvName)} disabled={!generated}>
+            Export CSV
           </button>
         </div>
       </section>

@@ -23,6 +23,8 @@ function ReceiptModal({ form, booking, onClose }) {
 
   const proofFile = booking?.proofFile || form.proofFile;
   const balanceProofFile = booking?.balanceProofFile || form.balanceProofFile;
+  const referenceNumber = booking?.referenceNumber || form.referenceNumber;
+  const balanceReferenceNumber = booking?.balanceReferenceNumber || form.balanceReferenceNumber;
   const paymentMode2 = booking?.paymentMode2 || form.paymentMode2;
   const balancePaid = booking?.balancePaid || form.balancePaid;
   const isSinglePayment = dpPercent === 100; // paid in full upfront, no separate balance stage
@@ -150,6 +152,11 @@ function ReceiptModal({ form, booking, onClose }) {
             </div>
 
             <div className="receipt-info-row">
+              <span>Reference Number</span>
+              <span>{referenceNumber || 'Not recorded'}</span>
+            </div>
+
+            <div className="receipt-info-row">
               <span>Proof of Payment</span>
               <span>
                 {proofFile
@@ -168,7 +175,11 @@ function ReceiptModal({ form, booking, onClose }) {
                   <span>Balance Payment Method</span>
                   <span>{paymentMode2 || '-'}</span>
                 </div>
-                {balanceProofFile && (
+                <div className="receipt-info-row">
+                  <span>Balance Reference Number</span>
+                  <span>{balanceReferenceNumber || 'Not recorded'}</span>
+                </div>
+{balanceProofFile && (
                   <div className="receipt-info-row">
                     <span>Balance Proof</span>
                     <span>

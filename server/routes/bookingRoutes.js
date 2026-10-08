@@ -32,6 +32,7 @@ const { proposeAssignment } = require('../utils/autoAssign');
 const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/queue');
 const { generateBookingId, createWithUniqueBookingId, BookingIdExhaustedError } = require('../utils/bookingId');
 const { invalid, sendProblem } = require('../utils/validation');
+const { readPaymentSubmission, findSameReference } = require('../utils/paymentReference');
 const {
   ASSIGNMENT_POPULATE, getMemberIds, getLeadIds, getRoleFor, getMinTechnicians,
   memberFilter, findConflictingBooking, getBusyTechnicianIds,
@@ -275,7 +276,7 @@ router.post('/', auth, (req, res, next) => {
     const {
       service, units: unitsRaw, problemDescription,
       date, time, technician, address,
-      downPaymentPercent, paymentMode, paymentMode2,
+      downPaymentPercent, paymentMode, paymentMode2, referenceNumber,
       customer, clientSuppliedUnit, unitWaiverAcknowledged, unitWaiverName, contactNumber,
       lastCleanedOver6MonthsAgo, isActivelyLeaking,
       poNumber, paymentTermsDays, discountType,
@@ -398,6 +399,17 @@ router.post('/', auth, (req, res, next) => {
 
     const proofFile = req.files?.proof?.[0] ? `/uploads/proofs/${req.files.proof[0].filename}` : undefined;
 
+    // A customer who submits a payment now (proof or reference given) must give both for GCash and
+    // Bank Transfer. With neither, the booking is made unpaid and paid later from Billing. An admin
+    // booking on behalf of a customer may leave the reference out.
+    const paymentSubmission = readPaymentSubmission({
+      mode: paymentMode,
+      reference: referenceNumber,
+      hasProof: !!proofFile,
+      strict: !isAdminWalkIn && (!!proofFile || !!(referenceNumber && String(referenceNumber).trim())),
+    });
+    if (paymentSubmission.problem) return sendProblem(res, paymentSubmission.problem);
+
     // Senior Citizen / PWD discount request. A customer must attach a photo of a valid
     // ID and the discount stays Pending until an admin approves it. An admin booking on
     // someone's behalf (walk-in) has seen the ID in person: it is approved on the spot
@@ -458,8 +470,8 @@ router.post('/', auth, (req, res, next) => {
       service, units, problemDescription,
       date, time, requestedTechnician: technician || undefined, address, contactNumber: cleanContactNumber,
       downPaymentPercent, paymentMode, paymentMode2,
-      paymentStatus, proofFile,
-      clientSuppliedUnit: isClientSuppliedUnit,
+      paymentStatus, proofFile, referenceNumber: paymentSubmission.reference,
+clientSuppliedUnit: isClientSuppliedUnit,
       unitWaiver: isClientSuppliedUnit ? {
         acknowledged: true,
         customerName: unitWaiverName.trim(),
@@ -708,8 +720,14 @@ router.patch('/:bookingId/pay', auth, upload.single('proof'), async (req, res) =
     const booking = await Booking.findOne({ bookingId: req.params.bookingId, customer: req.userId }).populate('service');
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
+    const submission = readPaymentSubmission({
+      mode: booking.paymentMode, reference: req.body.referenceNumber, hasProof: !!proofFile, strict: true,
+    });
+    if (submission.problem) return sendProblem(res, submission.problem);
+
     booking.paymentStatus = PAYMENT_STATUS.TO_VERIFY;
     if (proofFile) booking.proofFile = proofFile;
+    if (submission.reference) booking.referenceNumber = submission.reference;
     // The amount submitted now, from the totals as they are now.
     if (booking.downPaymentPercent > 0) booking.downPaymentPaidAmount = computeDownPaymentAmount(booking);
     await booking.save();
@@ -726,17 +744,35 @@ router.patch('/:bookingId/pay-balance', auth, upload.single('proof'), async (req
   try {
     const proofFile = req.file ? `/uploads/proofs/${req.file.filename}` : undefined;
 
-    const updateData = { balancePaymentStatus: BALANCE_PAYMENT_STATUS.TO_VERIFY };
-    if (proofFile) updateData.balanceProofFile = proofFile;
-
-    const booking = await Booking.findOneAndUpdate(
-      { bookingId: req.params.bookingId, customer: req.userId },
-      updateData,
-      { new: true }
-    ).populate('service');
-
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId, customer: req.userId }).populate('service');
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    const submission = readPaymentSubmission({
+      mode: booking.paymentMode2, reference: req.body.referenceNumber, hasProof: !!proofFile, strict: true,
+    });
+    if (submission.problem) return sendProblem(res, submission.problem);
+
+    booking.balancePaymentStatus = BALANCE_PAYMENT_STATUS.TO_VERIFY;
+    if (proofFile) booking.balanceProofFile = proofFile;
+    if (submission.reference) booking.balanceReferenceNumber = submission.reference;
+    await booking.save();
+
     res.json(withWarranty(booking));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: other bookings with the same payment reference number. A warning only, never a block.
+router.get('/:bookingId/reference-duplicates', auth, async (req, res) => {
+  try {
+    if (req.userRole !== ROLE.ADMIN) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId }).select('bookingId referenceNumber balanceReferenceNumber');
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    res.json({ duplicates: await findSameReference(Booking, booking) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -1626,6 +1662,7 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
     if (paymentStatus === PAYMENT_STATUS.REJECTED) {
       booking.paymentStatus = PAYMENT_STATUS.REJECTED;
       booking.proofFile = undefined;
+      booking.referenceNumber = undefined;
     } else if (paymentStatus) {
       booking.paymentStatus = paymentStatus;
     }
@@ -1634,6 +1671,7 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
     if (balancePaymentStatus === BALANCE_PAYMENT_STATUS.REJECTED) {
       booking.balancePaymentStatus = BALANCE_PAYMENT_STATUS.REJECTED;
       booking.balanceProofFile = undefined;
+      booking.balanceReferenceNumber = undefined;
     } else if (balancePaymentStatus) {
       booking.balancePaymentStatus = balancePaymentStatus;
     }

@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import AdminLayout from './admin_layout';
 import PersonFilterBanner from '../../components/person_filter_banner';
+import PaymentReference from '../../components/payment_reference';
 import { getBookingLineItems, getUnitsSummary } from '../../utils/bookingPricing';
 import { getMemberNames } from '../../utils/assignments';
 import { getFilterPillStyle } from '../../utils/statusColors';
@@ -178,6 +179,11 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
             <span className="confirmation-detail-label">Status</span>
             <span className="confirmation-detail-value"><StatusBadge status={payment.status} meta={PAYMENT_STATUS_META} /></span>
           </div>
+        </div>
+
+        <div className="payment-review-cell admin-payments-x4">
+          <span className="confirmation-detail-label">Reference Number</span>
+          <span className="confirmation-detail-value"><PaymentReference booking={payment.raw} /></span>
         </div>
 
         <div className="payment-review-attachment-section admin-payments-x5">

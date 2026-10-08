@@ -105,7 +105,11 @@ const bookingSchema = new mongoose.Schema({
     
     proofFile: String,
     balanceProofFile: String,
-    
+    // The GCash or bank transfer reference number that goes with each proof (upper case, 4 to 30
+    // characters). Bookings made before these fields existed have none.
+    referenceNumber: String,
+    balanceReferenceNumber: String,
+
     status: {
         type: String,
         enum: BOOKING_STATUS_VALUES,
@@ -308,6 +312,8 @@ const bookingSchema = new mongoose.Schema({
 bookingSchema.index({ technician: 1, status: 1 });
 bookingSchema.index({ status: 1, queueRank: 1 });
 bookingSchema.index({ customer: 1 });
+bookingSchema.index({ referenceNumber: 1 });
+bookingSchema.index({ balanceReferenceNumber: 1 });
 
 // A Completed booking always has a completion date: whatever path completes it (the technician's
 // report, the status job, or the admin button that is still in the code for now), completedAt is

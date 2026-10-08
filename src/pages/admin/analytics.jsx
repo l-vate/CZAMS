@@ -120,8 +120,8 @@ function Analytics() {
 
     // ── Technician Performance Analytics ──
     const technicianAnalytics = useMemo(
-        () => buildTechnicianStats(filteredBookings, filteredReports),
-        [filteredBookings, filteredReports]
+        () => buildTechnicianStats(requestBookings, filteredReports),
+        [requestBookings, filteredReports]
     );
 
     // ── Customer Analytics ──
@@ -304,6 +304,7 @@ function Analytics() {
                             )}
                         </tbody>
                     </table>
+                    <p className="chart-note">Free back-job repair visits are not counted, the same as in the Completed Jobs per Technician chart.</p>
                 </section>
 
                 {/* Customer Analytics */}

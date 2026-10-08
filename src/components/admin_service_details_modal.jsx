@@ -3,6 +3,8 @@ import { getBookingLineItems, getPaymentBreakdown, formatPeso } from '../utils/b
 import AssignmentPanel from './assignment_panel';
 import PaymentReference from './payment_reference';
 import ClosureDateInput from './closure_date_input';
+import ReceiptModal from './receipt_modal';
+import { buildReceiptForm } from '../utils/receiptData';
 import { getMemberIds } from '../utils/assignments';
 import { isWithinQuezonCity } from '../utils/serviceArea';
 import { API_BASE } from '../config/api';
@@ -67,7 +69,8 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
     const [distanceDraft, setDistanceDraft] = useState(booking?.distanceAdjustment || 0);
     const [mobilizationDraft, setMobilizationDraft] = useState(booking?.mobilizationFee || 0);
     const [uploadingProof, setUploadingProof] = useState(false);
-    const [report, setReport] = useState(null);
+    const [showReceipt, setShowReceipt] = useState(false);
+const [report, setReport] = useState(null);
     const [rejectingDiscount, setRejectingDiscount] = useState(false);
     const [discountRejectReason, setDiscountRejectReason] = useState('');
 
@@ -265,6 +268,7 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
     };
 
     return (
+        <>
         <div className="sdm-overlay" onClick={onClose}>
             <div className="sdm-modal" onClick={(e) => e.stopPropagation()}>
                 <button type="button" className="modal-close-btn sdm-close-position" onClick={onClose}>✕</button>
@@ -740,6 +744,14 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                     </span>
                                 </div>
                                 <div className="sdm-list-row">
+                                    <span>Invoice / Receipt</span>
+                                    <span className="sdm-list-value">
+                                        <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setShowReceipt(true)}>
+                                            View and print
+                                        </button>
+                                    </span>
+                                </div>
+                                <div className="sdm-list-row">
                                     <span>Balance Paid</span>
                                     <span className="sdm-list-value">{booking.balancePaid ? 'Yes' : 'No'}</span>
                                 </div>
@@ -951,6 +963,18 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                 </div>
             </div>
         </div>
+        {showReceipt && (
+            <ReceiptModal
+                form={buildReceiptForm(booking, {
+                    customerName: booking.customer?.name,
+                    contactNumber: booking.contactNumber || booking.customer?.phone,
+                })}
+                booking={booking}
+                billTo={{ companyName: booking.customer?.companyName, representativeName: booking.customer?.representativeName }}
+                onClose={() => setShowReceipt(false)}
+            />
+        )}
+        </>
     );
 }
 

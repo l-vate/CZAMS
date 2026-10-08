@@ -43,6 +43,7 @@
 }
 
 .receipt-info-row {
+  gap: 12px;
   padding: 3px 0;
   border-bottom: 1px solid #EEF2F7;
   display: flex;

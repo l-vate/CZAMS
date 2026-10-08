@@ -17,6 +17,7 @@ import { API_BASE } from '../../config/api';
 import { ApiError, orFallback } from '../../services/apiClient';
 import { getBooking, cancelBooking, rescheduleBooking, submitFeedback, requestDiscount } from '../../services/bookingService';
 import ClosureDateInput from '../../components/closure_date_input';
+import { isBookingFullyPaid } from '../../utils/receiptData';
 import DiscountOption from '../../components/discount_option';
 import { flagRefund, confirmRefundReceived } from '../../services/refundService';
 import { getBackJobForBooking, reportBackJob } from '../../services/backJobService';
@@ -446,7 +447,7 @@ function BookDetails() {
   const dpPercent = booking.downPaymentPercent ?? getDefaultDownPaymentPercent(downPaymentPercentages);
   const { downPayment: toPayNow, balance: remaining } = getPaymentBreakdown({ ...booking, downPaymentPercent: dpPercent });
 
-  const isFullyPaid = booking.paymentStatus === 'Paid' && (dpPercent === 100 || booking.balancePaid);
+  const isFullyPaid = isBookingFullyPaid(booking);
 
   const receiptForm = {
     id: booking.bookingId,

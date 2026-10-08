@@ -1,4 +1,4 @@
-import { request } from './apiClient';
+import { ApiError, request } from './apiClient';
 
 // Admin: every back job (warranty claim).
 export function listBackJobs() {
@@ -6,8 +6,14 @@ export function listBackJobs() {
 }
 
 // Customer: the back job reported on one of their bookings (404 when there is none).
-export function getBackJobForBooking(bookingId) {
-  return request(`/api/backjobs/booking/${bookingId}`);
+// Resolves to null when there is none: that is the normal case, not an error.
+export async function getBackJobForBooking(bookingId) {
+  try {
+    return await request(`/api/backjobs/booking/${bookingId}`);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  }
 }
 
 export function reportBackJob({ bookingId, issueDescription }) {

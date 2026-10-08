@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import StaffLayout from './staff_layout';
 import { FiUser, FiTool, FiCheckCircle, FiFileText, FiStar, FiEye, FiCalendar, FiClock, FiMapPin } from 'react-icons/fi';
-import { orFallback, bodyEvenIfError } from '../../services/apiClient';
+import { orFallback } from '../../services/apiClient';
 import { getTechnicianStats, listTechnicianJobs } from '../../services/bookingService';
 import { listPublicAnnouncements } from '../../services/announcementService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
@@ -50,14 +50,30 @@ function Dashboard() {
 
   const [stats, setStats] = useState({ ongoing: 0, completed: 0, pendingReports: 0, feedbacks: [] });
   const [loading, setLoading] = useState(true);
+  const [statsFailed, setStatsFailed] = useState(false);
   const [jobs, setJobs] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
 
+  // A failed load is an error state, never data: the error reply is not stored as the stats.
+  const fetchStats = () => getTechnicianStats()
+    .then((data) => {
+      if (typeof data?.ongoing !== 'number') throw new Error('Unexpected stats reply');
+      setStats(data);
+    })
+    .catch((err) => {
+      console.error('Failed to load stats', err);
+      setStatsFailed(true);
+    })
+    .finally(() => setLoading(false));
+
+  const retryStats = () => {
+    setLoading(true);
+    setStatsFailed(false);
+    fetchStats();
+  };
+
   useEffect(() => {
-    bodyEvenIfError(getTechnicianStats())
-      .then((data) => setStats(data))
-      .catch((err) => console.error('Failed to load stats', err))
-      .finally(() => setLoading(false));
+    fetchStats();
 
     orFallback(listTechnicianJobs(), [])
       .then((data) => setJobs(Array.isArray(data) ? data : []))
@@ -118,12 +134,19 @@ function Dashboard() {
         </button>
       </div>
 
+      {statsFailed && (
+        <div className="tech-stats-error" role="alert">
+          <p className="tech-job-empty">Could not load, try again.</p>
+          <button type="button" className="bs-next-btn" onClick={retryStats}>Try again</button>
+        </div>
+      )}
+
       <div className="tech-stats-grid">
         <div className="tech-stat-card">
           <div className="tech-stat-icon"><FiTool /></div>
           <div>
             <div className="tech-stat-label">Ongoing Jobs</div>
-            <div className="tech-stat-value">{loading ? '-' : stats.ongoing}</div>
+            <div className="tech-stat-value">{loading || statsFailed ? '-' : stats.ongoing}</div>
           </div>
         </div>
 
@@ -131,7 +154,7 @@ function Dashboard() {
           <div className="tech-stat-icon"><FiCheckCircle /></div>
           <div>
             <div className="tech-stat-label">Completed Jobs</div>
-            <div className="tech-stat-value">{loading ? '-' : stats.completed}</div>
+            <div className="tech-stat-value">{loading || statsFailed ? '-' : stats.completed}</div>
           </div>
         </div>
 
@@ -139,7 +162,7 @@ function Dashboard() {
           <div className="tech-stat-icon"><FiFileText /></div>
           <div>
             <div className="tech-stat-label">Pending Reports</div>
-            <div className="tech-stat-value">{loading ? '-' : stats.pendingReports}</div>
+            <div className="tech-stat-value">{loading || statsFailed ? '-' : stats.pendingReports}</div>
           </div>
         </div>
       </div>
@@ -223,6 +246,8 @@ function Dashboard() {
       <div className="tech-feedback-list">
         {loading ? (
           <p className="tech-job-empty">Loading feedback...</p>
+        ) : statsFailed ? (
+          <p className="tech-job-empty">Could not load, try again.</p>
         ) : stats.feedbacks.length === 0 ? (
           <p className="tech-job-empty">No feedback yet.</p>
         ) : (

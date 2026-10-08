@@ -8,6 +8,7 @@ import { getFilterPillStyle } from '../../utils/statusColors';
 import { ApiError, orFallback } from '../../services/apiClient';
 import { listTechnicianJobs, reportDisruption, requestExtension } from '../../services/bookingService';
 import { getAssignedNames } from '../../utils/assignments';
+import { JOB_SORT, JOB_SORT_OPTIONS, sortJobs } from '../../utils/jobSort';
 import { BOOKING_STATUS, BOOKING_STATUS_VALUES } from '../../constants/bookingStatus';
 
 
@@ -19,23 +20,8 @@ const statusClass = {
   'Cancelled': 'tech-status-cancelled',
 };
 
-const SORT_OPTIONS = [
-  { value: 'newest', label: 'Newest first' },
-  { value: 'oldest', label: 'Oldest first' },
-];
-
 // Same filter set/order as the customer side's My Bookings (customer/my_bookings.jsx).
 const FILTERS = ['All', ...BOOKING_STATUS_VALUES];
-
-function parseJobDate(dateStr) {
-  if (!dateStr) return new Date(0);
-  // handles "07-08-26" (mm-dd-yy) or an ISO date string
-  if (dateStr.includes('-') && dateStr.length <= 8) {
-    const [mm, dd, yy] = dateStr.split('-').map(Number);
-    return new Date(2000 + yy, mm - 1, dd);
-  }
-  return new Date(dateStr);
-}
 
 function JobDetailsModal({ job, onClose }) {
   return (
@@ -248,7 +234,7 @@ function MyJobs() {
   const [selectedJob, setSelectedJob] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('All');
-  const [sortBy, setSortBy] = useState('newest');
+  const [sortBy, setSortBy] = useState(JOB_SORT.NEWEST);
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [reportModal, setReportModal] = useState(null); // { kind: 'disruption' | 'extension', job }
   const [submittingReport, setSubmittingReport] = useState(false);
@@ -273,7 +259,7 @@ function MyJobs() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showSortMenu]);
 
-  const currentSortLabel = SORT_OPTIONS.find((o) => o.value === sortBy)?.label;
+  const currentSortLabel = JOB_SORT_OPTIONS.find((o) => o.value === sortBy)?.label;
 
   const visibleJobs = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -292,10 +278,7 @@ function MyJobs() {
       filtered = filtered.filter((job) => job.status === activeFilter);
     }
 
-    return [...filtered].sort((a, b) => {
-      const diff = parseJobDate(a.date).getTime() - parseJobDate(b.date).getTime();
-      return sortBy === 'newest' ? -diff : diff;
-    });
+    return sortJobs(filtered, sortBy);
   }, [jobs, searchTerm, activeFilter, sortBy]);
 
   const handleViewDetails = (job) => setSelectedJob(job);
@@ -345,7 +328,7 @@ function MyJobs() {
           </button>
           {showSortMenu && (
             <div className="tech-sort-menu">
-              {SORT_OPTIONS.map((opt) => (
+              {JOB_SORT_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
                   type="button"

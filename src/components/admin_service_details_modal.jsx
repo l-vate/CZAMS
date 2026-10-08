@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { getBookingLineItems, getPaymentBreakdown, formatPeso } from '../utils/bookingPricing';
 import AssignmentPanel from './assignment_panel';
 import PaymentReference from './payment_reference';
+import ClosureDateInput from './closure_date_input';
 import { getMemberIds } from '../utils/assignments';
 import { isWithinQuezonCity } from '../utils/serviceArea';
 import { API_BASE } from '../config/api';
@@ -436,11 +437,10 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                     <div className="admin-service-details-modal-x9">
                                         <div>
                                             <label className="sdm-row-label admin-service-details-modal-x10">New Date</label>
-                                            <input
-                                                type="date"
+                                            <ClosureDateInput
                                                 className="ma-input"
                                                 value={disruptionDate}
-                                                onChange={(e) => setDisruptionDate(e.target.value)}
+                                                onChange={setDisruptionDate}
                                             />
                                         </div>
                                         <div>

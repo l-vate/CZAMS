@@ -62,6 +62,7 @@
 .avail-day--limited { background: var(--status-pending-bg); color: var(--status-pending-txt); }
 .avail-day--full { background: var(--status-cancel-bg); color: var(--status-cancel-txt); }
 .avail-day--closed,
+.avail-day--shop-closed,
 .avail-day--too-soon,
 .avail-day--past,
 .avail-day--loading { background: var(--bg-main); color: var(--ink-soft); }

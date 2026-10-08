@@ -12,11 +12,12 @@ const STATUS_LABEL = {
   limited: 'Limited',
   full: 'Fully booked',
   closed: 'Closed',
-  'too-soon': 'Too soon to book',
+  'shop-closed': 'Shop closed',
+'too-soon': 'Too soon to book',
   past: 'Past',
 };
 
-const LEGEND = ['open', 'limited', 'full', 'closed'];
+const LEGEND = ['open', 'limited', 'full', 'closed', 'shop-closed'];
 
 const monthStart = (date) => new Date(date.getFullYear(), date.getMonth(), 1);
 const monthEnd = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0);
@@ -89,7 +90,7 @@ function AvailabilityCalendar() {
               className={`avail-day avail-day--${look}${selected === key ? ' avail-day--selected' : ''}`}
               onClick={() => setSelected(key)}
               disabled={status !== 'ready'}
-              aria-label={`${key}: ${STATUS_LABEL[dayStatus]}`}
+              aria-label={`${key}: ${STATUS_LABEL[dayStatus]}${days[key]?.reason ? `, ${days[key].reason}` : ''}`}
             >
               {Number(key.slice(8))}
             </button>
@@ -111,7 +112,11 @@ function AvailabilityCalendar() {
               Morning: {selectedDay.morning ? 'Available' : 'Fully booked'} · Afternoon: {selectedDay.afternoon ? 'Available' : 'Fully booked'}
             </p>
           ) : (
-            <p>{STATUS_LABEL[selectedDay.status]}.{selectedDay.status === 'too-soon' ? ' Bookings need at least 3 days notice.' : ''}</p>
+            <p>
+              {STATUS_LABEL[selectedDay.status]}.
+              {selectedDay.status === 'too-soon' ? ' Bookings need at least 3 days notice.' : ''}
+              {selectedDay.status === 'shop-closed' ? ` ${selectedDay.reason}` : ''}
+            </p>
           )}
           {(selectedDay.status === 'open' || selectedDay.status === 'limited') && (
             <button type="button" className="cta" onClick={() => navigate('/login')}>Log In to Book</button>

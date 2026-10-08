@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import AdminLayout from "./admin_layout";
 import { getMemberNames } from "../../utils/assignments";
 import CalendarView from "../../components/calendar_view";
+import ClosureManager from "../../components/closure_manager";
 import { mapBookingStatusToCalendarStatus, getTimeBlockHours } from "../../utils/calendar";
 import { orFallback } from '../../services/apiClient';
 import { listBookings } from '../../services/bookingService';
@@ -52,7 +53,8 @@ function Calendar() {
 
   return (
     <AdminLayout title="Calendar">
-      {loading ? (
+      <ClosureManager />
+{loading ? (
         <p>Loading schedule…</p>
       ) : (
         <div className="admin-calendar-x1">

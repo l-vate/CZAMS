@@ -1,0 +1,39 @@
+/* Shop closed dates: the admin panel and the notices under the date pickers. */
+.closure-manager {
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: var(--radius-md, 10px);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.closure-manager-title { margin: 0 0 4px; }
+.closure-manager-sub { margin: 0 0 12px; color: var(--ink-soft); font-size: 0.875rem; }
+.closure-manager-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.closure-manager-form .ma-input { flex: 1 1 180px; min-width: 0; }
+.closure-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+.closure-item {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: var(--radius-sm, 8px);
+}
+.closure-reason { display: block; color: var(--ink-soft); font-size: 0.875rem; }
+.closure-warning {
+  display: block;
+  margin-top: 4px;
+  color: var(--warning-hover);
+  font-size: 0.8125rem;
+}
+.closure-empty { color: var(--ink-soft); margin: 8px 0 0; }
+.closure-notice { margin: 6px 0 0; color: var(--status-cancel-txt); font-size: 0.8125rem; }
+.closure-upcoming { margin: 6px 0 0; color: var(--ink-soft); font-size: 0.8125rem; }

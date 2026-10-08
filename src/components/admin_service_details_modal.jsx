@@ -309,6 +309,8 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                         <span>{booking.customer?.name || 'N/A'}</span>
                         {booking.customer?.email && <span className="sdm-muted">· {booking.customer.email}</span>}
                         <span className="sdm-muted">· Contact: {booking.contactNumber || booking.customer?.phone || 'N/A'}</span>
+                        {booking.customer?.companyName && <span className="sdm-muted">· Company: {booking.customer.companyName}</span>}
+                        {booking.customer?.representativeName && <span className="sdm-muted">· Representative: {booking.customer.representativeName}</span>}
                     </div>
 
                     <div className="sdm-columns">

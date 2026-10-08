@@ -8,6 +8,7 @@ import { getFilterPillStyle } from '../../utils/statusColors';
 import { ApiError } from '../../services/apiClient';
 import { listUsers, createUser } from '../../services/userService';
 import { ROLE } from '../../constants/roles';
+import { POSITION_MAX, POSITION_SUGGESTIONS, COMPANY_NAME_MAX, REPRESENTATIVE_NAME_MAX } from '../../constants/profileFields';
 
 /* ── Small Icon Helpers ───────────────────────────────────── */
 function ClockIcon() {
@@ -27,8 +28,10 @@ function RegisterForm({ type, onCancel, onSubmit }) {
     email: '',
     phone: '',
     address: '',
-    specialization: '',
+    position: '',
     clientType: 'Residential',
+    companyName: '',
+    representativeName: '',
   });
   const [error, setError] = useState('');
 
@@ -105,17 +108,54 @@ function RegisterForm({ type, onCancel, onSubmit }) {
 
             {isTech && (
               <div className="ma-field-group">
-                <label className="ma-label">
-                  Specialization <span className="ma-label-hint">(Optional)</span>
+                <label className="ma-label" htmlFor="ma-position">
+                  Position <span className="ma-label-hint">(Optional)</span>
                 </label>
                 <input
+                  id="ma-position"
                   type="text"
+                  list="ma-position-options"
                   className="ma-input"
-                  placeholder="e.g. Installation, Repair, Maintenance"
-                  value={values.specialization}
-                  onChange={update('specialization')}
+                  maxLength={POSITION_MAX}
+                  placeholder="e.g. Technician"
+                  value={values.position}
+                  onChange={update('position')}
                 />
+                <datalist id="ma-position-options">
+                  {POSITION_SUGGESTIONS.map((p) => <option key={p} value={p} />)}
+                </datalist>
               </div>
+            )}
+
+            {!isTech && values.clientType === 'Commercial' && (
+              <>
+                <div className="ma-field-group">
+                  <label className="ma-label" htmlFor="ma-company">
+                    Company Name <span className="ma-label-hint">(Optional)</span>
+                  </label>
+                  <input
+                    id="ma-company"
+                    type="text"
+                    className="ma-input"
+                    maxLength={COMPANY_NAME_MAX}
+                    value={values.companyName}
+                    onChange={update('companyName')}
+                  />
+                </div>
+                <div className="ma-field-group">
+                  <label className="ma-label" htmlFor="ma-representative">
+                    Representative Name <span className="ma-label-hint">(Optional)</span>
+                  </label>
+                  <input
+                    id="ma-representative"
+                    type="text"
+                    className="ma-input"
+                    maxLength={REPRESENTATIVE_NAME_MAX}
+                    value={values.representativeName}
+                    onChange={update('representativeName')}
+                  />
+                </div>
+              </>
             )}
           </div>
 
@@ -202,6 +242,10 @@ function ManageAccounts() {
         address: values.address.trim(),
         role: registerRole,
         ...(registerRole === ROLE.CUSTOMER ? { clientType: values.clientType } : {}),
+        ...(registerRole === ROLE.STAFF ? { position: values.position.trim() } : {}),
+        ...(registerRole === ROLE.CUSTOMER && values.clientType === 'Commercial'
+          ? { companyName: values.companyName.trim(), representativeName: values.representativeName.trim() }
+          : {}),
       });
       setUsers((prev) => [newAccount, ...prev]);
       setJustAdded(newAccount);
@@ -336,6 +380,7 @@ function ManageAccounts() {
                       <div className="tech-job-info">
                         <small className="tech-job-date-label">{roleLabel}</small>
                         <div className="tech-job-service">{person.name || 'No Name Provided'}</div>
+                        {isTech && person.position && <small className="tech-job-date-label">{person.position}</small>}
                         <small className="tech-job-booking">{person._id}</small>
                       </div>
 

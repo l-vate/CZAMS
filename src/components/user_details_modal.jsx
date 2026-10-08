@@ -3,6 +3,7 @@ import { API_BASE } from '../config/api';
 import { ApiError, attempt } from '../services/apiClient';
 import { updateUser, updateClassification } from '../services/userService';
 import { ROLE } from '../constants/roles';
+import { POSITION_MAX, POSITION_SUGGESTIONS, COMPANY_NAME_MAX, REPRESENTATIVE_NAME_MAX } from '../constants/profileFields';
 
 function Icon({ name }) {
   const common = {
@@ -45,6 +46,9 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
     isActive: true,
     classificationChoice: '', // '' = auto-computed, else a manual override ('Regular' | 'Return')
     clientType: 'Residential',
+    position: '',
+    companyName: '',
+    representativeName: '',
   });
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -61,6 +65,9 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
         isActive: user.isActive !== undefined ? user.isActive : true,
         classificationChoice: user.manualClassification || '',
         clientType: user.clientType || 'Residential',
+        position: user.position || '',
+        companyName: user.companyName || '',
+        representativeName: user.representativeName || '',
       });
       setIsEditing(false);
     }
@@ -272,6 +279,71 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
                     )}
                   </div>
                 </div>
+              )}
+
+              {user.role === ROLE.STAFF && (
+                <div className="sdm-row">
+                  <div className="sdm-row-icon"><Icon name="pin" /></div>
+                  <div>
+                    <span className="sdm-row-label">POSITION</span>
+                    {isEditing ? (
+                      <>
+                        <input
+                          type="text"
+                          list="sdm-position-options"
+                          className="sdm-tech-select"
+                          maxLength={POSITION_MAX}
+                          value={formData.position}
+                          onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                        />
+                        <datalist id="sdm-position-options">
+                          {POSITION_SUGGESTIONS.map((p) => <option key={p} value={p} />)}
+                        </datalist>
+                      </>
+                    ) : (
+                      <p className="sdm-row-value">{formData.position || 'Not set'}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {user.role === ROLE.CUSTOMER && formData.clientType === 'Commercial' && (
+                <>
+                  <div className="sdm-row">
+                    <div className="sdm-row-icon"><Icon name="pin" /></div>
+                    <div>
+                      <span className="sdm-row-label">COMPANY NAME</span>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          className="sdm-tech-select"
+                          maxLength={COMPANY_NAME_MAX}
+                          value={formData.companyName}
+                          onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                        />
+                      ) : (
+                        <p className="sdm-row-value">{formData.companyName || 'Not recorded'}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="sdm-row">
+                    <div className="sdm-row-icon"><Icon name="pin" /></div>
+                    <div>
+                      <span className="sdm-row-label">REPRESENTATIVE</span>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          className="sdm-tech-select"
+                          maxLength={REPRESENTATIVE_NAME_MAX}
+                          value={formData.representativeName}
+                          onChange={(e) => setFormData({ ...formData, representativeName: e.target.value })}
+                        />
+                      ) : (
+                        <p className="sdm-row-value">{formData.representativeName || 'Not recorded'}</p>
+                      )}
+                    </div>
+                  </div>
+                </>
               )}
 
               {user.role === ROLE.CUSTOMER && (

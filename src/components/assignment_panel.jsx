@@ -142,7 +142,7 @@ function AssignmentPanel({ booking, onUpdated }) {
                     <optgroup label="Single technician (check-up or survey only)">
                       {availability.technicians.map((t) => (
                         <option key={t._id} value={`tech:${t._id}`} disabled={!t.free && value !== `tech:${t._id}`}>
-                          {t.name}{t.free ? '' : ' - busy'}
+                          {t.name}{t.position ? ` (${t.position})` : ''}{t.free ? '' : ' - busy'}
                         </option>
                       ))}
                     </optgroup>

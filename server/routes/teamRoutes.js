@@ -69,7 +69,7 @@ router.get('/availability', auth, adminOnly, async (req, res) => {
 
     const busy = new Set(await getBusyTechnicianIds(date, time, excludeBookingId));
     const teams = await Team.find({ isActive: true }).populate(POPULATE).sort({ name: 1 });
-    const technicians = await User.find({ role: ROLE.STAFF, isActive: true }).select('name').sort({ name: 1 });
+    const technicians = await User.find({ role: ROLE.STAFF, isActive: true }).select('name position').sort({ name: 1 });
 
     const teamOf = new Map();
     teams.forEach((t) => {
@@ -93,6 +93,7 @@ router.get('/availability', auth, adminOnly, async (req, res) => {
       technicians: technicians.map((u) => ({
         _id: u._id,
         name: u.name,
+        position: u.position || '',
         free: !busy.has(u._id),
         teamName: teamOf.get(u._id)?.name || null,
       })),

@@ -30,8 +30,9 @@ export function getCostBreakdown(form, services, defaultDownPaymentPercent, disc
   const discountAmount = useSenior ? seniorAmount : promoAmount;
   const discountLabel = discountAmount === 0 ? '' : (useSenior ? 'Senior/PWD Discount' : `Promo: ${bestPromo.promo.name}`);
   const basePrice = grossPrice - discountAmount;
-  const dpPercent = form.downPaymentPercent ?? defaultDownPaymentPercent;
-  const toPayNow = Math.round(basePrice * (dpPercent / 100));
+  // No percent yet (settings not loaded) means no down payment figure, never a guessed one.
+  const dpPercent = form.downPaymentPercent ?? defaultDownPaymentPercent ?? null;
+  const toPayNow = dpPercent === null ? 0 : Math.round(basePrice * (dpPercent / 100));
   const remaining = basePrice - toPayNow;
   const isFullPay = dpPercent === 100;
   return { selected, lineItems, basePrice, grossPrice, discountAmount, discountLabel, dpPercent, toPayNow, remaining, isFullPay };

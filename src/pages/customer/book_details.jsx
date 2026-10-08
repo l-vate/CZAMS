@@ -644,7 +644,7 @@ function BookDetails() {
                 </div>
               )}
               <div className="summary-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}</span></div>
-              <div className="summary-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
+              <div className="summary-row"><span>Down Payment</span><span>{dpPercent === null ? 'Not set' : `${dpPercent}%`}</span></div>
               <div className="summary-row"><span>Amount Paid</span><span>₱{toPayNow.toLocaleString()}</span></div>
               <div className="summary-row"><span>Remaining Balance</span><span>₱{remaining.toLocaleString()}</span></div>
               <div className="summary-row"><span>Payment Mode</span><span>{booking.paymentMode || '-'}</span></div>

@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { bodyEvenIfError } from '../services/apiClient';
 import { getPaymentSettings } from '../services/paymentSettingsService';
 
 
@@ -7,21 +6,32 @@ import { getPaymentSettings } from '../services/paymentSettingsService';
 // payment percentage options - replaces the old hardcoded PAYMENT_MODES /
 // DOWN_PAYMENT_OPTIONS constants in book_service.jsx. Used by both the
 // self-service and walk-in booking flows, plus the admin Payment Settings editor.
+//
+// Nothing here is ever invented. `ready` is true once real settings have loaded. If a load fails,
+// the last good values are kept; if there never were any, `failed` is true and the values stay
+// empty (seniorPwdDiscountPercent is null), so a page must show "Could not load payment settings"
+// and hold back every price, discount and down payment calculation until `ready`.
 export function usePaymentSettings() {
-  const [settings, setSettings] = useState({ paymentMethods: [], downPaymentPercentages: [], seniorPwdDiscountPercent: 20 });
+  const [settings, setSettings] = useState(null); // the last good values, or null before the first load
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const refetch = useCallback(() => {
     setLoading(true);
-    return bodyEvenIfError(getPaymentSettings())
+    return getPaymentSettings()
       .then((data) => {
+        // A reply that is not a real settings document counts as a failed load.
+        if (!Array.isArray(data?.paymentMethods) || !Array.isArray(data?.downPaymentPercentages) || !Number.isFinite(Number(data?.seniorPwdDiscountPercent))) {
+          throw new Error('Unexpected payment settings reply');
+        }
         setSettings({
-          paymentMethods: Array.isArray(data.paymentMethods) ? data.paymentMethods : [],
-          downPaymentPercentages: Array.isArray(data.downPaymentPercentages) ? data.downPaymentPercentages : [],
-          seniorPwdDiscountPercent: Number.isFinite(Number(data.seniorPwdDiscountPercent)) ? Number(data.seniorPwdDiscountPercent) : 20,
+          paymentMethods: data.paymentMethods,
+          downPaymentPercentages: data.downPaymentPercentages,
+          seniorPwdDiscountPercent: Number(data.seniorPwdDiscountPercent),
         });
+        setLoadFailed(false);
       })
-      .catch(() => {})
+      .catch(() => setLoadFailed(true)) // keep whatever was loaded before
       .finally(() => setLoading(false));
   }, []);
 
@@ -29,16 +39,23 @@ export function usePaymentSettings() {
     refetch();
   }, [refetch]);
 
-  return { ...settings, loading, refetch };
+  return {
+    paymentMethods: settings?.paymentMethods ?? [],
+    downPaymentPercentages: settings?.downPaymentPercentages ?? [],
+    seniorPwdDiscountPercent: settings?.seniorPwdDiscountPercent ?? null,
+    loading,
+    ready: settings !== null,
+    failed: loadFailed && settings === null,
+    refetch,
+  };
 }
 
 // The down payment to assume when a booking or form has none recorded: the first
-// (lowest) configured option, or the PaymentSettings seed default (30) if the
-// settings haven't loaded yet. Replaces the old hardcoded 10% fallback.
-const SEED_DEFAULT_DOWN_PAYMENT = 30;
+// (lowest) configured option, or null when there is none (settings not loaded): callers show
+// "Not set" or wait, they never get an invented number.
 export function getDefaultDownPaymentPercent(percentages) {
   const sorted = (percentages || []).filter((p) => Number.isFinite(p) && p > 0).sort((a, b) => a - b);
-  return sorted.length > 0 ? sorted[0] : SEED_DEFAULT_DOWN_PAYMENT;
+  return sorted.length > 0 ? sorted[0] : null;
 }
 
 // Customer Classification Module perk: a "Return" customer sees an extra
@@ -48,7 +65,7 @@ export function getDefaultDownPaymentPercent(percentages) {
 // value server-side for the same reason (it would collide with this perk's meaning
 // for customers who aren't actually Return customers).
 export function getDownPaymentOptions(isReturnCustomer, percentages) {
-  const base = (percentages && percentages.length > 0 ? percentages : [30, 50, 100])
+  const base = (percentages || [])
     .slice()
     .sort((a, b) => a - b)
     .map((value) => ({

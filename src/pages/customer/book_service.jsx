@@ -25,6 +25,7 @@ import {
   FiX,
 } from 'react-icons/fi';
 import { ApiError, orFallback } from '../../services/apiClient';
+import PaymentSettingsUnavailable from '../../components/payment_settings_unavailable';
 import { getBusyTechnicians, createBooking } from '../../services/bookingService';
 import { PAYMENT_STATUS } from '../../constants/paymentStatus';
 import { TIME_BLOCK_VALUES, TIME_BLOCK } from '../../constants/timeBlocks';
@@ -741,7 +742,7 @@ function BookService() {
   const { technicians } = useTechnicians();
   const classification = useMyClassification();
   const isReturnCustomer = classification === 'Return';
-  const { paymentMethods, downPaymentPercentages, loading: loadingPaymentSettings } = usePaymentSettings();
+  const { paymentMethods, downPaymentPercentages, ready: paymentSettingsReady, failed: paymentSettingsFailed, refetch: refetchPaymentSettings } = usePaymentSettings();
   const { promos } = usePublicPromos();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
@@ -764,10 +765,10 @@ function BookService() {
 
   // Start on the first configured down payment option rather than a hardcoded value.
   useEffect(() => {
-    if (!loadingPaymentSettings && form.downPaymentPercent == null) {
+    if (paymentSettingsReady && form.downPaymentPercent == null) {
       setForm((prev) => ({ ...prev, downPaymentPercent: getDefaultDownPaymentPercent(downPaymentPercentages) }));
     }
-  }, [loadingPaymentSettings, downPaymentPercentages, form.downPaymentPercent]);
+  }, [paymentSettingsReady, downPaymentPercentages, form.downPaymentPercent]);
 
   const stepLabels = ['Choose Service', 'Unit Details', 'Location & Schedule', 'Payment', 'Booking Summary'];
 
@@ -856,7 +857,12 @@ const canNext = () => {
           {step === 1 && <Step1 form={form} setForm={setForm} services={services} />}
           {step === 2 && <Step2 form={form} setForm={setForm} services={services} />}
           {step === 3 && <Step3 form={form} setForm={setForm} technicians={technicians} />}
-          {step === 4 && (
+          {step >= 4 && !paymentSettingsReady && (
+            paymentSettingsFailed
+              ? <PaymentSettingsUnavailable onRetry={refetchPaymentSettings} />
+              : <p>Loading payment settings...</p>
+          )}
+          {step === 4 && paymentSettingsReady && (
             <Step4
               form={form}
               setForm={setForm}
@@ -867,7 +873,7 @@ const canNext = () => {
               promos={promos}
             />
           )}
-          {step === 5 && <Step5 form={form} services={services} technicians={technicians} downPaymentPercentages={downPaymentPercentages} promos={promos} />}
+          {step === 5 && paymentSettingsReady && <Step5 form={form} services={services} technicians={technicians} downPaymentPercentages={downPaymentPercentages} promos={promos} />}
         </>
       )}
 
@@ -886,12 +892,12 @@ const canNext = () => {
             <button
               className="bs-next-btn"
               onClick={() => setStep(step + 1)}
-              disabled={!canNext()}
+              disabled={!canNext() || (step >= 4 && !paymentSettingsReady)}
             >
               {step === 4 ? <>Book <FiArrowRight /></> : <>Next <FiArrowRight /></>}
             </button>
           ) : (
-            <button className="bs-next-btn" onClick={handleConfirmBooking}
+            <button className="bs-next-btn" onClick={handleConfirmBooking} disabled={!paymentSettingsReady}
             >
               Confirm <FiCheck />
             </button>

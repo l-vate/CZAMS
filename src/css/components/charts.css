@@ -99,3 +99,9 @@
 @media (max-width: 700px) {
   .chart-grid-row { grid-template-columns: minmax(0, 1fr); }
 }
+
+.chart-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--ink-soft);
+}

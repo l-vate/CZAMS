@@ -30,6 +30,7 @@ function DashboardCharts({ bookings, range }) {
           xLabel="Completed jobs"
           ariaLabel="Horizontal bar chart of completed jobs per technician"
         />
+        <p className="chart-note">Free back-job repair visits are not counted, the same as in the Technician Performance table.</p>
       </ChartCard>
     </div>
   );

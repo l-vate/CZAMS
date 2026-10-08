@@ -302,4 +302,18 @@ bookingSchema.index({ technician: 1, status: 1 });
 bookingSchema.index({ status: 1, queueRank: 1 });
 bookingSchema.index({ customer: 1 });
 
+// A Completed booking always has a completion date: whatever path completes it (the technician's
+// report, the status job, or the admin button that is still in the code for now), completedAt is
+// filled in here if the path did not.
+bookingSchema.pre('save', function () {
+  if (this.status === 'Completed' && !this.completedAt) this.completedAt = new Date();
+});
+
+// Old Completed bookings may have no completedAt. Every booking read gets the report time
+// attached so utils/completion.js can fall back to it without a query of its own.
+bookingSchema.post(['find', 'findOne'], async function (result) {
+  const { attachReportDates } = require('../utils/completion');
+  await attachReportDates(Array.isArray(result) ? result : [result]);
+});
+
 module.exports = mongoose.model('Booking', bookingSchema);

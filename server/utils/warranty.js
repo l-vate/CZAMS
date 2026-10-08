@@ -4,6 +4,7 @@
 
 const { SERVICE_TYPE } = require('../constants/serviceTypes');
 const { BOOKING_STATUS } = require('../constants/bookingStatus');
+const { effectiveCompletedAt } = require('./completion');
 
 // Coverage periods, from the client interview / CZAMS_Feature_Requirements.md
 // section 8. Named constants so a period change later is a one-line edit.
@@ -45,12 +46,12 @@ function getWarrantyStatus(booking) {
   const serviceType = booking?.service?.serviceType;
 
   // Nothing is "covered" until the job is actually done.
-  if (booking?.status !== BOOKING_STATUS.COMPLETED || !booking?.completedAt) {
+  const completedAt = effectiveCompletedAt(booking);
+  if (booking?.status !== BOOKING_STATUS.COMPLETED || !completedAt) {
     return NOT_APPLICABLE;
   }
 
   const now = new Date();
-  const completedAt = booking.completedAt;
 
   if (serviceType === SERVICE_TYPE.CLEANING) {
     const expiresAt = addDays(completedAt, WARRANTY_PERIODS.CLEANING_DAYS);

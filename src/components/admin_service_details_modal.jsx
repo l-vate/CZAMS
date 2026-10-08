@@ -635,7 +635,7 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                             </div>
                                         </div>
                                     ) : (
-                                        (!isWithinQuezonCity(booking.address) || booking.distanceAdjustment || booking.mobilizationFee) && (
+                                        (!isWithinQuezonCity(booking.address) || booking.distanceAdjustment > 0 || booking.mobilizationFee > 0) && (
                                             <div
                                                 className="sdm-list-row admin-service-details-modal-x19"
                                             >
@@ -662,7 +662,7 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                                 <span className="sdm-list-value">{booking.poNumber}</span>
                                             </div>
                                         )}
-                                        {booking.paymentTermsDays && (
+                                        {booking.paymentTermsDays > 0 && (
                                             <div className="sdm-list-row">
                                                 <span>Payment Terms</span>
                                                 <span className="sdm-list-value">

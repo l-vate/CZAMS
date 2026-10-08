@@ -387,7 +387,7 @@ function ViewReportModal({ reportItem, onClose }) {
           </div>
 
           {/* Labor Hours */}
-          {report.laborHours && (
+          {report.laborHours > 0 && (
             <div className="tech-job-detail-cell">
               <span className="confirmation-detail-icon"><FiClock /></span>
               <div>

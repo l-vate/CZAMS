@@ -3,6 +3,7 @@ import { FiPlus, FiTrash2 } from 'react-icons/fi';
 import { usePaymentSettings } from '../utils/paymentSettings';
 import { attempt } from '../services/apiClient';
 import { updatePaymentSettings } from '../services/paymentSettingsService';
+import PaymentSettingsUnavailable from './payment_settings_unavailable';
 
 
 // Admin editor for the System Configuration Module's payment settings - payment
@@ -11,7 +12,7 @@ import { updatePaymentSettings } from '../services/paymentSettingsService';
 // used to be hardcoded constants in book_service.jsx; this is what the booking
 // flows now read from instead (see src/utils/paymentSettings.js).
 function PaymentSettingsPanel() {
-  const { paymentMethods, downPaymentPercentages, seniorPwdDiscountPercent, loading, refetch } = usePaymentSettings();
+  const { paymentMethods, downPaymentPercentages, seniorPwdDiscountPercent, loading, ready, refetch } = usePaymentSettings();
   const [methods, setMethods] = useState([]);
   const [percentages, setPercentages] = useState([]);
   const [discountPercent, setDiscountPercent] = useState('20');
@@ -25,7 +26,7 @@ function PaymentSettingsPanel() {
     if (!loading) {
       setMethods(paymentMethods.map((m) => ({ ...m, accountDetails: m.accountDetails.map((d) => ({ ...d })) })));
       setPercentages(downPaymentPercentages.slice());
-      setDiscountPercent(String(seniorPwdDiscountPercent));
+      if (seniorPwdDiscountPercent !== null) setDiscountPercent(String(seniorPwdDiscountPercent));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading]);
@@ -130,6 +131,11 @@ function PaymentSettingsPanel() {
 
   if (loading) {
     return <p className="svc-empty">Loading payment settings...</p>;
+  }
+
+  // Never show an editor full of defaults: saving them would overwrite the real settings.
+  if (!ready) {
+    return <PaymentSettingsUnavailable onRetry={refetch} />;
   }
 
   return (

@@ -238,6 +238,11 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
             onClick={() => {
               // Automatically check if it's 100% full payment or partial payment
               const dpPercent = payment.raw?.downPaymentPercent ?? getDefaultDownPaymentPercent(downPaymentPercentages);
+              if (dpPercent === null) {
+                // Neither the booking nor the payment settings say what the down payment is: do not guess.
+                setError('The down payment percent is not set for this booking and the payment settings could not be loaded. Try again later.');
+                return;
+              }
               const targetStatus = dpPercent === 100 ? PAYMENT_STATUS.FULLY_PAID : PAYMENT_STATUS.PARTIALLY_PAID;
               handleUpdatePaymentStatus(targetStatus);
             }}

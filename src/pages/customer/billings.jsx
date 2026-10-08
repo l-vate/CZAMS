@@ -6,6 +6,7 @@ import ReceiptModal from '../../components/receipt_modal';
 import { FiClock, FiMapPin, FiFileText, FiCreditCard, FiEye } from 'react-icons/fi';
 import { getBookingLineItems, getPaymentBreakdown } from '../../utils/bookingPricing';
 import { usePaymentSettings } from '../../utils/paymentSettings';
+import PaymentSettingsUnavailable from '../../components/payment_settings_unavailable';
 import { getFilterPillStyle } from '../../utils/statusColors';
 import { ApiError, orFallback } from '../../services/apiClient';
 import { listMyBookings } from '../../services/bookingService';
@@ -24,7 +25,7 @@ function Billings() {
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [paymentType, setPaymentType] = useState('downpayment'); // 'downpayment' | 'balance'
-  const { paymentMethods } = usePaymentSettings();
+  const { paymentMethods, ready: paymentSettingsReady, failed: paymentSettingsFailed, refetch: refetchPaymentSettings } = usePaymentSettings();
 
   const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -220,6 +221,7 @@ function Billings() {
       searchPlaceholder="Search by ID, service, or address..."
     >
       <div className="customer-billings-x1">
+        {paymentSettingsFailed && <PaymentSettingsUnavailable onRetry={refetchPaymentSettings} />}
         <div className="customer-billings-x2">
           {filters.map((filter) => (
             <button
@@ -310,6 +312,7 @@ function Billings() {
                       setPaymentType('downpayment');
                       setShowPayment(true);
                     }}
+                    disabled={!paymentSettingsReady}
                   >
                     <FiCreditCard size={14} /> {bill.isRejected ? 'Resubmit' : 'Settle'}
                   </button>
@@ -324,7 +327,7 @@ function Billings() {
                       setPaymentType('balance');
                       setShowPayment(true);
                     }}
-                    disabled={bill.isBalanceToVerify}
+                    disabled={bill.isBalanceToVerify || !paymentSettingsReady}
                   >
                     <FiCreditCard size={14} /> {bill.isBalanceRejected ? 'Resubmit Balance' : 'Pay Balance'}
                   </button>

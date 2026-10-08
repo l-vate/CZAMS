@@ -12,7 +12,7 @@ import { FiMessageCircle, FiArrowRight, FiCheckCircle } from 'react-icons/fi';
 function buildQuickQuestions(paymentMethods) {
   const methodNames = paymentMethods.length > 0
     ? paymentMethods.map((m) => m.name).join(', ')
-    : 'GCash, Bank Transfer, or Cash';
+    : 'the modes listed on the payment screen';
 
   return [
     {

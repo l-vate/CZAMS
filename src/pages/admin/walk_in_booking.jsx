@@ -19,6 +19,7 @@ import { FiCheck, FiArrowLeft, FiArrowRight, FiUserPlus } from 'react-icons/fi';
 import { ApiError, orFallback } from '../../services/apiClient';
 import { createBooking } from '../../services/bookingService';
 import GeneratedPasswordNotice from '../../components/generated_password_notice';
+import PaymentSettingsUnavailable from '../../components/payment_settings_unavailable';
 import { listUsers, createUser } from '../../services/userService';
 import { ROLE } from '../../constants/roles';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
@@ -424,7 +425,7 @@ function WalkInBooking() {
   const { services, loading: loadingServices } = useServices();
   const { technicians } = useTechnicians();
   const { customers, loading: loadingCustomers } = useCustomers();
-  const { paymentMethods, downPaymentPercentages, seniorPwdDiscountPercent, loading: loadingPaymentSettings } = usePaymentSettings();
+  const { paymentMethods, downPaymentPercentages, seniorPwdDiscountPercent, ready: paymentSettingsReady, failed: paymentSettingsFailed, refetch: refetchPaymentSettings } = usePaymentSettings();
   const { promos } = usePublicPromos();
   const navigate = useNavigate();
 
@@ -450,10 +451,10 @@ function WalkInBooking() {
 
   // Start on the first configured down payment option rather than a hardcoded value.
   useEffect(() => {
-    if (!loadingPaymentSettings && form.downPaymentPercent == null) {
+    if (paymentSettingsReady && form.downPaymentPercent == null) {
       setForm((prev) => ({ ...prev, downPaymentPercent: getDefaultDownPaymentPercent(downPaymentPercentages) }));
     }
-  }, [loadingPaymentSettings, downPaymentPercentages, form.downPaymentPercent]);
+  }, [paymentSettingsReady, downPaymentPercentages, form.downPaymentPercent]);
 
   const { isFullPay, dpPercent } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages), seniorPwdDiscountPercent, promos);
   const isReturnCustomer = customer?.classification === 'Return';
@@ -560,7 +561,12 @@ function WalkInBooking() {
             {step === 2 && <Step1 form={form} setForm={setForm} services={services} />}
             {step === 3 && <Step2 form={form} setForm={setForm} services={services} />}
             {step === 4 && <Step3 form={form} setForm={setForm} technicians={technicians} />}
-            {step === 5 && (
+            {step >= 5 && !paymentSettingsReady && (
+              paymentSettingsFailed
+                ? <PaymentSettingsUnavailable onRetry={refetchPaymentSettings} />
+                : <p>Loading payment settings...</p>
+            )}
+            {step === 5 && paymentSettingsReady && (
               <WalkInPaymentStep
                 form={form}
                 setForm={setForm}
@@ -573,7 +579,7 @@ function WalkInBooking() {
                 promos={promos}
               />
             )}
-            {step === 6 && (
+            {step === 6 && paymentSettingsReady && (
               <>
                 <Step5 form={form} services={services} technicians={technicians} downPaymentPercentages={downPaymentPercentages} discountPercent={seniorPwdDiscountPercent} promos={promos} />
                 <div className="bs-card admin-walk-in-booking-x5">
@@ -602,12 +608,12 @@ function WalkInBooking() {
             <button
               className="bs-next-btn"
               onClick={() => setStep(step + 1)}
-              disabled={!canNext()}
+              disabled={!canNext() || (step >= 5 && !paymentSettingsReady)}
             >
               Next <FiArrowRight />
             </button>
           ) : (
-            <button className="bs-next-btn" onClick={handleConfirmBooking} disabled={submitting}>
+            <button className="bs-next-btn" onClick={handleConfirmBooking} disabled={submitting || !paymentSettingsReady}>
               {submitting ? 'Creating...' : <>Confirm Booking <FiCheck /></>}
             </button>
           )}

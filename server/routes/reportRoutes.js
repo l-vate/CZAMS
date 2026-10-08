@@ -2,6 +2,10 @@ const { NOTIFICATION_TYPE } = require('../constants/notificationTypes');
 const { ROLE } = require('../constants/roles');
 const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
+const multer = require('multer');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const Report = require('../models/Report');
@@ -9,13 +13,50 @@ const Booking = require('../models/Booking');
 const User = require('../models/User'); // Add this import
 const { sendNotification } = require('../utils/notifications');
 const { getMemberIds, getLeadIds } = require('../utils/assignments');
+const { PHOTO_MAX_BYTES, PHOTO_MIME_TYPES, consentProblem, readFlag } = require('../utils/reportEvidence');
+
+// Same upload rules as the payment proofs: an unguessable file name in uploads/proofs, 5 MB at most.
+// Only JPG and PNG are accepted for the photo of the signed paper form.
+const photoStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const dir = path.join(__dirname, '../uploads/proofs');
+        fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+        const ext = path.extname(file.originalname).toLowerCase().replace(/[^.a-z0-9]/g, '');
+        cb(null, `${crypto.randomBytes(16).toString('hex')}${ext}`);
+    },
+});
+const uploadPhoto = multer({
+    storage: photoStorage,
+    limits: { fileSize: PHOTO_MAX_BYTES },
+    fileFilter: (req, file, cb) => {
+        if (PHOTO_MIME_TYPES.includes(file.mimetype)) cb(null, true);
+        else cb(new Error('The photo must be a JPG or PNG image.'));
+    },
+}).single('photo');
+
+// Runs the upload and turns an upload problem (wrong type, too big) into a clear 400.
+const receivePhoto = (req, res, next) => {
+    uploadPhoto(req, res, (err) => {
+        if (!err) return next();
+        const tooBig = err.code === 'LIMIT_FILE_SIZE';
+        res.status(400).json({ message: tooBig ? 'The photo must be 5 MB or smaller.' : err.message });
+    });
+};
+
+// A rejected report must not leave its photo behind on disk.
+const discardPhoto = (req) => {
+    if (req.file) fs.unlink(req.file.path, () => {});
+};
 
 // ============================================
 // 1. CREATE REPORT
 // ============================================
 
 // Create a new report for a booking
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, receivePhoto, async (req, res) => {
     try {
         const {
             bookingId,
@@ -24,15 +65,18 @@ router.post('/', auth, async (req, res) => {
             recommendations,
             laborHours,
             issueResolution,
-            followUpRequired,
             followUpDate,
             notes,
             submittedAt,
-            preExistingIssueFlagged,
             preExistingIssueDescription,
             clientConsentSignedName,
             clientConsentSignatureDataUrl,
         } = req.body;
+        const followUpRequired = readFlag(req.body.followUpRequired);
+        const preExistingIssueFlagged = readFlag(req.body.preExistingIssueFlagged);
+
+        // Anything that stops the report below must not leave an uploaded photo behind.
+        res.on('finish', () => { if (res.statusCode >= 400) discardPhoto(req); });
 
         // Validate required fields
         if (!bookingId) {
@@ -51,10 +95,13 @@ router.post('/', auth, async (req, res) => {
             return res.status(400).json({ message: 'Please describe the pre-existing issue.' });
         }
 
-        // Client consent + e-signature is required to finalize the report
-        if (!clientConsentSignedName?.trim() || !clientConsentSignatureDataUrl) {
-            return res.status(400).json({ message: "The client's signature and name are required to finalize this report." });
-        }
+        // The client's signature and name, or a photo of the signed paper form, finalize the report
+        const evidenceProblem = consentProblem({
+            signedName: clientConsentSignedName,
+            signatureDataUrl: clientConsentSignatureDataUrl,
+            hasPhoto: !!req.file,
+        });
+        if (evidenceProblem) return res.status(evidenceProblem.status).json({ message: evidenceProblem.message });
 
         // Find the booking
         const booking = await Booking.findOne({ bookingId });
@@ -113,10 +160,11 @@ router.post('/', auth, async (req, res) => {
                 description: preExistingIssueFlagged ? preExistingIssueDescription.trim() : null,
             },
             clientConsent: {
-                signedName: clientConsentSignedName.trim(),
-                signatureDataUrl: clientConsentSignatureDataUrl,
+                signedName: clientConsentSignedName?.trim() || undefined,
+                signatureDataUrl: clientConsentSignatureDataUrl || undefined,
                 signedAt: new Date(),
             },
+            signedFormPhoto: req.file ? `/uploads/proofs/${req.file.filename}` : undefined,
         });
 
         await report.save();

@@ -7,6 +7,8 @@ import { getFilterPillStyle } from '../../utils/statusColors';
 import { orFallback, withFallback } from '../../services/apiClient';
 import { listTechnicianJobs } from '../../services/bookingService';
 import { getReportForBooking, submitReport } from '../../services/reportService';
+import { API_BASE } from '../../config/api';
+import { PHOTO_MAX_BYTES, PHOTO_MIME_TYPES } from '../../constants/reportPhoto';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
 
 
@@ -25,7 +27,24 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
     clientConsentSignedName: '',
     clientConsentSignatureDataUrl: null,
   });
+  const [photo, setPhoto] = useState(null);
   const [error, setError] = useState('');
+
+  const handlePhoto = (e) => {
+    const file = e.target.files[0] || null;
+    if (file && !PHOTO_MIME_TYPES.includes(file.type)) {
+      setError('The photo must be a JPG or PNG image.');
+      e.target.value = '';
+      return;
+    }
+    if (file && file.size > PHOTO_MAX_BYTES) {
+      setError('The photo must be 5 MB or smaller.');
+      e.target.value = '';
+      return;
+    }
+    setError('');
+    setPhoto(file);
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -50,15 +69,16 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
       setError('Please describe the pre-existing issue.');
       return;
     }
-    if (!form.clientConsentSignedName.trim()) {
-      setError("Please enter the client's full name.");
+    // A photo of the signed paper form replaces the on-screen signature and name.
+    if (!photo && !form.clientConsentSignedName.trim()) {
+      setError("Please enter the client's full name, or attach a photo of the signed paper form.");
       return;
     }
-    if (!form.clientConsentSignatureDataUrl) {
-      setError("The client's signature is required to finalize this report.");
+    if (!photo && !form.clientConsentSignatureDataUrl) {
+      setError("The client's signature is required to finalize this report, or attach a photo of the signed paper form.");
       return;
     }
-    onSubmit(form);
+    onSubmit(form, photo);
   };
 
   return (
@@ -291,6 +311,16 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
             />
           </div>
 
+          <div className="form-group">
+            <label className="tech-stat-label" htmlFor="signed-form-photo">
+              Photo of signed paper form <span className="ma-label-hint">(Optional, JPG or PNG, up to 5 MB)</span>
+            </label>
+            <p className="staff-reports-x11">
+              With a photo attached, the signature and name above are no longer required.
+            </p>
+            <input id="signed-form-photo" type="file" accept="image/jpeg,image/png" onChange={handlePhoto} />
+          </div>
+
           {error && (
             <p className="staff-reports-x13">{error}</p>
           )}
@@ -492,6 +522,17 @@ function ViewReportModal({ reportItem, onClose }) {
             </div>
           )}
 
+          {report.signedFormPhoto && (
+            <div className="tech-job-detail-cell tech-job-detail-full">
+              <div>
+                <p className="confirmation-detail-label">Photo of signed paper form</p>
+                <a href={`${API_BASE}${report.signedFormPhoto}`} target="_blank" rel="noopener noreferrer">
+                  <img src={`${API_BASE}${report.signedFormPhoto}`} alt="Signed paper form" className="report-signed-photo" />
+                </a>
+              </div>
+            </div>
+          )}
+
           {/* Submitted On */}
           <div className="tech-job-detail-cell tech-job-detail-full">
             <span className="confirmation-detail-icon"><FiClock /></span>
@@ -617,7 +658,7 @@ function Reports() {
     setModalMode(null);
   };
 
-  const handleSubmitReport = async (form) => {
+  const handleSubmitReport = async (form, photo) => {
     setSubmitting(true);
     try {
       // Create report in reports collection
@@ -625,7 +666,7 @@ function Reports() {
         bookingId: activeReport.bookingId,
         ...form,
         submittedAt: new Date().toISOString()
-      }).catch(withFallback('Failed to submit report'));
+      }, photo).catch(withFallback('Failed to submit report'));
 
       // Update local state
       setReports((prev) =>

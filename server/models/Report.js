@@ -88,6 +88,10 @@ const reportSchema = new mongoose.Schema({
         signatureDataUrl: String,
         signedAt: Date,
     },
+
+    // Photo of the signed paper form (/uploads/proofs/<unguessable name>). Optional; with it, the
+    // drawn signature and typed name become optional. Reports filed before this existed have none.
+    signedFormPhoto: String,
 }, {
     timestamps: true
 });

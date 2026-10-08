@@ -205,6 +205,11 @@ const bookingSchema = new mongoose.Schema({
 
     completedAt: Date,
 
+    // When the booking was cancelled and by whom ('customer' or 'admin'). Set from now on; bookings
+    // cancelled before this existed have neither, and the Cancelled Bookings report says so.
+    cancelledAt: Date,
+    cancelledBy: { type: String, enum: ['customer', 'admin'] },
+
     // Admin Dashboard + Analytics Module: set once, the first time status
     // transitions to 'Approved' (see admin-update in bookingRoutes.js). Backs the
     // "average response time" metric (approvedAt - createdAt) in Service Request

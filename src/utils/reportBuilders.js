@@ -8,6 +8,8 @@
 // Dates: all range checks compare LOCAL calendar-day keys (toLocalDateKey), never
 // toISOString(), which converts to UTC and puts a Manila date after 00:00 on the wrong day.
 import { getBookingLineItems } from './bookingPricing';
+import { pricingOf } from './bookingMoney';
+import { amountPaid, refundedAmount } from './salesFigures';
 import { toLocalDateKey } from './date';
 import { getMembers } from './assignments';
 import { getRequestsPerMonth, getBookingsByStatus, getCompletedPerTechnician } from './chartData';
@@ -22,6 +24,7 @@ export const REPORT_TYPES = [
   { key: 'customers', label: 'Customer Summary' },
   { key: 'payments', label: 'Payments Summary' },
   { key: 'backjobs', label: 'Back Jobs and Warranty Claims' },
+  { key: 'cancelled', label: 'Cancelled Bookings' },
 ];
 
 export function keyToDate(key) {
@@ -340,10 +343,80 @@ export function buildBackJobsReport(data, filters) {
   };
 }
 
+// ---------------------------------------------------------------------------
+const NOT_RECORDED = 'Not recorded';
+const CANCELLED_BY_LABEL = { customer: 'Customer', admin: 'Admin' };
+
+// What the customer had paid when the booking was cancelled: the refund's snapshot when a refund was
+// opened (that is the amount the refund is worked out from), otherwise the verified payments.
+export function cancelledAmountPaid(b) {
+  if (b.refund && b.refund.status !== REFUND_STATUS.NONE && typeof b.refund.downPaymentAmount === 'number') return b.refund.downPaymentAmount;
+  return amountPaid(b, pricingOf);
+}
+
+export function buildCancelledReport(data, filters) {
+  const scoped = scopeBookings(data.bookings, filters);
+  const cancelled = scoped
+    .filter((b) => b.status === BOOKING_STATUS.CANCELLED && !b.isBackJob)
+    .sort((a, b) => String(bookingDate(a, filters)).localeCompare(String(bookingDate(b, filters))));
+
+  const cancelledOn = (b) => b.cancelledAt || b.refund?.requestedAt || null;
+  const who = (b) => CANCELLED_BY_LABEL[b.cancelledBy] || NOT_RECORDED;
+  const paid = cancelled.map(cancelledAmountPaid);
+  const totalPaid = paid.reduce((s, n) => s + n, 0);
+  const totalRefunded = cancelled.reduce((s, b) => s + refundedAmount(b), 0);
+  const countWho = (label) => cancelled.filter((b) => who(b) === label).length;
+  const perMonth = getRequestsPerMonth(cancelled, rangeOf(filters));
+
+  return {
+    title: 'Cancelled Bookings',
+    summary: [
+      { label: 'Cancelled Bookings', value: cancelled.length },
+      { label: 'Cancelled by Customer', value: countWho('Customer') },
+      { label: 'Cancelled by Admin', value: countWho('Admin') },
+      { label: 'Total Paid', value: peso(totalPaid) },
+      { label: 'Total Refunded', value: peso(totalRefunded) },
+      { label: 'Refunds Pending', value: cancelled.filter((b) => b.refund?.status === REFUND_STATUS.PENDING).length },
+    ],
+    charts: [
+      { kind: 'bar', title: 'Cancelled Bookings per Month', data: perMonth.data, xLabel: perMonth.xLabel, yLabel: 'Bookings' },
+      {
+        kind: 'donut', title: 'Who Cancelled', centerLabel: 'Bookings',
+        data: [
+          { label: 'Customer', value: countWho('Customer'), color: 'var(--primary)' },
+          { label: 'Admin', value: countWho('Admin'), color: 'var(--warning)' },
+          { label: NOT_RECORDED, value: countWho(NOT_RECORDED), color: 'var(--ink-soft)' },
+        ],
+      },
+    ],
+    columns: ['Booking ID', 'Customer', 'Client Type', 'Service', 'Service Date', 'Cancelled On', 'Cancelled By', 'Amount Paid', 'Refund Final Amount', 'Refund Status'],
+    rows: cancelled.map((b, i) => [
+      b.bookingId,
+      b.customer?.name || 'N/A',
+      clientOf(b.customer),
+      b.service?.name || 'N/A',
+      b.date || 'N/A',
+      cancelledOn(b) ? formatDay(cancelledOn(b)) : NOT_RECORDED,
+      who(b),
+      peso(paid[i]),
+      b.refund?.status === REFUND_STATUS.PROCESSED ? peso(refundedAmount(b)) : '-',
+      !b.refund || b.refund.status === REFUND_STATUS.NONE ? 'No refund' : b.refund.status,
+    ]),
+    totalRow: ['Total', `${cancelled.length} cancelled`, '', '', '', '', '', peso(totalPaid), peso(totalRefunded), ''],
+    notes: [
+      basisNote(filters),
+      'Amount Paid is what the customer had paid when the booking was cancelled (the refund request records it). Refund Final Amount is shown once the refund is processed.',
+      'Bookings cancelled before the cancellation date and who cancelled were recorded show Not recorded; the date then falls back to the refund request date when there is one.',
+      scoped.some((b) => b.isBackJob && b.status === BOOKING_STATUS.CANCELLED) ? 'Free back-job repair visits are not included.' : null,
+    ].filter(Boolean),
+  };
+}
+
 export const BUILDERS = {
   requests: buildServiceRequestsReport,
   technicians: buildTechnicianReport,
   customers: buildCustomerReport,
   payments: buildPaymentsReport,
   backjobs: buildBackJobsReport,
+  cancelled: buildCancelledReport,
 };

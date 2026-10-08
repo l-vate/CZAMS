@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { API_BASE } from '../config/api';
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -109,6 +110,13 @@ function ServiceReportPdfModal({ report, reportItem, onClose }) {
                 src={report.clientConsent.signatureDataUrl}
                 alt="Client signature"
                 className="report-pdf-signature-img"
+              />
+            )}
+            {report.signedFormPhoto && (
+              <img
+                src={`${API_BASE}${report.signedFormPhoto}`}
+                alt="Photo of signed paper form"
+                className="report-pdf-signature-img report-signed-photo"
               />
             )}
             <div className="report-pdf-row">

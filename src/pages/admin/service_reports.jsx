@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { API_BASE } from '../../config/api';
 import { useLocation } from 'react-router-dom';
 import AdminLayout from './admin_layout';
 import { FiClock, FiFileText, FiUser, FiMapPin, FiX, FiEye, FiCheckCircle, FiAlertCircle } from 'react-icons/fi';
@@ -226,6 +227,15 @@ function ViewReportModal({ report, onClose }) {
                 Signed by {report.clientConsent.signedName}
                 {report.clientConsent.signedAt ? ` on ${formatDateTime(report.clientConsent.signedAt)}` : ''}
               </p>
+            </div>
+          )}
+
+          {report.signedFormPhoto && (
+            <div className="report-view-field report-view-field--full">
+              <label className="report-view-label">Photo of signed paper form</label>
+              <a href={`${API_BASE}${report.signedFormPhoto}`} target="_blank" rel="noopener noreferrer">
+                <img src={`${API_BASE}${report.signedFormPhoto}`} alt="Signed paper form" className="report-signed-photo" />
+              </a>
             </div>
           )}
 

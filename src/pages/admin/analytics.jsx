@@ -4,6 +4,15 @@ import { buildTechnicianStats } from '../../utils/technicianStats';
 import DashboardCharts from '../../components/dashboard_charts';
 import { loadAnalyticsData } from '../../services/analyticsService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
+import { BarChart, ChartCard } from '../../components/charts';
+import { getMembers } from '../../utils/assignments';
+import { pricingOf } from '../../utils/bookingMoney';
+import {
+    inRange, matchesClientType, salesFigures, technicianRatings, topRatedTechnician, MIN_RATINGS_FOR_TOP,
+} from '../../utils/salesFigures';
+import { DATE_BASES } from '../../utils/reportBuilders';
+
+const peso = (n) => `₱${(Math.round(n) || 0).toLocaleString()}`;
 
 
 const CLIENT_TYPE_FILTERS = [
@@ -49,6 +58,8 @@ function Analytics() {
     const [backJobs, setBackJobs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeClientType, setActiveClientType] = useState('all');
+    // Blank dates mean every date, so the page shows what it always did until a range is chosen.
+    const [range, setRange] = useState({ fromKey: '', toKey: '', dateBasis: 'service' });
 
     useEffect(() => {
         async function fetchData() {
@@ -68,10 +79,20 @@ function Analytics() {
         fetchData();
     }, []);
 
-    const filteredBookings = useMemo(() => {
-        if (activeClientType === 'all') return bookings;
-        return bookings.filter((b) => (b.customer?.clientType || 'Residential') === activeClientType);
-    }, [bookings, activeClientType]);
+    const filteredBookings = useMemo(
+        () => bookings.filter((b) => matchesClientType(b, activeClientType) && inRange(b, range)),
+        [bookings, activeClientType, range]
+    );
+
+    // Sales, payments collected and sales per month: same client type and date rule as Reports.
+    const money = useMemo(
+        () => salesFigures(bookings.filter((b) => matchesClientType(b, activeClientType)), range, pricingOf),
+        [bookings, activeClientType, range]
+    );
+
+    // Average rating per technician over the bookings in view (lead and helper alike).
+    const ratingRows = useMemo(() => technicianRatings(filteredBookings.filter((b) => !b.isBackJob), getMembers), [filteredBookings]);
+    const topRated = useMemo(() => topRatedTechnician(ratingRows), [ratingRows]);
 
     const filteredReports = useMemo(() => {
         if (activeClientType === 'all') return reports;
@@ -191,6 +212,43 @@ function Analytics() {
                     ))}
                 </div>
 
+                <div className="analytics-range">
+                    <label htmlFor="an-from">From</label>
+                    <input id="an-from" type="date" value={range.fromKey} onChange={(e) => setRange({ ...range, fromKey: e.target.value })} />
+                    <label htmlFor="an-to">To</label>
+                    <input id="an-to" type="date" value={range.toKey} onChange={(e) => setRange({ ...range, toKey: e.target.value })} />
+                    <label htmlFor="an-basis">Date basis</label>
+                    <select id="an-basis" value={range.dateBasis} onChange={(e) => setRange({ ...range, dateBasis: e.target.value })}>
+                        {DATE_BASES.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
+                    </select>
+                    {(range.fromKey || range.toKey) && (
+                        <button type="button" className="filter-pill" onClick={() => setRange({ ...range, fromKey: '', toKey: '' })}>All dates</button>
+                    )}
+                </div>
+
+                <div className="analytics-cards">
+                    <div className="analytics-card">
+                        <h3>Sales (Completed bookings)</h3>
+                        <p>{loading ? '-' : peso(money.sales)}</p>
+                        {!loading && <small>{money.completedCount} completed</small>}
+                    </div>
+
+                    <div className="analytics-card">
+                        <h3>Payments collected</h3>
+                        <p>{loading ? '-' : peso(money.collected)}</p>
+                        {!loading && <small>Paid {peso(money.paidGross)} · Refunded {peso(money.refunded)}</small>}
+                    </div>
+                </div>
+                <p className="chart-note">
+                    Sales = the final total (after discounts, with distance or mobilization charges, VAT left out) of Completed bookings, free back-job visits excluded.
+                    Payments collected = verified down payments and balances, minus refunds already processed.
+                    Bookings are counted by their {range.dateBasis === 'requested' ? 'date requested' : 'service date'}.
+                </p>
+
+                <ChartCard title="Sales per Month">
+                    <BarChart data={money.perMonth} xLabel="Month" yLabel="Sales (₱)" ariaLabel="Bar chart of sales per month" />
+                </ChartCard>
+
                 {/* Overview Cards */}
                 <div className="analytics-cards">
                     <div className="analytics-card">
@@ -287,11 +345,13 @@ function Analytics() {
                                 <th>Completed Jobs</th>
                                 <th>Average Service Time</th>
                                 <th>Delays</th>
+                                <th>Average rating</th>
+                                <th>Ratings</th>
                             </tr>
                         </thead>
                         <tbody>
                             {technicianAnalytics.length === 0 ? (
-                                <tr><td colSpan={4}>No technician activity yet.</td></tr>
+                                <tr><td colSpan={6}>No technician activity yet.</td></tr>
                             ) : (
                                 technicianAnalytics.map((tech) => (
                                     <tr key={tech.id}>
@@ -299,12 +359,20 @@ function Analytics() {
                                         <td>{tech.completedJobs}</td>
                                         <td>{fmtHours(tech.avgTime)}</td>
                                         <td>{tech.delays}</td>
+                                        <td>{ratingRows.get(tech.id) ? (ratingRows.get(tech.id).total / ratingRows.get(tech.id).ratings).toFixed(1) : 'N/A'}</td>
+                                        <td>{ratingRows.get(tech.id)?.ratings || 0}</td>
                                     </tr>
                                 ))
                             )}
                         </tbody>
                     </table>
                     <p className="chart-note">Free back-job repair visits are not counted, the same as in the Completed Jobs per Technician chart.</p>
+                    <p className="analytics-callout">
+                        {topRated
+                            ? `Top rated technician: ${topRated.name} (${topRated.average.toFixed(1)}, ${topRated.ratings} ratings)`
+                            : 'Not enough ratings yet'}
+                    </p>
+                    <p className="chart-note">Top rated uses only technicians with at least {MIN_RATINGS_FOR_TOP} ratings. A rating counts for every technician on the job.</p>
                 </section>
 
                 {/* Customer Analytics */}

@@ -293,6 +293,11 @@ const bookingSchema = new mongoose.Schema({
     // completedAt is known.
     paymentTermsDays: { type: Number, default: null },
     paymentDueAt: { type: Date, default: null },
+    // What the down payment came to, in pesos, at the moment it was submitted (or received by an
+    // admin on a walk-in). A pre-service cancellation refunds this, not a figure recomputed later:
+    // a Senior/PWD discount approved after the customer paid must not shrink their refund.
+    // Bookings made before this field existed have none and fall back to the current computation.
+    downPaymentPaidAmount: Number,
 }, { timestamps: true });
 
 // Add index for efficient queries

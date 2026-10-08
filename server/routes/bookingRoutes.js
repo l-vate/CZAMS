@@ -138,6 +138,12 @@ function todayDateString() {
 // stay 'None'). Shared by the customer-initiated /cancel route and the admin-initiated
 // /admin-update route so both cancellation paths open refunds the same way. Requires
 // booking.service to already be populated (needed for the price).
+// The down payment in pesos, from the booking's totals right now (units minus any applied discount,
+// times the down payment percent).
+function computeDownPaymentAmount(booking) {
+  return Math.round(getBookingUnitsSubtotal(booking) * ((booking.downPaymentPercent || 0) / 100));
+}
+
 function openRefundIfEligible(booking) {
   const hasDownPaymentOnFile =
     booking.downPaymentPercent > 0 &&
@@ -145,8 +151,10 @@ function openRefundIfEligible(booking) {
 
   if (!hasDownPaymentOnFile) return;
 
-  const unitsSubtotal = getBookingUnitsSubtotal(booking);
-  const downPaymentAmount = Math.round(unitsSubtotal * (booking.downPaymentPercent / 100));
+  // What the customer actually paid when they submitted it, else (older bookings) the current figure.
+  const downPaymentAmount = typeof booking.downPaymentPaidAmount === 'number'
+    ? booking.downPaymentPaidAmount
+    : computeDownPaymentAmount(booking);
   const isSameDay = booking.date === todayDateString();
 
   booking.refund = {
@@ -504,7 +512,11 @@ router.post('/', auth, (req, res, next) => {
       const basePrice = getBookingBasePrice(populated);
       populated.vatAmount = Math.round(basePrice * 0.12);
     }
-    if (isCommercial || discountApprovedNow || bestPromo) {
+    // Remember what the down payment came to now, while the totals are what the customer saw.
+    const downPaymentOnFile = populated.downPaymentPercent > 0
+      && [PAYMENT_STATUS.TO_VERIFY, PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(populated.paymentStatus);
+    if (downPaymentOnFile) populated.downPaymentPaidAmount = computeDownPaymentAmount(populated);
+    if (isCommercial || discountApprovedNow || bestPromo || downPaymentOnFile) {
       await populated.save();
     }
 
@@ -693,16 +705,15 @@ router.patch('/:bookingId/pay', auth, upload.single('proof'), async (req, res) =
   try {
     const proofFile = req.file ? `/uploads/proofs/${req.file.filename}` : undefined;
 
-    const updateData = { paymentStatus: PAYMENT_STATUS.TO_VERIFY };
-    if (proofFile) updateData.proofFile = proofFile;
-
-    const booking = await Booking.findOneAndUpdate(
-      { bookingId: req.params.bookingId, customer: req.userId },
-      updateData,
-      { new: true }
-    ).populate('service');
-
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId, customer: req.userId }).populate('service');
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    booking.paymentStatus = PAYMENT_STATUS.TO_VERIFY;
+    if (proofFile) booking.proofFile = proofFile;
+    // The amount submitted now, from the totals as they are now.
+    if (booking.downPaymentPercent > 0) booking.downPaymentPaidAmount = computeDownPaymentAmount(booking);
+    await booking.save();
+
     res.json(withWarranty(booking));
   } catch (err) {
     console.error(err);
@@ -1588,6 +1599,16 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
         booking.balancePaymentStatus = BALANCE_PAYMENT_STATUS.PAID;
         booking.paymentStatus = PAYMENT_STATUS.FULLY_PAID;
       }
+    }
+
+    // Down payment amount on file (see Booking.downPaymentPaidAmount). A rejected proof means no
+    // money is on file. A payment an admin marks received with no submission before it (cash at
+    // the door) is recorded at the totals of this moment. Bookings paid long ago keep no snapshot.
+    if (booking.paymentStatus === PAYMENT_STATUS.REJECTED) {
+      booking.downPaymentPaidAmount = undefined;
+    } else if (paymentStatus && booking.downPaymentPercent > 0 && typeof booking.downPaymentPaidAmount !== 'number'
+      && [PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(booking.paymentStatus)) {
+      booking.downPaymentPaidAmount = computeDownPaymentAmount(booking);
     }
 
     await booking.save();

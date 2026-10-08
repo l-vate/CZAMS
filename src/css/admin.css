@@ -2791,3 +2791,7 @@
   font-size: 13px;
   color: var(--ink-soft);
 }
+
+.analytics-range { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin: 12px 0; }
+.analytics-range input, .analytics-range select { padding: 6px 8px; border: 1px solid var(--mist); border-radius: 8px; }
+.analytics-callout { font-weight: 700; margin: 12px 0 4px; }

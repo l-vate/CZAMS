@@ -4,7 +4,7 @@ import ReportSheet from '../../components/report_sheet';
 import { loadReportData } from '../../services/analyticsService';
 import { toLocalDateKey } from '../../utils/date';
 import {
-  REPORT_TYPES, BUILDERS, formatRange, formatGeneratedAt,
+  REPORT_TYPES, DATE_BASES, BUILDERS, formatRange, formatGeneratedAt,
 } from '../../utils/reportBuilders';
 
 const CLIENT_TYPES = [
@@ -26,7 +26,7 @@ function defaultRange() {
 // the same admin endpoints the other pages use.
 function Reports() {
   const [reportType, setReportType] = useState('requests');
-  const [filters, setFilters] = useState({ ...defaultRange(), clientType: 'all' });
+  const [filters, setFilters] = useState({ ...defaultRange(), clientType: 'all', dateBasis: 'service' });
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -71,6 +71,7 @@ function Reports() {
       meta: {
         range: formatRange(filters.fromKey, filters.toKey),
         clientType: CLIENT_TYPES.find((c) => c.key === filters.clientType).label,
+        dateBasis: DATE_BASES.find((d) => d.key === filters.dateBasis).label,
         generatedAt: formatGeneratedAt(),
         preparedBy: user.name || 'Admin',
       },
@@ -117,6 +118,17 @@ function Reports() {
             onChange={(e) => setFilters({ ...filters, clientType: e.target.value })}
           >
             {CLIENT_TYPES.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+          </select>
+        </div>
+
+        <div className="report-control">
+          <label htmlFor="report-basis">Date basis</label>
+          <select
+            id="report-basis"
+            value={filters.dateBasis}
+            onChange={(e) => setFilters({ ...filters, dateBasis: e.target.value })}
+          >
+            {DATE_BASES.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
           </select>
         </div>
 

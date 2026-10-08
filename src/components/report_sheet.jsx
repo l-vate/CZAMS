@@ -27,6 +27,7 @@ function ReportSheet({ report, meta }) {
         <dl className="report-meta">
           <div><dt>Period</dt><dd>{meta.range}</dd></div>
           <div><dt>Client type</dt><dd>{meta.clientType}</dd></div>
+          <div><dt>Date basis</dt><dd>{meta.dateBasis}</dd></div>
           <div><dt>Generated</dt><dd>{meta.generatedAt}</dd></div>
           <div><dt>Prepared by</dt><dd>{meta.preparedBy}</dd></div>
         </dl>

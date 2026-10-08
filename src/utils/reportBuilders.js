@@ -57,9 +57,20 @@ const average = (nums) => (nums.length ? nums.reduce((s, n) => s + n, 0) / nums.
 const hours = (n) => (n === null ? 'N/A' : `${n.toFixed(1)} hrs`);
 const clientOf = (customer) => customer?.clientType || 'Residential';
 
+// Which date a report counts bookings by: when they were requested, or the day of the service.
+export const DATE_BASES = [
+  { key: 'service', label: 'Service date' },
+  { key: 'requested', label: 'Date requested' },
+];
+const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
+const bookingDate = (b, filters) => (filters.dateBasis === 'requested' ? b.createdAt : b.date);
+// A back-job claim: the day it was filed, or the day of the service it is about.
+const claimDate = (bj, filters) => (filters.dateBasis === 'requested' ? bj.reportedAt : bj.originalBooking?.date);
+const basisNote = (filters, what = 'Bookings') => `${what} are counted by their ${filters.dateBasis === 'requested' ? 'date requested' : 'service date'}.`;
+
 function inRange(value, { fromKey, toKey }) {
   if (!value) return false;
-  const key = toLocalDateKey(new Date(value));
+  const key = DATE_KEY.test(value) ? value : toLocalDateKey(new Date(value));
   return key >= fromKey && key <= toKey;
 }
 
@@ -67,14 +78,14 @@ function matchesClient(clientType, filters) {
   return filters.clientType === 'all' || clientType === filters.clientType;
 }
 
-// Bookings requested inside the date range, for the chosen client type.
+// Bookings inside the date range (by the chosen date basis), for the chosen client type.
 function scopeBookings(bookings, filters) {
   return bookings.filter(
-    (b) => inRange(b.createdAt, filters) && matchesClient(clientOf(b.customer), filters)
+    (b) => inRange(bookingDate(b, filters), filters) && matchesClient(clientOf(b.customer), filters)
   );
 }
 
-const rangeOf = (filters) => ({ from: keyToDate(filters.fromKey), to: keyToDate(filters.toKey) });
+const rangeOf = (filters) => ({ from: keyToDate(filters.fromKey), to: keyToDate(filters.toKey), dateOf: (b) => bookingDate(b, filters) });
 
 const BACK_JOB_NOTE = 'Free back-job repair visits are not counted as new requests. See the Back Jobs and Warranty Claims report.';
 
@@ -113,6 +124,7 @@ export function buildServiceRequestsReport(data, filters) {
         return [b.bookingId, formatDay(b.createdAt), b.customer?.name || 'N/A', clientOf(b.customer), b.service?.name || 'N/A', units, b.date || 'N/A', b.status];
       }),
     notes: [
+      basisNote(filters),
       'Response time is the time from the request being made to an admin approving it. Requests not yet approved are left out of the average.',
       scoped.length !== requests.length ? BACK_JOB_NOTE : null,
     ].filter(Boolean),
@@ -159,6 +171,7 @@ export function buildTechnicianReport(data, filters) {
       r.ratings.length ? `${average(r.ratings).toFixed(1)} / 5` : 'N/A',
     ]),
     notes: [
+      basisNote(filters),
       'A job counts for every technician on it, the lead and the helper alike, so the rows add up to more than the number of jobs.',
       'Average service time is the labor hours the team lead entered on the service report, credited to each member of the team.',
       'A delay is a booking with a reported disruption or an approved extension request.',
@@ -174,7 +187,7 @@ export function buildCustomerReport(data, filters) {
 
   const rows = customers.map((c) => {
     const mine = requests.filter((b) => b.customer?._id === c._id);
-    const last = mine.reduce((latest, b) => (!latest || new Date(b.createdAt) > new Date(latest) ? b.createdAt : latest), null);
+    const last = mine.reduce((latest, b) => { const d = bookingDate(b, filters); return !latest || d > latest ? d : latest; }, null);
     return {
       customer: c,
       bookings: mine.length,
@@ -207,9 +220,10 @@ export function buildCustomerReport(data, filters) {
     columns: ['Customer', 'Email', 'Client Type', 'Classification', 'Registered', 'Bookings', 'Completed', 'Cancelled', 'Last Booking'],
     rows: rows.map((r) => [
       r.customer.name || 'N/A', r.customer.email || 'N/A', clientOf(r.customer), r.customer.classification || 'Regular',
-      formatDay(r.customer.createdAt), r.bookings, r.completed, r.cancelled, r.last ? formatDay(r.last) : 'None',
+      formatDay(r.customer.createdAt), r.bookings, r.completed, r.cancelled, r.last ? (DATE_KEY.test(r.last) ? formatDay(keyToDate(r.last)) : formatDay(r.last)) : 'None',
     ]),
     notes: [
+      basisNote(filters),
       'Lists customers with at least one booking in the period, or who registered in it. Classification is as of today.',
     ],
   };
@@ -272,6 +286,7 @@ export function buildPaymentsReport(data, filters) {
     rows: groups.map((g) => [g.label, g.count, peso(g.total), peso(g.vat), peso(g.total + g.vat)]),
     totalRow: ['Total', sum('count'), peso(sum('total')), peso(sum('vat')), peso(sum('total') + sum('vat'))],
     notes: [
+      basisNote(filters),
       'A billing status summary only. It counts bookings by their payment status and adds up their listed prices; it is not an accounting record.',
       'Total Price is after any approved Senior/PWD discount and includes distance or mobilization charges. VAT applies to commercial clients only.',
       scoped.length !== billable.length ? 'Free back-job repair visits have nothing to pay and are not included.' : null,
@@ -283,11 +298,11 @@ export function buildPaymentsReport(data, filters) {
 export function buildBackJobsReport(data, filters) {
   const clientById = new Map(data.customers.map((c) => [c._id, clientOf(c)]));
   const claims = data.backJobs.filter(
-    (bj) => inRange(bj.reportedAt, filters) && matchesClient(clientById.get(bj.customer?._id) || 'Residential', filters)
+    (bj) => inRange(claimDate(bj, filters), filters) && matchesClient(clientById.get(bj.customer?._id) || 'Residential', filters)
   );
   const within = claims.filter((bj) => bj.warrantyCheck?.withinWarranty === true).length;
   const notCovered = claims.filter((bj) => bj.warrantyCheck?.withinWarranty === false).length;
-  const perMonth = getRequestsPerMonth(claims.map((bj) => ({ createdAt: bj.reportedAt })), rangeOf(filters));
+  const perMonth = getRequestsPerMonth(claims.map((bj) => ({ createdAt: claimDate(bj, filters) })), { ...rangeOf(filters), dateOf: (x) => x.createdAt });
 
   return {
     title: 'Back Jobs and Warranty Claims',
@@ -318,7 +333,10 @@ export function buildBackJobsReport(data, filters) {
         bj.warrantyCheck?.withinWarranty ? (bj.warrantyCheck.coverageType || 'Within warranty') : 'Not covered',
         bj.status, bj.resultingBookingId || 'None', bj.issueDescription || '',
       ]),
-    notes: ['Coverage is the warranty check made when the claim was filed.'],
+    notes: [
+      `Claims are counted by ${filters.dateBasis === 'requested' ? 'the date the claim was filed' : 'the date of the original service'}.`,
+      'Coverage is the warranty check made when the claim was filed.',
+    ],
   };
 }
 

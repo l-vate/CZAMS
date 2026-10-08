@@ -160,7 +160,17 @@ const bookingSchema = new mongoose.Schema({
         isSameDay: { type: Boolean, default: false },
         downPaymentAmount: Number,
         dispatchDeduction: Number,
+        // refundableAmount is what is actually refunded (the final figure). When the admin processes
+        // the refund, computedAmount keeps the system's figure so any change is visible, with who
+        // changed it, when and why. Refunds processed before these fields existed have none of them.
         refundableAmount: Number,
+        computedAmount: Number,
+        finalAmount: Number,
+        adjustmentReason: String,
+        adjustedBy: String,
+        adjustedAt: Date,
+        // Set when the customer confirms the money arrived. Informational only: it never blocks the admin.
+        receivedConfirmedAt: Date,
         requestedAt: Date,
         processedAt: Date,
         processedBy: String,

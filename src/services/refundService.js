@@ -10,10 +10,18 @@ export function resolveRefundFlag(bookingId) {
   return request(`/api/bookings/${bookingId}/refund/flag/resolve`, { method: 'PATCH' });
 }
 
+// Customer: confirm the refund money arrived. Allowed once, after the refund is processed.
+export function confirmRefundReceived(bookingId) {
+  return request(`/api/bookings/${bookingId}/refund/received`, { method: 'PATCH' });
+}
+
 // Admin: record the refund. `dispatchDeduction` is only sent for a same-day cancellation.
-export function processRefund(bookingId, { proof, dispatchDeduction }) {
+// `finalAmount` and `adjustmentReason` are sent only when the admin changes the computed amount.
+export function processRefund(bookingId, { proof, dispatchDeduction, finalAmount, adjustmentReason }) {
   const formData = new FormData();
   formData.append('proof', proof);
   if (dispatchDeduction !== undefined) formData.append('dispatchDeduction', dispatchDeduction);
+  if (finalAmount !== undefined) formData.append('finalAmount', finalAmount);
+  if (adjustmentReason) formData.append('adjustmentReason', adjustmentReason);
   return upload(`/api/bookings/${bookingId}/refund`, formData, { method: 'PATCH' });
 }

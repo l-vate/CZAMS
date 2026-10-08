@@ -17,7 +17,7 @@ import { API_BASE } from '../../config/api';
 import { ApiError, orFallback } from '../../services/apiClient';
 import { getBooking, cancelBooking, rescheduleBooking, submitFeedback, requestDiscount } from '../../services/bookingService';
 import DiscountOption from '../../components/discount_option';
-import { flagRefund } from '../../services/refundService';
+import { flagRefund, confirmRefundReceived } from '../../services/refundService';
 import { getBackJobForBooking, reportBackJob } from '../../services/backJobService';
 import { listNotifications } from '../../services/notificationService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
@@ -202,6 +202,11 @@ function RefundStatusMessage({ refund }) {
       <p className="cancelled-message">
         Your booking has been successfully cancelled. Your refund of{' '}
         <strong>₱{refund.refundableAmount?.toLocaleString()}</strong> has been processed.
+        {refund.adjustmentReason && (
+          <>
+            {' '}It was adjusted from ₱{refund.computedAmount?.toLocaleString()}. Reason: {refund.adjustmentReason}
+          </>
+        )}
       </p>
     );
   }
@@ -224,6 +229,43 @@ function RefundStatusMessage({ refund }) {
       <strong>₱{refund.downPaymentAmount?.toLocaleString()}</strong> is being reviewed
       for a refund by our admin team.
     </p>
+  );
+}
+
+// Lets the customer tell us the refund arrived. Once only; it never stops an admin from anything.
+function RefundReceivedConfirm({ bookingId, refund, onConfirmed }) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  if (refund.status !== REFUND_STATUS.PROCESSED) return null;
+
+  if (refund.receivedConfirmedAt) {
+    return (
+      <p className="cancelled-message customer-book-details-x2">
+        You confirmed receiving this refund on {formatDate(refund.receivedConfirmedAt)}.
+      </p>
+    );
+  }
+
+  const handleConfirm = async () => {
+    setSubmitting(true);
+    setError('');
+    try {
+      onConfirmed(await confirmRefundReceived(bookingId));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message || 'Failed to confirm.' : 'Could not connect to server.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="customer-book-details-x3">
+      <button type="button" className="bs-next-btn" onClick={handleConfirm} disabled={submitting}>
+        {submitting ? 'Saving...' : 'Confirm I received the refund'}
+      </button>
+      {error && <p className="customer-book-details-x4">{error}</p>}
+    </div>
   );
 }
 
@@ -311,6 +353,9 @@ function BookingCancelled({ bookingId, refund, onBookAgain, onBackToDashboard, o
       </div>
       <div className="bs-card cancelled-card">
         <RefundStatusMessage refund={refund} />
+        {refund && refund.status !== REFUND_STATUS.NONE && (
+          <RefundReceivedConfirm bookingId={bookingId} refund={refund} onConfirmed={onRefundFlagged} />
+        )}
         {refund && refund.status !== REFUND_STATUS.NONE && (
           <RefundFlagForm bookingId={bookingId} refund={refund} onFlagged={onRefundFlagged} />
         )}

@@ -15,7 +15,8 @@ import {
 } from 'react-icons/fi';
 import { API_BASE } from '../../config/api';
 import { ApiError, orFallback, bodyEvenIfError } from '../../services/apiClient';
-import { getBooking, cancelBooking, rescheduleBooking, submitFeedback } from '../../services/bookingService';
+import { getBooking, cancelBooking, rescheduleBooking, submitFeedback, requestDiscount } from '../../services/bookingService';
+import DiscountOption from '../../components/discount_option';
 import { flagRefund } from '../../services/refundService';
 import { getBackJobForBooking, reportBackJob } from '../../services/backJobService';
 import { listNotifications } from '../../services/notificationService';
@@ -48,6 +49,55 @@ function formatDate(dateStr) {
   const d = new Date(dateStr);
   if (isNaN(d)) return dateStr;
   return d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+}
+
+// Lets a customer ask for the Senior Citizen / PWD discount after booking. Shown only while the
+// booking is Pending or Approved and has no request yet, or the last one was rejected.
+function DiscountRequestForm({ bookingId, onRequested }) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ discountType: '', discountIdFileObj: null });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async () => {
+    if (!form.discountType || !form.discountIdFileObj) {
+      setError('Choose Senior Citizen or PWD and upload a photo of a valid ID.');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    try {
+      const data = await requestDiscount(bookingId, { type: form.discountType, idFile: form.discountIdFileObj });
+      onRequested(data);
+      setOpen(false);
+      setForm({ discountType: '', discountIdFileObj: null });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message || 'Failed to send the discount request.' : 'Could not connect to server.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!open) {
+    return (
+      <button type="button" className="bs-back-btn" onClick={() => setOpen(true)}>
+        Request Senior/PWD discount
+      </button>
+    );
+  }
+
+  return (
+    <div className="bs-field-group customer-book-details-x3">
+      <DiscountOption form={form} setForm={setForm} idRequired appliesNow={false} optional={false} />
+      {error && <p className="customer-book-details-x4">{error}</p>}
+      <div className="cancel-confirm-actions">
+        <button type="button" className="bs-back-btn" onClick={() => setOpen(false)} disabled={submitting}>Cancel</button>
+        <button type="button" className="bs-next-btn" onClick={handleSubmit} disabled={submitting}>
+          {submitting ? 'Sending...' : 'Send request'}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function RescheduleModal({ booking, onClose, onSubmit, submitting }) {
@@ -716,6 +766,11 @@ function BookDetails() {
                   </button>
                 )}
               </>
+            )}
+
+            {[BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED].includes(booking.status)
+              && !['Pending', 'Approved'].includes(booking.discount?.status) && (
+              <DiscountRequestForm bookingId={booking.bookingId} onRequested={(data) => setBooking(data)} />
             )}
 
             {getFeedbackAction(booking) && (

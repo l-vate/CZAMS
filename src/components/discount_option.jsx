@@ -8,7 +8,7 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf
 // the same one clears it). A customer must attach a photo of a valid ID; an admin
 // booking on someone's behalf has seen the ID in person, so the upload is optional
 // there and the discount is applied straight away.
-function DiscountOption({ form, setForm, idRequired, appliesNow, percent }) {
+function DiscountOption({ form, setForm, idRequired, appliesNow, percent, optional = true }) {
   const [fileError, setFileError] = useState('');
 
   const choose = (type) => {
@@ -44,7 +44,7 @@ function DiscountOption({ form, setForm, idRequired, appliesNow, percent }) {
   return (
     <div className="bs-field-group">
       <label className="bs-label">
-        Senior Citizen / PWD Discount <span className="bs-label-hint">(Optional)</span>
+        Senior Citizen / PWD Discount {optional && <span className="bs-label-hint">(Optional)</span>}
       </label>
       <div className="dp-radio-grid">
         {[['Senior', 'Senior Citizen'], ['PWD', 'PWD']].map(([value, label]) => (

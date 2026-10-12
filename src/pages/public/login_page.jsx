@@ -11,6 +11,7 @@ import '../../css/public.css'
 import { ApiError } from '../../services/apiClient';
 import { login } from '../../services/authService';
 import { ROLE } from '../../constants/roles';
+import { takeSessionNotice } from '../../utils/session';
 
 /* ── Static Content ─────────────────────────────────────── */
 const FEATURES = [
@@ -22,7 +23,8 @@ const FEATURES = [
 function LoginPage() {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
+  // a forced sign-out (expired session, deactivated account) leaves a short message to show here
+  const [error, setError] = useState(() => takeSessionNotice());
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 

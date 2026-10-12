@@ -229,8 +229,14 @@ router.put('/change-password', auth, async (req, res) => {
   }
 });
 
+// Customers only. A technician or an admin account is removed by an admin (deactivate it), never by
+// its own owner, so a technician cannot orphan their assigned jobs and the last admin cannot vanish.
+// A customer's bookings are left as they are when the account goes: nothing is cancelled or deleted.
 router.delete('/account', auth, async (req, res) => {
   try {
+    if (req.userRole !== ROLE.CUSTOMER) {
+      return res.status(403).json({ message: 'Only customers can delete their own account. Ask an administrator.' });
+    }
     const user = await User.findByIdAndDelete(req.userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });

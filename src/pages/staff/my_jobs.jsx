@@ -137,7 +137,7 @@ const DISRUPTION_EXTENSION_COPY = {
   },
 };
 
-function DisruptionExtensionModal({ kind, job, onClose, onSubmit, submitting }) {
+function DisruptionExtensionModal({ kind, job, onClose, onSubmit, submitting, serverError }) {
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
 
@@ -184,8 +184,8 @@ function DisruptionExtensionModal({ kind, job, onClose, onSubmit, submitting }) 
                 onChange={(e) => setReason(e.target.value)}
               />
             </div>
-            {error && (
-              <p className="staff-my-jobs-x4">{error}</p>
+            {(error || serverError) && (
+              <p className="staff-my-jobs-x4" role="alert">{error || serverError}</p>
             )}
             <button className="modal-submit-btn" onClick={handleSubmit} disabled={submitting}>
               {submitting ? 'Submitting...' : 'Submit'}
@@ -247,6 +247,7 @@ function MyJobs() {
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [reportModal, setReportModal] = useState(null); // { kind: 'disruption' | 'extension', job }
   const [submittingReport, setSubmittingReport] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const sortWrapperRef = useRef(null);
 
   // A failed load is an error state with a Retry, never "No jobs match your search or filter".
@@ -325,6 +326,7 @@ function MyJobs() {
   const handleSubmitReport = async (reasonText) => {
     if (!reportModal) return;
     setSubmittingReport(true);
+    setSubmitError('');
     try {
       const send = reportModal.kind === 'disruption' ? reportDisruption : requestExtension;
       const data = await send(reportModal.job.bookingId, reasonText);
@@ -333,7 +335,7 @@ function MyJobs() {
       setJobs((prev) => prev.map((j) => (j.bookingId === updatedJob.bookingId ? updatedJob : j)));
       setReportModal({ kind: reportModal.kind, job: updatedJob });
     } catch (err) {
-      alert(err instanceof ApiError ? err.message || 'Failed to submit.' : 'Could not connect to server.');
+      setSubmitError(err instanceof ApiError ? err.message || 'Failed to submit.' : 'Could not connect to server.');
     } finally {
       setSubmittingReport(false);
     }
@@ -450,9 +452,10 @@ function MyJobs() {
         <DisruptionExtensionModal
           kind={reportModal.kind}
           job={reportModal.job}
-          onClose={() => setReportModal(null)}
+          onClose={() => { setReportModal(null); setSubmitError(''); }}
           onSubmit={handleSubmitReport}
           submitting={submittingReport}
+          serverError={submitError}
         />
       )}
     </StaffLayout>

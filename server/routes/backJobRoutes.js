@@ -8,6 +8,7 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const { allowRoles } = require('../middleware/roles');
+const { toCustomerBackJob } = require('../utils/customerView');
 const Booking = require('../models/Booking');
 const BackJob = require('../models/BackJob');
 const Report = require('../models/Report');
@@ -125,7 +126,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER), async (req, res) => {
     );
 
     const populated = await BackJob.findById(backJob._id).populate('resultingBooking');
-    res.status(201).json(populated);
+    res.status(201).json(toCustomerBackJob(populated));
   } catch (err) {
     console.error(err);
     if (err instanceof BookingIdExhaustedError || err instanceof BackJobIdExhaustedError) return res.status(500).json({ message: err.message });
@@ -180,7 +181,8 @@ router.get('/booking/:bookingId', auth, async (req, res) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    res.json(backJob);
+    // the customer sees the claim without who reviewed it, and the free visit through the customer whitelist
+    res.json(req.userRole === ROLE.ADMIN ? backJob : toCustomerBackJob(backJob));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });

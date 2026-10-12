@@ -12,6 +12,7 @@ const User = require('../models/User'); // Add this import
 const { sendNotification } = require('../utils/notifications');
 const { getMemberIds, getLeadIds, memberFilter } = require('../utils/assignments');
 const { toTechnicianView } = require('../utils/technicianView');
+const { toCustomerView } = require('../utils/customerView');
 const { TECHNICIAN_BOOKING_FILTER, isHiddenFromTechnicians } = require('../utils/technicianVisibility');
 const { manilaTodayKey } = require('../utils/timeBlocks');
 const { createUploader, PHOTO_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
@@ -31,11 +32,11 @@ const discardPhoto = (req) => {
     if (req.file) fs.unlink(req.file.path, () => {});
 };
 
-// The booking shown with a report. An admin gets it whole; anyone else, including the
-// technician who wrote the report, only gets what a technician may see (no payment, proof,
-// discount or refund data).
+// The booking shown with a report. An admin gets it whole; the owning customer only what a customer may
+// see; a technician only what a technician may see (no payment, proof, discount or refund data).
 function detailsFor(req, booking) {
     if (!booking || req.userRole === ROLE.ADMIN) return booking;
+    if (req.userRole === ROLE.CUSTOMER) return toCustomerView(booking.toObject());
     return toTechnicianView(booking.toObject());
 }
 

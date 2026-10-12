@@ -29,6 +29,7 @@ const { proposeAssignment } = require('../utils/autoAssign');
 const { summarizeRatings } = require('../utils/ratings');
 const { toTechnicianView } = require('../utils/technicianView');
 const { allowRoles } = require('../middleware/roles');
+const { toCustomerView } = require('../utils/customerView');
 const { TECHNICIAN_BOOKING_FILTER, isHiddenFromTechnicians } = require('../utils/technicianVisibility');
 const scheduling = require('../constants/scheduling');
 const { createUploader, PROOF_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
@@ -56,6 +57,9 @@ function withWarranty(booking) {
   obj.warranty = getWarrantyStatus(booking);
   return obj;
 }
+
+// The same, for a customer: only the fields a customer may see (utils/customerView.js).
+const customerBooking = (booking) => toCustomerView(withWarranty(booking));
 
 // ============================================
 // 1. CONFIGURATION & HELPERS
@@ -540,7 +544,8 @@ clientSuppliedUnit: isClientSuppliedUnit,
     // fails the booking, it just stays unassigned for the admin to assign by hand.
     if (!technician) await autoAssignNewBooking(populated);
 
-    res.status(201).json(withWarranty(populated));
+    // an admin booking for a walk-in sees everything; a customer only what is theirs to see
+    res.status(201).json(req.userRole === ROLE.ADMIN ? withWarranty(populated) : customerBooking(populated));
   } catch (err) {
     console.error(err);
     if (err instanceof BookingIdExhaustedError) return res.status(500).json({ message: err.message });
@@ -561,7 +566,7 @@ router.get('/mine', auth, async (req, res) => {
       obj.warranty = getWarrantyStatus(b);
       return obj;
     });
-    res.json(enriched);
+    res.json(enriched.map(toCustomerView));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -657,7 +662,7 @@ router.get('/:bookingId', auth, async (req, res) => {
 
     const obj = booking.toObject();
     obj.warranty = getWarrantyStatus(booking);
-    res.json(obj);
+    res.json(toCustomerView(obj));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -704,7 +709,7 @@ router.patch('/:bookingId/cancel', auth, allowRoles(ROLE.CUSTOMER), async (req, 
       { path: 'technician', select: 'name' },
       ...ASSIGNMENT_POPULATE,
     ]);
-    res.json(withWarranty(populated));
+    res.json(customerBooking(populated));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -731,7 +736,7 @@ router.patch('/:bookingId/pay', auth, allowRoles(ROLE.CUSTOMER), upload.single('
     if (booking.downPaymentPercent > 0) booking.downPaymentPaidAmount = computeDownPaymentAmount(booking);
     await booking.save();
 
-    res.json(withWarranty(booking));
+    res.json(customerBooking(booking));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -756,7 +761,7 @@ router.patch('/:bookingId/pay-balance', auth, allowRoles(ROLE.CUSTOMER), upload.
     if (submission.reference) booking.balanceReferenceNumber = submission.reference;
     await booking.save();
 
-    res.json(withWarranty(booking));
+    res.json(customerBooking(booking));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -815,7 +820,7 @@ router.patch('/:bookingId/discount/request', auth, allowRoles(ROLE.CUSTOMER), up
       { path: 'technician', select: 'name' },
       ...ASSIGNMENT_POPULATE,
     ]);
-    res.json(withWarranty(populated));
+    res.json(customerBooking(populated));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -1053,7 +1058,7 @@ router.patch('/:bookingId/reschedule', auth, allowRoles(ROLE.CUSTOMER), async (r
       { path: 'technician', select: 'name' },
       ...ASSIGNMENT_POPULATE,
     ]);
-    res.json(withWarranty(populated));
+    res.json(customerBooking(populated));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -1100,7 +1105,7 @@ router.patch('/:bookingId/feedback', auth, allowRoles(ROLE.CUSTOMER), async (req
       { path: 'technician', select: 'name' },
       ...ASSIGNMENT_POPULATE,
     ]);
-    res.json(withWarranty(populated));
+    res.json(customerBooking(populated));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -1906,7 +1911,7 @@ router.patch('/:bookingId/refund/received', auth, allowRoles(ROLE.CUSTOMER), asy
       ...ASSIGNMENT_POPULATE,
     ]);
 
-    res.json(withWarranty(populated));
+    res.json(customerBooking(populated));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -1952,7 +1957,7 @@ router.patch('/:bookingId/refund/flag', auth, allowRoles(ROLE.CUSTOMER), async (
       ...ASSIGNMENT_POPULATE,
     ]);
 
-    res.json(withWarranty(populated));
+    res.json(customerBooking(populated));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });

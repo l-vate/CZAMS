@@ -28,6 +28,7 @@ const { isWithinServiceArea } = require('../utils/serviceArea');
 const { runBookingStatusCheck } = require('../jobs/bookingStatusJob');
 const { getOrCreateSettings } = require('../utils/paymentSettings');
 const { proposeAssignment } = require('../utils/autoAssign');
+const { summarizeRatings } = require('../utils/ratings');
 const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/queue');
 const { generateBookingId, createWithUniqueBookingId, BookingIdExhaustedError } = require('../utils/bookingId');
 const { invalid, sendProblem } = require('../utils/validation');
@@ -1173,7 +1174,7 @@ router.get('/technician/mine/stats', auth, async (req, res) => {
         createdAt: j.feedback.createdAt || j.feedback.submittedAt,
       }));
 
-    res.json({ ongoing, completed, pendingReports, feedbacks });
+    res.json({ ongoing, completed, pendingReports, feedbacks, ...summarizeRatings(jobs) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });

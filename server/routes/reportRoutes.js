@@ -157,6 +157,8 @@ router.post('/', auth, receivePhoto, async (req, res) => {
             signedFormPhoto: req.file ? `/uploads/proofs/${req.file.filename}` : undefined,
         });
 
+        // The report is saved first: the unique index on bookingId is what settles two quick submits, so a
+        // job is never marked Completed on behalf of a report that was refused as a duplicate.
         await report.save();
 
         // Update booking with report reference
@@ -174,14 +176,29 @@ router.post('/', auth, receivePhoto, async (req, res) => {
             dueAt.setDate(dueAt.getDate() + booking.paymentTermsDays);
             booking.paymentDueAt = dueAt;
         }
-        await booking.save();
+        try {
+            await booking.save();
+        } catch (bookingError) {
+            // Without a transaction the two writes cannot be one step, so undo the first: no report may be
+            // left on a job that never became Completed (it would block a retry with "already exists").
+            await Report.deleteOne({ _id: report._id }).catch((undoError) => {
+                console.error(`Could not roll back report ${report._id} after the booking update failed:`, undoError);
+            });
+            throw bookingError;
+        }
 
-        await sendNotification(
-            booking.customer,
-            NOTIFICATION_TYPE.BOOKING_COMPLETED,
-            `Your service for booking ${booking.bookingId} is complete. You can now leave feedback from your booking details.`,
-            { booking }
-        );
+        // The report and the Completed status are saved. A notification problem must not turn that into an
+        // error (the technician would retry a report that already exists), so it is only logged.
+        try {
+            await sendNotification(
+                booking.customer,
+                NOTIFICATION_TYPE.BOOKING_COMPLETED,
+                `Your service for booking ${booking.bookingId} is complete. You can now leave feedback from your booking details.`,
+                { booking }
+            );
+        } catch (notifyError) {
+            console.error(`Could not notify the customer about booking ${booking.bookingId}:`, notifyError);
+        }
 
         // Populate and return the report
         const populatedReport = await Report.findById(report._id)

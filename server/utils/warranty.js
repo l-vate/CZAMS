@@ -17,22 +17,44 @@ const WARRANTY_PERIODS = {
   LEAK_REPAIR_MONTHS: 1, // client-confirmed, own category distinct from Cleaning/Installation
 };
 
+// All of the warranty date math is done in Philippine time (Asia/Manila, UTC+8, no daylight saving), whatever time
+// zone the server runs in. The rule used, for every period:
+//   - the warranty starts on the Manila calendar day the job was completed (the report was submitted);
+//   - it lasts for the period counted in Manila calendar days, months or years from that day;
+//   - and it ends at the END of that last Manila day (23:59:59.999), so the customer has the whole day.
+// When a month has no such day (completed 31 August, six months on is "31 February"), the warranty ends on the last day
+// of that month (28 February, or 29 in a leap year); it never rolls over into March.
+// Example: completed 2026-08-31 20:00 UTC, which is 1 September 04:00 in Manila, with a 6-month warranty: it ends at the
+// end of 1 March 2027 in Manila, 2027-03-01T15:59:59.999Z, on a server in any time zone.
+const MANILA_OFFSET_MS = 8 * 3600000;
+
+// The Manila calendar day of an instant: { year, month (0 to 11), day }.
+function manilaDay(date) {
+  const shifted = new Date(new Date(date).getTime() + MANILA_OFFSET_MS);
+  return { year: shifted.getUTCFullYear(), month: shifted.getUTCMonth(), day: shifted.getUTCDate() };
+}
+
+// The instant that is the end (23:59:59.999) of a Manila calendar day. `day` may overflow the month; Date.UTC carries it.
+function endOfManilaDay(year, month, day) {
+  return new Date(Date.UTC(year, month, day, 23, 59, 59, 999) - MANILA_OFFSET_MS);
+}
+
 function addDays(date, days) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return d;
+  const { year, month, day } = manilaDay(date);
+  return endOfManilaDay(year, month, day + days);
 }
 
 function addMonths(date, months) {
-  const d = new Date(date);
-  d.setMonth(d.getMonth() + months);
-  return d;
+  const { year, month, day } = manilaDay(date);
+  const total = year * 12 + month + months;
+  const targetYear = Math.floor(total / 12);
+  const targetMonth = total - targetYear * 12;
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+  return endOfManilaDay(targetYear, targetMonth, Math.min(day, lastDay));
 }
 
 function addYears(date, years) {
-  const d = new Date(date);
-  d.setFullYear(d.getFullYear() + years);
-  return d;
+  return addMonths(date, years * 12);
 }
 
 const NOT_APPLICABLE = { applicable: false, type: null, scope: null, workmanship: null, unit: null };
@@ -110,4 +132,4 @@ function getWarrantyStatus(booking) {
   return NOT_APPLICABLE;
 }
 
-module.exports = { getWarrantyStatus, WARRANTY_PERIODS };
+module.exports = { getWarrantyStatus, WARRANTY_PERIODS, addDays, addMonths, addYears, manilaDay };

@@ -181,8 +181,12 @@ router.post('/', auth, receivePhoto, async (req, res) => {
         // Submitting the report is what completes the job (there is no manual "complete").
         // completedAt starts the warranty clock, the return-customer count and the service
         // reminder interval.
+        // A job that is In Progress is being completed now, so its clock starts now, even if an older completion time
+        // is still on it (left by a report that was deleted). A job that is already Completed and only now gets its
+        // report (finished before reports were required) keeps the time it was completed.
+        const wasCompleted = booking.status === BOOKING_STATUS.COMPLETED;
         booking.status = BOOKING_STATUS.COMPLETED;
-        booking.completedAt = booking.completedAt || new Date();
+        booking.completedAt = wasCompleted && booking.completedAt ? booking.completedAt : new Date();
 
         // Commercial payment terms count from completion, so the due date is only known now.
         if (booking.paymentTermsDays && !booking.paymentDueAt) {
@@ -412,6 +416,23 @@ router.patch('/:id', auth, async (req, res) => {
     }
 });
 
+// Tells each lead of the job that the admin removed its report, so it needs a new one. A notification problem is only
+// logged: the report is already gone.
+async function notifyLeadsReportRemoved(booking) {
+    for (const leadId of getLeadIds(booking)) {
+        try {
+            await sendNotification(
+                leadId,
+                NOTIFICATION_TYPE.REPORT_REMOVED,
+                `The service report for booking ${booking.bookingId} was removed by the admin. The job is In Progress again: please submit a new report.`,
+                { booking }
+            );
+        } catch (notifyError) {
+            console.error(`Could not notify ${leadId} that a report was removed:`, notifyError);
+        }
+    }
+}
+
 // ============================================
 // 4. DELETE REPORT (Admin only)
 // ============================================
@@ -427,17 +448,22 @@ router.delete('/:id', auth, async (req, res) => {
             return res.status(404).json({ message: 'Report not found' });
         }
 
-        // Remove reference from booking
-        await Booking.findOneAndUpdate(
+        // A job with no report must not stay Completed. It goes back to In Progress, and the time it was completed
+        // (which starts the warranty and the payment terms) is cleared, so the next report starts them again from
+        // when it is submitted, not from the first submission.
+        const booking = await Booking.findOne({ bookingId: report.bookingId });
+        await Booking.updateOne(
             { bookingId: report.bookingId },
-            { 
-                $unset: { reportId: 1 },
-                reportSubmitted: false,
-                status: BOOKING_STATUS.IN_PROGRESS
+            {
+                $unset: { reportId: 1, completedAt: 1, paymentDueAt: 1 },
+                $set: { reportSubmitted: false, status: BOOKING_STATUS.IN_PROGRESS },
             }
         );
 
         await report.deleteOne();
+
+        // The lead technician is told the job is open again and needs a new report.
+        if (booking) await notifyLeadsReportRemoved(booking);
         res.json({ message: 'Report deleted successfully' });
     } catch (error) {
         console.error('Error deleting report:', error);

@@ -28,6 +28,7 @@ RESCHEDULE_REQUESTED: 'reschedule_requested',
   SERVICE_REMINDER: 'service_reminder',
   CHAT_MESSAGE: 'chat_message',
   INSTRUCTIONS_UPDATED: 'instructions_updated',
+  REPORT_REMOVED: 'report_removed',
 });
 
 module.exports = { NOTIFICATION_TYPE };

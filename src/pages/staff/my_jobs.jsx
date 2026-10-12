@@ -15,6 +15,7 @@ import { getAssignedNames } from '../../utils/assignments';
 import AssignmentHistory from '../../components/assignment_history';
 import { JOB_SORT, JOB_SORT_OPTIONS, sortJobs } from '../../utils/jobSort';
 import { BOOKING_STATUS, BOOKING_STATUS_VALUES } from '../../constants/bookingStatus';
+import { BackJobBadge, BackJobInfo } from '../../components/back_job_info';
 
 
 const statusClass = {
@@ -41,7 +42,7 @@ function JobDetailsModal({ job, onClose }) {
           <span className="tech-job-detail-service">{job.service}</span>
           <span className={`tech-job-status-badge ${statusClass[job.status] || ''}`}>{job.status}</span>
         </div>
-        <p className="tech-job-detail-booking">Booking ID: {job.bookingId}</p>
+        <p className="tech-job-detail-booking">Booking ID: {job.bookingId}{job.isBackJob ? ' (back job)' : ''}</p>
         <p className="tech-job-detail-booking">Your role: <strong>{job.myRole}</strong>{job.assigned ? ` · Assigned: ${job.assigned}` : ''}</p>
         {job.myRole === 'Helper' && (
           <p className="tech-job-detail-booking">You are the helper on this job, so it is read-only for you. The lead technician reports disruptions, asks for extensions and submits the service report.</p>
@@ -106,6 +107,8 @@ function JobDetailsModal({ job, onClose }) {
             </div>
           </div>
         )}
+
+        {job.isBackJob && <BackJobInfo backJob={job.backJob} />}
 
         {job.extensionRequest?.status === 'Pending' && job.extensionRequest.requestedDate && (
           <div className="tech-job-detail-cell tech-job-detail-full">
@@ -296,6 +299,8 @@ function toViewJob(booking) {
     disruption: booking.disruption,
     extensionRequest: booking.extensionRequest,
     extensionDays: booking.extensionDays || [],
+    isBackJob: !!booking.isBackJob,
+    backJob: booking.backJob || null,
     // 'Lead' or 'Helper'. Only a lead can report a disruption or ask for an extension.
     myRole: booking.myRole || 'Lead',
     assigned: getAssignedNames(booking, ''),
@@ -399,7 +404,7 @@ function MyJobs() {
       const send = reportModal.kind === 'disruption' ? reportDisruption : requestExtension;
       const data = await send(reportModal.job.bookingId, reasonText, slot);
       // the action response is not per-technician, so keep the role already known for this job
-      const updatedJob = { ...toViewJob(data), myRole: reportModal.job.myRole };
+      const updatedJob = { ...toViewJob(data), myRole: reportModal.job.myRole, backJob: reportModal.job.backJob };
       setJobs((prev) => prev.map((j) => (j.bookingId === updatedJob.bookingId ? updatedJob : j)));
       setReportModal({ kind: reportModal.kind, job: updatedJob });
     } catch (err) {
@@ -478,6 +483,7 @@ function MyJobs() {
                   <small className="tech-job-date-label">{job.date}</small>
                   <span className={`tech-job-status-badge ${statusClass[job.status] || ''}`}>{job.status}</span>
                   <span className={`tech-job-status-badge ${job.myRole === 'Helper' ? 'tech-role-helper' : 'tech-role-lead'}`}>{job.myRole}</span>
+                  {job.isBackJob && <BackJobBadge />}
                 </div>
                 <div className="tech-job-service">{job.service}</div>
                 <small className="tech-job-booking">{job.bookingId}</small>

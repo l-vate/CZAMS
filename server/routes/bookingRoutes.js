@@ -30,6 +30,8 @@ const { summarizeRatings } = require('../utils/ratings');
 const { toTechnicianView } = require('../utils/technicianView');
 const { allowRoles } = require('../middleware/roles');
 const { toCustomerView } = require('../utils/customerView');
+const { loadBackJobContexts } = require('../utils/backJobContext');
+const BackJob = require('../models/BackJob');
 const { TECHNICIAN_BOOKING_FILTER, isHiddenFromTechnicians } = require('../utils/technicianVisibility');
 const scheduling = require('../constants/scheduling');
 const { createUploader, PROOF_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
@@ -1127,8 +1129,13 @@ router.get('/technician/mine', auth, async (req, res) => {
       .populate('technician', 'name')
       .populate(ASSIGNMENT_POPULATE)
       .sort({ date: -1 });
+    // A back job visit also carries what it follows (original booking, date, technicians, original report summary).
+    const backJobs = await loadBackJobContexts(jobs, { BackJob, Booking, Report, User });
     // A whitelist, never the whole booking: no payments, proofs, discount ID or refund data.
-    res.json(jobs.map((j) => toTechnicianView(j.toObject(), { myRole: getRoleFor(j, req.userId) })));
+    res.json(jobs.map((j) => toTechnicianView(j.toObject(), {
+      myRole: getRoleFor(j, req.userId),
+      ...(backJobs.has(j.bookingId) ? { backJob: backJobs.get(j.bookingId) } : {}),
+    })));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -1142,13 +1149,21 @@ router.get('/technician/mine/stats', auth, async (req, res) => {
     const jobs = await Booking.find({ ...memberFilter(req.userId), ...TECHNICIAN_BOOKING_FILTER })
       .populate('customer', 'name');
     
-    const ongoing = jobs.filter(j => [BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(j.status)).length;
-    const completed = jobs.filter(j => j.status === BOOKING_STATUS.COMPLETED).length;
+    // Back job visits (free repairs after a warranty claim) are counted on their own, not in the regular totals.
+    const regular = jobs.filter((j) => !j.isBackJob);
+    const backJobVisits = jobs.filter((j) => j.isBackJob);
+    const backJobs = {
+      ongoing: backJobVisits.filter((j) => [BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(j.status)).length,
+      completed: backJobVisits.filter((j) => j.status === BOOKING_STATUS.COMPLETED).length,
+    };
+
+    const ongoing = regular.filter(j => [BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(j.status)).length;
+    const completed = regular.filter(j => j.status === BOOKING_STATUS.COMPLETED).length;
     // A completed job is waiting on a report when no Report document exists for it
     // (reports live in their own collection; booking.report is a legacy field that
     // is never filled any more).
     // Only the lead files the report, so only the lead's jobs wait on one.
-    const leadJobs = jobs.filter(j => getRoleFor(j, req.userId) === 'Lead');
+    const leadJobs = regular.filter(j => getRoleFor(j, req.userId) === 'Lead');
     const completedIds = leadJobs.filter(j => j.status === BOOKING_STATUS.COMPLETED).map(j => j.bookingId);
     const reportedIds = new Set(await Report.find({ bookingId: { $in: completedIds } }).distinct('bookingId'));
     const completedWithoutReport = completedIds.filter(id => !reportedIds.has(id)).length;
@@ -1167,7 +1182,7 @@ router.get('/technician/mine/stats', auth, async (req, res) => {
         createdAt: j.feedback.createdAt || j.feedback.submittedAt,
       }));
 
-    res.json({ ongoing, completed, pendingReports, feedbacks, ...summarizeRatings(jobs) });
+    res.json({ ongoing, completed, pendingReports, backJobs, feedbacks, ...summarizeRatings(jobs) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });

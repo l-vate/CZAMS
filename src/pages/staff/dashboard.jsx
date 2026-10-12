@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import StaffLayout from './staff_layout';
-import { FiUser, FiTool, FiCheckCircle, FiFileText, FiStar, FiEye, FiCalendar, FiClock, FiMapPin } from 'react-icons/fi';
+import { FiUser, FiTool, FiCheckCircle, FiFileText, FiStar, FiEye, FiCalendar, FiClock, FiMapPin, FiRotateCcw } from 'react-icons/fi';
 import { orFallback } from '../../services/apiClient';
 import LoadError from '../../components/load_error';
 import { getTechnicianStats, listTechnicianJobs } from '../../services/bookingService';
 import { listPublicAnnouncements } from '../../services/announcementService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
+import { BackJobBadge } from '../../components/back_job_info';
 
 
 // Same categories the Landing Page Module uses for the public announcement
@@ -49,7 +50,7 @@ function Dashboard() {
   const user = JSON.parse(localStorage.getItem('user'));
   const firstName = user?.name?.split(' ')[0] || 'Technician';
 
-  const [stats, setStats] = useState({ ongoing: 0, completed: 0, pendingReports: 0, feedbacks: [] });
+  const [stats, setStats] = useState({ ongoing: 0, completed: 0, pendingReports: 0, backJobs: { ongoing: 0, completed: 0 }, feedbacks: [] });
   const [loading, setLoading] = useState(true);
   const [statsFailed, setStatsFailed] = useState(false);
   const [jobs, setJobs] = useState([]);
@@ -176,6 +177,14 @@ function Dashboard() {
             <div className="tech-stat-value">{loading || statsFailed ? '-' : stats.pendingReports}</div>
           </div>
         </div>
+
+        <div className="tech-stat-card">
+          <div className="tech-stat-icon"><FiRotateCcw /></div>
+          <div>
+            <div className="tech-stat-label">Back Jobs (ongoing / completed)</div>
+            <div className="tech-stat-value">{loading || statsFailed ? '-' : `${stats.backJobs?.ongoing ?? 0} / ${stats.backJobs?.completed ?? 0}`}</div>
+          </div>
+        </div>
       </div>
 
       {/* Upcoming Jobs - same treatment as the customer dashboard's "Next
@@ -200,7 +209,7 @@ function Dashboard() {
                 key={job.bookingId}
               >
                 <div className="upcoming-job-main">
-                  <p className="upcoming-job-name">{job.service?.name || 'Service'}</p>
+                  <p className="upcoming-job-name">{job.service?.name || 'Service'}{job.isBackJob && <> <BackJobBadge /></>}</p>
                   <div className="upcoming-job-meta">
                     <span className="upcoming-job-meta-item">
                       <FiClock /> {job.date} - {job.time}

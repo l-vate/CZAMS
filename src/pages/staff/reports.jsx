@@ -12,6 +12,7 @@ import { PHOTO_MAX_BYTES, PHOTO_MIME_TYPES } from '../../constants/reportPhoto';
 import { shrinkPhoto } from '../../utils/photoShrink';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
 import { ProofLink, ProofImage } from '../../components/proof_file';
+import { BackJobBadge, BackJobInfo } from '../../components/back_job_info';
 
 
 // Today's date as YYYY-MM-DD in Philippine time, the same day the server compares against.
@@ -151,6 +152,12 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
             )}
           </div>
         </div>
+
+        {reportItem.isBackJob && (
+          <div className="report-booking-info staff-reports-x1">
+            <BackJobInfo backJob={reportItem.backJob} showReport />
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="tech-profile-edit-form staff-reports-x2">
           {/* Work Summary */}
@@ -435,6 +442,15 @@ function ViewReportModal({ reportItem, onClose }) {
         </div>
 
         <div className="tech-job-detail-grid staff-reports-x16">
+          {report.backJob?.originalBookingId && (
+            <div className="tech-job-detail-cell tech-job-detail-full">
+              <div>
+                <p className="confirmation-detail-label">Back job</p>
+                <p className="confirmation-detail-value">Follows booking {report.backJob.originalBookingId}{report.backJob.originalReportId ? ' and its original report' : ''}</p>
+              </div>
+            </div>
+          )}
+
           {/* Work Summary */}
           <div className="tech-job-detail-cell tech-job-detail-full">
             <span className="confirmation-detail-icon"><FiFileText /></span>
@@ -613,6 +629,8 @@ function toReportItem(booking, reportData) {
     dueDate: booking.date,
     status: reportData ? 'Completed' : 'Pending',
     report: reportData || null,
+    isBackJob: !!booking.isBackJob,
+    backJob: booking.backJob || null,
   };
 }
 
@@ -756,6 +774,7 @@ function Reports() {
             <div className="tech-job-card tech-report-card" key={i}>
               <div className="tech-job-info">
                 <div className="tech-job-top-row">
+                  {r.isBackJob && <BackJobBadge />}
                   <span className={`tech-job-status-badge ${r.status === 'Completed' ? 'tech-status-completed' : r.status === UNKNOWN_STATUS ? 'tech-status-cancelled' : 'tech-status-pending'}`}>
                     {r.status}
                   </span>

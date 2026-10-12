@@ -92,6 +92,14 @@ const reportSchema = new mongoose.Schema({
     // Photo of the signed paper form (/uploads/proofs/<unguessable name>). Optional; with it, the
     // drawn signature and typed name become optional. Reports filed before this existed have none.
     signedFormPhoto: String,
+
+    // A report for a back job visit (a free repair after a warranty claim) records which job it follows: the claim,
+    // the original booking, and the original report if there was one. Reports for ordinary bookings have none.
+    backJob: {
+        backJobId: String,
+        originalBookingId: String,
+        originalReportId: { type: mongoose.Schema.Types.ObjectId, ref: 'Report' },
+    },
 }, {
     timestamps: true
 });

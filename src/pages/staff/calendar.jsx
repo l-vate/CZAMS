@@ -17,7 +17,7 @@ function toCalendarJob(booking) {
 
   const main = {
     id: booking._id || booking.bookingId,
-    title: `${booking.service?.name || "Service"}${unitTypesLabel}${booking.myRole ? ` (${booking.myRole})` : ""}`,
+    title: `${booking.isBackJob ? "Back job: " : ""}${booking.service?.name || "Service"}${unitTypesLabel}${booking.myRole ? ` (${booking.myRole})` : ""}`,
     customer: booking.customer?.name || booking.customerName || "Customer",
     assignedTo: "Me", // Current logged-in technician
     date: booking.date,

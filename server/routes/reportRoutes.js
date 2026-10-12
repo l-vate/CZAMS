@@ -13,6 +13,7 @@ const { sendNotification } = require('../utils/notifications');
 const { getMemberIds, getLeadIds, memberFilter } = require('../utils/assignments');
 const { toTechnicianView } = require('../utils/technicianView');
 const { toCustomerView } = require('../utils/customerView');
+const BackJob = require('../models/BackJob');
 const { TECHNICIAN_BOOKING_FILTER, isHiddenFromTechnicians } = require('../utils/technicianVisibility');
 const { manilaTodayKey } = require('../utils/timeBlocks');
 const { createUploader, PHOTO_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
@@ -38,6 +39,16 @@ function detailsFor(req, booking) {
     if (!booking || req.userRole === ROLE.ADMIN) return booking;
     if (req.userRole === ROLE.CUSTOMER) return toCustomerView(booking.toObject());
     return toTechnicianView(booking.toObject());
+}
+
+// For a report on a back job visit: the claim, the original booking and the original report (if there is one),
+// so the new report is linked to the job it follows. undefined for an ordinary booking.
+async function backJobLink(booking) {
+    if (!booking.isBackJob || !booking.backJobId) return undefined;
+    const claim = await BackJob.findOne({ backJobId: booking.backJobId });
+    if (!claim) return { backJobId: booking.backJobId };
+    const original = await Report.findOne({ bookingId: claim.originalBookingId });
+    return { backJobId: booking.backJobId, originalBookingId: claim.originalBookingId, originalReportId: original ? original._id : undefined };
 }
 
 // ============================================
@@ -157,6 +168,7 @@ router.post('/', auth, receivePhoto, async (req, res) => {
                 signedAt: new Date(),
             },
             signedFormPhoto: req.file ? `/uploads/proofs/${req.file.filename}` : undefined,
+            backJob: await backJobLink(booking),
         });
 
         // The report is saved first: the unique index on bookingId is what settles two quick submits, so a

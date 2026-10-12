@@ -126,7 +126,7 @@ router.post('/', auth, receivePhoto, async (req, res) => {
         }
         // A team's helper can see the job but only a lead files the report.
         if (!getLeadIds(booking).includes(req.userId)) {
-            return res.status(403).json({ message: 'Only the team lead can submit the service report.' });
+            return res.status(403).json({ message: 'Only the lead technician can submit the service report.' });
         }
 
         // Create the report with string IDs

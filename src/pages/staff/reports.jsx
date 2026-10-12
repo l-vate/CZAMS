@@ -467,7 +467,7 @@ function ViewReportModal({ reportItem, onClose }) {
                 <span className="confirmation-detail-icon"><FiFileText /></span>
                 <div>
                   <p className="confirmation-detail-label">Follow-up</p>
-                  <p className="confirmation-detail-value">Yes Required</p>
+                  <p className="confirmation-detail-value">Yes</p>
                 </div>
               </div>
               {report.followUpDate && (

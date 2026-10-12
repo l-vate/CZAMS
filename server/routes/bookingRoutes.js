@@ -1179,7 +1179,7 @@ router.patch('/:bookingId/disruption/report', auth, async (req, res) => {
       return res.status(403).json({ message: 'Not your booking' });
     }
     if (!getLeadIds(booking).includes(req.userId)) {
-      return res.status(403).json({ message: 'Only the team lead can report a disruption. Please tell your lead.' });
+      return res.status(403).json({ message: 'Only the lead technician can report a disruption. Please tell your lead.' });
     }
 
     if (booking.status !== BOOKING_STATUS.IN_PROGRESS) {
@@ -1228,7 +1228,7 @@ router.patch('/:bookingId/extension/request', auth, async (req, res) => {
       return res.status(403).json({ message: 'Not your booking' });
     }
     if (!getLeadIds(booking).includes(req.userId)) {
-      return res.status(403).json({ message: 'Only the team lead can request an extension. Please tell your lead.' });
+      return res.status(403).json({ message: 'Only the lead technician can request an extension. Please tell your lead.' });
     }
 
     if (booking.status !== BOOKING_STATUS.IN_PROGRESS) {

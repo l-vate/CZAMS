@@ -39,9 +39,9 @@ function JobDetailsModal({ job, onClose }) {
           <span className={`tech-job-status-badge ${statusClass[job.status] || ''}`}>{job.status}</span>
         </div>
         <p className="tech-job-detail-booking">Booking ID: {job.bookingId}</p>
-        <p className="tech-job-detail-booking">Your role: <strong>{job.myRole}</strong>{job.team ? ` · Team: ${job.team}` : ''}</p>
+        <p className="tech-job-detail-booking">Your role: <strong>{job.myRole}</strong>{job.assigned ? ` · Assigned: ${job.assigned}` : ''}</p>
         {job.myRole === 'Helper' && (
-          <p className="tech-job-detail-booking">You are the helper on this job, so it is read-only for you. Your team lead reports disruptions, asks for extensions and submits the service report.</p>
+          <p className="tech-job-detail-booking">You are the helper on this job, so it is read-only for you. The lead technician reports disruptions, asks for extensions and submits the service report.</p>
         )}
 
         <div className="tech-job-detail-grid">
@@ -229,7 +229,7 @@ function toViewJob(booking) {
     extensionRequest: booking.extensionRequest,
     // 'Lead' or 'Helper'. Only a lead can report a disruption or ask for an extension.
     myRole: booking.myRole || 'Lead',
-    team: getAssignedNames(booking, ''),
+    assigned: getAssignedNames(booking, ''),
   };
 }
 

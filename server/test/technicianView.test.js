@@ -4,7 +4,7 @@ const { toTechnicianView } = require('../utils/technicianView');
 
 // A booking carrying every sensitive thing a booking can hold.
 const fat = {
-  _id: 'mongo1', bookingId: 'CZ-2026-1', status: 'Approved', date: '2026-10-20', time: 'Morning',
+  _id: 'mongo1', bookingId: 'CZ-2026-1', status: 'Approved', createdAt: '2026-09-01T08:00:00Z', date: '2026-10-20', time: 'Morning',
   address: '1 Test St', contactNumber: '09123456789', problemDescription: 'not cooling', technicianInstructions: 'gate code 1234',
   service: { _id: 'S1', name: 'Repair', serviceType: 'Repair', category: 'Aircon', price: 1500, unitTypePricing: [{ unitType: 'Split Type', price: 900 }] },
   units: [{ type: 'Split Type', quantity: 2, brandModel: 'Carrier', _id: 'u1' }],
@@ -57,6 +57,7 @@ test('everything the technician screens use is still there', () => {
   const v = toTechnicianView(fat, { myRole: 'Lead' });
   assert.equal(v.bookingId, 'CZ-2026-1');
   assert.equal(v.status, 'Approved');
+  assert.equal(v.createdAt, '2026-09-01T08:00:00Z');
   assert.equal(v.date, '2026-10-20');
   assert.equal(v.time, 'Morning');
   assert.equal(v.address, '1 Test St');

@@ -27,6 +27,7 @@ function toTechnicianView(booking, extra = {}) {
     _id: b._id,
     bookingId: b.bookingId,
     status: b.status,
+    createdAt: b.createdAt,
     date: b.date,
     time: b.time,
     address: b.address,

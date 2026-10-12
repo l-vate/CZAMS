@@ -214,6 +214,7 @@ function extensionLabel(job) {
 function toViewJob(booking) {
   return {
     date: booking.date,
+    createdAt: booking.createdAt,
     status: booking.status,
     bookingId: booking.bookingId,
     service: booking.service?.name || 'Service',

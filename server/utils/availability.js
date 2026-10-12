@@ -11,7 +11,7 @@ const Team = require('../models/Team');
 const User = require('../models/User');
 const Booking = require('../models/Booking');
 const Closure = require('../models/Closure');
-const { ACTIVE_STATUSES, getMemberIds } = require('./assignments');
+const { activeStatuses, getMemberIds } = require('./assignments');
 const { TIME_BLOCKS, manilaTodayKey } = require('./timeBlocks');
 
 // Same rule as isDateAllowed in routes/bookingRoutes.js: a booking must be at least this many days ahead.
@@ -38,7 +38,7 @@ async function getAvailability(from, to) {
   const [teams, technicians, bookings, closures] = await Promise.all([
     Team.find({ isActive: true }).select('lead helper'),
     User.find({ role: ROLE.STAFF, isActive: true }).select('_id'),
-    Booking.find({ status: { $in: ACTIVE_STATUSES }, date: { $gte: from, $lte: to } })
+    Booking.find({ status: { $in: activeStatuses() }, date: { $gte: from, $lte: to } })
       .select('date time status technician assignments'),
     Closure.find({ date: { $gte: from, $lte: to } }).select('date reason').lean(),
   ]);

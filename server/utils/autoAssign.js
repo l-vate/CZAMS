@@ -14,7 +14,7 @@ const { ROLE } = require('../constants/roles');
 const User = require('../models/User');
 const Booking = require('../models/Booking');
 const Closure = require('../models/Closure');
-const { ACTIVE_STATUSES, getMemberIds, getMinTechnicians } = require('./assignments');
+const { activeStatuses, getMemberIds, getMinTechnicians } = require('./assignments');
 const { manilaTodayKey } = require('./timeBlocks');
 
 // ---------- date keys ("YYYY-MM-DD"), worked out in UTC so the server's timezone never matters
@@ -158,7 +158,7 @@ async function proposeAssignment(booking) {
   const today = manilaTodayKey();
   const horizon = addDays(booking.date, 61);
   const nearby = await Booking.find({
-    status: { $in: ACTIVE_STATUSES },
+    status: { $in: activeStatuses() },
     bookingId: { $ne: booking.bookingId },
     date: { $gte: start < today ? start : today, $lte: horizon },
   }).select('date time technician assignments');

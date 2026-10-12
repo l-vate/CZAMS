@@ -28,6 +28,8 @@ const { getOrCreateSettings } = require('../utils/paymentSettings');
 const { proposeAssignment } = require('../utils/autoAssign');
 const { summarizeRatings } = require('../utils/ratings');
 const { toTechnicianView } = require('../utils/technicianView');
+const { TECHNICIAN_BOOKING_FILTER, isHiddenFromTechnicians } = require('../utils/technicianVisibility');
+const scheduling = require('../constants/scheduling');
 const { createUploader, PROOF_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
 const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/queue');
 const { generateBookingId, createWithUniqueBookingId, BookingIdExhaustedError } = require('../utils/bookingId');
@@ -1112,7 +1114,7 @@ router.patch('/:bookingId/feedback', auth, async (req, res) => {
 router.get('/technician/mine', auth, async (req, res) => {
   try {
     // Every job where this technician is the lead or the helper, labelled with their role.
-    const jobs = await Booking.find(memberFilter(req.userId))
+    const jobs = await Booking.find({ ...memberFilter(req.userId), ...TECHNICIAN_BOOKING_FILTER })
       .populate('service')
       .populate('customer', 'name phone')
       .populate('technician', 'name')
@@ -1130,7 +1132,7 @@ router.get('/technician/mine', auth, async (req, res) => {
 router.get('/technician/mine/stats', auth, async (req, res) => {
   try {
     // Jobs count for the lead and the helper alike.
-    const jobs = await Booking.find(memberFilter(req.userId))
+    const jobs = await Booking.find({ ...memberFilter(req.userId), ...TECHNICIAN_BOOKING_FILTER })
       .populate('customer', 'name');
     
     const ongoing = jobs.filter(j => [BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(j.status)).length;
@@ -1177,7 +1179,7 @@ router.patch('/:bookingId/disruption/report', auth, async (req, res) => {
     }
 
     const booking = await Booking.findOne({ bookingId: req.params.bookingId });
-    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    if (!booking || isHiddenFromTechnicians(booking)) return res.status(404).json({ message: 'Booking not found' });
 
     if (!getMemberIds(booking).includes(req.userId)) {
       return res.status(403).json({ message: 'Not your booking' });
@@ -1226,7 +1228,7 @@ router.patch('/:bookingId/extension/request', auth, async (req, res) => {
     }
 
     const booking = await Booking.findOne({ bookingId: req.params.bookingId });
-    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    if (!booking || isHiddenFromTechnicians(booking)) return res.status(404).json({ message: 'Booking not found' });
 
     if (!getMemberIds(booking).includes(req.userId)) {
       return res.status(403).json({ message: 'Not your booking' });
@@ -1458,7 +1460,9 @@ async function performAssignment(booking, requested, { changedBy, reason } = {})
     { $push: { assignmentHistory: buildHistoryEntry({ before: previousAssignments, after: resolved, changedBy, reason }) } }
   );
 
-  // Tell technicians who are newly on the job, and those who were taken off it.
+  // Tell technicians who are newly on the job, and those who were taken off it. Nothing is sent while the
+  // booking is Pending: technicians hear about the job when the admin approves it (notifyAssignedTechnicians).
+  if (isHiddenFromTechnicians(booking)) return { ok: true };
   const after = new Set(getMemberIds(booking));
   const when = `${booking.date}, ${booking.time}`;
   for (const id of after) {
@@ -1473,6 +1477,20 @@ async function performAssignment(booking, requested, { changedBy, reason } = {})
     }
   }
   return { ok: true };
+}
+
+// The assignment notification, sent to everyone on the job when it is approved. Until then the technicians
+// proposed for a Pending booking are not told. Never throws: the approval has already been saved.
+async function notifyAssignedTechnicians(booking) {
+  const when = `${booking.date}, ${booking.time}`;
+  for (const id of getMemberIds(booking)) {
+    try {
+      const role = getRoleFor(booking, id);
+      await sendNotification(id, NOTIFICATION_TYPE.JOB_ASSIGNED, `You were assigned as ${role === 'Helper' ? 'helper' : 'lead'} on booking ${booking.bookingId} (${booking.service?.name || 'service'}) for ${when}.`, { booking });
+    } catch (err) {
+      console.error(`Could not notify ${id} about booking ${booking.bookingId}:`, err);
+    }
+  }
 }
 
 // Called when a booking is created without a requested technician: picks who should do it
@@ -1533,6 +1551,9 @@ router.get('/:bookingId/assignment-history', auth, async (req, res) => {
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
     const isAdmin = req.userRole === ROLE.ADMIN;
+    if (!isAdmin && isHiddenFromTechnicians(booking)) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
     if (!isAdmin && !getMemberIds(booking).includes(req.userId)) {
       return res.status(403).json({ message: 'Forbidden' });
     }
@@ -1621,6 +1642,17 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
       booking.technicianInstructions = technicianInstructions;
     }
 
+    // When a Pending booking does not hold its technicians' time (constants/scheduling.js), two Pending
+    // bookings can name the same technician, so the clash is checked at the moment of approval.
+    if (!scheduling.PENDING_HOLDS_SLOT && status === BOOKING_STATUS.APPROVED && prev.status !== BOOKING_STATUS.APPROVED) {
+      const clash = await findConflictingBooking(getMemberIds(booking), booking.date, booking.time, booking.bookingId);
+      if (clash) {
+        return res.status(409).json({
+          message: `A technician on this job is already booked ${booking.date} (${booking.time}) on ${clash.bookingId}. Change the assignment before approving.`,
+        });
+      }
+    }
+
     // Approval needs at least one technician. A second one is optional.
     if (status === BOOKING_STATUS.APPROVED && prev.status !== BOOKING_STATUS.APPROVED && getMemberIds(booking).length === 0) {
       return res.status(400).json({ message: 'Assign a technician before approving.' });
@@ -1691,6 +1723,8 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
 
     // Customer notifications for what admin just did. Only on an actual change.
     if (status === BOOKING_STATUS.APPROVED && prev.status !== BOOKING_STATUS.APPROVED) {
+      // The technicians on the job hear about it now, once, because it is only now visible to them.
+      await notifyAssignedTechnicians(booking);
       await sendNotification(
         booking.customer,
         NOTIFICATION_TYPE.BOOKING_APPROVED,

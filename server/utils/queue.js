@@ -7,7 +7,7 @@ const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const Booking = require('../models/Booking');
 const Counter = require('../models/Counter');
 const User = require('../models/User');
-const { ACTIVE_STATUSES, getMemberIds, getMinTechnicians, ASSIGNMENT_POPULATE } = require('./assignments');
+const { activeStatuses, getMemberIds, getMinTechnicians, ASSIGNMENT_POPULATE } = require('./assignments');
 
 const RANK_GAP = 1000;
 const COUNTER_ID = 'queueRank';
@@ -111,7 +111,7 @@ async function getQueue() {
 
   const [technicians, occupying] = await Promise.all([
     User.find({ role: ROLE.STAFF, isActive: true }).select('_id'),
-    Booking.find({ status: { $in: ACTIVE_STATUSES } }).select('bookingId date time technician assignments'),
+    Booking.find({ status: { $in: activeStatuses() } }).select('bookingId date time technician assignments'),
   ]);
 
   const busyIn = (date, time, ownId) => {

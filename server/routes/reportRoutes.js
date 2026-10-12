@@ -12,6 +12,7 @@ const User = require('../models/User'); // Add this import
 const { sendNotification } = require('../utils/notifications');
 const { getMemberIds, getLeadIds, memberFilter } = require('../utils/assignments');
 const { toTechnicianView } = require('../utils/technicianView');
+const { TECHNICIAN_BOOKING_FILTER, isHiddenFromTechnicians } = require('../utils/technicianVisibility');
 const { manilaTodayKey } = require('../utils/timeBlocks');
 const { createUploader, PHOTO_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
 const { reportErrorResponse, validateReportInput } = require('../utils/reportErrors');
@@ -94,7 +95,7 @@ router.post('/', auth, receivePhoto, async (req, res) => {
 
         // Find the booking
         const booking = await Booking.findOne({ bookingId });
-        if (!booking) {
+        if (!booking || isHiddenFromTechnicians(booking)) {
             return res.status(404).json({ message: 'Booking not found' });
         }
 
@@ -224,7 +225,7 @@ router.post('/', auth, receivePhoto, async (req, res) => {
 // report they filed themselves. The author is looked up once for the whole list, by name only.
 router.get('/technician/mine', auth, async (req, res) => {
     try {
-        const jobs = await Booking.find(memberFilter(req.userId)).select('bookingId technician assignments');
+        const jobs = await Booking.find({ ...memberFilter(req.userId), ...TECHNICIAN_BOOKING_FILTER }).select('bookingId technician assignments');
         const ledBookingIds = jobs.filter((j) => getLeadIds(j).includes(req.userId)).map((j) => j.bookingId);
 
         const reports = await Report.find({
@@ -327,6 +328,10 @@ router.get('/booking/:bookingId', auth, async (req, res) => {
             booking.customer !== req.userId && 
             !getMemberIds(booking).includes(req.userId)) {
             return res.status(403).json({ message: 'Forbidden' });
+        }
+        // a technician does not see a Pending booking, even one they are proposed for
+        if (req.userRole !== ROLE.ADMIN && booking.customer !== req.userId && isHiddenFromTechnicians(booking)) {
+            return res.status(404).json({ message: 'Booking not found' });
         }
 
         // Manually populate data

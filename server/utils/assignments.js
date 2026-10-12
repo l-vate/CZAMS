@@ -5,7 +5,13 @@ const { SERVICE_TYPE } = require('../constants/serviceTypes');
 const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const Booking = require('../models/Booking');
 
-const ACTIVE_STATUSES = [BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS];
+const scheduling = require('../constants/scheduling');
+
+// The statuses that hold a technician's time block. Whether Pending is one of them is an owner decision,
+// kept in one place (constants/scheduling.js PENDING_HOLDS_SLOT). A function, so the value is read each time.
+const activeStatuses = () => (scheduling.PENDING_HOLDS_SLOT
+  ? [BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS]
+  : [BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS]);
 
 const idOf = (x) => (x ? String(x._id || x) : null);
 
@@ -84,7 +90,7 @@ async function findConflictingBooking(technicianIds, date, time, excludeBookingI
     ...memberFilter(ids),
     date,
     time,
-    status: { $in: ACTIVE_STATUSES },
+    status: { $in: activeStatuses() },
     ...(excludeBookingId ? { bookingId: { $ne: excludeBookingId } } : {}),
   });
 }
@@ -94,14 +100,14 @@ async function getBusyTechnicianIds(date, time, excludeBookingId) {
   const bookings = await Booking.find({
     date,
     ...(time ? { time } : {}),
-    status: { $in: ACTIVE_STATUSES },
+    status: { $in: activeStatuses() },
     ...(excludeBookingId ? { bookingId: { $ne: excludeBookingId } } : {}),
   });
   return [...new Set(bookings.flatMap(getMemberIds))];
 }
 
 module.exports = {
-  ACTIVE_STATUSES,
+  activeStatuses,
   ASSIGNMENT_POPULATE,
   idOf,
   getAssignments,

@@ -10,7 +10,7 @@ const Report = require('../models/Report');
 const Booking = require('../models/Booking');
 const User = require('../models/User'); // Add this import
 const { sendNotification } = require('../utils/notifications');
-const { getMemberIds, getLeadIds } = require('../utils/assignments');
+const { getMemberIds, getLeadIds, memberFilter } = require('../utils/assignments');
 const { toTechnicianView } = require('../utils/technicianView');
 const { createUploader, PHOTO_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
 const { reportErrorResponse, validateReportInput } = require('../utils/reportErrors');
@@ -201,21 +201,26 @@ router.post('/', auth, receivePhoto, async (req, res) => {
 // 2. GET REPORTS
 // ============================================
 
-// Get all reports for the logged-in technician
+// Every report for the jobs the logged-in technician leads, in one request (the Reports page used to ask
+// once per completed job). Only the lead files a report, so the jobs are the ones they lead, plus any
+// report they filed themselves. The author is looked up once for the whole list, by name only.
 router.get('/technician/mine', auth, async (req, res) => {
     try {
-        const reports = await Report.find({ technicianId: req.userId })
-            .sort({ submittedAt: -1 });
-        
-        // Manually populate user data if needed
-        const populatedReports = await Promise.all(reports.map(async (report) => {
-            const reportObj = report.toObject();
-            const user = await User.findOne({ _id: report.technicianId }).select('name email');
-            reportObj.technician = user;
-            return reportObj;
-        }));
-        
-        res.json(populatedReports);
+        const jobs = await Booking.find(memberFilter(req.userId)).select('bookingId technician assignments');
+        const ledBookingIds = jobs.filter((j) => getLeadIds(j).includes(req.userId)).map((j) => j.bookingId);
+
+        const reports = await Report.find({
+            $or: [{ technicianId: req.userId }, { bookingId: { $in: ledBookingIds } }],
+        }).sort({ submittedAt: -1 });
+
+        const authorIds = [...new Set(reports.map((r) => r.technicianId))];
+        const authors = await User.find({ _id: { $in: authorIds } }).select('name');
+        const nameOf = new Map(authors.map((u) => [String(u._id), u.name]));
+
+        res.json(reports.map((report) => ({
+            ...report.toObject(),
+            technician: { _id: report.technicianId, name: nameOf.get(String(report.technicianId)) || null },
+        })));
     } catch (error) {
         console.error('Error fetching technician reports:', error);
         res.status(500).json({ message: 'Error fetching reports' });

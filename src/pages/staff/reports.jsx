@@ -4,10 +4,10 @@ import { FiClock, FiFileText, FiX, FiUser, FiMapPin } from 'react-icons/fi';
 import SignaturePad from '../../components/signature_pad';
 import ServiceReportPdfModal from '../../components/service_report_pdf_modal';
 import { getFilterPillStyle } from '../../utils/statusColors';
-import { ApiError, withFallback } from '../../services/apiClient';
+import { withFallback } from '../../services/apiClient';
 import LoadError from '../../components/load_error';
 import { listTechnicianJobs } from '../../services/bookingService';
-import { getReportForBooking, submitReport } from '../../services/reportService';
+import { listMyReports, submitReport } from '../../services/reportService';
 import { API_BASE } from '../../config/api';
 import { PHOTO_MAX_BYTES, PHOTO_MIME_TYPES } from '../../constants/reportPhoto';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
@@ -597,19 +597,9 @@ function toReportItem(booking, reportData) {
   };
 }
 
-// A completed job whose report could not be looked up. It is neither Pending nor Completed: the
-// technician must never be offered "Submit Report" for a job that may already have one.
+// A completed job whose report could not be loaded. It is neither Pending nor Completed: the technician
+// must never be offered "Submit Report" for a job that may already have one.
 const UNKNOWN_STATUS = 'Could not check';
-
-// The report for one booking: the report, null when there is none (404), or throws for any other failure.
-async function lookUpReport(bookingId) {
-  try {
-    return await getReportForBooking(bookingId);
-  } catch (err) {
-    if (err instanceof ApiError && err.status === 404) return null;
-    throw err;
-  }
-}
 
 function Reports() {
   const [reports, setReports] = useState([]);
@@ -620,6 +610,7 @@ function Reports() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [loadFailed, setLoadFailed] = useState(false);
+  const [reportsFailed, setReportsFailed] = useState(false);
 
   const loadReports = async () => {
     try {
@@ -633,24 +624,27 @@ function Reports() {
       // Only the lead technician files the report, so only the lead's jobs are listed here.
       const reportableBookings = bookingsData.filter(b => [BOOKING_STATUS.IN_PROGRESS, BOOKING_STATUS.COMPLETED].includes(b.status) && b.myRole === 'Lead');
 
-      // For each one, fetch its report from the reports collection
-      const reportPromises = reportableBookings.map(async (booking) => {
+      // One request for every report, instead of one per completed job.
+      let reportsByBooking = null;
+      try {
+        const mine = await listMyReports();
+        if (!Array.isArray(mine)) throw new Error('Unexpected reports reply');
+        reportsByBooking = new Map(mine.map((r) => [r.bookingId, r]));
+      } catch (err) {
+        console.error('Failed to load reports', err);
+        setReportsFailed(true);
+      }
+
+      setReports(reportableBookings.map((booking) => {
         // An In Progress job cannot have a report yet.
         if (booking.status === BOOKING_STATUS.IN_PROGRESS) return toReportItem(booking, null);
-        try {
-          // No report found (404), but booking is completed: the item is listed without one.
-          return toReportItem(booking, await lookUpReport(booking.bookingId));
-        } catch (err) {
-          // Any other failure: we do not know, so it is not shown as Pending.
-          console.error(`Error fetching report for booking ${booking.bookingId}:`, err);
-          return { ...toReportItem(booking, null), status: UNKNOWN_STATUS };
-        }
-      });
-
-      setReports(await Promise.all(reportPromises));
+        // Reports could not be loaded: we do not know, so it is not shown as Pending.
+        if (!reportsByBooking) return { ...toReportItem(booking, null), status: UNKNOWN_STATUS };
+        return toReportItem(booking, reportsByBooking.get(booking.bookingId) || null);
+      }));
     } catch (err) {
       // a failed load is an error state with a Retry, never "No reports in this category"
-      console.error('Failed to load reports', err);
+      console.error('Failed to load jobs', err);
       setLoadFailed(true);
     } finally {
       setLoading(false);
@@ -659,6 +653,7 @@ function Reports() {
 
   const retryLoad = () => {
     setLoadFailed(false);
+    setReportsFailed(false);
     setLoading(true);
     loadReports();
   };
@@ -672,16 +667,6 @@ function Reports() {
     filter === 'All'
       ? reports
       : reports.filter((r) => r.status === filter || (filter === 'Pending' && r.status === UNKNOWN_STATUS));
-
-  // Look up one job's report again after "Could not check".
-  const recheck = async (item) => {
-    try {
-      const data = await lookUpReport(item.bookingId);
-      setReports((prev) => prev.map((r) => (r._id === item._id ? { ...r, status: data ? 'Completed' : 'Pending', report: data } : r)));
-    } catch (err) {
-      console.error(`Error fetching report for booking ${item.bookingId}:`, err);
-    }
-  };
 
   const handleOpenReport = (reportItem) => {
     setSubmitError('');
@@ -737,6 +722,10 @@ function Reports() {
         ))}
       </div>
 
+      {!loading && !loadFailed && reportsFailed && (
+        <LoadError message="Could not load your service reports, so some jobs cannot be checked." onRetry={retryLoad} />
+      )}
+
       <div className="tech-job-list">
         {loading ? (
           <p className="tech-job-empty">Loading reports...</p>
@@ -769,7 +758,7 @@ function Reports() {
               </div>
 
               {r.status === UNKNOWN_STATUS ? (
-                <button className="tech-job-view-link staff-reports-x21" onClick={() => recheck(r)}>
+                <button className="tech-job-view-link staff-reports-x21" onClick={retryLoad}>
                   <FiFileText /> Retry
                 </button>
               ) : (

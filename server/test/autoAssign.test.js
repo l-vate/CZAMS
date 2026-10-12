@@ -7,71 +7,56 @@ const technicians = [
   { _id: 'T1', name: 'Anna' }, { _id: 'T2', name: 'Ben' }, { _id: 'T3', name: 'Cara' },
   { _id: 'T4', name: 'Dan' }, { _id: 'T5', name: 'Eli' }, { _id: 'T6', name: 'Fay' },
 ];
-const teams = [
-  { _id: 'A', name: 'Team Alpha', lead: 'T1', helper: 'T2' },
-  { _id: 'B', name: 'Team Beta', lead: 'T3', helper: 'T4' },
-  { _id: 'C', name: 'Team Gamma', lead: 'T5', helper: 'T6' },
-];
-const base = { minTechnicians: 2, teams, technicians, busyIds: [], weekBookings: [], upcomingBookings: [] };
+const base = { minTechnicians: 2, technicians, busyIds: [], weekBookings: [], upcomingBookings: [] };
 
-test('only one team is free: that team is chosen', () => {
-  const r = pickAssignment({ ...base, busyIds: ['T1', 'T4'] }); // Alpha and Beta each have a busy member
-  assert.deepEqual(r.assignment, { teamId: 'C' });
+test('a pair of the least busy technicians is chosen: lead and helper', () => {
+  const r = pickAssignment({ ...base, busyIds: ['T1', 'T2', 'T3', 'T4'] });
+  assert.deepEqual(r.assignment, { technicianId: 'T5', helperId: 'T6' });
 });
 
-test('a team is free only if BOTH members are free', () => {
-  const r = pickAssignment({ ...base, busyIds: ['T2', 'T3', 'T6'] });
+test('one free technician is not enough for a two-person service', () => {
+  const r = pickAssignment({ ...base, busyIds: ['T1', 'T2', 'T3', 'T4', 'T5'] });
   assert.equal(r.assignment, null);
+  assert.match(r.reason, /Two technicians are not free/);
 });
 
-test('lightest week wins', () => {
-  const week = [['T1', 'T2'], ['T1'], ['T5']]; // Alpha 2, Beta 0, Gamma 1
+test('lightest week wins, the next lightest is the helper', () => {
+  const week = [['T1'], ['T1'], ['T2'], ['T3'], ['T3'], ['T4'], ['T4'], ['T5'], ['T5'], ['T6']]; // T1 2, T2 1, T3 2, T4 2, T5 2, T6 1
   const r = pickAssignment({ ...base, weekBookings: week });
-  assert.deepEqual(r.assignment, { teamId: 'B' });
-  assert.match(r.reason, /fewest bookings that week \(0 bookings\)/);
+  assert.deepEqual(r.assignment, { technicianId: 'T2', helperId: 'T6' });
+  assert.match(r.reason, /fewest bookings that week \(1 booking\)/);
 });
 
-test('tie on the week: fewest upcoming bookings decides', () => {
+test('tie on the week: fewest upcoming bookings decides the lead', () => {
   const r = pickAssignment({
     ...base,
-    weekBookings: [['T1'], ['T3'], ['T5']], // all tied on 1
-    upcomingBookings: [['T1'], ['T1'], ['T3'], ['T5'], ['T5'], ['T5']], // Alpha 2, Beta 1, Gamma 3
+    weekBookings: technicians.map((t) => [t._id]), // all tied on 1
+    upcomingBookings: [['T1'], ['T1'], ['T2'], ['T3'], ['T3'], ['T4'], ['T4'], ['T5'], ['T5'], ['T6'], ['T6']], // T2 has 1, the rest 2
   });
-  assert.deepEqual(r.assignment, { teamId: 'B' });
+  assert.equal(r.assignment.technicianId, 'T2');
   assert.match(r.reason, /tied for the week/);
 });
 
-test('tie on week and upcoming: team name decides (A to Z)', () => {
+test('tie on week and upcoming: name decides (A to Z)', () => {
   const r = pickAssignment({ ...base });
-  assert.deepEqual(r.assignment, { teamId: 'A' });
+  assert.deepEqual(r.assignment, { technicianId: 'T1', helperId: 'T2' });
   assert.match(r.reason, /name \(A to Z\) decided/);
 });
 
-test('a booking outside the week counts for upcoming load only', () => {
-  const r = pickAssignment({ ...base, weekBookings: [], upcomingBookings: [['T1'], ['T1'], ['T3']] });
-  assert.deepEqual(r.assignment, { teamId: 'C' }); // Gamma has no upcoming, Alpha 2, Beta 1
-});
-
-test('requested technician is free: their team is chosen even if it is busier', () => {
-  const r = pickAssignment({ ...base, requestedTechnicianId: 'T4', weekBookings: [['T3'], ['T3'], ['T4']] });
-  assert.deepEqual(r.assignment, { teamId: 'B' });
-  assert.match(r.reason, /Dan is free, so their team, Team Beta/);
+test('requested technician is free: they lead even if busier', () => {
+  const r = pickAssignment({ ...base, requestedTechnicianId: 'T4', weekBookings: [['T4'], ['T4']] });
+  assert.equal(r.assignment.technicianId, 'T4');
+  assert.notEqual(r.assignment.helperId, 'T4');
+  assert.match(r.reason, /Dan, the technician the customer asked for/);
 });
 
 test('requested technician is busy: falls back to the load rule and says so', () => {
-  const r = pickAssignment({ ...base, requestedTechnicianId: 'T3', busyIds: ['T3'], weekBookings: [['T1'], ['T5']] });
-  // Beta (Cara's team) is not free, so it cannot be chosen; Alpha and Gamma each have 1 booking, Alpha wins on name
-  assert.deepEqual(r.assignment, { teamId: 'A' });
+  const r = pickAssignment({ ...base, requestedTechnicianId: 'T3', busyIds: ['T3'] });
+  assert.deepEqual(r.assignment, { technicianId: 'T1', helperId: 'T2' });
   assert.match(r.reason, /Cara is busy then/);
 });
 
-test('nobody free: no assignment, clear reason', () => {
-  const r = pickAssignment({ ...base, busyIds: ['T1', 'T3', 'T5'] });
-  assert.equal(r.assignment, null);
-  assert.match(r.reason, /No team is free/);
-});
-
-test('solo service: the free technician with the lowest load', () => {
+test('solo service: the free technician with the lowest load, no helper', () => {
   const r = pickAssignment({
     ...base, minTechnicians: 1, busyIds: ['T1'],
     weekBookings: [['T2'], ['T2'], ['T3'], ['T3'], ['T4']],
@@ -100,19 +85,19 @@ test('week runs Monday to Sunday', () => {
   assert.equal(addDays('2026-12-31', 1), '2027-01-01');
 });
 
-test('next free dates: up to 3, Sundays skipped, only days where a whole team is free', () => {
+test('next free dates: up to 3, Sundays skipped, only days where two technicians are free', () => {
   // Oct 10 2026 is a Saturday. Busy: Sat 10-10 is the booking day itself (not searched).
   const busyByDate = new Map([
-    ['2026-10-12', new Set(['T1', 'T3', 'T5'])], // Monday: every team has a busy member
-    ['2026-10-13', new Set(['T1', 'T3'])],       // Tuesday: Gamma free
+    ['2026-10-12', new Set(['T1', 'T2', 'T3', 'T4', 'T5'])], // Monday: only one technician free
+    ['2026-10-13', new Set(['T1', 'T2', 'T3'])],             // Tuesday: three free
   ]);
-  const dates = findNextFreeDates({ minTechnicians: 2, teams, technicians, afterDateKey: '2026-10-10', busyByDate });
+  const dates = findNextFreeDates({ minTechnicians: 2, technicians, afterDateKey: '2026-10-10', busyByDate });
   assert.deepEqual(dates, ['2026-10-13', '2026-10-14', '2026-10-15']); // Sun 10-11 skipped, Mon busy
 });
 
 test('next free dates for a solo service uses single technicians', () => {
   const busyByDate = new Map([['2026-10-12', new Set(technicians.map((t) => t._id))]]);
-  const dates = findNextFreeDates({ minTechnicians: 1, teams, technicians, afterDateKey: '2026-10-10', busyByDate, limit: 2 });
+  const dates = findNextFreeDates({ minTechnicians: 1, technicians, afterDateKey: '2026-10-10', busyByDate, limit: 2 });
   assert.deepEqual(dates, ['2026-10-13', '2026-10-14']);
 });
 
@@ -120,5 +105,5 @@ test('no free date in the search window: empty list', () => {
   const everyone = new Set(technicians.map((t) => t._id));
   const busyByDate = new Map();
   for (let i = 1; i <= 5; i += 1) busyByDate.set(addDays('2026-10-10', i), everyone);
-  assert.deepEqual(findNextFreeDates({ minTechnicians: 2, teams, technicians, afterDateKey: '2026-10-10', busyByDate, searchDays: 5 }), []);
+  assert.deepEqual(findNextFreeDates({ minTechnicians: 2, technicians, afterDateKey: '2026-10-10', busyByDate, searchDays: 5 }), []);
 });

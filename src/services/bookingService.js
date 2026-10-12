@@ -103,10 +103,6 @@ export async function getAssignmentHistory(bookingId) {
   return result.history || [];
 }
 
-export function autoAssignBooking(bookingId) {
-  return request(`${booking(bookingId)}/auto-assign`, { method: 'POST' });
-}
-
 // `action` is 'up' | 'down' | 'top'. Resolves to the reordered queue.
 export function moveInQueue(bookingId, action) {
   return request(`${booking(bookingId)}/queue`, { method: 'PATCH', body: { action } });

@@ -58,9 +58,6 @@ function AdminSidebar({ onNavigate }) {
           <NavLink to="/admin/manage_accounts" className={linkClass} onClick={onNavigate}>
             Manage Accounts
           </NavLink>
-          <NavLink to="/admin/teams" className={linkClass} onClick={onNavigate}>
-            Teams
-          </NavLink>
 
           {/* ── Services dropdown ───────────────────────── */}
           <div className="sidebar-dropdown">

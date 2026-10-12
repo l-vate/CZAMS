@@ -6,7 +6,6 @@ const { ROLE } = require('../constants/roles');
 const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const Booking = require('../models/Booking');
 const Counter = require('../models/Counter');
-const Team = require('../models/Team');
 const User = require('../models/User');
 const { ACTIVE_STATUSES, getMemberIds, getMinTechnicians, ASSIGNMENT_POPULATE } = require('./assignments');
 
@@ -102,16 +101,15 @@ function reorder(bookingId, action) {
 }
 
 // The queue for the admin screen: each Pending booking with its position and a capacity
-// hint. "Free" counts only teams (or, for a one-person service, technicians) not already on
-// an assigned booking in that date and time block; other unassigned requests do not use
-// anyone up yet. positionInBlock is how far down the queue this request is among the
+// hint. "Free" counts technicians (or, for a two-person service, pairs of technicians) not
+// already on an assigned booking in that date and time block; other unassigned requests do
+// not use anyone up yet. positionInBlock is how far down the queue this request is among the
 // still-unassigned ones for the same block, and overCapacity says there are more of them
-// than free teams, so someone in that block will not get a team.
+// than free technicians or pairs, so someone in that block will not get anyone.
 async function getQueue() {
   const pending = await loadOrderedPending();
 
-  const [teams, technicians, occupying] = await Promise.all([
-    Team.find({ isActive: true }).select('lead helper'),
+  const [technicians, occupying] = await Promise.all([
     User.find({ role: ROLE.STAFF, isActive: true }).select('_id'),
     Booking.find({ status: { $in: ACTIVE_STATUSES } }).select('bookingId date time technician assignments'),
   ]);
@@ -128,9 +126,8 @@ async function getQueue() {
   return pending.map((b, index) => {
     const solo = getMinTechnicians(b.service) === 1;
     const busy = busyIn(b.date, b.time, b.bookingId);
-    const free = solo
-      ? technicians.filter((t) => !busy.has(t._id)).length
-      : teams.filter((t) => !busy.has(t.lead) && !busy.has(t.helper)).length;
+    const freeTechnicians = technicians.filter((t) => !busy.has(t._id)).length;
+    const free = solo ? freeTechnicians : Math.floor(freeTechnicians / 2);
 
     const assigned = getMemberIds(b).length > 0;
     const blockKey = `${b.date}|${b.time}`;
@@ -141,7 +138,7 @@ async function getQueue() {
       booking: b,
       position: index + 1,
       free,
-      unit: solo ? 'technician' : 'team',
+      unit: solo ? 'technician' : 'pair',
       positionInBlock,
       overCapacity: !assigned && positionInBlock > free,
     };

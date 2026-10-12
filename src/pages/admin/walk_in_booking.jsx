@@ -497,7 +497,8 @@ function WalkInBooking() {
       const selectedService = services.find((s) => s.id === form.service);
       const isInstallation = selectedService?.serviceType === SERVICE_TYPE.INSTALLATION;
       if (isInstallation && form.clientSuppliedUnit) {
-        return !!form.unitWaiverAcknowledged && !!(form.unitWaiverName || '').trim();
+        const nameMatches = (form.unitWaiverName || '').trim().toLowerCase() === (customer?.name || '').trim().toLowerCase();
+        return !!form.unitWaiverAcknowledged && !!customer?.name && nameMatches;
       }
       return true;
     }
@@ -579,7 +580,7 @@ function WalkInBooking() {
         ) : (
           <>
             {step === 2 && <Step1 form={form} setForm={setForm} services={services} />}
-            {step === 3 && <Step2 form={form} setForm={setForm} services={services} />}
+            {step === 3 && <Step2 form={form} setForm={setForm} services={services} accountName={customer?.name || ''} />}
             {step === 4 && <Step3 form={form} setForm={setForm} technicians={technicians} />}
             {step >= 5 && !paymentSettingsReady && (
               paymentSettingsFailed

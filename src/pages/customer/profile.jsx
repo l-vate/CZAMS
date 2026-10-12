@@ -1,107 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
-import { FiUser, FiX, FiCamera, FiEdit2, FiMail, FiCalendar, FiPhone, FiMapPin, FiLock, FiTrash2 } from 'react-icons/fi';
+import { FiUser, FiCamera, FiEdit2, FiMail, FiCalendar, FiPhone, FiMapPin, FiLock, FiTrash2 } from 'react-icons/fi';
 import { API_BASE } from '../../config/api';
 import { ApiError } from '../../services/apiClient';
 import CustomerHistory from '../../components/customer_history';
-import { uploadProfilePhoto, updateProfile, changePassword, deleteAccount } from '../../services/authService';
-
-/* ── Change Password Modal ─────────────────────────────── */
-function ChangePasswordModal({ onClose, onSubmit, submitting, serverError }) {
-  const [form, setForm] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-  });
-  const [error, setError] = useState('');
-
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-    setError('');
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!form.currentPassword || !form.newPassword || !form.confirmPassword) {
-      setError('Please fill in all fields.');
-      return;
-    }
-    if (form.newPassword.length < 8) {
-      setError('New password must be at least 8 characters.');
-      return;
-    }
-    if (form.newPassword !== form.confirmPassword) {
-      setError('New passwords do not match.');
-      return;
-    }
-    onSubmit(form);
-  };
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h4 className="modal-title">Change Password</h4>
-          <button className="modal-close-btn" onClick={onClose}>
-            <FiX />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="auth-form">
-          <div className="form-group">
-            <label htmlFor="currentPassword">Current Password</label>
-            <input
-              type="password"
-              id="currentPassword"
-              name="currentPassword"
-              value={form.currentPassword}
-              onChange={handleChange}
-              placeholder="Enter current password"
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="newPassword">New Password</label>
-            <input
-              type="password"
-              id="newPassword"
-              name="newPassword"
-              value={form.newPassword}
-              onChange={handleChange}
-              placeholder="Min. 8 characters"
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="confirmPassword">Confirm New Password</label>
-            <input
-              type="password"
-              id="confirmPassword"
-              name="confirmPassword"
-              value={form.confirmPassword}
-              onChange={handleChange}
-              placeholder="Re-enter new password"
-            />
-          </div>
-
-          {(error || serverError) && (
-            <p className="customer-profile-x1">{error || serverError}</p>
-          )}
-
-          <div className="cancel-confirm-actions">
-            <button type="button" className="bs-back-btn" onClick={onClose} disabled={submitting}>
-              Cancel
-            </button>
-            <button type="submit" className="bs-next-btn" disabled={submitting}>
-              {submitting ? 'Updating...' : 'Update Password'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
+import ChangePasswordModal from '../../components/change_password_modal';
+import { uploadProfilePhoto, updateProfile, deleteAccount } from '../../services/authService';
 
 /* ── Delete Account Confirm Dialog ─────────────────────── */
 function DeleteAccountDialog({ onKeep, onConfirmDelete, deleting }) {
@@ -159,8 +64,6 @@ const [user, setUser] = useState(loadUserFromStorage);
   const [editForm, setEditForm] = useState(user);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [passwordSubmitting, setPasswordSubmitting] = useState(false);
-  const [passwordError, setPasswordError] = useState('');
   const [deleting, setDeleting] = useState(false);
 
   const handleEditClick = () => {
@@ -228,23 +131,6 @@ const [user, setUser] = useState(loadUserFromStorage);
 
   const handleCancelEdit = () => {
     setIsEditing(false);
-  };
-
-  const handlePasswordSubmit = async (form) => {
-    setPasswordSubmitting(true);
-    setPasswordError('');
-    try {
-      await changePassword({
-        currentPassword: form.currentPassword,
-        newPassword: form.newPassword,
-      });
-
-      setShowChangePassword(false);
-    } catch (err) {
-      setPasswordError(err instanceof ApiError ? err.message || 'Failed to update password' : 'Could not connect to server.');
-    } finally {
-      setPasswordSubmitting(false);
-    }
   };
 
   const handleConfirmDelete = async () => {
@@ -462,12 +348,7 @@ const [user, setUser] = useState(loadUserFromStorage);
       </div>
 
       {showChangePassword && (
-        <ChangePasswordModal
-          onClose={() => setShowChangePassword(false)}
-          onSubmit={handlePasswordSubmit}
-          submitting={passwordSubmitting}
-          serverError={passwordError}
-        />
+        <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
       )}
 
       {showDeleteConfirm && (

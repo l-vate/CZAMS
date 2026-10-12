@@ -34,6 +34,19 @@
   color: var(--warning-hover);
   font-size: 0.8125rem;
 }
+.closure-days { color: var(--ink-soft); font-size: 0.875rem; }
+.closure-days-detail { margin-top: 6px; font-size: 0.8125rem; color: var(--ink-soft); }
+.closure-days-detail summary { cursor: pointer; }
+.closure-day-list { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
+.closure-day-list li { display: flex; align-items: center; gap: 12px; }
+.closure-day-open {
+  border: 1px solid var(--border, #e5e7eb);
+  background: transparent;
+  border-radius: var(--radius-sm, 8px);
+  padding: 2px 10px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
 .closure-empty { color: var(--ink-soft); margin: 8px 0 0; }
 .closure-notice { margin: 6px 0 0; color: var(--status-cancel-txt); font-size: 0.8125rem; }
 .closure-upcoming { margin: 6px 0 0; color: var(--ink-soft); font-size: 0.8125rem; }

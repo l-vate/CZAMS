@@ -217,8 +217,9 @@ function getAccountName() {
   return storedUser ? (JSON.parse(storedUser).name || '') : '';
 }
 
-export function Step2({ form, setForm, services = [] }) {
-  const accountName = getAccountName();
+// `accountName` is whose name the waiver must carry. It defaults to the signed-in customer;
+// the admin's walk-in booking passes the chosen customer's name instead.
+export function Step2({ form, setForm, services = [], accountName = getAccountName() }) {
   const waiverNameMatches = (form.unitWaiverName || '').trim().toLowerCase() === accountName.trim().toLowerCase();
   // Multi-Unit Booking Redesign: a booking now lists one or more unit entries
   // (type + quantity + its own brand/model), replacing the old flat

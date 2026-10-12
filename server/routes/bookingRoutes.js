@@ -27,7 +27,6 @@ const { manilaTodayKey } = require('../utils/timeBlocks');
 const { isWithinServiceArea } = require('../utils/serviceArea');
 const { runBookingStatusCheck } = require('../jobs/bookingStatusJob');
 const { getOrCreateSettings } = require('../utils/paymentSettings');
-const Team = require('../models/Team');
 const { proposeAssignment } = require('../utils/autoAssign');
 const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/queue');
 const { generateBookingId, createWithUniqueBookingId, BookingIdExhaustedError } = require('../utils/bookingId');
@@ -37,7 +36,7 @@ const { resolveRefundAmounts } = require('../utils/refundAmounts');
 const Closure = require('../models/Closure');
 const { closureProblemFor } = require('../utils/closures');
 const {
-  ASSIGNMENT_POPULATE, getMemberIds, getLeadIds, getRoleFor, getMinTechnicians,
+  ASSIGNMENT_POPULATE, getMemberIds, getLeadIds, getRoleFor,
   memberFilter, findConflictingBooking, getBusyTechnicianIds, getAssignments,
 } = require('../utils/assignments');
 const { readReason, buildHistoryEntry, viewHistory, idsIn } = require('../utils/assignmentHistory');
@@ -553,6 +552,10 @@ clientSuppliedUnit: isClientSuppliedUnit,
       `Your booking ${populated.bookingId} for ${populated.service?.name || 'a service'} has been submitted and is pending confirmation.`,
       { booking: populated }
     );
+
+    // The customer did not pick a technician: the system chooses one. A failure here never
+    // fails the booking, it just stays unassigned for the admin to assign by hand.
+    if (!technician) await autoAssignNewBooking(populated);
 
     res.status(201).json(withWarranty(populated));
   } catch (err) {
@@ -1410,46 +1413,32 @@ router.patch('/:bookingId/reschedule/deny', auth, async (req, res) => {
 });
 
 // Validates a requested assignment and saves it on the booking. Shared by the manual assign
-// route and auto-assign so both obey exactly the same rules. `requested` is
-// [{ teamId } or { technicianId }]; the first entry is the primary assignment (its lead
-// becomes booking.technician), extra entries are additional teams for a big job. It replaces
-// the previous assignment, so it is also how a booking is reassigned. Every member of every
-// team must be free in the booking's date and time block, and a single technician is only
-// allowed for a service that needs just one. Returns { error: { status, message } } or { ok: true }.
+// route and the automatic assignment so both obey exactly the same rules. `requested` is
+// [{ technicianId, helperId? }]: the technician is the lead (and becomes booking.technician),
+// the optional helper is a second technician. It replaces the previous assignment, so it is
+// also how a booking is reassigned. Everyone must be free in the booking's date and time block.
+// One technician is enough to save; approval is what requires enough people for the service.
+// Returns { error: { status, message } } or { ok: true }.
 async function performAssignment(booking, requested, { changedBy, reason } = {}) {
   if ([BOOKING_STATUS.COMPLETED, BOOKING_STATUS.CANCELLED].includes(booking.status)) {
     return { error: { status: 400, message: 'A completed or cancelled booking cannot be reassigned.' } };
   }
 
-  const needed = getMinTechnicians(booking.service);
   const resolved = [];
   const seen = new Set();
 
   for (const item of requested) {
-    let entry;
-    if (item.teamId) {
-      const team = await Team.findById(item.teamId).populate([{ path: 'lead', select: 'isActive' }, { path: 'helper', select: 'isActive' }]);
-      if (!team || !team.isActive) {
-        return { error: { status: 400, message: 'That team is not available. Choose an active team.' } };
-      }
-      if (team.lead.isActive === false || team.helper.isActive === false) {
-        return { error: { status: 400, message: `Team "${team.name}" has a deactivated member. Edit the team first.` } };
-      }
-      entry = { team: team._id, lead: team.lead._id, helper: team.helper._id };
-    } else if (item.technicianId) {
-      if (needed > 1) {
-        return {
-          error: { status: 400, message: `${booking.service?.name || 'This service'} needs a team of two. Choose a team, not a single technician.` },
-        };
-      }
-      const tech = await User.findOne({ _id: item.technicianId, role: ROLE.STAFF, isActive: true }).select('_id');
-      if (!tech) return { error: { status: 400, message: 'That technician is not available.' } };
-      entry = { team: null, lead: tech._id, helper: null };
-    } else {
-      return { error: { status: 400, message: 'Each assignment needs a team or a technician.' } };
+    if (!item.technicianId) {
+      return { error: { status: 400, message: 'Each assignment needs a technician.' } };
     }
+    const ids = [item.technicianId, item.helperId].filter(Boolean);
+    const techs = await User.find({ _id: { $in: ids }, role: ROLE.STAFF, isActive: true }).select('_id');
+    if (techs.length !== new Set(ids).size) {
+      return { error: { status: 400, message: 'That technician is not available.' } };
+    }
+    const entry = { team: null, lead: item.technicianId, helper: item.helperId || null };
 
-    for (const id of [entry.lead, entry.helper].filter(Boolean)) {
+    for (const id of ids) {
       if (seen.has(id)) {
         return { error: { status: 400, message: 'The same technician cannot be assigned twice to one booking.' } };
       }
@@ -1466,7 +1455,7 @@ async function performAssignment(booking, requested, { changedBy, reason } = {})
       return {
         error: {
           status: 409,
-          message: `${who?.name || 'A technician'} is already booked ${booking.date} (${booking.time}) on ${conflict.bookingId}. Choose a different team.`,
+          message: `${who?.name || 'A technician'} is already booked ${booking.date} (${booking.time}) on ${conflict.bookingId}. Choose a different technician.`,
         },
       };
     }
@@ -1501,6 +1490,20 @@ async function performAssignment(booking, requested, { changedBy, reason } = {})
   return { ok: true };
 }
 
+// Called when a booking is created without a requested technician: picks who should do it
+// (utils/autoAssign.js) and assigns them. The admin can still change it by hand. It never
+// throws, so a failure just leaves the booking unassigned.
+async function autoAssignNewBooking(booking) {
+  try {
+    const proposal = await proposeAssignment(booking);
+    if (!proposal.assignment) return;
+    await performAssignment(booking, [proposal.assignment], { reason: 'Assigned automatically by the system' });
+    await booking.populate(ASSIGNMENT_POPULATE);
+  } catch (err) {
+    console.error('Auto-assign on create failed:', err);
+  }
+}
+
 const ASSIGN_RESPONSE_POPULATE = [
   { path: 'service' },
   { path: 'customer', select: 'name email phone clientType companyName representativeName' },
@@ -1508,7 +1511,7 @@ const ASSIGN_RESPONSE_POPULATE = [
   ...ASSIGNMENT_POPULATE,
 ];
 
-// Admin: assign who does the job. Body: { assignments: [{ teamId } or { technicianId }] }.
+// Admin: assign who does the job. Body: { assignments: [{ technicianId, helperId? }] }.
 router.patch('/:bookingId/assign', auth, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
@@ -1517,7 +1520,7 @@ router.patch('/:bookingId/assign', auth, async (req, res) => {
 
     const requested = req.body.assignments;
     if (!Array.isArray(requested) || requested.length === 0) {
-      return res.status(400).json({ message: 'Choose at least one team or technician.' });
+      return res.status(400).json({ message: 'Choose a technician.' });
     }
 
     const reasonInput = readReason(req.body.reason);
@@ -1553,45 +1556,6 @@ router.get('/:bookingId/assignment-history', auth, async (req, res) => {
     const users = await User.find({ _id: { $in: idsIn(entries) } }).select('name');
     const names = new Map(users.map((u) => [String(u._id), u.name]));
     res.json({ history: viewHistory(entries, names, { admin: isAdmin }) });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Admin: auto-assign. Picks a team (or a single technician for a service that needs one)
-// with the logic in utils/autoAssign.js and assigns it. It only assigns: the admin still
-// presses Approve, and can reassign by hand at any time. When nobody is free it assigns
-// nothing and answers 409 with up to 3 later dates where someone is.
-router.post('/:bookingId/auto-assign', auth, async (req, res) => {
-  try {
-    if (req.userRole !== ROLE.ADMIN) {
-      return res.status(403).json({ message: 'Forbidden' });
-    }
-
-    const booking = await Booking.findOne({ bookingId: req.params.bookingId }).populate('service');
-    if (!booking) return res.status(404).json({ message: 'Booking not found' });
-    if ([BOOKING_STATUS.COMPLETED, BOOKING_STATUS.CANCELLED].includes(booking.status)) {
-      return res.status(400).json({ message: 'A completed or cancelled booking cannot be assigned.' });
-    }
-    if (!booking.date || !TIME_BLOCKS.includes(booking.time)) {
-      return res.status(400).json({ message: 'This booking has no valid date and time block to assign against.' });
-    }
-
-    const proposal = await proposeAssignment(booking);
-
-    if (!proposal.assignment) {
-      return res.status(409).json({
-        message: proposal.reason,
-        suggestedDates: proposal.suggestedDates,
-      });
-    }
-
-    const result = await performAssignment(booking, [proposal.assignment], { changedBy: req.userId, reason: 'Auto-assigned' });
-    if (result.error) return res.status(result.error.status).json({ message: result.error.message });
-
-    const populated = await booking.populate(ASSIGN_RESPONSE_POPULATE);
-    res.json({ ...withWarranty(populated), autoAssignNote: proposal.reason });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -1640,10 +1604,10 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
     const statusProblem = validateAdminStatusChange(booking.status, status);
     if (statusProblem) return sendProblem(res, statusProblem);
 
-    // Technicians are assigned as teams through PATCH /:bookingId/assign, which checks every
+    // Technicians are assigned through PATCH /:bookingId/assign, which checks every
     // member for conflicts. This route no longer takes a single technician.
     if (technician !== undefined) {
-      return res.status(400).json({ message: 'Assign a team from the assignment panel instead.' });
+      return res.status(400).json({ message: 'Assign technicians from the assignment panel instead.' });
     }
 
     // Distance/Mobilization Charges - admin-entered, not system-computed. Tracked
@@ -1672,18 +1636,9 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
       booking.technicianInstructions = technicianInstructions;
     }
 
-    // Staffing rule: approval needs enough technicians for this service.
-    if (status === BOOKING_STATUS.APPROVED && prev.status !== BOOKING_STATUS.APPROVED) {
-      const assigned = getMemberIds(booking).length;
-      const needed = getMinTechnicians(booking.service);
-      if (assigned === 0) {
-        return res.status(400).json({ message: 'Assign a team before approving.' });
-      }
-      if (assigned < needed) {
-        return res.status(400).json({
-          message: `${booking.service?.name || 'This service'} needs at least ${needed} technicians (a team with a lead and a helper). Assign a team before approving.`
-        });
-      }
+    // Approval needs at least one technician. A second one is optional.
+    if (status === BOOKING_STATUS.APPROVED && prev.status !== BOOKING_STATUS.APPROVED && getMemberIds(booking).length === 0) {
+      return res.status(400).json({ message: 'Assign a technician before approving.' });
     }
 
     // Admin-initiated cancellation opens the same refund request the customer's own

@@ -9,10 +9,12 @@ import {
   FiMail,
   FiPhone,
   FiCamera,
+  FiLock,
 } from 'react-icons/fi';
 import { API_BASE } from '../../config/api';
 import { withFallback } from '../../services/apiClient';
 import { uploadProfilePhoto, updateProfile } from '../../services/authService';
+import ChangePasswordModal from '../../components/change_password_modal';
 
 
 function buildProfileFromUser(user) {
@@ -34,6 +36,8 @@ function Profile() {
   const [photoFile, setPhotoFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [passwordChanged, setPasswordChanged] = useState(false);
 
   const handleEditClick = () => {
     setEditForm(profile);
@@ -209,6 +213,20 @@ function Profile() {
         )}
       </div>
 
+      <h2 className="section-title">Account Settings</h2>
+      <div className="profile-card">
+        <div className="account-actions">
+          <button
+            type="button"
+            className="change-password-btn"
+            onClick={() => { setPasswordChanged(false); setShowChangePassword(true); }}
+          >
+            <FiLock size={14} /> Change Password
+          </button>
+        </div>
+        {passwordChanged && <p className="sdm-muted">Your password was updated.</p>}
+      </div>
+
       <h2 className="section-title">Performance</h2>
       <div className="stats-grid">
         <div className="stat-card">
@@ -234,6 +252,12 @@ function Profile() {
         </div>
       </div>
 
+      {showChangePassword && (
+        <ChangePasswordModal
+          onClose={() => setShowChangePassword(false)}
+          onChanged={() => setPasswordChanged(true)}
+        />
+      )}
     </StaffLayout>
   );
 }

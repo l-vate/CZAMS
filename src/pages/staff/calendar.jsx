@@ -15,7 +15,7 @@ function toCalendarJob(booking) {
   const unitsSummary = getUnitsSummary(booking);
   const unitTypesLabel = unitsSummary ? ` - ${unitsSummary}` : "";
 
-  return {
+  const main = {
     id: booking._id || booking.bookingId,
     title: `${booking.service?.name || "Service"}${unitTypesLabel}${booking.myRole ? ` (${booking.myRole})` : ""}`,
     customer: booking.customer?.name || booking.customerName || "Customer",
@@ -25,6 +25,21 @@ function toCalendarJob(booking) {
     endHour,
     status: mapBookingStatusToCalendarStatus(booking.status),
   };
+
+  // Each extra day the admin approved is shown on its own day and block, so the technician sees where they are needed.
+  const extras = (booking.extensionDays || []).map((day, i) => {
+    const hours = getTimeBlockHours(day.time);
+    return {
+      ...main,
+      id: `${main.id}-extra-${i}`,
+      title: `${main.title} (extra day)`,
+      date: day.date,
+      startHour: hours.startHour,
+      endHour: hours.endHour,
+    };
+  });
+
+  return [main, ...extras];
 }
 
 function Calendar() {
@@ -36,7 +51,7 @@ function Calendar() {
     try {
       const data = await listTechnicianJobs();
       if (!Array.isArray(data)) throw new Error("Unexpected jobs reply");
-      setJobs(data.map(toCalendarJob));
+      setJobs(data.flatMap(toCalendarJob));
     } catch (err) {
       // a failed load is an error state with a Retry, never an empty calendar
       console.error("Failed to load technician schedule:", err);

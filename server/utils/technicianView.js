@@ -58,7 +58,9 @@ function toTechnicianView(booking, extra = {}) {
     reportSubmitted: !!b.reportSubmitted,
 
     disruption: b.disruption ? pick(b.disruption, ['status', 'reason', 'reportedAt', 'rescheduledAt']) : undefined,
-    extensionRequest: b.extensionRequest ? pick(b.extensionRequest, ['status', 'reason', 'requestedAt', 'decidedAt']) : undefined,
+    extensionRequest: b.extensionRequest ? pick(b.extensionRequest, ['status', 'reason', 'requestedDate', 'requestedTime', 'requestedAt', 'decidedAt']) : undefined,
+    // the extra days an admin approved, as a date and a time block (no admin id)
+    extensionDays: (b.extensionDays || []).map((d) => pick(d, ['date', 'time'])),
 
     ...extra,
   };

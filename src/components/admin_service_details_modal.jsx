@@ -66,6 +66,9 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
     const [disruptionDate, setDisruptionDate] = useState('');
     const [disruptionTime, setDisruptionTime] = useState('');
     const [instructionsDraft, setInstructionsDraft] = useState(booking?.technicianInstructions || '');
+    // the extra day to approve: what the lead asked for, which the admin can change
+    const [extraDate, setExtraDate] = useState(booking?.extensionRequest?.requestedDate || '');
+    const [extraTime, setExtraTime] = useState(booking?.extensionRequest?.requestedTime || booking?.time || 'Morning');
     const [editingInstructions, setEditingInstructions] = useState(false);
     const [editingCharges, setEditingCharges] = useState(false);
     const [distanceDraft, setDistanceDraft] = useState(booking?.distanceAdjustment || 0);
@@ -255,7 +258,9 @@ const [report, setReport] = useState(null);
         setSaving(true);
         setError('');
         try {
-            const decided = await attempt(decideExtension(booking.bookingId, decision), 'Failed to update extension request.');
+            // on approve, the day asked for, or the one the admin picked here
+            const slot = decision === 'approve' && extraDate ? { date: extraDate, time: extraTime } : undefined;
+            const decided = await attempt(decideExtension(booking.bookingId, decision, slot), 'Failed to update extension request.');
             if (decided.error) {
                 setError(decided.error);
                 return;
@@ -877,6 +882,18 @@ const [report, setReport] = useState(null);
                                     </h5>
                                     <div className="sdm-notice">
                                         <p className="admin-service-details-modal-x7">"{booking.extensionRequest.reason}"</p>
+                                        <div className="sdm-list-row">
+                                            <span>Extra day</span>
+                                            <span className="sdm-list-value">
+                                                <input type="date" aria-label="Extra day" value={extraDate} onChange={(e) => setExtraDate(e.target.value)} />
+                                                {' '}
+                                                <select aria-label="Time block for the extra day" value={extraTime} onChange={(e) => setExtraTime(e.target.value)}>
+                                                    <option value="Morning">Morning</option>
+                                                    <option value="Afternoon">Afternoon</option>
+                                                </select>
+                                            </span>
+                                        </div>
+                                        <p className="sdm-muted">Approving holds every technician on this job for that day and block. If one of them is already booked, it is refused and you can pick another day.</p>
                                         <div className="admin-service-details-modal-x8">
                                             <button
                                                 className="sdm-btn sdm-btn-danger"
@@ -907,6 +924,12 @@ const [report, setReport] = useState(null);
                                             <span>"{booking.extensionRequest.reason}"</span>
                                             <p className="sdm-list-value">{booking.extensionRequest.status}</p>
                                         </div>
+                                        {(booking.extensionDays || []).map((d) => (
+                                            <div className="sdm-list-row" key={`${d.date}-${d.time}`}>
+                                                <span>Extra day approved</span>
+                                                <span className="sdm-list-value">{d.date}, {d.time}</span>
+                                            </div>
+                                        ))}
                                     </div>
                                 </>
                             )}

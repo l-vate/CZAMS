@@ -132,8 +132,9 @@ export function decideReschedule(bookingId, decision) {
 }
 
 // decision: 'approve' | 'deny'.
-export function decideExtension(bookingId, decision) {
-  return request(`${booking(bookingId)}/extension/${decision}`, { method: 'PATCH' });
+// On approve, `slot` ({ date, time }) lets the admin pick another extra day than the one asked for.
+export function decideExtension(bookingId, decision, slot) {
+  return request(`${booking(bookingId)}/extension/${decision}`, { method: 'PATCH', ...(slot ? { body: slot } : {}) });
 }
 
 // ---- Technician actions ----
@@ -141,6 +142,7 @@ export function reportDisruption(bookingId, reason) {
   return request(`${booking(bookingId)}/disruption/report`, { method: 'PATCH', body: { reason } });
 }
 
-export function requestExtension(bookingId, reason) {
-  return request(`${booking(bookingId)}/extension/request`, { method: 'PATCH', body: { reason } });
+// `slot` is the extra day asked for ({ date, time }); leave it out for the next working day in the job's block.
+export function requestExtension(bookingId, reason, slot = {}) {
+  return request(`${booking(bookingId)}/extension/request`, { method: 'PATCH', body: { reason, ...slot } });
 }

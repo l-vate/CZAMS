@@ -9,6 +9,8 @@ import { getFilterPillStyle } from '../../utils/statusColors';
 import { ApiError } from '../../services/apiClient';
 import LoadError from '../../components/load_error';
 import { listTechnicianJobs, reportDisruption, requestExtension } from '../../services/bookingService';
+import { listClosures } from '../../services/closureService';
+import { defaultExtensionDate, manilaTodayKey } from '../../utils/workingDays';
 import { getAssignedNames } from '../../utils/assignments';
 import AssignmentHistory from '../../components/assignment_history';
 import { JOB_SORT, JOB_SORT_OPTIONS, sortJobs } from '../../utils/jobSort';
@@ -105,6 +107,28 @@ function JobDetailsModal({ job, onClose }) {
           </div>
         )}
 
+        {job.extensionRequest?.status === 'Pending' && job.extensionRequest.requestedDate && (
+          <div className="tech-job-detail-cell tech-job-detail-full">
+            <span className="confirmation-detail-icon"><FiClock /></span>
+            <div>
+              <p className="confirmation-detail-label">Extra day requested</p>
+              <p className="confirmation-detail-value">{job.extensionRequest.requestedDate}, {job.extensionRequest.requestedTime} (waiting for admin)</p>
+            </div>
+          </div>
+        )}
+
+        {job.extensionDays?.length > 0 && (
+          <div className="tech-job-detail-cell tech-job-detail-full">
+            <span className="confirmation-detail-icon"><FiClock /></span>
+            <div>
+              <p className="confirmation-detail-label">Extra day{job.extensionDays.length > 1 ? 's' : ''} approved</p>
+              {job.extensionDays.map((d) => (
+                <p className="confirmation-detail-value" key={`${d.date}-${d.time}`}>{d.date}, {d.time}</p>
+              ))}
+            </div>
+          </div>
+        )}
+
         <AssignmentHistory bookingId={job.bookingId} />
 
         <button className="bs-back-btn staff-my-jobs-x2" onClick={onClose}>
@@ -134,25 +158,47 @@ const DISRUPTION_EXTENSION_COPY = {
       Approved: 'Approved - you have the extra day.',
       Denied: 'Not approved.',
     },
+    extraDayLabel: 'Extra day',
   },
 };
 
 function DisruptionExtensionModal({ kind, job, onClose, onSubmit, submitting, serverError }) {
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
+  // the extra day asked for: the next working day by default, in the job's own block
+  const [extraDate, setExtraDate] = useState('');
+  const [extraTime, setExtraTime] = useState(job.time || 'Morning');
 
   const copy = DISRUPTION_EXTENSION_COPY[kind];
   const record = kind === 'disruption' ? job.disruption : job.extensionRequest;
   const status = record?.status || 'None';
-  const isResolved = status !== 'None';
+  // A disruption is reported once. An extension can be asked for again after an answer (a second extra day).
+  const isResolved = kind === 'disruption' ? status !== 'None' : status === 'Pending';
+  const lastAnswer = kind === 'extension' && ['Approved', 'Denied'].includes(status) ? copy.statusText[status] : '';
+
+  useEffect(() => {
+    if (kind !== 'extension') return undefined;
+    let cancelled = false;
+    // closed shop dates are skipped when picking the default day
+    listClosures()
+      .catch(() => [])
+      .then((closures) => {
+        if (!cancelled) setExtraDate(defaultExtensionDate(job.date, new Set((closures || []).map((c) => c.date))));
+      });
+    return () => { cancelled = true; };
+  }, [kind, job.date]);
 
   const handleSubmit = () => {
     if (!reason.trim()) {
-      setError('Please describe what happened.');
+      setError(kind === 'extension' ? 'Please describe why more time is needed.' : 'Please describe what happened.');
+      return;
+    }
+    if (kind === 'extension' && !extraDate) {
+      setError('Choose the extra day.');
       return;
     }
     setError('');
-    onSubmit(reason.trim());
+    onSubmit(reason.trim(), kind === 'extension' ? { date: extraDate, time: extraTime } : undefined);
   };
 
   return (
@@ -166,6 +212,9 @@ function DisruptionExtensionModal({ kind, job, onClose, onSubmit, submitting, se
         {isResolved ? (
           <>
             <p className="modal-instruction">{copy.statusText[status]}</p>
+            {kind === 'extension' && record.requestedDate && (
+              <p className="modal-instruction">Extra day: {record.requestedDate}, {record.requestedTime}</p>
+            )}
             <p className="cancel-confirm-text">"{record.reason}"</p>
             <button className="bs-back-btn staff-my-jobs-x3" onClick={onClose}>
               Close
@@ -173,7 +222,25 @@ function DisruptionExtensionModal({ kind, job, onClose, onSubmit, submitting, se
           </>
         ) : (
           <>
+            {lastAnswer && <p className="modal-instruction">Last request: {lastAnswer}</p>}
             <p className="modal-instruction">{copy.description}</p>
+            {kind === 'extension' && (
+              <div className="bs-field-group">
+                <label className="bs-label" htmlFor="extra-day">{copy.extraDayLabel}</label>
+                <input
+                  id="extra-day"
+                  type="date"
+                  className="bs-input"
+                  value={extraDate}
+                  min={job.date && job.date > manilaTodayKey() ? job.date : manilaTodayKey()}
+                  onChange={(e) => setExtraDate(e.target.value)}
+                />
+                <select className="bs-select" aria-label="Time block for the extra day" value={extraTime} onChange={(e) => setExtraTime(e.target.value)}>
+                  <option value="Morning">Morning</option>
+                  <option value="Afternoon">Afternoon</option>
+                </select>
+              </div>
+            )}
             <div className="bs-field-group">
               <label className="bs-label">Details</label>
               <textarea
@@ -228,6 +295,7 @@ function toViewJob(booking) {
     technicianInstructions: booking.technicianInstructions,
     disruption: booking.disruption,
     extensionRequest: booking.extensionRequest,
+    extensionDays: booking.extensionDays || [],
     // 'Lead' or 'Helper'. Only a lead can report a disruption or ask for an extension.
     myRole: booking.myRole || 'Lead',
     assigned: getAssignedNames(booking, ''),
@@ -323,13 +391,13 @@ function MyJobs() {
 
   const handleSelectSort = (value) => { setSortBy(value); setShowSortMenu(false); };
 
-  const handleSubmitReport = async (reasonText) => {
+  const handleSubmitReport = async (reasonText, slot) => {
     if (!reportModal) return;
     setSubmittingReport(true);
     setSubmitError('');
     try {
       const send = reportModal.kind === 'disruption' ? reportDisruption : requestExtension;
-      const data = await send(reportModal.job.bookingId, reasonText);
+      const data = await send(reportModal.job.bookingId, reasonText, slot);
       // the action response is not per-technician, so keep the role already known for this job
       const updatedJob = { ...toViewJob(data), myRole: reportModal.job.myRole };
       setJobs((prev) => prev.map((j) => (j.bookingId === updatedJob.bookingId ? updatedJob : j)));

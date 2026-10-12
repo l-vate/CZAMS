@@ -14,10 +14,19 @@ function valuesAt(doc, pathStr) {
 function matches(doc, filter) {
   return Object.entries(filter || {}).every(([key, cond]) => {
     if (key === '$or') return cond.some((f) => matches(doc, f));
+    if (key === '$and') return cond.every((f) => matches(doc, f));
     const values = valuesAt(doc, key);
     if (cond && typeof cond === 'object' && !Array.isArray(cond)) {
+      if ('$elemMatch' in cond) {
+        // some element of the array at this path satisfies every condition in $elemMatch
+        const list = doc && doc[key];
+        return Array.isArray(list) && list.some((item) => matches(item, cond.$elemMatch));
+      }
       if ('$in' in cond) return values.some((v) => cond.$in.includes(v));
       if ('$ne' in cond) return !values.includes(cond.$ne);
+      if ('$gte' in cond || '$lte' in cond) {
+        return values.some((v) => (!('$gte' in cond) || v >= cond.$gte) && (!('$lte' in cond) || v <= cond.$lte));
+      }
     }
     return values.includes(cond);
   });

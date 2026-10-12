@@ -40,6 +40,7 @@ const { readPaymentSubmission, findSameReference } = require('../utils/paymentRe
 const { resolveRefundAmounts } = require('../utils/refundAmounts');
 const Closure = require('../models/Closure');
 const { closureProblemFor } = require('../utils/closures');
+const { nextWorkingDayKey, extensionSlotProblem, addDays } = require('../utils/extensionDays');
 const {
   ASSIGNMENT_POPULATE, getMemberIds, getLeadIds, getRoleFor,
   memberFilter, findConflictingBooking, getBusyTechnicianIds, getAssignments, staffingProblem,
@@ -1224,6 +1225,27 @@ router.patch('/:bookingId/disruption/report', auth, async (req, res) => {
   }
 });
 
+// The extra day (a date and a time block) for an extension, from what was asked or the default: the next working
+// day after the job's date (or today, if the job is older), in the same time block. Returns { date, time } or
+// { error: { status, message } }. It refuses a Sunday, a closed shop date, a day before the job or in the past, the
+// job's own block, and a day that is already approved.
+async function resolveExtensionSlot(booking, { date, time }) {
+  const today = manilaTodayKey();
+  const base = booking.date && booking.date > today ? booking.date : today;
+  let chosenDate = typeof date === 'string' && date.trim() ? date.trim() : null;
+  if (!chosenDate) {
+    // skip the shop's closure dates when picking the default
+    const closed = new Set((await Closure.find({ date: { $gte: addDays(base, 1), $lte: addDays(base, 31) } }).select('date').lean()).map((c) => c.date));
+    chosenDate = nextWorkingDayKey(base, closed);
+  }
+  const chosenTime = typeof time === 'string' && time.trim() ? time.trim() : booking.time;
+  const problem = extensionSlotProblem({ date: chosenDate, time: chosenTime }, booking, today);
+  if (problem) return { error: { status: 400, message: problem } };
+  const closedProblem = await closureProblemFor(Closure, chosenDate);
+  if (closedProblem) return { error: { status: closedProblem.status || 400, message: closedProblem.message } };
+  return { date: chosenDate, time: chosenTime };
+}
+
 // Technician: request an extra day to finish a job that's underway - this isn't
 // automatic, admin has to approve it (see /:bookingId/extension/approve|deny below).
 router.patch('/:bookingId/extension/request', auth, async (req, res) => {
@@ -1251,9 +1273,14 @@ router.patch('/:bookingId/extension/request', auth, async (req, res) => {
       return res.status(400).json({ message: 'An extension request is already pending for this booking.' });
     }
 
+    const slot = await resolveExtensionSlot(booking, { date: req.body.date, time: req.body.time });
+    if (slot.error) return res.status(slot.error.status).json({ message: slot.error.message });
+
     booking.extensionRequest = {
       status: 'Pending',
       reason: reason.trim(),
+      requestedDate: slot.date,
+      requestedTime: slot.time,
       requestedAt: new Date(),
       requestedBy: req.userId,
     };
@@ -1262,7 +1289,7 @@ router.patch('/:bookingId/extension/request', auth, async (req, res) => {
 
     await notifyAdmins(
       NOTIFICATION_TYPE.EXTENSION_REQUESTED,
-      `A technician asked for an extra day on booking ${booking.bookingId}: "${reason.trim().slice(0, 100)}". Approval needed.`,
+      `A technician asked for an extra day (${slot.date}, ${slot.time}) on booking ${booking.bookingId}: "${reason.trim().slice(0, 100)}". Approval needed.`,
       { booking }
     );
     const populated = await booking.populate(['service', 'technician', 'customer', ...ASSIGNMENT_POPULATE]);
@@ -2076,18 +2103,41 @@ router.patch('/:bookingId/extension/approve', auth, async (req, res) => {
     if (booking.extensionRequest?.status !== 'Pending') {
       return res.status(400).json({ message: 'No pending extension request for this booking.' });
     }
+    if ([BOOKING_STATUS.COMPLETED, BOOKING_STATUS.CANCELLED].includes(booking.status)) {
+      return res.status(400).json({ message: 'This booking is already finished, so it cannot be extended.' });
+    }
 
+    // The day that was asked for, unless the admin picks another (a date and a time block in the body).
+    const slot = await resolveExtensionSlot(booking, {
+      date: req.body?.date || booking.extensionRequest.requestedDate,
+      time: req.body?.time || booking.extensionRequest.requestedTime,
+    });
+    if (slot.error) return res.status(slot.error.status).json({ message: slot.error.message });
+
+    // The extra day holds every technician on the job, so approving it must not double-book anyone. The clash
+    // is returned so the admin can pick another date, move the other booking, or deny the request.
+    const clash = await findConflictingBooking(getMemberIds(booking), slot.date, slot.time, booking.bookingId);
+    if (clash) {
+      return res.status(409).json({
+        message: `A technician on this job is already booked ${slot.date} (${slot.time}) on ${clash.bookingId}. Choose another date for the extra day, change that booking, or deny the request.`,
+        conflict: { bookingId: clash.bookingId, date: slot.date, time: slot.time },
+      });
+    }
+
+    booking.extensionDays = [...(booking.extensionDays || []), { date: slot.date, time: slot.time, approvedBy: req.userId, approvedAt: new Date() }];
     booking.extensionRequest.status = 'Approved';
+    booking.extensionRequest.requestedDate = slot.date;
+    booking.extensionRequest.requestedTime = slot.time;
     booking.extensionRequest.decidedAt = new Date();
     booking.extensionRequest.decidedBy = req.userId;
 
     await booking.save();
 
-    await notifyMembers(booking, NOTIFICATION_TYPE.EXTENSION_APPROVED, `The extension request for booking ${booking.bookingId} has been approved.`);
+    await notifyMembers(booking, NOTIFICATION_TYPE.EXTENSION_APPROVED, `The extension request for booking ${booking.bookingId} has been approved: you have an extra day on ${slot.date} (${slot.time}).`);
     await sendNotification(
       booking.customer,
       NOTIFICATION_TYPE.EXTENSION_APPROVED,
-      `Your technician requested an extra day to finish booking ${booking.bookingId} - this has been approved, so completion will take a bit longer than originally scheduled.`,
+      `Your technician requested an extra day to finish booking ${booking.bookingId}. This has been approved for ${slot.date} (${slot.time}), so completion will take a bit longer than originally scheduled.`,
       { booking }
     );
 

@@ -16,6 +16,7 @@ const Booking = require('../models/Booking');
 const Closure = require('../models/Closure');
 const { activeStatuses, getMemberIds, getMinTechnicians } = require('./assignments');
 const { manilaTodayKey } = require('./timeBlocks');
+const { slotsOf } = require('./extensionDays');
 
 // ---------- date keys ("YYYY-MM-DD"), worked out in UTC so the server's timezone never matters
 function toUtc(key) {
@@ -160,17 +161,20 @@ async function proposeAssignment(booking) {
   const nearby = await Booking.find({
     status: { $in: activeStatuses() },
     bookingId: { $ne: booking.bookingId },
-    date: { $gte: start < today ? start : today, $lte: horizon },
-  }).select('date time technician assignments');
+    $or: [{ date: { $gte: start < today ? start : today, $lte: horizon } }, { 'extensionDays.date': { $gte: start < today ? start : today, $lte: horizon } }],
+  }).select('date time technician assignments extensionDays');
 
   const memberLists = (docs) => docs.map((b) => getMemberIds(b));
   const weekBookings = memberLists(nearby.filter((b) => b.date >= start && b.date <= end));
   const upcomingBookings = memberLists(nearby.filter((b) => b.date >= today));
 
   const busyByDate = new Map();
-  nearby.filter((b) => b.time === booking.time).forEach((b) => {
-    if (!busyByDate.has(b.date)) busyByDate.set(b.date, new Set());
-    getMemberIds(b).forEach((id) => busyByDate.get(b.date).add(id));
+  // A booking holds its technicians on its own date and block and on each approved extra day.
+  nearby.forEach((b) => {
+    slotsOf(b).filter((s) => s.time === booking.time).forEach((s) => {
+      if (!busyByDate.has(s.date)) busyByDate.set(s.date, new Set());
+      getMemberIds(b).forEach((id) => busyByDate.get(s.date).add(id));
+    });
   });
   const busyIds = busyByDate.get(booking.date) || new Set();
   const closedDates = new Set((await Closure.find({ date: { $gte: today, $lte: horizon } }).select('date').lean()).map((c) => c.date));

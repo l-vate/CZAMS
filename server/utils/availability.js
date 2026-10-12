@@ -12,6 +12,7 @@ const User = require('../models/User');
 const Booking = require('../models/Booking');
 const Closure = require('../models/Closure');
 const { activeStatuses, getMemberIds } = require('./assignments');
+const { slotsOf } = require('./extensionDays');
 const { TIME_BLOCKS, manilaTodayKey } = require('./timeBlocks');
 
 // Same rule as isDateAllowed in routes/bookingRoutes.js: a booking must be at least this many days ahead.
@@ -38,8 +39,8 @@ async function getAvailability(from, to) {
   const [teams, technicians, bookings, closures] = await Promise.all([
     Team.find({ isActive: true }).select('lead helper'),
     User.find({ role: ROLE.STAFF, isActive: true }).select('_id'),
-    Booking.find({ status: { $in: activeStatuses() }, date: { $gte: from, $lte: to } })
-      .select('date time status technician assignments'),
+    Booking.find({ status: { $in: activeStatuses() }, $or: [{ date: { $gte: from, $lte: to } }, { 'extensionDays.date': { $gte: from, $lte: to } }] })
+      .select('date time status technician assignments extensionDays'),
     Closure.find({ date: { $gte: from, $lte: to } }).select('date reason').lean(),
   ]);
   const closureReason = new Map(closures.map((c) => [c.date, c.reason]));
@@ -56,7 +57,7 @@ async function getAvailability(from, to) {
 
     const open = {};
     TIME_BLOCKS.forEach((block) => {
-      const sameBlock = bookings.filter((b) => b.date === key && b.time === block);
+      const sameBlock = bookings.filter((b) => slotsOf(b).some((s) => s.date === key && s.time === block));
       const busy = new Set(sameBlock.flatMap(getMemberIds));
       const waiting = sameBlock.filter((b) => b.status === BOOKING_STATUS.PENDING && getMemberIds(b).length === 0).length;
       const freeUnits = usableTeams.length > 0

@@ -13,6 +13,8 @@ const activeStatuses = () => (scheduling.PENDING_HOLDS_SLOT
   ? [BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS]
   : [BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS]);
 
+const { slotsOf } = require('./extensionDays');
+
 const idOf = (x) => (x ? String(x._id || x) : null);
 
 // Populate paths that turn the stored ids into names. Spread into populate() calls.
@@ -117,24 +119,27 @@ function memberFilter(userIds) {
 async function findConflictingBooking(technicianIds, date, time, excludeBookingId) {
   const ids = (Array.isArray(technicianIds) ? technicianIds : [technicianIds]).map(idOf).filter(Boolean);
   if (ids.length === 0 || !date || !time) return null;
+  // The booking's own date and block, or one of its approved extra days.
   return Booking.findOne({
-    ...memberFilter(ids),
-    date,
-    time,
+    $and: [
+      memberFilter(ids),
+      { $or: [{ date, time }, { extensionDays: { $elemMatch: { date, time } } }] },
+    ],
     status: { $in: activeStatuses() },
     ...(excludeBookingId ? { bookingId: { $ne: excludeBookingId } } : {}),
   });
 }
 
-// Ids of every technician busy in a date/time block (optionally ignoring one booking).
+// Ids of every technician busy in a date/time block (optionally ignoring one booking), counting approved extra days.
 async function getBusyTechnicianIds(date, time, excludeBookingId) {
+  const slot = time ? { date, time } : { date };
   const bookings = await Booking.find({
-    date,
-    ...(time ? { time } : {}),
+    $or: [slot, { extensionDays: { $elemMatch: slot } }],
     status: { $in: activeStatuses() },
     ...(excludeBookingId ? { bookingId: { $ne: excludeBookingId } } : {}),
   });
-  return [...new Set(bookings.flatMap(getMemberIds))];
+  const busy = bookings.filter((b) => slotsOf(b).some((s) => s.date === date && (!time || s.time === time)));
+  return [...new Set(busy.flatMap(getMemberIds))];
 }
 
 module.exports = {

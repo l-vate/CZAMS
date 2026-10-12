@@ -277,6 +277,16 @@ const bookingSchema = new mongoose.Schema({
         isActivelyLeaking: Boolean,
     },
 
+    // Extra days an admin approved for this job. Each one holds every technician on the booking for that date
+    // and time block, the same as the booking's own date and block (utils/assignments.js findConflictingBooking).
+    extensionDays: [{
+        date: String,
+        time: String,
+        approvedBy: String,
+        approvedAt: Date,
+        _id: false,
+    }],
+
     disruption: {
         status: { type: String, enum: ['None', 'Reported', 'Rescheduled'], default: 'None' },
         reason: String,
@@ -287,6 +297,10 @@ const bookingSchema = new mongoose.Schema({
     extensionRequest: {
         status: { type: String, enum: ['None', 'Pending', 'Approved', 'Denied'], default: 'None' },
         reason: String,
+        // The extra day asked for (a YYYY-MM-DD date and a time block). When the admin approves it, the day that
+        // was approved is copied to extensionDays below.
+        requestedDate: String,
+        requestedTime: String,
         requestedAt: Date,
         requestedBy: String,
         decidedAt: Date,

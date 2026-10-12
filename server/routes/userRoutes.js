@@ -11,6 +11,7 @@ const { readProfileFields } = require('../utils/profileFields');
 const Booking = require('../models/Booking');
 const BackJob = require('../models/BackJob');
 const { summarizeHistory } = require('../utils/customerHistory');
+const { clearAuthCache } = require('../utils/authCache');
 
 const CLIENT_TYPES = ['Residential', 'Commercial'];
 const clientTypeProblem = (value) => (CLIENT_TYPES.includes(value) ? null : invalid('Client type must be Residential or Commercial.'));
@@ -228,6 +229,9 @@ router.put('/:id', auth, async (req, res) => {
     if (!updatedUser) {
       return res.status(404).json({ message: 'User not found' });
     }
+
+    // A role change or a deactivation applies to the very next request, not after the cache expires.
+    clearAuthCache(updatedUser._id);
 
     const userObj = updatedUser.toObject();
     if (updatedUser.role === ROLE.CUSTOMER) {

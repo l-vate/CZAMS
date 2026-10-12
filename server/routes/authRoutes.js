@@ -9,6 +9,7 @@ const { readProfileFields } = require('../utils/profileFields');
 const auth = require('../middleware/auth');
 const path = require('path');
 const { createUploader, IMAGE_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
+const { clearAuthCache } = require('../utils/authCache');
 
 // Simple ID generator matching your ADM001-style pattern
 function generateUserId(role) {
@@ -235,6 +236,7 @@ router.delete('/account', auth, async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    clearAuthCache(req.userId);
     res.json({ message: 'Account deleted successfully' });
   } catch (err) {
     console.error(err);

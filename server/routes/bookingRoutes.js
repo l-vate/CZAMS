@@ -28,6 +28,7 @@ const { getOrCreateSettings } = require('../utils/paymentSettings');
 const { proposeAssignment } = require('../utils/autoAssign');
 const { summarizeRatings } = require('../utils/ratings');
 const { toTechnicianView } = require('../utils/technicianView');
+const { allowRoles } = require('../middleware/roles');
 const { TECHNICIAN_BOOKING_FILTER, isHiddenFromTechnicians } = require('../utils/technicianVisibility');
 const scheduling = require('../constants/scheduling');
 const { createUploader, PROOF_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
@@ -253,7 +254,7 @@ router.get('/technicians/:id/feedback', auth, async (req, res) => {
 // customer themselves; an admin creating a walk-in/phone-in booking on someone
 // else's behalf may pass `customer` to book it under that customer's account
 // instead - only admins can do this, everyone else always books under their own id.
-router.post('/', auth, (req, res, next) => {
+router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) => {
   req.generatedBookingId = generateBookingId();
   next();
 }, upload.fields([{ name: 'proof', maxCount: 1 }, { name: 'discountId', maxCount: 1 }]), async (req, res) => {
@@ -667,7 +668,7 @@ router.get('/:bookingId', auth, async (req, res) => {
 // refund request (Cancellation, Rescheduling, and Refund Module) - same-day
 // cancellations get flagged so the dispatch/transportation cost can be deducted
 // before an admin processes it; pre-service cancellations refund in full.
-router.patch('/:bookingId/cancel', auth, async (req, res) => {
+router.patch('/:bookingId/cancel', auth, allowRoles(ROLE.CUSTOMER), async (req, res) => {
   try {
     const booking = await Booking.findOne({
       bookingId: req.params.bookingId,
@@ -711,7 +712,7 @@ router.patch('/:bookingId/cancel', auth, async (req, res) => {
 });
 
 // Customer: Submit/upload initial down payment proof
-router.patch('/:bookingId/pay', auth, upload.single('proof'), async (req, res) => {
+router.patch('/:bookingId/pay', auth, allowRoles(ROLE.CUSTOMER), upload.single('proof'), async (req, res) => {
   try {
     const proofFile = req.file ? `/uploads/proofs/${req.file.filename}` : undefined;
 
@@ -738,7 +739,7 @@ router.patch('/:bookingId/pay', auth, upload.single('proof'), async (req, res) =
 });
 
 // Customer: Submit/upload final balance payment proof
-router.patch('/:bookingId/pay-balance', auth, upload.single('proof'), async (req, res) => {
+router.patch('/:bookingId/pay-balance', auth, allowRoles(ROLE.CUSTOMER), upload.single('proof'), async (req, res) => {
   try {
     const proofFile = req.file ? `/uploads/proofs/${req.file.filename}` : undefined;
 
@@ -780,7 +781,7 @@ router.get('/:bookingId/reference-duplicates', auth, async (req, res) => {
 // Customer: ask for the Senior Citizen / PWD discount on a booking they already made. Same ID
 // upload and same admin approval flow as asking at booking time. Allowed while the booking is
 // Pending or Approved, and only if there is no request yet or the last one was rejected.
-router.patch('/:bookingId/discount/request', auth, upload.single('discountId'), async (req, res) => {
+router.patch('/:bookingId/discount/request', auth, allowRoles(ROLE.CUSTOMER), upload.single('discountId'), async (req, res) => {
   try {
     const { discountType } = req.body;
     if (discountType !== 'Senior' && discountType !== 'PWD') {
@@ -960,7 +961,7 @@ router.patch('/:bookingId/queue', auth, async (req, res) => {
 // backs a future 5yr/1yr Unit Warranty claim, mirrors the client-supplied-unit
 // waiver's role but for the opposite case. Admin-side (not the customer's), since
 // CZA is the one that made the sale and holds the record of it.
-router.patch('/:bookingId/unit-purchase-proof', auth, upload.single('proof'), async (req, res) => {
+router.patch('/:bookingId/unit-purchase-proof', auth, allowRoles(ROLE.ADMIN), upload.single('proof'), async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -984,7 +985,7 @@ router.patch('/:bookingId/unit-purchase-proof', auth, upload.single('proof'), as
 });
 
 // Request a reschedule (or apply directly if still Pending)
-router.patch('/:bookingId/reschedule', auth, async (req, res) => {
+router.patch('/:bookingId/reschedule', auth, allowRoles(ROLE.CUSTOMER), async (req, res) => {
   try {
     const { date, time } = req.body;
 
@@ -1062,7 +1063,7 @@ router.patch('/:bookingId/reschedule', auth, async (req, res) => {
 // Submit or edit feedback for a completed booking (customer)
 const FEEDBACK_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-router.patch('/:bookingId/feedback', auth, async (req, res) => {
+router.patch('/:bookingId/feedback', auth, allowRoles(ROLE.CUSTOMER), async (req, res) => {
   try {
     const { rating, text } = req.body;
     const parsedRating = Number(rating);
@@ -1803,7 +1804,7 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
 // Processed. Same-day cancellations also require a dispatch/transportation
 // deduction before the refundable amount is finalized; pre-service cancellations
 // refund the down payment in full.
-router.patch('/:bookingId/refund', auth, upload.single('proof'), async (req, res) => {
+router.patch('/:bookingId/refund', auth, allowRoles(ROLE.ADMIN), upload.single('proof'), async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -1869,7 +1870,7 @@ router.patch('/:bookingId/refund', auth, upload.single('proof'), async (req, res
 
 // Customer: confirm the refund money arrived. Once only; it never blocks the admin and does not
 // touch a dispute flag.
-router.patch('/:bookingId/refund/received', auth, async (req, res) => {
+router.patch('/:bookingId/refund/received', auth, allowRoles(ROLE.CUSTOMER), async (req, res) => {
   try {
     const booking = await Booking.findOne({ bookingId: req.params.bookingId, customer: req.userId });
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
@@ -1906,7 +1907,7 @@ router.patch('/:bookingId/refund/received', auth, async (req, res) => {
 // Customer: flag a refund that hasn't come through (e.g. marked Processed but
 // never actually received). Single message + status, not a ticketing thread -
 // admin just needs to see it and mark it addressed once followed up outside the system.
-router.patch('/:bookingId/refund/flag', auth, async (req, res) => {
+router.patch('/:bookingId/refund/flag', auth, allowRoles(ROLE.CUSTOMER), async (req, res) => {
   try {
     const { message } = req.body;
     if (!message?.trim()) {

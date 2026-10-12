@@ -7,6 +7,7 @@ const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
+const { allowRoles } = require('../middleware/roles');
 const Booking = require('../models/Booking');
 const BackJob = require('../models/BackJob');
 const Report = require('../models/Report');
@@ -31,7 +32,7 @@ function toDateString(d) {
 
 // Customer: report a back job (leak right after cleaning, AC not cooling soon
 // after installation) on one of their own completed bookings.
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, allowRoles(ROLE.CUSTOMER), async (req, res) => {
   try {
     const { bookingId, issueDescription } = req.body;
 

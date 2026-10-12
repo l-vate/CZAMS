@@ -6,7 +6,7 @@ const auth = require('../middleware/auth');
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const User = require('../models/User');
-const { sendNotification } = require('../utils/notifications');
+const { sendNotification, notifyAdmins } = require('../utils/notifications');
 
 // ============================================
 // PARTICIPANT SIDE (customer / staff) - always operates on "their" conversation,
@@ -71,10 +71,8 @@ router.post('/conversations/mine/messages', auth, async (req, res) => {
     conversation.lastMessageBySenderRole = req.userRole;
     await conversation.save();
 
-    const admin = await User.findOne({ role: ROLE.ADMIN }).select('_id');
-    if (admin) {
-      await sendNotification(admin._id, NOTIFICATION_TYPE.CHAT_MESSAGE, `New message from ${req.userRole === ROLE.STAFF ? 'a technician' : 'a customer'}: "${message.text.slice(0, 80)}"`);
-    }
+    // Every active admin is told, once each, and a notification problem never fails the message.
+    await notifyAdmins(NOTIFICATION_TYPE.CHAT_MESSAGE, `New message from ${req.userRole === ROLE.STAFF ? 'a technician' : 'a customer'}: "${message.text.slice(0, 80)}"`);
 
     res.status(201).json(message);
   } catch (err) {

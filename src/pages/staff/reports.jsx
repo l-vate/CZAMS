@@ -12,7 +12,7 @@ import { PHOTO_MAX_BYTES, PHOTO_MIME_TYPES } from '../../constants/reportPhoto';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
 
 
-function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
+function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverError }) {
   const [form, setForm] = useState({
     workSummary: '',
     partsUsed: '',
@@ -61,6 +61,10 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
     e.preventDefault();
     if (!form.workSummary.trim()) {
       setError('Please provide a summary of the work done.');
+      return;
+    }
+    if (form.laborHours !== '' && !(Number(form.laborHours) >= 0 && Number(form.laborHours) <= 24)) {
+      setError('Labor hours must be a number from 0 to 24.');
       return;
     }
     if (form.followUpRequired && !form.followUpDate) {
@@ -325,8 +329,8 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
             <input id="signed-form-photo" type="file" accept="image/jpeg,image/png" onChange={handlePhoto} />
           </div>
 
-          {error && (
-            <p className="staff-reports-x13">{error}</p>
+          {(error || serverError) && (
+            <p className="staff-reports-x13" role="alert">{error || serverError}</p>
           )}
 
           <div className="staff-reports-x14">
@@ -599,6 +603,7 @@ function Reports() {
   const [activeReport, setActiveReport] = useState(null);
   const [modalMode, setModalMode] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -653,6 +658,7 @@ function Reports() {
       : reports.filter((r) => r.status === filter);
 
   const handleOpenReport = (reportItem) => {
+    setSubmitError('');
     setActiveReport(reportItem);
     setModalMode(reportItem.status === 'Pending' ? 'submit' : 'view');
   };
@@ -664,6 +670,7 @@ function Reports() {
 
   const handleSubmitReport = async (form, photo) => {
     setSubmitting(true);
+    setSubmitError('');
     try {
       // Create report in reports collection
       const data = await submitReport({
@@ -682,7 +689,7 @@ function Reports() {
       );
       handleClose();
     } catch (err) {
-      alert(err.message);
+      setSubmitError(err.message || 'Could not submit the report.');
     } finally {
       setSubmitting(false);
     }
@@ -751,6 +758,7 @@ function Reports() {
           onClose={handleClose}
           onSubmit={handleSubmitReport}
           submitting={submitting}
+          serverError={submitError}
         />
       )}
 

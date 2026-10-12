@@ -687,7 +687,6 @@ function Reports() {
       const data = await submitReport({
         bookingId: activeReport.bookingId,
         ...form,
-        submittedAt: new Date().toISOString()
       }, photo).catch(withFallback('Failed to submit report'));
 
       // Update local state

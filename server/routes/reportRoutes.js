@@ -53,7 +53,6 @@ router.post('/', auth, receivePhoto, async (req, res) => {
             issueResolution,
             followUpDate,
             notes,
-            submittedAt,
             preExistingIssueDescription,
             clientConsentSignedName,
             clientConsentSignatureDataUrl,
@@ -142,7 +141,8 @@ router.post('/', auth, receivePhoto, async (req, res) => {
             followUpRequired: followUpRequired || false,
             followUpDate: followUpRequired ? new Date(followUpDate) : null,
             notes: notes?.trim() || null,
-            submittedAt: submittedAt || new Date(),
+            // always the server's clock: a time sent by the client is never trusted
+            submittedAt: new Date(),
             submittedBy: req.userId, // This is now a string
             preExistingIssue: {
                 flagged: preExistingIssueFlagged || false,

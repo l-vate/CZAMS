@@ -17,6 +17,7 @@ import { BOOKING_STATUS } from '../constants/bookingStatus';
 import { TIME_BLOCK } from '../constants/timeBlocks';
 import { SERVICE_TYPE } from '../constants/serviceTypes';
 import { ProofLink, ProofImage } from './proof_file';
+import { customerLabel } from '../utils/customerLabel';
 
 // Admin only approves (and cancels). A booking becomes In Progress by itself when its
 // time block starts and Completed when the technician submits the service report.
@@ -312,7 +313,7 @@ const [report, setReport] = useState(null);
 
                     <div className="sdm-customer-line">
                         <Icon name="user" />
-                        <span>{booking.customer?.name || 'N/A'}</span>
+                        <span>{customerLabel(booking.customer)}</span>
                         {booking.customer?.email && <span className="sdm-muted">· {booking.customer.email}</span>}
                         <span className="sdm-muted">· Contact: {booking.contactNumber || booking.customer?.phone || 'N/A'}</span>
                         {booking.customer?.companyName && <span className="sdm-muted">· Company: {booking.customer.companyName}</span>}

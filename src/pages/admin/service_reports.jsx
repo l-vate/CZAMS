@@ -8,6 +8,7 @@ import { getUnitsSummary } from '../../utils/bookingPricing';
 import { getFilterPillStyle } from '../../utils/statusColors';
 import { listReports } from '../../services/reportService';
 import { ProofLink, ProofImage } from '../../components/proof_file';
+import { customerLabel } from '../../utils/customerLabel';
 
 
 // Filter options
@@ -278,7 +279,7 @@ function ViewReportModal({ report, onClose }) {
           reportItem={{
             bookingId: report.bookingId,
             service: report.bookingDetails?.service?.name || 'Service',
-            customer: report.bookingDetails?.customer?.name || 'Customer',
+            customer: customerLabel(report.bookingDetails?.customer, 'Customer'),
             address: report.bookingDetails?.address || '-',
             bookingDate: formatDate(report.bookingDetails?.date),
           }}
@@ -314,7 +315,7 @@ function ReportCard({ report, onViewReport }) {
         </div>
         <div className="report-card__customer">
           <UserIcon />
-          <span>{report.bookingDetails?.customer?.name || 'N/A'}</span>
+          <span>{customerLabel(report.bookingDetails?.customer)}</span>
         </div>
         <div className="report-card__technician">
           <span className="report-card__tech-label">Technician:</span>

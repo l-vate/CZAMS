@@ -8,6 +8,8 @@ const jwt = require('jsonwebtoken');
 process.env.JWT_SECRET = 'test-secret-not-a-real-one';
 
 const User = require('../models/User');
+const Booking = require('../models/Booking');
+const BackJob = require('../models/BackJob');
 const { authCache } = require('../utils/authCache');
 
 const accounts = {
@@ -27,6 +29,9 @@ let base;
 
 test.before(async () => {
   User.findById = (id) => query(accounts[id] || null);
+  // the delete route now checks for open items first; this customer has none
+  Booking.countDocuments = async () => 0;
+  BackJob.countDocuments = async () => 0;
   User.findByIdAndDelete = async (id) => {
     deleted.push(id);
     return accounts[id] || null;

@@ -11,6 +11,7 @@ import {
     inRange, matchesClientType, salesFigures, technicianRatings, topRatedTechnician, MIN_RATINGS_FOR_TOP,
 } from '../../utils/salesFigures';
 import { DATE_BASES } from '../../utils/reportBuilders';
+import { customerLabel } from '../../utils/customerLabel';
 
 const peso = (n) => `₱${(Math.round(n) || 0).toLocaleString()}`;
 
@@ -410,7 +411,7 @@ function Analytics() {
                             ) : (
                                 recentFeedback.map((b) => (
                                     <tr key={b._id}>
-                                        <td>{b.customer?.name || 'N/A'}</td>
+                                        <td>{customerLabel(b.customer)}</td>
                                         <td>{b.feedback.rating}/5</td>
                                         <td>{b.feedback.text}</td>
                                     </tr>

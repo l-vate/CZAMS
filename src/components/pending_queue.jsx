@@ -3,6 +3,7 @@ import { FiArrowUp, FiArrowDown, FiChevronsUp, FiEye } from 'react-icons/fi';
 import { ApiError } from '../services/apiClient';
 import { getQueue, moveInQueue } from '../services/bookingService';
 import { getMemberNames } from '../utils/assignments';
+import { customerLabel } from '../utils/customerLabel';
 
 // The Pending queue: first come, first served, and the admin can move a request up, down or
 // to the top. Each row shows how many technicians (or pairs) are free for that request's date and time block,
@@ -76,7 +77,7 @@ function PendingQueue({ refreshKey, onViewDetails }) {
                 <div className="queue-info">
                   <p className="queue-title">{b.service?.name || 'Service'} <span className="queue-id">{b.bookingId}</span></p>
                   <p className="queue-meta">
-                    {b.customer?.name || 'Customer'} · {b.date}, {b.time}
+                    {customerLabel(b.customer, 'Customer')} · {b.date}, {b.time}
                     {b.customer?.clientType === 'Commercial' ? ' · Commercial' : ''}
                   </p>
                   <p className="queue-meta">

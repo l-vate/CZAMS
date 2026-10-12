@@ -6,6 +6,7 @@ import ClosureManager from "../../components/closure_manager";
 import { mapBookingStatusToCalendarStatus, getTimeBlockHours } from "../../utils/calendar";
 import { orFallback } from '../../services/apiClient';
 import { listBookings } from '../../services/bookingService';
+import { customerLabel } from '../../utils/customerLabel';
 
 function Calendar() {
   const [jobs, setJobs] = useState([]);
@@ -33,7 +34,7 @@ function Calendar() {
           return {
             id: item._id || item.bookingId,
             title: item.service?.name || item.title || "Service Request",
-            customer: item.customer?.name || item.customerName || "N/A",
+            customer: customerLabel(item.customer, item.customerName || "N/A"),
             assignedTo: getMemberNames(item),
             date: item.date || "",
             startHour,

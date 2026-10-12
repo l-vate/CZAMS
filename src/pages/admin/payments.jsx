@@ -16,6 +16,7 @@ import { BOOKING_STATUS } from '../../constants/bookingStatus';
 import { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } from '../../constants/paymentStatus';
 import { REFUND_STATUS } from '../../constants/refundStatus';
 import { ProofLink, ProofImage } from '../../components/proof_file';
+import { customerLabel } from '../../utils/customerLabel';
 
 
 function formatDate(dateStr) {
@@ -355,7 +356,7 @@ function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
 
   const paymentsList = useMemo(() => {
     return rawBookings.map((b) => {
-      const clientName = typeof b.customer === 'object' ? (b.customer?.name || 'Customer') : (b.customerName || 'Customer');
+      const clientName = typeof b.customer === 'object' ? customerLabel(b.customer, 'Customer') : (b.customerName || 'Customer');
       const technician = getMemberNames(b);
       const serviceType = typeof b.service === 'object' ? (b.service?.name || 'Service') : (b.service || 'Service');
       const detail = getUnitsSummary(b) || b.brandModel || b.problemDescription || 'Detail';

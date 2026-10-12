@@ -17,6 +17,7 @@ import { BOOKING_STATUS } from '../constants/bookingStatus';
 import { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } from '../constants/paymentStatus';
 import { REFUND_STATUS } from '../constants/refundStatus';
 import { BACK_JOB_STATUS } from '../constants/backJobStatus';
+import { customerLabel } from './customerLabel';
 
 export const REPORT_TYPES = [
   { key: 'requests', label: 'Service Requests Summary' },
@@ -124,7 +125,7 @@ export function buildServiceRequestsReport(data, filters) {
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .map((b) => {
         const units = (b.units || []).map((u) => `${u.quantity}x ${u.type}`).join(', ') || 'N/A';
-        return [b.bookingId, formatDay(b.createdAt), b.customer?.name || 'N/A', clientOf(b.customer), b.service?.name || 'N/A', units, b.date || 'N/A', b.status];
+        return [b.bookingId, formatDay(b.createdAt), customerLabel(b.customer), clientOf(b.customer), b.service?.name || 'N/A', units, b.date || 'N/A', b.status];
       }),
     notes: [
       basisNote(filters),
@@ -331,7 +332,7 @@ export function buildBackJobsReport(data, filters) {
     rows: [...claims]
       .sort((a, b) => new Date(b.reportedAt) - new Date(a.reportedAt))
       .map((bj) => [
-        bj.backJobId, formatDay(bj.reportedAt), bj.customer?.name || 'N/A', clientById.get(bj.customer?._id) || 'Residential',
+        bj.backJobId, formatDay(bj.reportedAt), customerLabel(bj.customer), clientById.get(bj.customer?._id) || 'Residential',
         bj.originalBookingId, bj.originalBooking?.service?.name || 'N/A',
         bj.warrantyCheck?.withinWarranty ? (bj.warrantyCheck.coverageType || 'Within warranty') : 'Not covered',
         bj.status, bj.resultingBookingId || 'None', bj.issueDescription || '',
@@ -392,7 +393,7 @@ export function buildCancelledReport(data, filters) {
     columns: ['Booking ID', 'Customer', 'Client Type', 'Service', 'Service Date', 'Cancelled On', 'Cancelled By', 'Amount Paid', 'Refund Final Amount', 'Refund Status'],
     rows: cancelled.map((b, i) => [
       b.bookingId,
-      b.customer?.name || 'N/A',
+      customerLabel(b.customer),
       clientOf(b.customer),
       b.service?.name || 'N/A',
       b.date || 'N/A',

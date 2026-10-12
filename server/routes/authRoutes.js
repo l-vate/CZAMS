@@ -12,6 +12,9 @@ const { createUploader, IMAGE_TYPES, UPLOADS_ROOT } = require('../utils/uploadSa
 const { clearAuthCache } = require('../utils/authCache');
 const { validateNewPassword } = require('../utils/passwordRules');
 const { loginLimiter, registerLimiter } = require('../middleware/rateLimit');
+const Booking = require('../models/Booking');
+const BackJob = require('../models/BackJob');
+const { findDeletionBlockers } = require('../utils/deletionBlockers');
 
 // Simple ID generator matching your ADM001-style pattern
 function generateUserId(role) {
@@ -249,6 +252,13 @@ router.delete('/account', auth, async (req, res) => {
     if (req.userRole !== ROLE.CUSTOMER) {
       return res.status(403).json({ message: 'Only customers can delete their own account. Ask an administrator.' });
     }
+    // Not while something is still open (an active booking, an unsettled refund, a claim waiting for review).
+    const blockers = await findDeletionBlockers(req.userId, { Booking, BackJob });
+    if (blockers.message) {
+      return res.status(400).json({ message: blockers.message, blockers: blockers.counts });
+    }
+
+    // Only the account is deleted. Their completed bookings, reports, chat and files stay as company records.
     const user = await User.findByIdAndDelete(req.userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });

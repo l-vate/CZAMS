@@ -15,6 +15,7 @@ import { orFallback } from '../../services/apiClient';
 import { listBookings, getTechnicianWorkload } from '../../services/bookingService';
 import { listUsers } from '../../services/userService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
+import { customerLabel } from '../../utils/customerLabel';
 
 // Same badge/left-accent classes used by the customer's My Bookings and the
 // technician's My Jobs cards (staff.css) - .tech-job-card colors its left
@@ -207,7 +208,7 @@ function Dashboard() {
                       </span>
                     </div>
                     <div className="tech-job-service">{b.service?.name || 'N/A'}</div>
-                    <small className="tech-job-booking">{b.bookingId} · {b.customer?.name || 'N/A'}</small>
+                    <small className="tech-job-booking">{b.bookingId} · {customerLabel(b.customer)}</small>
                   </div>
 
                   <div className="tech-job-meta">

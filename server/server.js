@@ -3,12 +3,18 @@ dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 require('dotenv').config({ quiet: true });
 const express = require('express');
-const cors = require('cors');
 const connectDB = require('./config/db');
 
 connectDB();
 const app = express();
-app.use(cors());
+// Behind a proxy or a host's load balancer the visitor's IP comes from a header. TRUST_PROXY is how many
+// proxies to trust (for example 1); it is needed for the login rate limit to see real IPs.
+if (process.env.TRUST_PROXY) {
+  const hops = Number(process.env.TRUST_PROXY);
+  app.set('trust proxy', Number.isInteger(hops) ? hops : process.env.TRUST_PROXY === 'true');
+}
+// Only the origins in CORS_ORIGINS (and localhost while not in production) may call the API from a browser.
+app.use(require('./config/cors').buildCors());
 app.use(express.json());
 // Profile photos stay public. Proof files are opened through /api/files after an access check.
 require('./config/uploadsStatic').mountUploads(app);

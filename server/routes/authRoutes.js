@@ -11,6 +11,7 @@ const path = require('path');
 const { createUploader, IMAGE_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
 const { clearAuthCache } = require('../utils/authCache');
 const { validateNewPassword } = require('../utils/passwordRules');
+const { loginLimiter, registerLimiter } = require('../middleware/rateLimit');
 
 // Simple ID generator matching your ADM001-style pattern
 function generateUserId(role) {
@@ -26,7 +27,7 @@ const upload = createUploader({
   allowedTypes: IMAGE_TYPES,
 });
 
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
   try {
     const { firstName, lastName, email, phone, password, clientType } = req.body;
 
@@ -86,7 +87,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });

@@ -11,6 +11,9 @@ const userSchema = new mongoose.Schema({
   address: String,
   profileImage: String,
   isActive: { type: Boolean, default: true },
+  // When the password was last changed. A token issued before this is refused (middleware/auth.js), so
+  // changing a password signs out every other device. Accounts that never changed it have none and are unaffected.
+  passwordChangedAt: { type: Date },
 
   // Customer Classification Module. When set, this wins outright over the
   // auto-computed 3-completed-bookings-in-12-months rule (see utils/classification.js);

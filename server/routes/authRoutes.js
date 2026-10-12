@@ -225,9 +225,15 @@ router.put('/change-password', auth, async (req, res) => {
     }
 
     user.password = await hashPassword(newPassword);
+    user.passwordChangedAt = new Date();
     await user.save();
 
-    res.json({ message: 'Password updated successfully' });
+    // Every other token for this account stops working at once (middleware/auth.js). The cache is cleared
+    // so that holds on the very next request, and this response carries a fresh token so the person
+    // changing the password stays signed in on this device.
+    clearAuthCache(req.userId);
+    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
+    res.json({ message: 'Password updated successfully', token });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });

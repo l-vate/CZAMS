@@ -25,8 +25,10 @@ async function auth(req, res, next) {
   let account = authCache.get(decoded.id);
   if (!account) {
     try {
-      const user = await User.findById(decoded.id).select('role isActive');
-      account = user ? { exists: true, role: user.role, isActive: user.isActive } : { exists: false };
+      const user = await User.findById(decoded.id).select('role isActive passwordChangedAt');
+      account = user
+        ? { exists: true, role: user.role, isActive: user.isActive, passwordChangedAt: user.passwordChangedAt || null }
+        : { exists: false };
     } catch (err) {
       console.error('Auth account check failed:', err.message);
       return res.status(500).json({ message: 'Server error' });
@@ -39,6 +41,13 @@ async function auth(req, res, next) {
   }
   if (account.isActive === false) {
     return res.status(403).json({ message: 'This account has been deactivated. Please contact the administrator.' });
+  }
+
+  // A password change signs out every token issued before it. Compared in whole seconds (a token's
+  // issued-at has no milliseconds), so the fresh token returned by the change itself, issued in the same
+  // second, stays valid.
+  if (account.passwordChangedAt && decoded.iat < Math.floor(new Date(account.passwordChangedAt).getTime() / 1000)) {
+    return res.status(401).json({ message: 'Your password was changed. Please log in again.' });
   }
 
   req.userId = decoded.id;

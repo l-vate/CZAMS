@@ -37,10 +37,18 @@ function ChangePasswordModal({ onClose, onChanged }) {
     setSubmitting(true);
     setError('');
     try {
-      await changePassword({
+      const result = await changePassword({
         currentPassword: form.currentPassword,
         newPassword: form.newPassword,
       });
+      // Changing the password signs out every other device. This one stays signed in with the fresh token.
+      if (result?.token) {
+        try {
+          localStorage.setItem('token', result.token);
+        } catch {
+          // storage unavailable: the next request will ask for a login
+        }
+      }
       onChanged?.();
       onClose();
     } catch (err) {

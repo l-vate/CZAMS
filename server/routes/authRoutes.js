@@ -10,6 +10,7 @@ const auth = require('../middleware/auth');
 const path = require('path');
 const { createUploader, IMAGE_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
 const { clearAuthCache } = require('../utils/authCache');
+const { validateNewPassword } = require('../utils/passwordRules');
 
 // Simple ID generator matching your ADM001-style pattern
 function generateUserId(role) {
@@ -207,6 +208,10 @@ router.post('/profile/photo', auth, upload.single('photo'), async (req, res) => 
 router.put('/change-password', auth, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
+
+    // Checked first, so a bad new password is a clear 400 and nothing below ever sees it.
+    const problem = validateNewPassword({ currentPassword, newPassword });
+    if (problem) return res.status(problem.status).json({ message: problem.message });
 
     const user = await User.findById(req.userId);
     if (!user) {

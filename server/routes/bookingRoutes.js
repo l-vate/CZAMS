@@ -29,6 +29,7 @@ const { runBookingStatusCheck } = require('../jobs/bookingStatusJob');
 const { getOrCreateSettings } = require('../utils/paymentSettings');
 const { proposeAssignment } = require('../utils/autoAssign');
 const { summarizeRatings } = require('../utils/ratings');
+const { toTechnicianView } = require('../utils/technicianView');
 const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/queue');
 const { generateBookingId, createWithUniqueBookingId, BookingIdExhaustedError } = require('../utils/bookingId');
 const { invalid, sendProblem } = require('../utils/validation');
@@ -1135,7 +1136,8 @@ router.get('/technician/mine', auth, async (req, res) => {
       .populate('technician', 'name')
       .populate(ASSIGNMENT_POPULATE)
       .sort({ date: -1 });
-    res.json(jobs.map((j) => ({ ...j.toObject(), myRole: getRoleFor(j, req.userId) })));
+    // A whitelist, never the whole booking: no payments, proofs, discount ID or refund data.
+    res.json(jobs.map((j) => toTechnicianView(j.toObject(), { myRole: getRoleFor(j, req.userId) })));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -1224,8 +1226,8 @@ router.patch('/:bookingId/disruption/report', auth, async (req, res) => {
       `A technician reported a disruption on booking ${booking.bookingId}: "${reason.trim().slice(0, 100)}". Reschedule needed.`,
       { booking }
     );
-    const populated = await booking.populate(['service', 'technician', ...ASSIGNMENT_POPULATE]);
-    res.json(withWarranty(populated));
+    const populated = await booking.populate(['service', 'technician', 'customer', ...ASSIGNMENT_POPULATE]);
+    res.json(toTechnicianView(populated.toObject(), { myRole: getRoleFor(populated, req.userId) }));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -1273,8 +1275,8 @@ router.patch('/:bookingId/extension/request', auth, async (req, res) => {
       `A technician asked for an extra day on booking ${booking.bookingId}: "${reason.trim().slice(0, 100)}". Approval needed.`,
       { booking }
     );
-    const populated = await booking.populate(['service', 'technician', ...ASSIGNMENT_POPULATE]);
-    res.json(withWarranty(populated));
+    const populated = await booking.populate(['service', 'technician', 'customer', ...ASSIGNMENT_POPULATE]);
+    res.json(toTechnicianView(populated.toObject(), { myRole: getRoleFor(populated, req.userId) }));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });

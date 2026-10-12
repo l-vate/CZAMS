@@ -13,6 +13,7 @@ const Booking = require('../models/Booking');
 const User = require('../models/User'); // Add this import
 const { sendNotification } = require('../utils/notifications');
 const { getMemberIds, getLeadIds } = require('../utils/assignments');
+const { toTechnicianView } = require('../utils/technicianView');
 const { PHOTO_MAX_BYTES, PHOTO_MIME_TYPES, consentProblem, readFlag } = require('../utils/reportEvidence');
 
 // Same upload rules as the payment proofs: an unguessable file name in uploads/proofs, 5 MB at most.
@@ -50,6 +51,14 @@ const receivePhoto = (req, res, next) => {
 const discardPhoto = (req) => {
     if (req.file) fs.unlink(req.file.path, () => {});
 };
+
+// The booking shown with a report. An admin gets it whole; anyone else, including the
+// technician who wrote the report, only gets what a technician may see (no payment, proof,
+// discount or refund data).
+function detailsFor(req, booking) {
+    if (!booking || req.userRole === ROLE.ADMIN) return booking;
+    return toTechnicianView(booking.toObject());
+}
 
 // ============================================
 // 1. CREATE REPORT
@@ -284,9 +293,9 @@ router.get('/:id', auth, async (req, res) => {
         reportObj.technician = technician;
         
         const booking = await Booking.findById(report.booking)
-            .populate('customer', 'name email')
-            .populate('service', 'name');
-        reportObj.bookingDetails = booking;
+            .populate('customer', 'name email phone')
+            .populate('service', 'name serviceType');
+        reportObj.bookingDetails = detailsFor(req, booking);
 
         res.json(reportObj);
     } catch (error) {
@@ -321,9 +330,9 @@ router.get('/booking/:bookingId', auth, async (req, res) => {
         reportObj.technician = technician;
         
         const bookingDetails = await Booking.findById(report.booking)
-            .populate('customer', 'name email')
-            .populate('service', 'name');
-        reportObj.bookingDetails = bookingDetails;
+            .populate('customer', 'name email phone')
+            .populate('service', 'name serviceType');
+        reportObj.bookingDetails = detailsFor(req, bookingDetails);
 
         res.json(reportObj);
     } catch (error) {

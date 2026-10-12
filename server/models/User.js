@@ -30,4 +30,15 @@ const userSchema = new mongoose.Schema({
   representativeName: { type: String, maxlength: 80 },
 }, { timestamps: true, collection: 'users' });
 
+// The password (a bcrypt hash, or an old plain-text value) never leaves the server in a response.
+// Doing it here, in the model, means no route can return it by accident: every toObject() and
+// toJSON() of a user, including a user populated inside another document, leaves it out. Code that
+// needs it (the login check, changing a password) reads user.password on the document itself.
+const stripPassword = (doc, ret) => {
+  delete ret.password;
+  return ret;
+};
+userSchema.set('toJSON', { transform: stripPassword });
+userSchema.set('toObject', { transform: stripPassword });
+
 module.exports = mongoose.model('User', userSchema);

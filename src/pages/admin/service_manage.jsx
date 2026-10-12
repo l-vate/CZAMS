@@ -378,8 +378,10 @@ function ServiceManage() {
                   <option value="2">2 (a lead and a helper)</option>
                 </select>
                 <p className="admin-service-manage-x7">
-                  A booking cannot be approved until at least this many technicians are assigned. Cleaning
-                  needs a pair; a single technician is for check-up or survey visits only.
+                  A booking cannot be approved until the technicians it needs are assigned. Cleaning, repair,
+                  installation, maintenance and leak repair always need a lead and a helper, whatever is chosen
+                  here. A single technician is only for a check-up, or a survey set up as a service of type
+                  Other with "1" chosen.
                 </p>
               </div>
 

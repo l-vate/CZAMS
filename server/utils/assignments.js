@@ -60,11 +60,42 @@ function getRoleFor(booking, userId) {
   return null;
 }
 
-// How many technicians a service needs. Explicit value wins; otherwise a Check-up
-// (or survey) visit needs one and everything else needs a pair.
+// How many technicians a service needs: 1 (a solo technician) or 2 (a lead and a helper).
+// The paper allows a solo technician only for a check-up or a survey visit; everything else, Cleaning
+// above all, needs a lead and a helper. So:
+//   - a service flagged minTechnicians = 2 always needs a pair;
+//   - a Check-up needs one by default;
+//   - an admin can mark a survey as solo with minTechnicians = 1, but only on a service of type Other
+//     (a survey has no type of its own); the flag 1 is ignored on Cleaning, Installation, Repair,
+//     Maintenance and Leak Repair, which always need a pair;
+//   - everything else needs a pair.
 function getMinTechnicians(service) {
-  if (service?.minTechnicians === 1 || service?.minTechnicians === 2) return service.minTechnicians;
-  return service?.serviceType === SERVICE_TYPE.CHECK_UP ? 1 : 2;
+  if (service?.minTechnicians === 2) return 2;
+  const type = service?.serviceType;
+  if (type === SERVICE_TYPE.CHECK_UP) return 1;
+  if (service?.minTechnicians === 1 && type === SERVICE_TYPE.OTHER) return 1;
+  return 2;
+}
+
+// Whether a list of { lead, helper } meets what the service needs: one technician for a solo service, and for
+// a pair service at least one assignment that has BOTH a lead and a helper (two leads alone are not a pair).
+function isStaffed(assignments, service) {
+  const list = (assignments || []).filter((a) => a && a.lead);
+  if (getMinTechnicians(service) === 1) return list.length > 0;
+  return list.some((a) => a.lead && a.helper);
+}
+
+// null when the job is staffed, otherwise the sentence for the admin. `when` is 'approving' or 'saving'.
+function staffingProblem(assignments, service, when = 'approving') {
+  if (isStaffed(assignments, service)) return null;
+  const name = service?.name || 'This service';
+  const needsPair = getMinTechnicians(service) === 2;
+  const nobody = !(assignments || []).some((a) => a && a.lead);
+  if (!needsPair) return 'Assign a technician before approving.';
+  if (nobody) return `${name} needs a lead technician and a helper. Assign them before ${when === 'approving' ? 'approving' : 'saving'}.`;
+  return when === 'approving'
+    ? `${name} needs a lead technician and a helper. Add a helper before approving.`
+    : `${name} needs a lead technician and a helper. A helper cannot be removed from it, choose another helper instead.`;
 }
 
 // Mongo filter for "this technician is on the booking in any role".
@@ -115,6 +146,8 @@ module.exports = {
   getLeadIds,
   getRoleFor,
   getMinTechnicians,
+  isStaffed,
+  staffingProblem,
   memberFilter,
   findConflictingBooking,
   getBusyTechnicianIds,

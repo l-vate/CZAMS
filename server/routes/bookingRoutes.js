@@ -41,7 +41,7 @@ const Closure = require('../models/Closure');
 const { closureProblemFor } = require('../utils/closures');
 const {
   ASSIGNMENT_POPULATE, getMemberIds, getLeadIds, getRoleFor,
-  memberFilter, findConflictingBooking, getBusyTechnicianIds, getAssignments,
+  memberFilter, findConflictingBooking, getBusyTechnicianIds, getAssignments, staffingProblem,
 } = require('../utils/assignments');
 const { readReason, buildHistoryEntry, viewHistory, idsIn } = require('../utils/assignmentHistory');
 const { resolveClassification } = require('../utils/classification');
@@ -1435,6 +1435,13 @@ async function performAssignment(booking, requested, { changedBy, reason } = {})
     resolved.push(entry);
   }
 
+  // An Approved or In Progress booking must stay staffed: removing its helper (or leaving it with a lead only)
+  // when the service needs a pair is refused. A Pending booking may be half assigned while the admin works.
+  if ([BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status)) {
+    const staffing = staffingProblem(resolved, booking.service, 'saving');
+    if (staffing) return { error: { status: 400, message: staffing } };
+  }
+
   // Hard block, per member, so the message can name who is the problem.
   for (const id of seen) {
     const conflict = await findConflictingBooking([id], booking.date, booking.time, booking.bookingId);
@@ -1654,9 +1661,11 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
       }
     }
 
-    // Approval needs at least one technician. A second one is optional.
-    if (status === BOOKING_STATUS.APPROVED && prev.status !== BOOKING_STATUS.APPROVED && getMemberIds(booking).length === 0) {
-      return res.status(400).json({ message: 'Assign a technician before approving.' });
+    // Staffing rule from the paper: a booking cannot be approved until the technicians the service needs are
+    // assigned. A Cleaning (or any pair service) needs a lead and a helper; only a check-up or survey may be solo.
+    if (status === BOOKING_STATUS.APPROVED && prev.status !== BOOKING_STATUS.APPROVED) {
+      const staffing = staffingProblem(getAssignments(booking), booking.service, 'approving');
+      if (staffing) return res.status(400).json({ message: staffing });
     }
 
     // Admin-initiated cancellation opens the same refund request the customer's own

@@ -29,8 +29,9 @@ const serviceSchema = new mongoose.Schema({
   hiddenFromDirectSelection: { type: Boolean, default: false },
 
   // Staffing rule: how many technicians the job needs (1 = a solo technician is enough,
-  // 2 = a lead plus helper team). Left unset, the default applies: 1 for a Check-up service,
-  // 2 for everything else (see getMinTechnicians in utils/assignments.js).
+  // 2 = a lead plus a helper). Left unset, the default applies: 1 for a Check-up service, 2 for everything
+  // else. 1 is honored only for a check-up or a survey (type Other); every other service type always needs a
+  // pair, whatever is stored here. See getMinTechnicians in utils/assignments.js.
   minTechnicians: { type: Number, enum: [1, 2] },
 
   // Multi-Unit Booking Redesign: optional per-unit-type price override for this

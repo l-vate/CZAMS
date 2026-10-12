@@ -1,4 +1,5 @@
 import { request } from './apiClient';
+import { getSession, applyFreshUser } from '../utils/session';
 
 // Admin: every user, or only one role ('staff' | 'customer').
 export function listUsers(role) {
@@ -7,7 +8,18 @@ export function listUsers(role) {
 
 // The logged-in customer's own record (includes their classification).
 export function getMe() {
-  return request('/api/users/me');
+  return request('/api/users/me').then((data) => {
+    // fresh data from the server: keep the saved user and role in step with it
+    const { token, user } = getSession();
+    if (token) {
+      try {
+        localStorage.setItem('user', JSON.stringify(applyFreshUser(user, data).user));
+      } catch {
+        // storage unavailable: nothing to update
+      }
+    }
+    return data;
+  });
 }
 
 // Admin: a customer's history (latest bookings, counts, total paid, feedback given).

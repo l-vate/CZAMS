@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 import LandingPage from './pages/public/landing_page';
@@ -38,8 +39,15 @@ import AdminChat from './pages/admin/chat';
 
 import RequireRole from './components/require_role';
 import { ROLE } from './constants/roles';
+import { refreshSession } from './services/sessionService';
 
 function App() {
+  // On start, compare the saved user with the server's, so a role changed while the browser was closed is
+  // picked up before the person lands on a page that is no longer theirs.
+  useEffect(() => {
+    refreshSession({ force: true });
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>

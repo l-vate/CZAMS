@@ -9,6 +9,7 @@ import LoadError from '../../components/load_error';
 import { listTechnicianJobs } from '../../services/bookingService';
 import { listMyReports, submitReport } from '../../services/reportService';
 import { PHOTO_MAX_BYTES, PHOTO_MIME_TYPES } from '../../constants/reportPhoto';
+import { shrinkPhoto } from '../../utils/photoShrink';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
 import { ProofLink, ProofImage } from '../../components/proof_file';
 
@@ -32,20 +33,29 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
     clientConsentSignatureDataUrl: null,
   });
   const [photo, setPhoto] = useState(null);
+  const [preparing, setPreparing] = useState(false);
   const [error, setError] = useState('');
   // set at once on the first click, before React re-renders, so a fast double click sends one report
   const sendingRef = useRef(false);
 
-  const handlePhoto = (e) => {
-    const file = e.target.files[0] || null;
-    if (file && !PHOTO_MIME_TYPES.includes(file.type)) {
+  const handlePhoto = async (e) => {
+    const input = e.target;
+    const picked = input.files[0] || null;
+    if (picked && !PHOTO_MIME_TYPES.includes(picked.type)) {
       setError('The photo must be a JPG or PNG image.');
-      e.target.value = '';
+      input.value = '';
       return;
+    }
+    // A phone photo is shrunk first (JPEG, longest side 2000 px), so it fits the 5 MB limit.
+    let file = picked;
+    if (picked) {
+      setPreparing(true);
+      file = await shrinkPhoto(picked);
+      setPreparing(false);
     }
     if (file && file.size > PHOTO_MAX_BYTES) {
       setError('The photo must be 5 MB or smaller.');
-      e.target.value = '';
+      input.value = '';
       return;
     }
     setError('');
@@ -336,6 +346,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
               With a photo attached, the signature and name above are no longer required.
             </p>
             <input id="signed-form-photo" type="file" accept="image/jpeg,image/png" onChange={handlePhoto} />
+            {preparing && <p className="sdm-muted" role="status">Preparing photo...</p>}
           </div>
 
           {(error || serverError) && (
@@ -354,7 +365,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
             <button
               type="submit"
               className="tech-sort-btn staff-reports-x15"
-              disabled={submitting}
+              disabled={submitting || preparing}
             >
               {submitting ? 'Submitting...' : 'Submit Report'}
             </button>

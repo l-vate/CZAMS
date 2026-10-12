@@ -5,8 +5,6 @@ const { REFUND_STATUS } = require('../constants/refundStatus');
 const { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } = require('../constants/paymentStatus');
 const { BOOKING_STATUS, BOOKING_STATUS_VALUES } = require('../constants/bookingStatus');
 const multer = require('multer');
-const crypto = require('crypto');
-const fs = require('fs');
 const express = require('express');
 const router = express.Router();
 const path = require('path');
@@ -30,6 +28,7 @@ const { getOrCreateSettings } = require('../utils/paymentSettings');
 const { proposeAssignment } = require('../utils/autoAssign');
 const { summarizeRatings } = require('../utils/ratings');
 const { toTechnicianView } = require('../utils/technicianView');
+const { createUploader, PROOF_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
 const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/queue');
 const { generateBookingId, createWithUniqueBookingId, BookingIdExhaustedError } = require('../utils/bookingId');
 const { invalid, sendProblem } = require('../utils/validation');
@@ -59,32 +58,11 @@ function withWarranty(booking) {
 // 1. CONFIGURATION & HELPERS
 // ============================================
 
-// Multer configuration for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = path.join(__dirname, '../uploads/proofs');
-    fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  // Unguessable name: /uploads is served statically, so the filename is the only
-  // thing protecting a payment proof, refund proof, or purchase proof from being
-  // found by guessing a booking ID.
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase().replace(/[^.a-z0-9]/g, '');
-    cb(null, `${crypto.randomBytes(16).toString('hex')}${ext}`);
-  },
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image or PDF files are allowed'));
-    }
-  },
+// Payment, ID, refund and purchase proofs: JPG, PNG, WEBP or PDF only, random stored name with an
+// extension from the validated type, first bytes checked (utils/uploadSafety.js).
+const upload = createUploader({
+  dir: path.join(UPLOADS_ROOT, 'proofs'),
+  allowedTypes: PROOF_TYPES,
 });
 
 // Validate date (must be at least 3 days from today)

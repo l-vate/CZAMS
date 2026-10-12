@@ -724,7 +724,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
               {proof ? proof.name : '[Choose a file]'}
               <input
                 type="file"
-                accept="image/*,.pdf"
+                accept="image/jpeg,image/png,image/webp,.pdf"
                 className="admin-payments-x16"
                 onChange={(e) => setProof(e.target.files[0] || null)}
               />

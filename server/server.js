@@ -11,7 +11,10 @@ connectDB();
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// nosniff: a browser must treat each file as the type it is served as, never guess it is a page.
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff'),
+}));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/services', require('./routes/serviceRoutes'));
 app.use('/api/bookings', require('./routes/bookingRoutes'));

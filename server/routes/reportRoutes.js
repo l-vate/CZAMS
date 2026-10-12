@@ -4,8 +4,6 @@ const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const crypto = require('crypto');
-const multer = require('multer');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const Report = require('../models/Report');
@@ -14,39 +12,17 @@ const User = require('../models/User'); // Add this import
 const { sendNotification } = require('../utils/notifications');
 const { getMemberIds, getLeadIds } = require('../utils/assignments');
 const { toTechnicianView } = require('../utils/technicianView');
+const { createUploader, PHOTO_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
 const { reportErrorResponse, validateReportInput } = require('../utils/reportErrors');
-const { PHOTO_MAX_BYTES, PHOTO_MIME_TYPES, consentProblem, readFlag } = require('../utils/reportEvidence');
+const { PHOTO_MAX_BYTES, consentProblem, readFlag } = require('../utils/reportEvidence');
 
-// Same upload rules as the payment proofs: an unguessable file name in uploads/proofs, 5 MB at most.
-// Only JPG and PNG are accepted for the photo of the signed paper form.
-const photoStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = path.join(__dirname, '../uploads/proofs');
-        fs.mkdirSync(dir, { recursive: true });
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        const ext = path.extname(file.originalname).toLowerCase().replace(/[^.a-z0-9]/g, '');
-        cb(null, `${crypto.randomBytes(16).toString('hex')}${ext}`);
-    },
-});
-const uploadPhoto = multer({
-    storage: photoStorage,
-    limits: { fileSize: PHOTO_MAX_BYTES },
-    fileFilter: (req, file, cb) => {
-        if (PHOTO_MIME_TYPES.includes(file.mimetype)) cb(null, true);
-        else cb(new Error('The photo must be a JPG or PNG image.'));
-    },
+// The photo of the signed paper form: JPG or PNG only, 5 MB at most, random stored name with an
+// extension from the validated type, first bytes checked (utils/uploadSafety.js).
+const receivePhoto = createUploader({
+    dir: path.join(UPLOADS_ROOT, 'proofs'),
+    allowedTypes: PHOTO_TYPES,
+    maxBytes: PHOTO_MAX_BYTES,
 }).single('photo');
-
-// Runs the upload and turns an upload problem (wrong type, too big) into a clear 400.
-const receivePhoto = (req, res, next) => {
-    uploadPhoto(req, res, (err) => {
-        if (!err) return next();
-        const tooBig = err.code === 'LIMIT_FILE_SIZE';
-        res.status(400).json({ message: tooBig ? 'The photo must be 5 MB or smaller.' : err.message });
-    });
-};
 
 // A rejected report must not leave its photo behind on disk.
 const discardPhoto = (req) => {

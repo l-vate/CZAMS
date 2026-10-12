@@ -151,7 +151,7 @@ function Profile() {
               {editForm.photo ? 'Change Photo' : 'Upload Photo'}
               <input
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp"
                 onChange={handlePhotoChange}
                 className="staff-profile-x4"
               />

@@ -797,7 +797,7 @@ const [report, setReport] = useState(null);
                                                 <label className="sdm-btn sdm-btn-outline admin-service-details-modal-x24">
                                                     {uploadingProof ? 'Uploading...' : booking.unitPurchaseProof ? 'Replace' : 'Upload'}
                                                     <input
-                                                        type="file" accept="image/*,.pdf" className="admin-service-details-modal-x25"
+                                                        type="file" accept="image/jpeg,image/png,image/webp,.pdf" className="admin-service-details-modal-x25"
                                                         onChange={handleUnitPurchaseProofUpload}
                                                         disabled={uploadingProof}
                                                     />

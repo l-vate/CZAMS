@@ -385,7 +385,7 @@ function WalkInPaymentStep({ form, setForm, services, isReturnCustomer, isCommer
                   file input here, visually inconsistent with the rest of the app. */}
               <label className="modal-file-btn">
                 {form.proofFile || '[Choose a file]'}
-                <input type="file" accept="image/*,.pdf" className="admin-walk-in-booking-x4" onChange={handleProofChange} />
+                <input type="file" accept="image/jpeg,image/png,image/webp,.pdf" className="admin-walk-in-booking-x4" onChange={handleProofChange} />
               </label>
             </div>
 

@@ -177,7 +177,7 @@ const [user, setUser] = useState(loadUserFromStorage);
                 {editForm.photo ? 'Change Photo' : 'Upload Photo'}
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   onChange={handlePhotoChange}
                   className="customer-profile-x4"
                 />

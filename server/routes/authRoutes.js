@@ -2,13 +2,13 @@
 const { ROLE } = require('../constants/roles');
 const express = require('express');
 const router = express.Router();
-const crypto = require('crypto');
-const fs = require('fs');
 const { hashPassword, verifyPassword } = require('../utils/password');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { readProfileFields } = require('../utils/profileFields');
 const auth = require('../middleware/auth');
+const path = require('path');
+const { createUploader, IMAGE_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
 
 // Simple ID generator matching your ADM001-style pattern
 function generateUserId(role) {
@@ -17,31 +17,11 @@ function generateUserId(role) {
   return `${prefix}${random}`;
 }
 
-//profile pics
-const multer = require('multer');
-const path = require('path');
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = path.join(__dirname, '../uploads/profile-images');
-    fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  // Unguessable name: the uploads folder is served statically, so the filename is
-  // the only thing standing between a URL and the file.
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase().replace(/[^.a-z0-9]/g, '');
-    cb(null, `${crypto.randomBytes(16).toString('hex')}${ext}`);
-  },
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) cb(null, true);
-    else cb(new Error('Only image files are allowed'));
-  },
+// Profile photos: JPG, PNG or WEBP only, stored under a random name with an extension taken from
+// the validated type, and the first bytes of the saved file are checked (utils/uploadSafety.js).
+const upload = createUploader({
+  dir: path.join(UPLOADS_ROOT, 'profile-images'),
+  allowedTypes: IMAGE_TYPES,
 });
 
 router.post('/register', async (req, res) => {

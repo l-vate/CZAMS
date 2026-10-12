@@ -29,6 +29,7 @@ const { proposeAssignment } = require('../utils/autoAssign');
 const { summarizeRatings } = require('../utils/ratings');
 const { toTechnicianView } = require('../utils/technicianView');
 const { allowRoles } = require('../middleware/roles');
+const { listFieldTechnicians, hasFieldPosition } = require('../utils/technicians');
 const { toCustomerView } = require('../utils/customerView');
 const { loadBackJobContexts } = require('../utils/backJobContext');
 const BackJob = require('../models/BackJob');
@@ -641,7 +642,7 @@ router.get('/technician-workload', auth, async (req, res) => {
     }
 
     const today = todayDateString();
-    const technicians = await User.find({ role: ROLE.STAFF, isActive: true }).select('name').sort({ name: 1 });
+    const technicians = (await listFieldTechnicians(User, 'name')).sort((a, b) => String(a.name).localeCompare(String(b.name)));
     const bookings = await Booking.find({
       ...memberFilter(technicians.map((t) => t._id)),
       status: { $in: [BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS] },
@@ -1485,7 +1486,8 @@ async function performAssignment(booking, requested, { changedBy, reason } = {})
       return { error: { status: 400, message: 'Each assignment needs a technician.' } };
     }
     const ids = [item.technicianId, item.helperId].filter(Boolean);
-    const techs = await User.find({ _id: { $in: ids }, role: ROLE.STAFF, isActive: true }).select('_id');
+    // only an active field technician can be put on a job (not a secretary or a cashier)
+    const techs = (await User.find({ _id: { $in: ids }, role: ROLE.STAFF, isActive: true }).select('_id position')).filter((u) => hasFieldPosition(u.position));
     if (techs.length !== new Set(ids).size) {
       return { error: { status: 400, message: 'That technician is not available.' } };
     }

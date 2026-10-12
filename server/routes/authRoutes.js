@@ -11,6 +11,7 @@ const path = require('path');
 const { createUploader, IMAGE_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
 const { clearAuthCache } = require('../utils/authCache');
 const { validateNewPassword } = require('../utils/passwordRules');
+const { listFieldTechnicians } = require('../utils/technicians');
 const { loginLimiter, registerLimiter } = require('../middleware/rateLimit');
 const Booking = require('../models/Booking');
 const BackJob = require('../models/BackJob');
@@ -290,7 +291,7 @@ function hasValidToken(req) {
 // positions, which is what the form needs.
 router.get('/technicians', async (req, res) => {
   try {
-    const technicians = await User.find({ role: ROLE.STAFF, isActive: true }).select('_id name position');
+    const technicians = await listFieldTechnicians(User, '_id name');
     if (!hasValidToken(req)) {
       return res.json(technicians.map((t) => ({ name: t.name })));
     }

@@ -20,7 +20,9 @@ test.before(async () => {
   // what the database holds for the technicians, including things a visitor must never get
   User.find = () => chain([
     { _id: 'STF1001', name: 'Tech One', position: 'Technician', email: 'one@example.com', phone: '0917', profileImage: '/uploads/profile-images/one.png', password: 'x' },
-    { _id: 'STF1002', name: 'Tech Two', position: 'Secretary', email: 'two@example.com', phone: '0918', profileImage: '/uploads/profile-images/two.png', password: 'x' },
+    { _id: 'STF1002', name: 'Tech Two', position: 'Helper', email: 'two@example.com', phone: '0918', profileImage: '/uploads/profile-images/two.png', password: 'x' },
+    // office staff is not a field technician and must not be listed at all
+    { _id: 'STF1003', name: 'Office Cashier', position: 'Cashier', email: 'three@example.com', phone: '0919', profileImage: '/uploads/profile-images/three.png', password: 'x' },
   ].map((u) => ({ ...u, toJSON() { return u; } })));
   Booking.aggregate = async () => [{ averageRating: 4.46, totalReviews: 12 }];
   Booking.find = () => chain([
@@ -51,7 +53,7 @@ test('a logged-out visitor can load the technician list the landing search uses:
 
 test('that list has no ids, positions, photos, emails, phone numbers or ratings', async () => {
   const { text } = await get('/api/auth/technicians');
-  ['STF1001', 'STF1002', 'Technician"', 'Secretary', '.png', 'profileImage', '@example.com', '0917', '0918', 'rating', 'position', '_id', 'password'].forEach((needle) => {
+  ['STF1001', 'STF1002', 'STF1003', 'Cashier', 'Office', 'Technician"', 'Secretary', '.png', 'profileImage', '@example.com', '0917', '0918', 'rating', 'position', '_id', 'password'].forEach((needle) => {
     assert.equal(text.includes(needle), false, `the public list must not contain ${needle}`);
   });
 });

@@ -16,6 +16,7 @@ import { listBookings, getTechnicianWorkload } from '../../services/bookingServi
 import { listUsers } from '../../services/userService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
 import { customerLabel } from '../../utils/customerLabel';
+import { isFieldTechnician } from '../../utils/technicians';
 
 // Same badge/left-accent classes used by the customer's My Bookings and the
 // technician's My Jobs cards (staff.css) - .tech-job-card colors its left
@@ -74,7 +75,7 @@ function Dashboard() {
 
         setBookings(Array.isArray(bookingsData) ? bookingsData : []);
         setActiveStaffCount(
-          Array.isArray(staffData) ? staffData.filter((s) => s.isActive).length : 0
+          Array.isArray(staffData) ? staffData.filter((s) => s.isActive && isFieldTechnician(s)).length : 0
         );
       } catch (err) {
         console.error('Error loading dashboard data:', err);

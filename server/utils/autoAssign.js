@@ -10,12 +10,12 @@
 //     Sunday week. Ties: fewest upcoming bookings overall, then the name (A to Z). The helper
 //     is the next one by the same order.
 //  4. Nobody free: say so, and suggest up to 3 later dates where someone is.
-const { ROLE } = require('../constants/roles');
 const User = require('../models/User');
 const Booking = require('../models/Booking');
 const Closure = require('../models/Closure');
 const { activeStatuses, getMemberIds, getMinTechnicians } = require('./assignments');
 const { manilaTodayKey } = require('./timeBlocks');
+const { listFieldTechnicians } = require('./technicians');
 const { slotsOf } = require('./extensionDays');
 
 // ---------- date keys ("YYYY-MM-DD"), worked out in UTC so the server's timezone never matters
@@ -150,7 +150,7 @@ function findNextFreeDates({
 // { assignment, reason } or { assignment: null, reason, suggestedDates }.
 async function proposeAssignment(booking) {
   const minTechnicians = getMinTechnicians(booking.service);
-  const members = await User.find({ role: ROLE.STAFF, isActive: true }).select('name');
+  const members = await listFieldTechnicians(User, 'name');
 
   const technicians = members.map((u) => ({ _id: u._id, name: u.name }));
 

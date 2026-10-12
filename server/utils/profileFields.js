@@ -8,7 +8,7 @@ const COMPANY_NAME_MAX = 80;
 const REPRESENTATIVE_NAME_MAX = 80;
 
 // What the form's position list suggests. Any other text up to the limit is allowed too.
-const POSITION_SUGGESTIONS = Object.freeze(['Technician', 'Secretary', 'Cashier']);
+const POSITION_SUGGESTIONS = Object.freeze(['Technician', 'Lead Technician', 'Helper', 'Secretary', 'Cashier']);
 
 const isText = (value) => typeof value === 'string';
 

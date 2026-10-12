@@ -1,18 +1,17 @@
 // Which dates a visitor can still book, for the public landing page calendar. Only the
 // answer is public (Morning and Afternoon open or not); no technician or team is named.
 //
-// A block counts as open when at least one team is still free in it, after taking away the
-// teams already assigned AND the Pending requests nobody has been assigned to yet (those are
-// first in line for the free teams). With no teams set up yet, free technicians are paired up
-// instead. The lead-time and Sunday rules match booking creation.
-const { ROLE } = require('../constants/roles');
+// A block counts as open when at least one pair of field technicians is still free in it: the free technicians
+// (utils/technicians.js) paired up, after taking away those already on a booking in that block (its own date and any
+// approved extra day) AND the Pending requests nobody has been assigned to yet (those are first in line for the free
+// pairs). The old Team records are not used at all. The lead-time and Sunday rules match booking creation.
 const { BOOKING_STATUS } = require('../constants/bookingStatus');
-const Team = require('../models/Team');
 const User = require('../models/User');
 const Booking = require('../models/Booking');
 const Closure = require('../models/Closure');
 const { activeStatuses, getMemberIds } = require('./assignments');
 const { slotsOf } = require('./extensionDays');
+const { listFieldTechnicians } = require('./technicians');
 const { TIME_BLOCKS, manilaTodayKey } = require('./timeBlocks');
 
 // Same rule as isDateAllowed in routes/bookingRoutes.js: a booking must be at least this many days ahead.
@@ -36,17 +35,13 @@ async function getAvailability(from, to) {
   const today = manilaTodayKey();
   const firstBookable = addDays(today, MIN_LEAD_DAYS);
 
-  const [teams, technicians, bookings, closures] = await Promise.all([
-    Team.find({ isActive: true }).select('lead helper'),
-    User.find({ role: ROLE.STAFF, isActive: true }).select('_id'),
+  const [technicians, bookings, closures] = await Promise.all([
+    listFieldTechnicians(User, '_id'),
     Booking.find({ status: { $in: activeStatuses() }, $or: [{ date: { $gte: from, $lte: to } }, { 'extensionDays.date': { $gte: from, $lte: to } }] })
       .select('date time status technician assignments extensionDays'),
     Closure.find({ date: { $gte: from, $lte: to } }).select('date reason').lean(),
   ]);
   const closureReason = new Map(closures.map((c) => [c.date, c.reason]));
-
-  const activeIds = new Set(technicians.map((t) => t._id));
-  const usableTeams = teams.filter((t) => activeIds.has(t.lead) && activeIds.has(t.helper));
 
   const days = [];
   for (let key = from; key <= to; key = addDays(key, 1)) {
@@ -60,9 +55,7 @@ async function getAvailability(from, to) {
       const sameBlock = bookings.filter((b) => slotsOf(b).some((s) => s.date === key && s.time === block));
       const busy = new Set(sameBlock.flatMap(getMemberIds));
       const waiting = sameBlock.filter((b) => b.status === BOOKING_STATUS.PENDING && getMemberIds(b).length === 0).length;
-      const freeUnits = usableTeams.length > 0
-        ? usableTeams.filter((t) => !busy.has(t.lead) && !busy.has(t.helper)).length
-        : Math.floor(technicians.filter((t) => !busy.has(t._id)).length / 2);
+      const freeUnits = Math.floor(technicians.filter((t) => !busy.has(t._id)).length / 2);
       open[block] = freeUnits - waiting > 0;
     });
 

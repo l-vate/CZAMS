@@ -4,6 +4,7 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const User = require('../models/User');
 const { getBusyTechnicianIds } = require('../utils/assignments');
+const { listFieldTechnicians } = require('../utils/technicians');
 const { TIME_BLOCKS } = require('../utils/timeBlocks');
 
 function adminOnly(req, res, next) {
@@ -25,7 +26,7 @@ router.get('/availability', auth, adminOnly, async (req, res) => {
     }
 
     const busy = new Set(await getBusyTechnicianIds(date, time, excludeBookingId));
-    const technicians = await User.find({ role: ROLE.STAFF, isActive: true }).select('name position').sort({ name: 1 });
+    const technicians = (await listFieldTechnicians(User, 'name')).sort((a, b) => String(a.name).localeCompare(String(b.name)));
 
     res.json({
       technicians: technicians.map((u) => ({

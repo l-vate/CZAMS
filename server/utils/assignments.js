@@ -14,6 +14,9 @@ const activeStatuses = () => (scheduling.PENDING_HOLDS_SLOT
   : [BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS]);
 
 const { slotsOf } = require('./extensionDays');
+// Teams no longer exist as something to manage, but old bookings still carry the id of the team they were assigned
+// through, and ASSIGNMENT_POPULATE below shows its name. Populating needs the model registered, so it is loaded here.
+require('../models/Team');
 
 const idOf = (x) => (x ? String(x._id || x) : null);
 

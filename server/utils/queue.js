@@ -2,13 +2,13 @@
 // down or to the top. Only Pending bookings are in the queue; approving one simply takes it out
 // and the rest keep their relative order. The queue position is for admins only (queueRank is
 // not selected by default, so customers never receive it).
-const { ROLE } = require('../constants/roles');
 const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const Booking = require('../models/Booking');
 const Counter = require('../models/Counter');
 const User = require('../models/User');
 const { activeStatuses, getMemberIds, getMinTechnicians, ASSIGNMENT_POPULATE } = require('./assignments');
 const { slotsOf } = require('./extensionDays');
+const { listFieldTechnicians } = require('./technicians');
 
 const RANK_GAP = 1000;
 const COUNTER_ID = 'queueRank';
@@ -111,7 +111,7 @@ async function getQueue() {
   const pending = await loadOrderedPending();
 
   const [technicians, occupying] = await Promise.all([
-    User.find({ role: ROLE.STAFF, isActive: true }).select('_id'),
+    listFieldTechnicians(User, '_id'),
     Booking.find({ status: { $in: activeStatuses() } }).select('bookingId date time technician assignments extensionDays'),
   ]);
 

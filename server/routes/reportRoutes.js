@@ -14,6 +14,7 @@ const User = require('../models/User'); // Add this import
 const { sendNotification } = require('../utils/notifications');
 const { getMemberIds, getLeadIds } = require('../utils/assignments');
 const { toTechnicianView } = require('../utils/technicianView');
+const { reportErrorResponse } = require('../utils/reportErrors');
 const { PHOTO_MAX_BYTES, PHOTO_MIME_TYPES, consentProblem, readFlag } = require('../utils/reportEvidence');
 
 // Same upload rules as the payment proofs: an unguessable file name in uploads/proofs, 5 MB at most.
@@ -210,6 +211,8 @@ router.post('/', auth, receivePhoto, async (req, res) => {
 
         res.status(201).json(populatedReport);
     } catch (error) {
+        const known = reportErrorResponse(error);
+        if (known) return res.status(known.status).json({ message: known.message });
         console.error('Error creating report:', error);
         res.status(500).json({ message: 'Error creating report' });
     }

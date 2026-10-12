@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import StaffLayout from './staff_layout';
 import { FiClock, FiFileText, FiX, FiUser, FiMapPin } from 'react-icons/fi';
 import SignaturePad from '../../components/signature_pad';
@@ -29,6 +29,8 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
   });
   const [photo, setPhoto] = useState(null);
   const [error, setError] = useState('');
+  // set at once on the first click, before React re-renders, so a fast double click sends one report
+  const sendingRef = useRef(false);
 
   const handlePhoto = (e) => {
     const file = e.target.files[0] || null;
@@ -78,7 +80,9 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
       setError("The client's signature is required to finalize this report, or attach a photo of the signed paper form.");
       return;
     }
-    onSubmit(form, photo);
+    if (sendingRef.current) return;
+    sendingRef.current = true;
+    Promise.resolve(onSubmit(form, photo)).finally(() => { sendingRef.current = false; });
   };
 
   return (

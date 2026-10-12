@@ -29,6 +29,7 @@ const chain = (value) => ({
   sort() { return this; },
   populate() { return this; },
   lean() { return this; },
+  limit() { return this; },
   distinct(field) { return chain(Array.isArray(value) ? [...new Set(value.map((v) => v[field]))] : []); },
   then(resolve, reject) { return Promise.resolve(value).then(resolve, reject); },
 });

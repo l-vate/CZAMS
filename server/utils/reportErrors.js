@@ -7,9 +7,24 @@ const LABOR_HOURS_MAX = 24;
 
 const bad = (message) => ({ status: 400, message });
 
+// The day a follow-up date falls on, as "YYYY-MM-DD" in the same terms as `today`, or null if it is not a date.
+// A plain "YYYY-MM-DD" (what the date field sends) is taken as it is, so no timezone can move it a day.
+function dayKey(value) {
+  const text = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    // a real calendar day: "2026-02-31" must not roll over into March
+    const [y, m, d] = text.split('-').map(Number);
+    const check = new Date(Date.UTC(y, m - 1, d));
+    return check.getUTCFullYear() === y && check.getUTCMonth() === m - 1 && check.getUTCDate() === d ? text : null;
+  }
+  const date = new Date(text);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10);
+}
+
 // The optional fields of a report, checked before anything is saved. A field left empty is fine.
-// `followUpDate` is only looked at when a follow-up is required, as the route does.
-function validateReportInput({ laborHours, issueResolution, followUpRequired, followUpDate }) {
+// `followUpDate` is only looked at when a follow-up is required, as the route does: it must be a real
+// date and not before `today` ("YYYY-MM-DD", Philippine time). Today itself is allowed.
+function validateReportInput({ laborHours, issueResolution, followUpRequired, followUpDate, today }) {
   const hasHours = laborHours !== undefined && laborHours !== null && String(laborHours).trim() !== '';
   if (hasHours) {
     const hours = Number(laborHours);
@@ -23,8 +38,10 @@ function validateReportInput({ laborHours, issueResolution, followUpRequired, fo
     return bad(`Resolution must be one of ${RESOLUTIONS.join(', ')}.`);
   }
 
-  if (followUpRequired && followUpDate && Number.isNaN(new Date(followUpDate).getTime())) {
-    return bad('The follow-up date must be a valid date.');
+  if (followUpRequired && followUpDate) {
+    const day = dayKey(followUpDate);
+    if (!day) return bad('The follow-up date must be a valid date.');
+    if (today && day < today) return bad('The follow-up date cannot be in the past.');
   }
   return null;
 }

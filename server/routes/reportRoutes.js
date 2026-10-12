@@ -12,6 +12,7 @@ const User = require('../models/User'); // Add this import
 const { sendNotification } = require('../utils/notifications');
 const { getMemberIds, getLeadIds, memberFilter } = require('../utils/assignments');
 const { toTechnicianView } = require('../utils/technicianView');
+const { manilaTodayKey } = require('../utils/timeBlocks');
 const { createUploader, PHOTO_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
 const { reportErrorResponse, validateReportInput } = require('../utils/reportErrors');
 const { PHOTO_MAX_BYTES, consentProblem, readFlag } = require('../utils/reportEvidence');
@@ -80,7 +81,7 @@ router.post('/', auth, receivePhoto, async (req, res) => {
             return res.status(400).json({ message: 'Please describe the pre-existing issue.' });
         }
 
-        const inputProblem = validateReportInput({ laborHours, issueResolution, followUpRequired, followUpDate });
+        const inputProblem = validateReportInput({ laborHours, issueResolution, followUpRequired, followUpDate, today: manilaTodayKey() });
         if (inputProblem) return res.status(inputProblem.status).json({ message: inputProblem.message });
 
         // The client's signature and name, or a photo of the signed paper form, finalize the report

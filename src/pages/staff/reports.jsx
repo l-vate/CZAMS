@@ -13,6 +13,9 @@ import { PHOTO_MAX_BYTES, PHOTO_MIME_TYPES } from '../../constants/reportPhoto';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
 
 
+// Today's date as YYYY-MM-DD in Philippine time, the same day the server compares against.
+const todayKey = () => new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+
 function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverError }) {
   const [form, setForm] = useState({
     workSummary: '',
@@ -70,6 +73,10 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
     }
     if (form.followUpRequired && !form.followUpDate) {
       setError('Please specify a follow-up date if follow-up is required.');
+      return;
+    }
+    if (form.followUpRequired && form.followUpDate < todayKey()) {
+      setError('The follow-up date cannot be in the past.');
       return;
     }
     if (form.preExistingIssueFlagged && !form.preExistingIssueDescription.trim()) {
@@ -231,6 +238,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
                 id="followUpDate"
                 name="followUpDate"
                 className="tech-search-input"
+                min={todayKey()}
                 value={form.followUpDate}
                 onChange={handleChange}
               />

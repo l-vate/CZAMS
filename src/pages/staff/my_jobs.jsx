@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import StaffLayout from './staff_layout';
 import {
   FiChevronDown, FiSearch, FiClock, FiMapPin, FiX, FiInfo, FiUser, FiPhone, FiEye,
@@ -238,6 +239,8 @@ function MyJobs() {
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [notice, setNotice] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('All');
   const [sortBy, setSortBy] = useState(JOB_SORT.NEWEST);
@@ -267,6 +270,17 @@ function MyJobs() {
   useEffect(() => {
     loadJobs();
   }, []);
+
+  // A notification links here with ?job=<booking id>: open that job once the list has loaded. If it is
+  // not in the list (it was reassigned away, say) say so instead of showing nothing.
+  const jobFromLink = searchParams.get('job');
+  useEffect(() => {
+    if (!jobFromLink || loading || loadFailed) return;
+    const job = jobs.find((j) => j.bookingId === jobFromLink);
+    setSelectedJob(job || null);
+    setNotice(job ? '' : `Job ${jobFromLink} is not on your list any more.`);
+    setSearchParams({}, { replace: true });
+  }, [jobFromLink, loading, loadFailed, jobs, setSearchParams]);
 
   useEffect(() => {
     if (!showSortMenu) return;
@@ -340,6 +354,8 @@ function MyJobs() {
           </button>
         ))}
       </div>
+
+      {notice && <p className="sdm-muted" role="status">{notice}</p>}
 
       <div className="tech-jobs-toolbar">
         <div className="tech-sort-wrapper" ref={sortWrapperRef}>

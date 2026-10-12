@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import StaffLayout from './staff_layout';
 import { FiUser, FiTool, FiCheckCircle, FiFileText, FiStar, FiEye, FiCalendar, FiClock, FiMapPin } from 'react-icons/fi';
 import { orFallback } from '../../services/apiClient';
+import LoadError from '../../components/load_error';
 import { getTechnicianStats, listTechnicianJobs } from '../../services/bookingService';
 import { listPublicAnnouncements } from '../../services/announcementService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
@@ -52,6 +53,7 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [statsFailed, setStatsFailed] = useState(false);
   const [jobs, setJobs] = useState([]);
+  const [jobsFailed, setJobsFailed] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
 
   // A failed load is an error state, never data: the error reply is not stored as the stats.
@@ -72,12 +74,26 @@ function Dashboard() {
     fetchStats();
   };
 
+  // A failed load is an error state with a Retry, never "No upcoming jobs".
+  const fetchJobs = () => listTechnicianJobs()
+    .then((data) => {
+      if (!Array.isArray(data)) throw new Error('Unexpected jobs reply');
+      setJobs(data);
+    })
+    .catch((err) => {
+      console.error('Failed to load jobs', err);
+      setJobsFailed(true);
+    });
+
+  const retryJobs = () => {
+    setJobsFailed(false);
+    fetchJobs();
+  };
+
   useEffect(() => {
     fetchStats();
 
-    orFallback(listTechnicianJobs(), [])
-      .then((data) => setJobs(Array.isArray(data) ? data : []))
-      .catch(() => setJobs([]));
+    fetchJobs();
 
     // Same public endpoint the landing page uses - no reason to gate this behind
     // a technician-only route, and it keeps the "active announcements" logic in
@@ -134,12 +150,7 @@ function Dashboard() {
         </button>
       </div>
 
-      {statsFailed && (
-        <div className="tech-stats-error" role="alert">
-          <p className="tech-job-empty">Could not load, try again.</p>
-          <button type="button" className="bs-next-btn" onClick={retryStats}>Try again</button>
-        </div>
-      )}
+      {statsFailed && <LoadError message="Could not load your numbers and feedback." onRetry={retryStats} />}
 
       <div className="tech-stats-grid">
         <div className="tech-stat-card">
@@ -180,7 +191,9 @@ function Dashboard() {
           </Link>
         </div>
         <div className="info-card-body">
-          {upcomingJobs.length > 0 ? (
+          {jobsFailed ? (
+            <LoadError message="Could not load your upcoming jobs." onRetry={retryJobs} />
+          ) : upcomingJobs.length > 0 ? (
             upcomingJobs.map((job) => (
               <div
                 className={`upcoming-job-card ${UPCOMING_ACCENT_CLASS[job.status] || ''}`}
@@ -247,7 +260,7 @@ function Dashboard() {
         {loading ? (
           <p className="tech-job-empty">Loading feedback...</p>
         ) : statsFailed ? (
-          <p className="tech-job-empty">Could not load, try again.</p>
+          <p className="tech-job-empty">Could not load feedback.</p>
         ) : stats.feedbacks.length === 0 ? (
           <p className="tech-job-empty">No feedback yet.</p>
         ) : (

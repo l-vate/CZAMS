@@ -5,7 +5,8 @@ import {
 } from 'react-icons/fi';
 import { getUnitsSummary } from '../../utils/bookingPricing';
 import { getFilterPillStyle } from '../../utils/statusColors';
-import { ApiError, orFallback } from '../../services/apiClient';
+import { ApiError } from '../../services/apiClient';
+import LoadError from '../../components/load_error';
 import { listTechnicianJobs, reportDisruption, requestExtension } from '../../services/bookingService';
 import { getAssignedNames } from '../../utils/assignments';
 import AssignmentHistory from '../../components/assignment_history';
@@ -234,6 +235,7 @@ function toViewJob(booking) {
 function MyJobs() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('All');
@@ -243,11 +245,26 @@ function MyJobs() {
   const [submittingReport, setSubmittingReport] = useState(false);
   const sortWrapperRef = useRef(null);
 
+  // A failed load is an error state with a Retry, never "No jobs match your search or filter".
+  const loadJobs = () => listTechnicianJobs()
+    .then((data) => {
+      if (!Array.isArray(data)) throw new Error('Unexpected jobs reply');
+      setJobs(data.map(toViewJob));
+    })
+    .catch((err) => {
+      console.error('Failed to load jobs', err);
+      setLoadFailed(true);
+    })
+    .finally(() => setLoading(false));
+
+  const retryLoad = () => {
+    setLoadFailed(false);
+    setLoading(true);
+    loadJobs();
+  };
+
   useEffect(() => {
-    orFallback(listTechnicianJobs(), [])
-      .then((data) => setJobs(Array.isArray(data) ? data.map(toViewJob) : []))
-      .catch((err) => console.error('Failed to load jobs', err))
-      .finally(() => setLoading(false));
+    loadJobs();
   }, []);
 
   useEffect(() => {
@@ -360,6 +377,10 @@ function MyJobs() {
       <div className="tech-job-list">
         {loading ? (
           <p className="tech-job-empty">Loading jobs...</p>
+        ) : loadFailed ? (
+          <LoadError message="Could not load your jobs." onRetry={retryLoad} />
+        ) : jobs.length === 0 ? (
+          <p className="tech-job-empty">You have no jobs yet.</p>
         ) : visibleJobs.length === 0 ? (
           <p className="tech-job-empty">No jobs match your search or filter.</p>
         ) : (

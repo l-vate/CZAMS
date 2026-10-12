@@ -4,7 +4,8 @@ import { FiClock, FiFileText, FiX, FiUser, FiMapPin } from 'react-icons/fi';
 import SignaturePad from '../../components/signature_pad';
 import ServiceReportPdfModal from '../../components/service_report_pdf_modal';
 import { getFilterPillStyle } from '../../utils/statusColors';
-import { orFallback, withFallback } from '../../services/apiClient';
+import { ApiError, withFallback } from '../../services/apiClient';
+import LoadError from '../../components/load_error';
 import { listTechnicianJobs } from '../../services/bookingService';
 import { getReportForBooking, submitReport } from '../../services/reportService';
 import { API_BASE } from '../../config/api';
@@ -596,6 +597,20 @@ function toReportItem(booking, reportData) {
   };
 }
 
+// A completed job whose report could not be looked up. It is neither Pending nor Completed: the
+// technician must never be offered "Submit Report" for a job that may already have one.
+const UNKNOWN_STATUS = 'Could not check';
+
+// The report for one booking: the report, null when there is none (404), or throws for any other failure.
+async function lookUpReport(bookingId) {
+  try {
+    return await getReportForBooking(bookingId);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  }
+}
+
 function Reports() {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -604,58 +619,69 @@ function Reports() {
   const [modalMode, setModalMode] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  const loadReports = async () => {
+    try {
+      // First, get all bookings assigned to the technician
+      const bookingsData = await listTechnicianJobs();
+      if (!Array.isArray(bookingsData)) throw new Error('Unexpected jobs reply');
+
+      // A job is waiting for its report while it is In Progress (filing the report is what
+      // completes it). Completed jobs are listed too, so ones finished before this rule
+      // existed that still have no report can get one.
+      // Only the lead technician files the report, so only the lead's jobs are listed here.
+      const reportableBookings = bookingsData.filter(b => [BOOKING_STATUS.IN_PROGRESS, BOOKING_STATUS.COMPLETED].includes(b.status) && b.myRole === 'Lead');
+
+      // For each one, fetch its report from the reports collection
+      const reportPromises = reportableBookings.map(async (booking) => {
+        // An In Progress job cannot have a report yet.
+        if (booking.status === BOOKING_STATUS.IN_PROGRESS) return toReportItem(booking, null);
+        try {
+          // No report found (404), but booking is completed: the item is listed without one.
+          return toReportItem(booking, await lookUpReport(booking.bookingId));
+        } catch (err) {
+          // Any other failure: we do not know, so it is not shown as Pending.
+          console.error(`Error fetching report for booking ${booking.bookingId}:`, err);
+          return { ...toReportItem(booking, null), status: UNKNOWN_STATUS };
+        }
+      });
+
+      setReports(await Promise.all(reportPromises));
+    } catch (err) {
+      // a failed load is an error state with a Retry, never "No reports in this category"
+      console.error('Failed to load reports', err);
+      setLoadFailed(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const retryLoad = () => {
+    setLoadFailed(false);
+    setLoading(true);
+    loadReports();
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-
-      try {
-        // First, get all bookings assigned to the technician
-        const bookingsData = await orFallback(listTechnicianJobs(), null);
-        
-        if (!Array.isArray(bookingsData)) {
-          setReports([]);
-          return;
-        }
-
-        // A job is waiting for its report while it is In Progress (filing the report is what
-        // completes it). Completed jobs are listed too, so ones finished before this rule
-        // existed that still have no report can get one.
-        // Only the team lead files the report, so only the lead's jobs are listed here.
-        const reportableBookings = bookingsData.filter(b => [BOOKING_STATUS.IN_PROGRESS, BOOKING_STATUS.COMPLETED].includes(b.status) && b.myRole === 'Lead');
-        
-        // For each one, fetch its report from the reports collection
-        const reportPromises = reportableBookings.map(async (booking) => {
-          // An In Progress job cannot have a report yet.
-          if (booking.status === BOOKING_STATUS.IN_PROGRESS) return toReportItem(booking, null);
-          try {
-            // No report found, but booking is completed: the item is listed without one.
-            const reportData = await orFallback(getReportForBooking(booking.bookingId), null);
-            return toReportItem(booking, reportData);
-          } catch (err) {
-            console.error(`Error fetching report for booking ${booking.bookingId}:`, err);
-            return toReportItem(booking, null);
-          }
-        });
-
-        const reportItems = await Promise.all(reportPromises);
-        setReports(reportItems);
-        
-      } catch (err) {
-        console.error('Failed to load reports', err);
-        setReports([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+    loadReports();
   }, []);
 
+  // A job that could not be checked needs attention, so it also shows under Pending (labelled as such).
   const visibleReports =
     filter === 'All'
       ? reports
-      : reports.filter((r) => r.status === filter);
+      : reports.filter((r) => r.status === filter || (filter === 'Pending' && r.status === UNKNOWN_STATUS));
+
+  // Look up one job's report again after "Could not check".
+  const recheck = async (item) => {
+    try {
+      const data = await lookUpReport(item.bookingId);
+      setReports((prev) => prev.map((r) => (r._id === item._id ? { ...r, status: data ? 'Completed' : 'Pending', report: data } : r)));
+    } catch (err) {
+      console.error(`Error fetching report for booking ${item.bookingId}:`, err);
+    }
+  };
 
   const handleOpenReport = (reportItem) => {
     setSubmitError('');
@@ -714,6 +740,8 @@ function Reports() {
       <div className="tech-job-list">
         {loading ? (
           <p className="tech-job-empty">Loading reports...</p>
+        ) : loadFailed ? (
+          <LoadError message="Could not load your reports." onRetry={retryLoad} />
         ) : visibleReports.length === 0 ? (
           <p className="tech-job-empty">No reports in this category.</p>
         ) : (
@@ -721,7 +749,7 @@ function Reports() {
             <div className="tech-job-card tech-report-card" key={i}>
               <div className="tech-job-info">
                 <div className="tech-job-top-row">
-                  <span className={`tech-job-status-badge ${r.status === 'Completed' ? 'tech-status-completed' : 'tech-status-pending'}`}>
+                  <span className={`tech-job-status-badge ${r.status === 'Completed' ? 'tech-status-completed' : r.status === UNKNOWN_STATUS ? 'tech-status-cancelled' : 'tech-status-pending'}`}>
                     {r.status}
                   </span>
                 </div>
@@ -740,13 +768,19 @@ function Reports() {
                 <FiClock /> {r.bookingDate}
               </div>
 
-              <button
-                className="tech-job-view-link staff-reports-x21"
-                onClick={() => handleOpenReport(r)}
-              >
-                <FiFileText />{' '}
-                {r.status === 'Pending' ? 'Submit Report' : 'View Report'}
-              </button>
+              {r.status === UNKNOWN_STATUS ? (
+                <button className="tech-job-view-link staff-reports-x21" onClick={() => recheck(r)}>
+                  <FiFileText /> Retry
+                </button>
+              ) : (
+                <button
+                  className="tech-job-view-link staff-reports-x21"
+                  onClick={() => handleOpenReport(r)}
+                >
+                  <FiFileText />{' '}
+                  {r.status === 'Pending' ? 'Submit Report' : 'View Report'}
+                </button>
+              )}
             </div>
           ))
         )}

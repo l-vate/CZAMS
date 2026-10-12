@@ -27,6 +27,7 @@ RESCHEDULE_REQUESTED: 'reschedule_requested',
   BACKJOB_FILED: 'backjob_filed',
   SERVICE_REMINDER: 'service_reminder',
   CHAT_MESSAGE: 'chat_message',
+  INSTRUCTIONS_UPDATED: 'instructions_updated',
 });
 
 module.exports = { NOTIFICATION_TYPE };

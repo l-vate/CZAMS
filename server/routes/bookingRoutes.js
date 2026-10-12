@@ -118,6 +118,18 @@ async function notifyMembers(booking, type, message) {
   await Promise.all(getMemberIds(booking).map((id) => sendNotification(id, type, message, { booking })));
 }
 
+// Tells every technician on the job about a change, once each. A booking that was Pending before the change was never
+// visible to its technicians (see utils/technicianVisibility.js), so nobody is told about it. A notification problem
+// never fails the change that was already saved. `wasStatus` is the status before the change.
+async function notifyMembersOfChange(booking, wasStatus, type, message) {
+  if (wasStatus === BOOKING_STATUS.PENDING) return;
+  try {
+    await notifyMembers(booking, type, message);
+  } catch (err) {
+    console.error(`Could not notify the technicians on booking ${booking.bookingId}:`, err);
+  }
+}
+
 // Local YYYY-MM-DD for today, for same-day-cancellation comparisons against booking.date
 function todayDateString() {
   const d = new Date();
@@ -694,10 +706,14 @@ router.patch('/:bookingId/cancel', auth, allowRoles(ROLE.CUSTOMER), async (req, 
 
     openRefundIfEligible(booking);
 
+    const statusBeforeCancel = booking.status;
     booking.status = BOOKING_STATUS.CANCELLED;
     booking.cancelledAt = new Date();
     booking.cancelledBy = 'customer';
     await booking.save();
+
+    // the technicians on an Approved job are told it will not happen
+    await notifyMembersOfChange(booking, statusBeforeCancel, NOTIFICATION_TYPE.BOOKING_CANCELLED, `Booking ${booking.bookingId} (${booking.date}, ${booking.time}) was cancelled. You no longer need to attend.`);
 
     if (booking.refund?.status === REFUND_STATUS.PENDING) {
       await notifyAdmins(
@@ -1393,6 +1409,7 @@ router.patch('/:bookingId/reschedule/approve', auth, async (req, res) => {
       `Your reschedule request for booking ${booking.bookingId} was approved. New schedule: ${booking.date}, ${booking.time}.`,
       { booking }
     );
+    await notifyMembersOfChange(booking, booking.status, NOTIFICATION_TYPE.RESCHEDULE_APPROVED, `Booking ${booking.bookingId} was rescheduled by the customer. New schedule: ${booking.date}, ${booking.time}.`);
 
     const populated = await booking.populate([
       { path: 'service' },
@@ -1433,6 +1450,7 @@ router.patch('/:bookingId/reschedule/deny', auth, async (req, res) => {
       `Your reschedule request for booking ${booking.bookingId} was not approved. Your original schedule (${booking.date}, ${booking.time}) stands.`,
       { booking }
     );
+    await notifyMembersOfChange(booking, booking.status, NOTIFICATION_TYPE.RESCHEDULE_DENIED, `The customer's reschedule request for booking ${booking.bookingId} was not approved. The schedule stays ${booking.date}, ${booking.time}.`);
 
     const populated = await booking.populate([
       { path: 'service' },
@@ -1693,6 +1711,7 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
     }
 
     // Pre-service technician instructions (Service Report Module)
+    const instructionsBefore = booking.technicianInstructions || '';
     if (technicianInstructions !== undefined) {
       booking.technicianInstructions = technicianInstructions;
     }
@@ -1777,6 +1796,15 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
     }
 
     await booking.save();
+
+    // Technicians: the admin cancelled the booking, or edited the instructions (without repeating what they say).
+    if (status === BOOKING_STATUS.CANCELLED && prev.status !== BOOKING_STATUS.CANCELLED) {
+      await notifyMembersOfChange(booking, prev.status, NOTIFICATION_TYPE.BOOKING_CANCELLED, `Booking ${booking.bookingId} (${booking.date}, ${booking.time}) was cancelled. You no longer need to attend.`);
+    } else if (technicianInstructions !== undefined
+      && String(technicianInstructions || '').trim() !== String(instructionsBefore).trim()
+      && [BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status)) {
+      await notifyMembersOfChange(booking, prev.status, NOTIFICATION_TYPE.INSTRUCTIONS_UPDATED, `The instructions for booking ${booking.bookingId} (${booking.date}, ${booking.time}) were updated. Open the job to read them.`);
+    }
 
     // Customer notifications for what admin just did. Only on an actual change.
     if (status === BOOKING_STATUS.APPROVED && prev.status !== BOOKING_STATUS.APPROVED) {

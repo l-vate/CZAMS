@@ -255,10 +255,28 @@ router.delete('/account', auth, async (req, res) => {
   }
 });
 
-// GET all active technicians (for client-side booking dropdown)
+// True when the request carries a valid token. No account lookup: this only decides how much of a
+// public list to show, it never grants access to anything.
+function hasValidToken(req) {
+  const header = req.headers.authorization;
+  if (!header || !header.startsWith('Bearer ')) return false;
+  try {
+    jwt.verify(header.split(' ')[1], process.env.JWT_SECRET);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Active technicians. The public landing page search needs the names, so a visitor with no login gets
+// names only. A signed-in user (the booking form's preferred technician list) also gets the ids and
+// positions, which is what the form needs.
 router.get('/technicians', async (req, res) => {
   try {
     const technicians = await User.find({ role: ROLE.STAFF, isActive: true }).select('_id name position');
+    if (!hasValidToken(req)) {
+      return res.json(technicians.map((t) => ({ name: t.name })));
+    }
     res.json(technicians);
   } catch (err) {
     console.error(err);

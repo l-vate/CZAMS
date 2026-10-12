@@ -571,6 +571,10 @@ router.get('/mine', auth, async (req, res) => {
 // (this route used to sit after it and always 404'd "Booking not found").
 router.get('/busy-technicians', auth, async (req, res) => {
   try {
+    // The booking form (customer and admin walk-in) uses this. A technician does not need it.
+    if (req.userRole === ROLE.STAFF) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
     const { date, time } = req.query;
     if (!date) return res.status(400).json({ message: 'Date is required' });
 

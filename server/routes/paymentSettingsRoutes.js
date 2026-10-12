@@ -6,10 +6,13 @@ const PaymentSettings = require('../models/PaymentSettings');
 
 const { SETTINGS_ID, getOrCreateSettings } = require('../utils/paymentSettings');
 
-// Any logged-in role - customer/walk-in booking flows need this to render
-// payment mode options and down payment choices, not just the admin editor.
+// Customers and admins: the booking flows need this to render payment mode options and down payment
+// choices. It holds the company's GCash and bank account details, which a technician never needs.
 router.get('/', auth, async (req, res) => {
   try {
+    if (req.userRole === ROLE.STAFF) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
     const settings = await getOrCreateSettings();
     res.json(settings);
   } catch (err) {

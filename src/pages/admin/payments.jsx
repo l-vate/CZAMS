@@ -9,13 +9,13 @@ import { getBookingLineItems, getUnitsSummary } from '../../utils/bookingPricing
 import { getMemberNames } from '../../utils/assignments';
 import { getFilterPillStyle } from '../../utils/statusColors';
 import { usePaymentSettings, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
-import { API_BASE } from '../../config/api';
 import { withFallback } from '../../services/apiClient';
 import { listBookings, adminUpdateBooking } from '../../services/bookingService';
 import { processRefund, resolveRefundFlag } from '../../services/refundService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
 import { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } from '../../constants/paymentStatus';
 import { REFUND_STATUS } from '../../constants/refundStatus';
+import { ProofLink, ProofImage } from '../../components/proof_file';
 
 
 function formatDate(dateStr) {
@@ -195,23 +195,18 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
               isPdf ? (
                 <div className="admin-payments-x6">
                   <p className="admin-payments-x7">PDF Document Attached</p>
-                  <a
-                    href={payment.attachmentUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="admin-payments-x8"
-                  >
+                  <ProofLink path={payment.attachmentUrl} className="admin-payments-x8">
                     📄 View PDF Proof
-                  </a>
+                  </ProofLink>
                 </div>
               ) : (
-                <a href={payment.attachmentUrl} target="_blank" rel="noopener noreferrer">
-                  <img
-                    src={payment.attachmentUrl}
+                <ProofLink path={payment.attachmentUrl}>
+                  <ProofImage
+                    path={payment.attachmentUrl}
                     alt="Payment proof"
                     className="payment-review-attachment-img admin-payments-x9"
                   />
-                </a>
+                </ProofLink>
               )
             ) : (
               <div
@@ -391,9 +386,8 @@ function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
       const proofFile = b.balancePaymentStatus === BALANCE_PAYMENT_STATUS.TO_VERIFY
         ? (b.balanceProofFile || b.proofFile)
         : (b.proofFile || b.balanceProofFile);
-      const attachmentUrl = proofFile
-        ? (proofFile.startsWith('http') ? proofFile : `${API_BASE}${proofFile}`)
-        : null;
+      // the stored path (or an external link); the review window asks the server for a signed link
+      const attachmentUrl = proofFile || null;
 
       return {
         id: b._id || b.bookingId,
@@ -758,14 +752,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
         {!isPending && refund.proofFile && (
           <div className="payment-review-cell admin-payments-x14">
             <span className="confirmation-detail-label">Proof of Refund</span>
-            <a
-              href={`${API_BASE}${refund.proofFile}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="sdm-link"
-            >
-              View File
-            </a>
+            <ProofLink path={refund.proofFile} className="sdm-link">View File</ProofLink>
           </div>
         )}
 

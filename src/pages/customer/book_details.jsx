@@ -13,7 +13,6 @@ import {
   FiCalendar, FiClock, FiMapPin, FiInfo, FiCreditCard,
   FiUser, FiAlertTriangle, FiX, FiArrowRight, FiStar, FiPhone,
 } from 'react-icons/fi';
-import { API_BASE } from '../../config/api';
 import { ApiError, orFallback } from '../../services/apiClient';
 import { getBooking, cancelBooking, rescheduleBooking, submitFeedback, requestDiscount } from '../../services/bookingService';
 import ClosureDateInput from '../../components/closure_date_input';
@@ -26,6 +25,7 @@ import { BOOKING_STATUS } from '../../constants/bookingStatus';
 import { REFUND_STATUS } from '../../constants/refundStatus';
 import { TIME_BLOCK_VALUES } from '../../constants/timeBlocks';
 import { NOTIFICATION_TYPE } from '../../constants/notificationTypes';
+import { ProofLink } from '../../components/proof_file';
 
 const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -705,13 +705,7 @@ function BookDetails() {
                 <span>Proof of Payment</span>
                 <span className="cost-link">
                   {booking.proofFile ? (
-                    
-                      <a href={`${API_BASE}${booking.proofFile}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      View File
-                    </a>
+                    <ProofLink path={booking.proofFile}>View File</ProofLink>
                   ) : (
                     'None'
                   )}
@@ -722,13 +716,7 @@ function BookDetails() {
                   <span>Balance Proof of Payment</span>
                   <span className="cost-link">
                     {booking.balanceProofFile ? (
-                      
-                        <a href={`${API_BASE}${booking.balanceProofFile}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        View File
-                      </a>
+                    <ProofLink path={booking.balanceProofFile}>View File</ProofLink>
                     ) : (
                       'None'
                     )}

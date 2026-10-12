@@ -8,9 +8,9 @@ import { withFallback } from '../../services/apiClient';
 import LoadError from '../../components/load_error';
 import { listTechnicianJobs } from '../../services/bookingService';
 import { listMyReports, submitReport } from '../../services/reportService';
-import { API_BASE } from '../../config/api';
 import { PHOTO_MAX_BYTES, PHOTO_MIME_TYPES } from '../../constants/reportPhoto';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
+import { ProofLink, ProofImage } from '../../components/proof_file';
 
 
 // Today's date as YYYY-MM-DD in Philippine time, the same day the server compares against.
@@ -543,9 +543,9 @@ function ViewReportModal({ reportItem, onClose }) {
             <div className="tech-job-detail-cell tech-job-detail-full">
               <div>
                 <p className="confirmation-detail-label">Photo of signed paper form</p>
-                <a href={`${API_BASE}${report.signedFormPhoto}`} target="_blank" rel="noopener noreferrer">
-                  <img src={`${API_BASE}${report.signedFormPhoto}`} alt="Signed paper form" className="report-signed-photo" />
-                </a>
+                <ProofLink path={report.signedFormPhoto}>
+                  <ProofImage path={report.signedFormPhoto} alt="Signed paper form" className="report-signed-photo" />
+                </ProofLink>
               </div>
             </div>
           )}

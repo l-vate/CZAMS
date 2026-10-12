@@ -5,16 +5,14 @@ require('dotenv').config({ quiet: true });
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
-const path = require('path');
 
 connectDB();
 const app = express();
 app.use(cors());
 app.use(express.json());
-// nosniff: a browser must treat each file as the type it is served as, never guess it is a page.
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
-  setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff'),
-}));
+// Profile photos stay public. Proof files are opened through /api/files after an access check.
+require('./config/uploadsStatic').mountUploads(app);
+app.use('/api/files', require('./routes/fileRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/services', require('./routes/serviceRoutes'));
 app.use('/api/bookings', require('./routes/bookingRoutes'));

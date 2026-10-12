@@ -8,7 +8,6 @@ import AssignmentHistory from './assignment_history';
 import { buildReceiptForm } from '../utils/receiptData';
 import { getMemberIds } from '../utils/assignments';
 import { isWithinQuezonCity } from '../utils/serviceArea';
-import { API_BASE } from '../config/api';
 import { attempt, orFallback } from '../services/apiClient';
 import { getReportForBooking } from '../services/reportService';
 import {
@@ -17,6 +16,7 @@ import {
 import { BOOKING_STATUS } from '../constants/bookingStatus';
 import { TIME_BLOCK } from '../constants/timeBlocks';
 import { SERVICE_TYPE } from '../constants/serviceTypes';
+import { ProofLink, ProofImage } from './proof_file';
 
 // Admin only approves (and cancels). A booking becomes In Progress by itself when its
 // time block starts and Completed when the technician submits the service report.
@@ -515,15 +515,15 @@ const [report, setReport] = useState(null);
                                             <span>Valid ID</span>
                                             {booking.discount.idFile ? (
                                                 discountIdIsPdf ? (
-                                                    <a className="sdm-link" href={`${API_BASE}${booking.discount.idFile}`} target="_blank" rel="noreferrer">Open ID (PDF)</a>
+                                                    <ProofLink path={booking.discount.idFile} className="sdm-link">Open ID (PDF)</ProofLink>
                                                 ) : (
-                                                    <a href={`${API_BASE}${booking.discount.idFile}`} target="_blank" rel="noreferrer">
-                                                        <img
-                                                            src={`${API_BASE}${booking.discount.idFile}`}
+                                                    <ProofLink path={booking.discount.idFile}>
+                                                        <ProofImage
+                                                            path={booking.discount.idFile}
                                                             alt="Uploaded valid ID"
                                                             className="admin-service-details-modal-x12"
                                                         />
-                                                    </a>
+                                                    </ProofLink>
                                                 )
                                             ) : (
                                                 <p className="sdm-list-value">None uploaded (checked in person)</p>
@@ -725,14 +725,7 @@ const [report, setReport] = useState(null);
                                     <span>Proof of Payment</span>
                                     <span className="sdm-list-value">
                                         {booking.proofFile ? (
-                                            <a
-                                                href={`${API_BASE}${booking.proofFile}`}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="sdm-link"
-                                            >
-                                                View File
-                                            </a>
+                                            <ProofLink path={booking.proofFile} className="sdm-link">View File</ProofLink>
                                         ) : (
                                             'N/A'
                                         )}
@@ -760,14 +753,7 @@ const [report, setReport] = useState(null);
                                     <div className="sdm-list-row">
                                         <span>Balance Proof</span>
                                         <span className="sdm-list-value">
-                                            <a
-                                                href={`${API_BASE}${booking.balanceProofFile}`}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="sdm-link"
-                                            >
-                                                View File
-                                            </a>
+                                            <ProofLink path={booking.balanceProofFile} className="sdm-link">View File</ProofLink>
                                         </span>
                                     </div>
                                 )}
@@ -787,12 +773,7 @@ const [report, setReport] = useState(null);
                                             <span>Proof of Purchase</span>
                                             <span className="sdm-list-value admin-service-details-modal-x23">
                                                 {booking.unitPurchaseProof ? (
-                                                    <a
-                                                        href={`${API_BASE}${booking.unitPurchaseProof}`}
-                                                        target="_blank" rel="noreferrer" className="sdm-link"
-                                                    >
-                                                        View File
-                                                    </a>
+                                                    <ProofLink path={booking.unitPurchaseProof} className="sdm-link">View File</ProofLink>
                                                 ) : 'Not uploaded'}
                                                 <label className="sdm-btn sdm-btn-outline admin-service-details-modal-x24">
                                                     {uploadingProof ? 'Uploading...' : booking.unitPurchaseProof ? 'Replace' : 'Upload'}

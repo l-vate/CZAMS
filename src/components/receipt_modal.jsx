@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { API_BASE } from '../config/api';
 import { getMe } from '../services/userService';
 import { documentTitle } from '../utils/receiptStatus';
+import { ProofLink } from './proof_file';
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -205,7 +205,7 @@ function ReceiptModal({ form, booking, billTo, onClose }) {
               <span>Proof of Payment</span>
               <span>
                 {proofFile
-                  ? <a href={`${API_BASE}` + proofFile} target="_blank" rel="noopener noreferrer">View File</a>
+                  ? <ProofLink path={proofFile}>View File</ProofLink>
                   : 'None'}
               </span>
             </div>
@@ -228,7 +228,7 @@ function ReceiptModal({ form, booking, billTo, onClose }) {
                   <div className="receipt-info-row">
                     <span>Balance Proof</span>
                     <span>
-                      <a href={`${API_BASE}` + balanceProofFile} target="_blank" rel="noopener noreferrer">View File</a>
+                      <ProofLink path={balanceProofFile}>View File</ProofLink>
                     </span>
                   </div>
                 )}

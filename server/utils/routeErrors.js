@@ -27,6 +27,8 @@ function sendRouteError(res, err, log = console.error) {
   if (err && err.name === 'ValidationError') return res.status(400).json({ message: describeValidationError(err) });
   // a value that must be unique is already taken (an email, a date): the person's to change, not a server fault
   if (err && err.code === 11000) return res.status(409).json({ message: 'That already exists. Choose a different value.' });
+  // another request changed the same record between this one's read and its save
+  if (err && err.name === 'VersionError') return res.status(409).json({ message: 'This was just changed by someone else. Reload and try again.' });
   if (err && err.name === 'CastError') return res.status(400).json({ message: `${labelFor(err.path)} is not valid.` });
   log(err);
   return res.status(500).json({ message: 'Server error' });

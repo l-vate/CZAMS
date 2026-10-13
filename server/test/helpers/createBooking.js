@@ -20,7 +20,7 @@ const { manilaTodayKey } = require('../../utils/timeBlocks');
 const { addDays } = require('../../utils/extensionDays');
 const { matches, chain } = require('./memoryQueries');
 
-const state = { backJobDelay: 0, users: [], services: [], bookings: [], notes: [], closures: [], promos: [], backJobs: [], settings: null };
+const state = { versioned: false, backJobDelay: 0, users: [], services: [], bookings: [], notes: [], closures: [], promos: [], backJobs: [], settings: null };
 let seq = 0;
 let server;
 let base;
@@ -46,6 +46,25 @@ const asDoc = (obj) => {
   return obj;
 };
 
+function versionedCopy(canon) {
+  const doc = asDoc(JSON.parse(JSON.stringify(canon)));
+  doc.__v = canon.__v || 0;
+  doc.save = async function save() {
+    if ((canon.__v || 0) !== (this.__v || 0)) {
+      const err = new Error('No matching document found for the version');
+      err.name = 'VersionError';
+      throw err;
+    }
+    const data = JSON.parse(JSON.stringify(this));
+    Object.keys(canon).forEach((key) => { if (typeof canon[key] !== 'function') delete canon[key]; });
+    Object.assign(canon, data);
+    canon.__v = (data.__v || 0) + 1;
+    this.__v = canon.__v;
+    return this;
+  };
+  return doc;
+}
+
 function reset({ users = [], services = [], settings = DEFAULT_SETTINGS } = {}) {
   authCache.clear();
   state.users = users;
@@ -57,6 +76,7 @@ function reset({ users = [], services = [], settings = DEFAULT_SETTINGS } = {}) 
   state.promos = [];
   state.backJobs = [];
   state.backJobDelay = 0;
+  state.versioned = false;
   seq = 0;
 }
 
@@ -72,7 +92,14 @@ async function install() {
   Promo.find = () => chain(state.promos);
   Counter.findOneAndUpdate = async () => ({ seq: (seq += 1) * 1000 });
   Notification.create = async (d) => { state.notes.push(d); return d; };
-  Booking.findOne = (f) => chain(state.bookings.find((b) => matches(b, f)) || null);
+  // With state.versioned, every read gives its own copy and a save is refused (VersionError) when the stored booking changed since
+  // that read: what Mongoose's optimisticConcurrency does. Two requests at once can then not both succeed.
+  Booking.findOne = (f) => {
+    const found = state.bookings.find((b) => matches(b, f)) || null;
+    if (!state.versioned || !found) return chain(found);
+    const copy = versionedCopy(found);
+    return { select() { return this; }, populate() { return this; }, lean() { return this; }, sort() { return this; }, then(resolve, reject) { return new Promise((done) => { setTimeout(() => done(copy), 8); }).then(resolve, reject); } };
+  };
   Booking.find = (f) => chain(state.bookings.filter((b) => matches(b, f)));
   Booking.countDocuments = async (f) => state.bookings.filter((b) => matches(b, f)).length;
   Booking.create = async (data) => {

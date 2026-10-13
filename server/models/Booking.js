@@ -381,7 +381,9 @@ const bookingSchema = new mongoose.Schema({
     // a Senior/PWD discount approved after the customer paid must not shrink their refund.
     // Bookings made before this field existed have none and fall back to the current computation.
     downPaymentPaidAmount: Number,
-}, { timestamps: true });
+// optimisticConcurrency: a save is refused (VersionError, answered as a 409) when the booking changed since it was read, so two
+// admins acting on the same booking at once cannot both succeed or both notify the customer.
+}, { timestamps: true, optimisticConcurrency: true });
 
 // Add index for efficient queries
 // REMOVED: bookingSchema.index({ bookingId: 1 }); // <-- This is the duplicate!

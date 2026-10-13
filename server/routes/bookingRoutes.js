@@ -207,8 +207,7 @@ router.get('/public/feedback-summary', async (req, res) => {
       })),
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -223,8 +222,7 @@ router.post('/status-check/run', auth, async (req, res) => {
     const result = await runBookingStatusCheck();
     res.json(result);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -257,8 +255,7 @@ router.get('/technicians/:id/feedback', auth, async (req, res) => {
 
     res.json(reviews);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -618,8 +615,7 @@ router.get('/mine', auth, async (req, res) => {
     });
     res.json(enriched.map(toCustomerView));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -645,8 +641,7 @@ router.get('/busy-technicians', auth, async (req, res) => {
 
     res.json({ busyTechIds });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -660,8 +655,7 @@ router.get('/queue', auth, async (req, res) => {
     const queue = await getQueue();
     res.json(queue.map((item) => ({ ...item, booking: withWarranty(item.booking) })));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -695,8 +689,7 @@ router.get('/technician-workload', auth, async (req, res) => {
 
     res.json(rows);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -714,8 +707,7 @@ router.get('/:bookingId', auth, async (req, res) => {
     obj.warranty = getWarrantyStatus(booking);
     res.json(toCustomerView(obj));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -769,8 +761,7 @@ router.patch('/:bookingId/cancel', auth, auditSpecs.customerCancel, allowRoles(R
     ]);
     res.json(customerBooking(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -913,8 +904,7 @@ router.get('/:bookingId/reference-duplicates', auth, async (req, res) => {
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
     res.json({ duplicates: await findSameReference(Booking, booking) });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -957,8 +947,7 @@ router.patch('/:bookingId/discount/request', auth, allowRoles(ROLE.CUSTOMER), up
     ]);
     res.json(customerBooking(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -1029,8 +1018,7 @@ router.patch('/:bookingId/discount/approve', auth, auditSpecs.discountApprove, a
     ]);
     res.json(withWarranty(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -1078,8 +1066,7 @@ router.patch('/:bookingId/discount/reject', auth, auditSpecs.discountReject, asy
     ]);
     res.json(withWarranty(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -1098,8 +1085,7 @@ router.patch('/:bookingId/queue', auth, auditSpecs.queueMove, async (req, res) =
     const queue = await getQueue();
     res.json(queue.map((item) => ({ ...item, booking: withWarranty(item.booking) })));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -1125,8 +1111,7 @@ router.patch('/:bookingId/unit-purchase-proof', auth, auditSpecs.unitPurchasePro
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
     res.json(withWarranty(booking));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -1288,8 +1273,7 @@ router.get('/technician/mine', auth, async (req, res) => {
       ...(backJobs.has(j.bookingId) ? { backJob: backJobs.get(j.bookingId) } : {}),
     })));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -1322,8 +1306,7 @@ router.get('/technician/mine/stats', auth, async (req, res) => {
     // No ratings or customer feedback here: technicians do not receive them. Admins read them in the Performance Review.
     res.json({ ongoing, completed, pendingReports, backJobs });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -1385,8 +1368,7 @@ router.patch('/:bookingId/disruption/report', auth, async (req, res) => {
     const populated = await reported.populate(['service', 'technician', 'customer', ...ASSIGNMENT_POPULATE]);
     res.json(toTechnicianView(populated.toObject(), { myRole: getRoleFor(populated, req.userId), isPrimaryLead: getPrimaryLeadId(populated) === req.userId }));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -1460,8 +1442,7 @@ router.patch('/:bookingId/extension/request', auth, async (req, res) => {
     const populated = await booking.populate(['service', 'technician', 'customer', ...ASSIGNMENT_POPULATE]);
     res.json(toTechnicianView(populated.toObject(), { myRole: getRoleFor(populated, req.userId), isPrimaryLead: getPrimaryLeadId(populated) === req.userId }));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -1489,8 +1470,7 @@ router.get('/', auth, async (req, res) => {
     });
     res.json(enriched);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -1571,8 +1551,7 @@ router.patch('/:bookingId/reschedule/approve', auth, auditSpecs.rescheduleApprov
 
     res.json(withWarranty(await booking.populate(RESCHEDULE_RESPONSE_POPULATE)));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -1646,8 +1625,7 @@ router.patch('/:bookingId/reschedule/deny', auth, auditSpecs.rescheduleDeny, asy
     ]);
     res.json(withWarranty(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -1869,8 +1847,7 @@ router.patch('/:bookingId/assign', auth, auditSpecs.assign, async (req, res) => 
     const populated = await booking.populate(ASSIGN_RESPONSE_POPULATE);
     res.json(withWarranty(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -1894,8 +1871,7 @@ router.get('/:bookingId/assignment-history', auth, async (req, res) => {
     const names = new Map(users.map((u) => [String(u._id), u.name]));
     res.json({ history: viewHistory(entries, names, { admin: isAdmin }) });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -2120,8 +2096,7 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
 
     res.json(withWarranty(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -2189,8 +2164,7 @@ router.patch('/:bookingId/refund', auth, auditSpecs.refundProcess, allowRoles(RO
 
     res.json(withWarranty(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -2225,8 +2199,7 @@ router.patch('/:bookingId/refund/received', auth, allowRoles(ROLE.CUSTOMER), asy
 
     res.json(customerBooking(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -2273,8 +2246,7 @@ router.patch('/:bookingId/refund/flag', auth, allowRoles(ROLE.CUSTOMER), async (
 
     res.json(customerBooking(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -2308,8 +2280,7 @@ router.patch('/:bookingId/refund/flag/resolve', auth, auditSpecs.refundFlagResol
 
     res.json(withWarranty(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -2389,8 +2360,7 @@ router.patch('/:bookingId/disruption/reschedule', auth, auditSpecs.disruptionRes
 
     res.json(withWarranty(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -2455,8 +2425,7 @@ router.patch('/:bookingId/extension/approve', auth, auditSpecs.extensionApprove,
 
     res.json(withWarranty(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -2497,8 +2466,7 @@ router.patch('/:bookingId/extension/deny', auth, auditSpecs.extensionDeny, async
 
     res.json(withWarranty(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 

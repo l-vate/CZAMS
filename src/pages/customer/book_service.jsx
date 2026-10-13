@@ -6,7 +6,8 @@ import ClosureDateInput from '../../components/closure_date_input';
 import DiscountOption from '../../components/discount_option';
 import { usePublicPromos } from '../../utils/promos';
 import { getCostBreakdown } from '../../utils/costBreakdown';
-import { UNIT_TYPES } from '../../constants/unitTypes';
+import { UNIT_TYPES, MAX_UNIT_QUANTITY } from '../../constants/unitTypes';
+import { resolveCleaningTier } from '../../../shared/bookingRules.js';
 import { useServices } from '../../hooks/useServices';
 import { useTechnicians } from '../../hooks/useTechnicians';
 import { useMyClassification } from '../../hooks/useMyClassification';
@@ -71,14 +72,7 @@ export function StepIndicator({ current, total = TOTAL_STEPS }) {
 // tier in Manage Services doesn't break this - the higher price for the more
 // involved job is the actual defining trait the client described.
 function resolveCleaningTierService(services, lastCleanedOver6MonthsAgo, isActivelyLeaking) {
-  const tiers = services
-    .filter((s) => s.serviceType === SERVICE_TYPE.CLEANING)
-    .sort((a, b) => a.price - b.price);
-  if (tiers.length === 0) return null;
-
-  if (isActivelyLeaking) return tiers[tiers.length - 1];
-  if (lastCleanedOver6MonthsAgo) return tiers[1] || tiers[0];
-  return tiers[0];
+  return resolveCleaningTier(services.filter((s) => s.serviceType === SERVICE_TYPE.CLEANING), lastCleanedOver6MonthsAgo, isActivelyLeaking);
 }
 
 function CleaningTierQuestions({ onResolve, onCancel, initialAnswers, services }) {
@@ -278,8 +272,10 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
                 type="number"
                 className="bs-input unit-entry-qty"
                 min="1"
+                max={MAX_UNIT_QUANTITY}
+                step="1"
                 value={unit.quantity}
-                onChange={(e) => updateUnit(index, { quantity: Number(e.target.value) || 1 })}
+                onChange={(e) => updateUnit(index, { quantity: Math.min(MAX_UNIT_QUANTITY, Math.max(1, Math.floor(Number(e.target.value)) || 1)) })}
               />
 
               <input
@@ -783,7 +779,7 @@ const canNext = () => {
     if (step === 2) {
       const units = form.units || [];
       if (units.length === 0) return false;
-      if (units.some((u) => !u.type || !u.quantity || u.quantity < 1)) return false;
+      if (units.some((u) => !u.type || !Number.isInteger(u.quantity) || u.quantity < 1 || u.quantity > MAX_UNIT_QUANTITY)) return false;
       const selectedService = services.find((s) => s.id === form.service);
       const isInstallation = selectedService?.serviceType === SERVICE_TYPE.INSTALLATION;
       if (isInstallation && form.clientSuppliedUnit) {

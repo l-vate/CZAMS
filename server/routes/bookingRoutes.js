@@ -35,6 +35,7 @@ const BackJob = require('../models/BackJob');
 const { TECHNICIAN_BOOKING_FILTER, isHiddenFromTechnicians } = require('../utils/technicianVisibility');
 const scheduling = require('../constants/scheduling');
 const { createUploader, discardUploads, PROOF_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
+const { serviceProblem, unitsProblem } = require('../utils/bookingValidation');
 const { downPaymentProblem, balanceProblem, DOWN_PAYMENT_BOOKING_STATUSES, DOWN_PAYMENT_OPEN, BALANCE_BOOKING_STATUSES, BALANCE_OPEN } = require('../utils/paymentGuards');
 const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/queue');
 const { generateBookingId, createWithUniqueBookingId, BookingIdExhaustedError } = require('../utils/bookingId');
@@ -343,6 +344,21 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
       brandModel: u.brandModel || '',
     }));
 
+    // The booking must fit its service: the service exists and is open for booking, a cleaning booking uses the tier its
+    // two answers lead to, and every unit has a known type, a whole quantity and a price (utils/bookingValidation.js).
+    const serviceDoc = await Service.findById(service).select('name serviceType isActive hiddenFromDirectSelection price unitTypePricing');
+    const serviceIssue = await serviceProblem({
+      service: serviceDoc,
+      cleaningServices: serviceDoc?.serviceType === SERVICE_TYPE.CLEANING
+        ? await Service.find({ serviceType: SERVICE_TYPE.CLEANING, isActive: { $ne: false } }).select('name price')
+        : [],
+      answers: { lastCleanedOver6MonthsAgo, isActivelyLeaking },
+      isAdmin: req.userRole === ROLE.ADMIN,
+    });
+    if (serviceIssue) return sendProblem(res, serviceIssue);
+    const unitIssue = await unitsProblem(units, serviceDoc);
+    if (unitIssue) return sendProblem(res, unitIssue);
+
     // Warranty Tracking Module: a client-supplied unit on an installation booking
     // has no Unit Warranty, so a signed waiver acknowledging that is required.
     const isClientSuppliedUnit = clientSuppliedUnit === 'true' || clientSuppliedUnit === true;
@@ -468,8 +484,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
     // Guard against stale cleaning-tier answers riding along onto a booking for
     // a different (or no longer Cleaning) service - the client also resets these
     // on service switch, but this is the actual enforcement point.
-    const selectedService = await Service.findById(service).select('serviceType');
-    const isCleaningService = selectedService?.serviceType === SERVICE_TYPE.CLEANING;
+    const isCleaningService = serviceDoc.serviceType === SERVICE_TYPE.CLEANING;
 
     const queueRank = await nextQueueRank(); // last in line: first come, first served
     const booking = await createWithUniqueBookingId((bookingId) => Booking.create({

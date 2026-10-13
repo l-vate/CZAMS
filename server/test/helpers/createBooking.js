@@ -1,0 +1,133 @@
+// A stand-in database and a tiny Express app for tests of POST /api/bookings and the customer booking routes. The
+// real routes, the real auth middleware and the real validation run; only the Mongoose calls are replaced by plain
+// objects in memory, so no database is needed. Install it once per test file with install(), reset it with reset().
+const express = require('express');
+const jwt = require('jsonwebtoken');
+
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-not-a-real-one';
+
+const User = require('../../models/User');
+const Booking = require('../../models/Booking');
+const Service = require('../../models/Service');
+const Closure = require('../../models/Closure');
+const Promo = require('../../models/Promo');
+const Counter = require('../../models/Counter');
+const PaymentSettings = require('../../models/PaymentSettings');
+const Notification = require('../../models/Notification');
+const BackJob = require('../../models/BackJob');
+const { authCache } = require('../../utils/authCache');
+const { manilaTodayKey } = require('../../utils/timeBlocks');
+const { addDays } = require('../../utils/extensionDays');
+const { matches, chain } = require('./memoryQueries');
+
+const state = { users: [], services: [], bookings: [], notes: [], closures: [], promos: [], backJobs: [], settings: null };
+let seq = 0;
+let server;
+let base;
+
+const DEFAULT_SETTINGS = {
+  _id: 'default',
+  paymentMethods: [{ name: 'Cash' }, { name: 'GCash' }, { name: 'Cheque' }, { name: 'Bank Transfer' }],
+  downPaymentPercentages: [30, 50, 100],
+  seniorPwdDiscountPercent: 20,
+};
+
+const asDoc = (obj) => {
+  obj.save = async () => obj;
+  obj.populate = async function populate() {
+    const svc = state.services.find((s) => s._id === this.service);
+    if (svc) this.service = svc;
+    return this;
+  };
+  obj.toObject = () => JSON.parse(JSON.stringify(obj));
+  return obj;
+};
+
+function reset({ users = [], services = [], settings = DEFAULT_SETTINGS } = {}) {
+  authCache.clear();
+  state.users = users;
+  state.services = services;
+  state.settings = settings;
+  state.bookings = [];
+  state.notes = [];
+  state.closures = [];
+  state.promos = [];
+  state.backJobs = [];
+  seq = 0;
+}
+
+async function install() {
+  User.findById = (id) => chain(state.users.find((u) => u._id === id) || null);
+  User.findOne = (f) => chain(state.users.find((u) => matches(u, f)) || null);
+  User.find = (f) => chain(state.users.filter((u) => matches(u, f)));
+  Service.findById = (id) => chain(state.services.find((s) => s._id === id) || null);
+  Service.find = (f) => chain(state.services.filter((s) => matches(s, f)));
+  PaymentSettings.findById = () => chain(state.settings);
+  Closure.findOne = (f) => chain(state.closures.find((c) => matches(c, f)) || null);
+  Closure.find = (f) => chain(state.closures.filter((c) => matches(c, f)));
+  Promo.find = () => chain(state.promos);
+  Counter.findOneAndUpdate = async () => ({ seq: (seq += 1) * 1000 });
+  Notification.create = async (d) => { state.notes.push(d); return d; };
+  Booking.findOne = (f) => chain(state.bookings.find((b) => matches(b, f)) || null);
+  Booking.find = (f) => chain(state.bookings.filter((b) => matches(b, f)));
+  Booking.countDocuments = async (f) => state.bookings.filter((b) => matches(b, f)).length;
+  Booking.create = async (data) => {
+    const doc = asDoc({ _id: `oid-${state.bookings.length + 1}`, status: 'Pending', assignments: [], extensionDays: [], refund: {}, ...JSON.parse(JSON.stringify(data)) });
+    state.bookings.push(doc);
+    return doc;
+  };
+  Booking.findOneAndUpdate = (f, update) => {
+    const found = state.bookings.find((b) => matches(b, f));
+    if (found && update.$set) Object.assign(found, update.$set);
+    return chain(found || null);
+  };
+  Booking.updateOne = async (f, update) => {
+    const found = state.bookings.find((b) => matches(b, f));
+    if (found && update.$set) Object.assign(found, update.$set);
+    return { acknowledged: true };
+  };
+  BackJob.findOne = (f) => chain(state.backJobs.find((b) => matches(b, f)) || null);
+
+  const app = express();
+  app.use(express.json());
+  app.use('/api/bookings', require('../../routes/bookingRoutes'));
+  server = await new Promise((resolve) => { const s = app.listen(0, () => resolve(s)); });
+  base = `http://127.0.0.1:${server.address().port}`;
+}
+
+const close = () => server && server.close();
+
+// A date the booking rules accept: about a week from today in Manila, never a Sunday.
+function goodDate(daysAhead = 7) {
+  let date = addDays(manilaTodayKey(), daysAhead);
+  while (new Date(`${date}T00:00:00Z`).getUTCDay() === 0) date = addDays(date, 1);
+  return date;
+}
+
+// Sends POST /api/bookings as multipart, the way the form does. `fields` overrides the valid defaults; a value of
+// undefined removes a field.
+async function post(fields = {}, as = 'CUS1', { role = 'customer' } = {}) {
+  const token = jwt.sign({ id: as, role }, process.env.JWT_SECRET, { expiresIn: '5m' });
+  const body = {
+    service: 'S-CLEAN', units: [{ type: 'Split Type', quantity: 1, brandModel: 'Carrier' }], date: goodDate(), time: 'Morning', address: 'Quezon City',
+    contactNumber: '09171234567', downPaymentPercent: 50, paymentMode: 'GCash', lastCleanedOver6MonthsAgo: false, isActivelyLeaking: false, ...fields,
+  };
+  const form = new FormData();
+  Object.entries(body).forEach(([k, v]) => {
+    if (v === undefined) return;
+    form.append(k, k === 'units' && typeof v !== 'string' ? JSON.stringify(v) : String(v));
+  });
+  const res = await fetch(`${base}/api/bookings`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+  return { status: res.status, body: await res.json().catch(() => ({})) };
+}
+
+// Any JSON request to the booking routes.
+async function call(method, path, as = 'CUS1', body, { role = 'customer' } = {}) {
+  const token = jwt.sign({ id: as, role }, process.env.JWT_SECRET, { expiresIn: '5m' });
+  const res = await fetch(`${base}/api/bookings${path}`, {
+    method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: body ? JSON.stringify(body) : undefined,
+  });
+  return { status: res.status, body: await res.json().catch(() => ({})) };
+}
+
+module.exports = { state, install, reset, close, post, call, goodDate, DEFAULT_SETTINGS };

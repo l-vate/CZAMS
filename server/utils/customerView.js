@@ -21,6 +21,9 @@ const pick = (source, keys) => {
 // populated (only an id came back) shows as nobody rather than leaking the id.
 const person = (p) => (p && typeof p === 'object' && p.name ? { name: p.name } : null);
 
+// The booking statuses from which a customer sees the technicians' names.
+const TECHNICIANS_VISIBLE_STATUSES = ['Approved', 'In Progress', 'Completed'];
+
 // Top-level Booking fields a customer may receive, passed through as they are (they hold nothing internal).
 const PASS_THROUGH = [
   '_id', 'bookingId', 'status', 'createdAt', 'updatedAt', 'date', 'time', 'address', 'contactNumber', 'problemDescription',
@@ -49,9 +52,12 @@ function toCustomerView(booking) {
 
   if (out.customer && typeof out.customer === 'object') out.customer = pick(out.customer, ['_id', 'name']);
 
-  if (b.technician !== undefined) out.technician = person(b.technician);
+  // The technicians on a Pending booking are only a proposal and can change, so the customer sees them once the booking
+  // is Approved (and after). A Cancelled booking shows none.
+  const showTechnicians = TECHNICIANS_VISIBLE_STATUSES.includes(b.status);
+  if (b.technician !== undefined) out.technician = showTechnicians ? person(b.technician) : null;
   if (b.assignments !== undefined) {
-    out.assignments = (b.assignments || []).map((a) => ({
+    out.assignments = (showTechnicians ? (b.assignments || []) : []).map((a) => ({
       team: a.team && typeof a.team === 'object' ? { name: a.team.name } : null,
       lead: person(a.lead),
       helper: person(a.helper),

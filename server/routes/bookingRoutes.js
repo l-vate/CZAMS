@@ -1084,20 +1084,13 @@ router.patch('/:bookingId/reschedule', auth, allowRoles(ROLE.CUSTOMER), async (r
 
     let needsAdminApproval = false;
 
+    let repose = false;
     if (booking.status === BOOKING_STATUS.PENDING) {
-      const conflict = await findConflictingBooking(getMemberIds(booking), date, time, booking.bookingId);
-      if (conflict) {
-        return res.status(409).json({
-          message: 'The assigned technician is not available at that date and time. Please choose a different date or time.'
-        });
-      }
+      // The date changes straight away. Whoever was proposed for the old date is dropped and proposed again below.
       booking.date = date;
       booking.time = time;
-      booking.rescheduleRequest = { 
-        requestedDate: null, 
-        requestedTime: null, 
-        status: 'None' 
-      };
+      booking.rescheduleRequest = { requestedDate: null, requestedTime: null, status: 'None' };
+      repose = true;
     } else if ([BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status)) {
       booking.rescheduleRequest = { 
         requestedDate: date, 
@@ -1112,6 +1105,11 @@ router.patch('/:bookingId/reschedule', auth, allowRoles(ROLE.CUSTOMER), async (r
     }
 
     await booking.save();
+
+    if (repose) {
+      await booking.populate('service');
+      await repropose(booking, req.userId);
+    }
 
     if (needsAdminApproval) {
       await notifyAdmins(
@@ -1606,14 +1604,35 @@ async function notifyAssignedTechnicians(booking) {
 // Called when a booking is created without a requested technician: picks who should do it
 // (utils/autoAssign.js) and assigns them. The admin can still change it by hand. It never
 // throws, so a failure just leaves the booking unassigned.
-async function autoAssignNewBooking(booking) {
+async function autoAssignNewBooking(booking, reason = 'Assigned automatically by the system') {
   try {
     const proposal = await proposeAssignment(booking);
     if (!proposal.assignment) return;
-    await performAssignment(booking, [proposal.assignment], { reason: 'Assigned automatically by the system' });
+    await performAssignment(booking, [proposal.assignment], { reason });
     await booking.populate(ASSIGNMENT_POPULATE);
   } catch (err) {
     console.error('Auto-assign on create failed:', err);
+  }
+}
+
+// A Pending booking's technicians are only a proposal. When the customer moves it to another date the old proposal no
+// longer fits, so it is dropped (with a line in the assignment history) and the system proposes again for the new date,
+// or leaves the booking unassigned when nobody is free. It never throws.
+async function repropose(booking, changedBy) {
+  try {
+    const previous = getAssignments(booking);
+    if (previous.length > 0) {
+      booking.assignments = [];
+      booking.technician = undefined;
+      await booking.save();
+      await Booking.updateOne(
+        { _id: booking._id },
+        { $push: { assignmentHistory: buildHistoryEntry({ before: previous, after: [], changedBy, reason: 'The customer moved the date, so the proposed technicians were dropped' }) } }
+      );
+    }
+    await autoAssignNewBooking(booking, 'Proposed again after the customer moved the date');
+  } catch (err) {
+    console.error('Could not propose technicians again after a reschedule:', err);
   }
 }
 

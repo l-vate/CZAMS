@@ -10,6 +10,7 @@ process.env.JWT_SECRET = 'test-secret-not-a-real-one';
 
 const User = require('../models/User');
 const Booking = require('../models/Booking');
+const Closure = require('../models/Closure');
 const Notification = require('../models/Notification');
 const { authCache } = require('../utils/authCache');
 const { getMinTechnicians, isStaffed, staffingProblem } = require('../utils/assignments');
@@ -43,6 +44,7 @@ test.before(async () => {
     return chain(ids ? ids.filter((id) => accounts[id] === 'staff').map((id) => ({ _id: id })) : []);
   };
   User.findOne = () => chain({ _id: 'ADM1' });
+  Closure.find = () => chain([]); // the suggested dates look at closure days
   Booking.find = (f) => chain(DB.filter((d) => matches(d, f)));
   Booking.findOne = (f) => chain(DB.find((d) => matches(d, f)) || null);
   Booking.updateOne = async () => ({});

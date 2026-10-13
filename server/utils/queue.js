@@ -7,7 +7,10 @@ const Booking = require('../models/Booking');
 const Counter = require('../models/Counter');
 const User = require('../models/User');
 const { activeStatuses, getMemberIds, getMinTechnicians, ASSIGNMENT_POPULATE } = require('./assignments');
-const { slotsOf } = require('./extensionDays');
+const { slotsOf, addDays } = require('./extensionDays');
+const Closure = require('../models/Closure');
+const { manilaTodayKey } = require('./timeBlocks');
+const { suggestFromBookings } = require('./autoAssign');
 const { listFieldTechnicians } = require('./technicians');
 
 const RANK_GAP = 1000;
@@ -123,6 +126,12 @@ async function getQueue() {
     return busy;
   };
 
+  // Dates to offer for a request that will not get anyone on its own date (only the first few, to keep the screen quick).
+  const today = manilaTodayKey();
+  const closures = await Closure.find({ date: { $gte: today, $lte: addDays(today, 90) } }).select('date').lean();
+  const closedDates = new Set(closures.map((c) => c.date));
+  let suggestionsLeft = 15;
+
   const seenInBlock = new Map();
   return pending.map((b, index) => {
     const solo = getMinTechnicians(b.service) === 1;
@@ -135,13 +144,21 @@ async function getQueue() {
     const positionInBlock = assigned ? null : (seenInBlock.get(blockKey) || 0) + 1;
     if (!assigned) seenInBlock.set(blockKey, positionInBlock);
 
+    const overCapacity = !assigned && positionInBlock > free;
+    let suggestedDates = [];
+    if (overCapacity && suggestionsLeft > 0) {
+      suggestionsLeft -= 1;
+      suggestedDates = suggestFromBookings({ booking: b, minTechnicians: solo ? 1 : 2, technicians, occupying, closedDates });
+    }
+
     return {
       booking: b,
       position: index + 1,
       free,
       unit: solo ? 'technician' : 'pair',
       positionInBlock,
-      overCapacity: !assigned && positionInBlock > free,
+      overCapacity,
+      suggestedDates,
     };
   });
 }

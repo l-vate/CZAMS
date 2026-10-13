@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { FiArrowUp, FiArrowDown, FiChevronsUp, FiEye } from 'react-icons/fi';
 import { ApiError } from '../services/apiClient';
-import { getQueue, moveInQueue } from '../services/bookingService';
+import { getQueue, moveInQueue, moveToDate } from '../services/bookingService';
+import SuggestedDates from './suggested_dates';
 import { getMemberNames } from '../utils/assignments';
 import { customerLabel } from '../utils/customerLabel';
 
@@ -32,6 +33,20 @@ function PendingQueue({ refreshKey, onViewDetails }) {
   useEffect(() => {
     load();
   }, [load, refreshKey]);
+
+  // One click: move a request to a date when enough technicians are free, then show the queue again.
+  const moveRequestToDate = async (bookingId, date, time) => {
+    setBusyId(bookingId);
+    setError('');
+    try {
+      await moveToDate(bookingId, { date, time });
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message || 'Could not move that request.' : 'Network error. Please try again.');
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const move = async (bookingId, action) => {
     setBusyId(bookingId);
@@ -88,6 +103,9 @@ function PendingQueue({ refreshKey, onViewDetails }) {
                     {item.positionInBlock ? ` · request ${item.positionInBlock} for this slot` : ''}
                     {item.overCapacity ? ' · Over capacity: more requests than free ' + item.unit + 's' : ''}
                   </p>
+                  {item.overCapacity && (
+                    <SuggestedDates dates={item.suggestedDates} time={b.time} disabled={working} onUse={(date, block) => moveRequestToDate(b.bookingId, date, block)} />
+                  )}
                 </div>
 
                 <div className="queue-actions">

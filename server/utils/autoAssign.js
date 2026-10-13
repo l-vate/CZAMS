@@ -146,9 +146,9 @@ function findNextFreeDates({
 
 // ---------- the database side
 
-// `booking` must have its service populated. Returns the proposal without saving anything:
-// { assignment, reason } or { assignment: null, reason, suggestedDates }.
-async function proposeAssignment(booking) {
+// Everything the choosing needs about one booking's date: who exists, who is busy when, and which dates are closed.
+// `booking` must have its service populated.
+async function loadContext(booking) {
   const minTechnicians = getMinTechnicians(booking.service);
   const members = await listFieldTechnicians(User, 'name');
 
@@ -168,21 +168,34 @@ async function proposeAssignment(booking) {
   const weekBookings = memberLists(nearby.filter((b) => b.date >= start && b.date <= end));
   const upcomingBookings = memberLists(nearby.filter((b) => b.date >= today));
 
+  const busyByDate = busyByDateOf(nearby, booking.time);
+  const closedDates = new Set((await Closure.find({ date: { $gte: today, $lte: horizon } }).select('date').lean()).map((c) => c.date));
+  return { minTechnicians, technicians, weekBookings, upcomingBookings, busyByDate, closedDates };
+}
+
+// A booking holds its technicians on its own date and block and on each approved extra day. Maps a date key to the set of
+// technician ids busy in `time` that day.
+function busyByDateOf(bookings, time) {
   const busyByDate = new Map();
-  // A booking holds its technicians on its own date and block and on each approved extra day.
-  nearby.forEach((b) => {
-    slotsOf(b).filter((s) => s.time === booking.time).forEach((s) => {
+  bookings.forEach((b) => {
+    slotsOf(b).filter((s) => s.time === time).forEach((s) => {
       if (!busyByDate.has(s.date)) busyByDate.set(s.date, new Set());
       getMemberIds(b).forEach((id) => busyByDate.get(s.date).add(id));
     });
   });
-  const busyIds = busyByDate.get(booking.date) || new Set();
-  const closedDates = new Set((await Closure.find({ date: { $gte: today, $lte: horizon } }).select('date').lean()).map((c) => c.date));
+  return busyByDate;
+}
+
+// Returns the proposal without saving anything:
+// { assignment, reason } or { assignment: null, reason, suggestedDates }.
+async function proposeAssignment(booking) {
+  const ctx = await loadContext(booking);
+  const busyIds = ctx.busyByDate.get(booking.date) || new Set();
 
   const decision = pickAssignment({
-    minTechnicians, technicians, busyIds,
+    minTechnicians: ctx.minTechnicians, technicians: ctx.technicians, busyIds,
     requestedTechnicianId: booking.requestedTechnician,
-    weekBookings, upcomingBookings,
+    weekBookings: ctx.weekBookings, upcomingBookings: ctx.upcomingBookings,
   });
 
   if (decision.assignment) return decision;
@@ -190,11 +203,29 @@ async function proposeAssignment(booking) {
   return {
     ...decision,
     suggestedDates: findNextFreeDates({
-      minTechnicians, technicians, afterDateKey: booking.date, busyByDate, closedDates,
+      minTechnicians: ctx.minTechnicians, technicians: ctx.technicians, afterDateKey: booking.date, busyByDate: ctx.busyByDate, closedDates: ctx.closedDates,
     }),
   };
 }
 
+// The next dates (up to `limit`, business days only: no Sundays while they are closed, no closure dates) on which enough
+// technicians are free in this booking's time block. Used when approving or assigning fails because nobody is free.
+async function suggestNextDates(booking, { limit = 3 } = {}) {
+  const ctx = await loadContext(booking);
+  return findNextFreeDates({
+    minTechnicians: ctx.minTechnicians, technicians: ctx.technicians, afterDateKey: booking.date, busyByDate: ctx.busyByDate, closedDates: ctx.closedDates, limit,
+  });
+}
+
+// The same, from data the caller already has (the Pending queue loads every active booking once): `occupying` are the
+// bookings that hold technicians, `booking` the request to find dates for.
+function suggestFromBookings({ booking, minTechnicians, technicians, occupying, closedDates, limit = 3 }) {
+  const others = occupying.filter((b) => b.bookingId !== booking.bookingId);
+  return findNextFreeDates({
+    minTechnicians, technicians, afterDateKey: booking.date, busyByDate: busyByDateOf(others, booking.time), closedDates, limit,
+  });
+}
+
 module.exports = {
-  pickAssignment, findNextFreeDates, proposeAssignment, weekRange, addDays,
+  pickAssignment, findNextFreeDates, proposeAssignment, suggestNextDates, suggestFromBookings, weekRange, addDays,
 };

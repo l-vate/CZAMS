@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { attempt, orFallback } from '../services/apiClient';
+import { orFallback } from '../services/apiClient';
 import { getTeamAvailability } from '../services/teamService';
-import { assignBooking } from '../services/bookingService';
+import { ApiError } from '../services/apiClient';
+import { assignBooking, moveToDate } from '../services/bookingService';
+import SuggestedDates from './suggested_dates';
 import { getAssignments } from '../utils/assignments';
 import { BOOKING_STATUS } from '../constants/bookingStatus';
 
@@ -24,6 +26,7 @@ function AssignmentPanel({ booking, onUpdated }) {
   const [saving, setSaving] = useState(false);
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
+  const [suggestedDates, setSuggestedDates] = useState([]); // dates offered when nobody is free on the booking's date
 
   useEffect(() => {
     setPairs(savedPairs());
@@ -57,12 +60,17 @@ function AssignmentPanel({ booking, onUpdated }) {
     setError('');
     try {
       const entries = pairs.map((p) => ({ technicianId: p.lead, ...(p.helper ? { helperId: p.helper } : {}) }));
-      const saved = await attempt(assignBooking(booking.bookingId, entries, reason.trim()), 'Could not save the assignment.');
-      if (saved.error) {
-        setError(saved.error);
+      setSuggestedDates([]);
+      let data;
+      try {
+        data = await assignBooking(booking.bookingId, entries, reason.trim());
+      } catch (err) {
+        if (!(err instanceof ApiError)) throw err;
+        setError(err.message || 'Could not save the assignment.');
+        setSuggestedDates((err.data && err.data.suggestedDates) || []);
         return;
       }
-      onUpdated?.(saved.data);
+      onUpdated?.(data);
     } catch (err) {
       console.error('Error saving assignment:', err);
       setError('Network error. Please try again.');
@@ -175,6 +183,24 @@ function AssignmentPanel({ booking, onUpdated }) {
               disabled={saving}
             />
             {error && <div className="sdm-error assignment-panel-x8">{error}</div>}
+            <SuggestedDates
+              dates={suggestedDates}
+              time={booking.time}
+              disabled={saving}
+              onUse={async (date, block) => {
+                setSaving(true);
+                try {
+                  const moved = await moveToDate(booking.bookingId, { date, time: block });
+                  setSuggestedDates([]);
+                  setError('');
+                  onUpdated?.(moved);
+                } catch (err) {
+                  setError(err instanceof ApiError ? err.message || 'Could not move the booking.' : 'Network error. Please try again.');
+                } finally {
+                  setSaving(false);
+                }
+              }}
+            />
           </>
         )}
       </div>

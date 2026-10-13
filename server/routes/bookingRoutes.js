@@ -27,7 +27,7 @@ const { manilaTodayKey } = require('../utils/timeBlocks');
 const { isWithinServiceArea } = require('../utils/serviceArea');
 const { runBookingStatusCheck } = require('../jobs/bookingStatusJob');
 const { getOrCreateSettings } = require('../utils/paymentSettings');
-const { proposeAssignment } = require('../utils/autoAssign');
+const { proposeAssignment, suggestNextDates } = require('../utils/autoAssign');
 const { toTechnicianView } = require('../utils/technicianView');
 const { allowRoles } = require('../middleware/roles');
 const { listFieldTechnicians, hasFieldPosition, isFieldTechnician } = require('../utils/technicians');
@@ -52,6 +52,7 @@ const { readPaymentSubmission, findSameReference } = require('../utils/paymentRe
 const { resolveRefundAmounts } = require('../utils/refundAmounts');
 const Closure = require('../models/Closure');
 const { businessDayProblem } = require('../utils/businessDays');
+const { isRealDateKey } = require('../utils/closures');
 const { nextWorkingDayKey, extensionSlotProblem, addDays } = require('../utils/extensionDays');
 const {
   ASSIGNMENT_POPULATE, getMemberIds, getLeadIds, getPrimaryLeadId, getRoleFor,
@@ -89,6 +90,17 @@ const upload = createUploader({
 // time zone the server runs in.
 const MIN_LEAD_DAYS = 3;
 const isDateAllowed = (dateStr) => isAtLeastDaysAhead(dateStr, MIN_LEAD_DAYS);
+
+// The next dates when enough technicians are free, offered with a refusal. It is a help, never the answer: if looking them
+// up fails or takes more than a few seconds, the refusal goes out without them.
+async function suggestionsFor(booking) {
+  try {
+    return await Promise.race([suggestNextDates(booking), new Promise((resolve) => { setTimeout(() => resolve([]), 4000).unref(); })]);
+  } catch (err) {
+    console.error('Could not look up suggested dates:', err.message);
+    return [];
+  }
+}
 
 // What an admin may do to a booking's status: null when allowed, otherwise { status, message }.
 // Cancelling is allowed here and handled (with its refund) further down.
@@ -570,10 +582,13 @@ clientSuppliedUnit: isClientSuppliedUnit,
     // The system proposes who will do it: the technician the customer asked for if they are free, otherwise the usual
     // choice. It is only a proposal: hidden from the customer and from the technicians until the admin approves. A
     // failure here never fails the booking, it just stays unassigned for the admin to assign by hand.
-    await autoAssignNewBooking(populated);
+    const auto = await autoAssignNewBooking(populated);
 
-    // an admin booking for a walk-in sees everything; a customer only what is theirs to see
-    res.status(201).json(req.userRole === ROLE.ADMIN ? withWarranty(populated) : customerBooking(populated));
+    // an admin booking for a walk-in sees everything, and the dates when someone is free if nobody was free that day; a
+    // customer only what is theirs to see
+    res.status(201).json(req.userRole === ROLE.ADMIN
+      ? { ...withWarranty(populated), ...(auto.suggestedDates.length > 0 ? { suggestedDates: auto.suggestedDates } : {}) }
+      : customerBooking(populated));
   } catch (err) {
     if (err instanceof BookingIdExhaustedError) { console.error(err); return res.status(500).json({ message: err.message }); }
     sendRouteError(res, err);
@@ -1459,6 +1474,54 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+// Moves a booking to a new date and time as an approved reschedule: the date must be a business day (no Sunday while they
+// are closed, no closure date), and the technicians on it must be free then (a Pending booking has only a proposal, so it is
+// proposed again afterwards instead). The customer and the technicians are told. Returns { error: { status, message,
+// suggestedDates? } } or { ok: true }. Shared by approving a customer's request and by the admin's one-click "use this date".
+async function approveRescheduleTo(booking, date, time, { by }) {
+  // The shop may have been closed on that date after the customer asked.
+  const closed = await businessDayProblem(Closure, date);
+  if (closed) return { error: { status: closed.status || 400, message: closed.message } };
+
+  const pending = booking.status === BOOKING_STATUS.PENDING;
+  if (!pending) {
+    const conflict = await findConflictingBooking(getMemberIds(booking), date, time, booking.bookingId);
+    if (conflict) {
+      return {
+        error: {
+          status: 409,
+          message: `The assigned technician is already booked ${date} (${time}) on ${conflict.bookingId}. Reassign the technician, deny this request, or choose a date when enough technicians are free.`,
+          suggestedDates: await suggestionsFor({ ...booking.toObject(), service: booking.service, date, time }),
+        },
+      };
+    }
+  }
+
+  booking.date = date;
+  booking.time = time;
+  booking.rescheduleRequest = { requestedDate: null, requestedTime: null, status: 'Approved' };
+  await booking.save();
+
+  const who = by === 'admin' ? 'our team' : 'the customer';
+  await sendNotification(
+    booking.customer,
+    NOTIFICATION_TYPE.RESCHEDULE_APPROVED,
+    by === 'admin'
+      ? `Your booking ${booking.bookingId} was moved by our team. New schedule: ${booking.date}, ${booking.time}.`
+      : `Your reschedule request for booking ${booking.bookingId} was approved. New schedule: ${booking.date}, ${booking.time}.`,
+    { booking }
+  );
+  await notifyMembersOfChange(booking, booking.status, NOTIFICATION_TYPE.RESCHEDULE_APPROVED, `Booking ${booking.bookingId} was rescheduled by ${who}. New schedule: ${booking.date}, ${booking.time}.`);
+  return { ok: true };
+}
+
+const RESCHEDULE_RESPONSE_POPULATE = [
+  { path: 'service' },
+  { path: 'customer', select: 'name email phone clientType companyName representativeName' },
+  { path: 'technician', select: 'name' },
+  ...ASSIGNMENT_POPULATE,
+];
+
 // Admin: approve a pending reschedule request
 router.patch('/:bookingId/reschedule/approve', auth, auditSpecs.rescheduleApprove, async (req, res) => {
   try {
@@ -1466,60 +1529,57 @@ router.patch('/:bookingId/reschedule/approve', auth, auditSpecs.rescheduleApprov
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const booking = await Booking.findOne({ 
-      bookingId: req.params.bookingId 
-    });
-    
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId });
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
-    
+
     if (booking.rescheduleRequest?.status !== 'Pending') {
       return res.status(400).json({ message: 'No pending reschedule request.' });
     }
 
-    // The shop may have been closed on that date after the customer asked.
-    const closedOnApprove = await businessDayProblem(Closure, booking.rescheduleRequest.requestedDate);
-    if (closedOnApprove) return sendProblem(res, closedOnApprove);
-
-    const conflict = await findConflictingBooking(
-      getMemberIds(booking),
-      booking.rescheduleRequest.requestedDate,
-      booking.rescheduleRequest.requestedTime,
-      booking.bookingId
-    );
-    if (conflict) {
-      return res.status(409).json({
-        message: `The assigned technician is already booked ${booking.rescheduleRequest.requestedDate} (${booking.rescheduleRequest.requestedTime}) on ${conflict.bookingId}. Reassign the technician or deny this request.`
-      });
+    await booking.populate('service');
+    const moved = await approveRescheduleTo(booking, booking.rescheduleRequest.requestedDate, booking.rescheduleRequest.requestedTime, { by: 'customer' });
+    if (moved.error) {
+      return res.status(moved.error.status).json({ message: moved.error.message, ...(moved.error.suggestedDates ? { suggestedDates: moved.error.suggestedDates } : {}) });
     }
-    
-    booking.date = booking.rescheduleRequest.requestedDate;
-    booking.time = booking.rescheduleRequest.requestedTime;
-    booking.rescheduleRequest = { 
-      requestedDate: null, 
-      requestedTime: null, 
-      status: 'Approved' 
-    };
-    
-    await booking.save();
 
-    await sendNotification(
-      booking.customer,
-      NOTIFICATION_TYPE.RESCHEDULE_APPROVED,
-      `Your reschedule request for booking ${booking.bookingId} was approved. New schedule: ${booking.date}, ${booking.time}.`,
-      { booking }
-    );
-    await notifyMembersOfChange(booking, booking.status, NOTIFICATION_TYPE.RESCHEDULE_APPROVED, `Booking ${booking.bookingId} was rescheduled by the customer. New schedule: ${booking.date}, ${booking.time}.`);
-
-    const populated = await booking.populate([
-      { path: 'service' },
-      { path: 'customer', select: 'name email phone clientType companyName representativeName' },
-      { path: 'technician', select: 'name' },
-      ...ASSIGNMENT_POPULATE,
-    ]);
-    res.json(withWarranty(populated));
+    res.json(withWarranty(await booking.populate(RESCHEDULE_RESPONSE_POPULATE)));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: move a Pending or Approved booking to one of the suggested dates (or any date the rules allow) in one step. It goes
+// through the same approval as a customer's request: closed days and Sundays are refused, the technicians must be free,
+// and the customer and technicians are told. A Pending booking has its proposal made again for the new date.
+router.patch('/:bookingId/reschedule/use-date', auth, auditSpecs.rescheduleUseDate, async (req, res) => {
+  try {
+    if (req.userRole !== ROLE.ADMIN) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    const { date, time } = req.body || {};
+    if (typeof date !== 'string' || !isRealDateKey(date) || date < manilaTodayKey()) {
+      return res.status(400).json({ message: 'Choose a real date that is not in the past.' });
+    }
+    if (!TIME_BLOCKS.includes(time)) return res.status(400).json({ message: 'Time must be Morning or Afternoon.' });
+
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId });
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    if (![BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED].includes(booking.status)) {
+      return res.status(400).json({ message: `A ${booking.status} booking cannot be moved this way. Only a Pending or Approved booking can.` });
+    }
+    if (booking.date === date && booking.time === time) return res.status(400).json({ message: 'The booking already has that date and time.' });
+
+    await booking.populate('service');
+    const moved = await approveRescheduleTo(booking, date, time, { by: 'admin' });
+    if (moved.error) {
+      return res.status(moved.error.status).json({ message: moved.error.message, ...(moved.error.suggestedDates ? { suggestedDates: moved.error.suggestedDates } : {}) });
+    }
+    if (booking.status === BOOKING_STATUS.PENDING) await repropose(booking, req.userId);
+
+    res.json(withWarranty(await booking.populate(RESCHEDULE_RESPONSE_POPULATE)));
+  } catch (err) {
+    sendRouteError(res, err);
   }
 });
 
@@ -1615,7 +1675,8 @@ async function performAssignment(booking, requested, { changedBy, reason } = {})
       return {
         error: {
           status: 409,
-          message: `${who?.name || 'A technician'} is already booked ${booking.date} (${booking.time}) on ${conflict.bookingId}. Choose a different technician.`,
+          message: `${who?.name || 'A technician'} is already booked ${booking.date} (${booking.time}) on ${conflict.bookingId}. Choose a different technician, or move the booking to a date when enough technicians are free.`,
+          suggestedDates: await suggestionsFor(booking),
         },
       };
     }
@@ -1673,12 +1734,13 @@ async function notifyAssignedTechnicians(booking) {
 async function autoAssignNewBooking(booking, reason = 'Assigned automatically by the system') {
   try {
     const proposal = await proposeAssignment(booking);
-    if (!proposal.assignment) return;
+    if (!proposal.assignment) return { suggestedDates: proposal.suggestedDates || [] };
     await performAssignment(booking, [proposal.assignment], { reason });
     await booking.populate(ASSIGNMENT_POPULATE);
   } catch (err) {
     console.error('Auto-assign on create failed:', err);
   }
+  return { suggestedDates: [] };
 }
 
 // A Pending booking's technicians are only a proposal. When the customer moves it to another date the old proposal no
@@ -1728,7 +1790,12 @@ router.patch('/:bookingId/assign', auth, auditSpecs.assign, async (req, res) => 
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
     const result = await performAssignment(booking, requested, { changedBy: req.userId, reason: reasonInput.reason });
-    if (result.error) return res.status(result.error.status).json({ message: result.error.message });
+    if (result.error) {
+      return res.status(result.error.status).json({
+        message: result.error.message,
+        ...(result.error.suggestedDates ? { suggestedDates: result.error.suggestedDates } : {}),
+      });
+    }
 
     const populated = await booking.populate(ASSIGN_RESPONSE_POPULATE);
     res.json(withWarranty(populated));
@@ -1849,7 +1916,8 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
       const clash = await findConflictingBooking(getMemberIds(booking), booking.date, booking.time, booking.bookingId);
       if (clash) {
         return res.status(409).json({
-          message: `A technician on this job is already booked ${booking.date} (${booking.time}) on ${clash.bookingId}. Change the assignment before approving.`,
+          message: `A technician on this job is already booked ${booking.date} (${booking.time}) on ${clash.bookingId}. Change the assignment before approving, or move the booking to a date when enough technicians are free.`,
+          suggestedDates: await suggestionsFor(booking),
         });
       }
     }
@@ -1858,7 +1926,7 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
     // assigned. A Cleaning (or any pair service) needs a lead and a helper; only a check-up or survey may be solo.
     if (status === BOOKING_STATUS.APPROVED && prev.status !== BOOKING_STATUS.APPROVED) {
       const staffing = staffingProblem(getAssignments(booking), booking.service, 'approving');
-      if (staffing) return res.status(400).json({ message: staffing });
+      if (staffing) return res.status(400).json({ message: staffing, suggestedDates: await suggestionsFor(booking) });
     }
 
     // Admin-initiated cancellation opens the same refund request the customer's own

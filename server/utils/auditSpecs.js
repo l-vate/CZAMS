@@ -34,6 +34,7 @@ const recordPayment = audited1('payment.record', 'Booking', bookingId,
   (req) => ({ track: req.body && req.body.track, method: req.body && req.body.method, amount: num(req.body && req.body.amount) }));
 const customerCancel = audited1('booking.cancel', 'Booking', bookingId, (req) => `Cancelled the booking (by ${req.userRole})`, (req) => ({ by: req.userRole }));
 const rescheduleApprove = audited1('reschedule.approve', 'Booking', bookingId, 'Approved the reschedule request');
+const rescheduleUseDate = audited1('reschedule.admin_move', 'Booking', bookingId, 'Moved the booking to another date', (req) => ({ date: req.body && req.body.date, time: req.body && req.body.time }));
 const rescheduleDeny = audited1('reschedule.deny', 'Booking', bookingId, 'Denied the reschedule request');
 const assign = audited1('booking.assign', 'Booking', bookingId, 'Changed who is assigned (see the assignment history)',
   (req) => ({ pairs: Array.isArray(req.body && req.body.assignments) ? req.body.assignments.length : undefined }));
@@ -101,7 +102,7 @@ const reportDelete = audited1('report.delete', 'Report', param('id'), 'Deleted a
 const backJobReview = audited1('backjob.review', 'BackJob', param('backJobId'), 'Marked a Not Covered claim as reviewed');
 
 module.exports = {
-  adminUpdate, recordPayment, customerCancel, rescheduleApprove, rescheduleDeny, assign, discountApprove, discountReject, refundProcess,
+  adminUpdate, recordPayment, customerCancel, rescheduleApprove, rescheduleDeny, rescheduleUseDate, assign, discountApprove, discountReject, refundProcess,
   refundFlagResolve, disruptionReschedule, extensionApprove, extensionDeny, queueMove, unitPurchaseProof, userCreate, userUpdate,
   userClassification, settingsUpdate, promoCreate, promoUpdate, promoDelete, serviceCreate, serviceUpdate, serviceToggle, serviceRemove,
   announcementCreate, announcementUpdate, announcementDelete, closureCreate, closureDelete, reportEdit, reportDelete, backJobReview,

@@ -91,6 +91,11 @@ export function adminUpdateBooking(bookingId, body) {
   return request(`${booking(bookingId)}/admin-update`, { method: 'PATCH', body });
 }
 
+// Move a Pending or Approved booking to a date (one of the suggested ones) through the normal approval: { date, time }.
+export function moveToDate(bookingId, { date, time }) {
+  return request(`${booking(bookingId)}/reschedule/use-date`, { method: 'PATCH', body: { date, time } });
+}
+
 // Record a payment received in person: { track: 'down' | 'balance', method, amount, reference? }.
 export function recordPayment(bookingId, body) {
   return request(`${booking(bookingId)}/record-payment`, { method: 'PATCH', body });

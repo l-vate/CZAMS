@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getBookingLineItems, getPaymentBreakdown, formatPeso } from '../utils/bookingPricing';
 import AssignmentPanel from './assignment_panel';
+import SuggestedDates from './suggested_dates';
 import PaymentReference from './payment_reference';
 import ClosureDateInput from './closure_date_input';
 import ReceiptModal from './receipt_modal';
@@ -8,10 +9,10 @@ import AssignmentHistory from './assignment_history';
 import { buildReceiptForm } from '../utils/receiptData';
 import { getMemberIds } from '../utils/assignments';
 import { isWithinQuezonCity } from '../utils/serviceArea';
-import { attempt, orFallback } from '../services/apiClient';
+import { ApiError, attempt, orFallback } from '../services/apiClient';
 import { getReportForBooking } from '../services/reportService';
 import {
-    adminUpdateBooking, recordPayment, uploadUnitPurchaseProof, rescheduleAfterDisruption, decideDiscount, decideReschedule, decideExtension,
+    adminUpdateBooking, recordPayment, moveToDate, uploadUnitPurchaseProof, rescheduleAfterDisruption, decideDiscount, decideReschedule, decideExtension,
 } from '../services/bookingService';
 import { BOOKING_STATUS } from '../constants/bookingStatus';
 import { TIME_BLOCK } from '../constants/timeBlocks';
@@ -62,6 +63,7 @@ function Icon({ name }) {
 function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
     
     const [saving, setSaving] = useState(false);
+    const [offeredDates, setOfferedDates] = useState([]); // dates offered after an approval is refused because nobody is free
     const [recordDraft, setRecordDraft] = useState(null); // a payment being recorded: received in person
     const [error, setError] = useState('');
     const [disruptionDate, setDisruptionDate] = useState('');
@@ -120,13 +122,18 @@ const [report, setReport] = useState(null);
     const patchBooking = async (body) => {
         setSaving(true);
         setError('');
+        setOfferedDates([]);
         try {
-            const updated = await attempt(adminUpdateBooking(booking.bookingId, body), 'Something went wrong.');
-            if (updated.error) {
-                setError(updated.error);
+            let data;
+            try {
+                data = await adminUpdateBooking(booking.bookingId, body);
+            } catch (err) {
+                if (!(err instanceof ApiError)) throw err;
+                setError(err.message || 'Something went wrong.');
+                setOfferedDates((err.data && err.data.suggestedDates) || []); // when nobody is free, the dates that work
                 return false;
             }
-            onUpdated?.(updated.data);
+            onUpdated?.(data);
             return true;
         } catch (err) {
             console.error('Error updating booking:', err);
@@ -343,6 +350,23 @@ const [report, setReport] = useState(null);
                     )}
 
                     {error && <div className="sdm-error">{error}</div>}
+                    <SuggestedDates
+                        dates={offeredDates}
+                        time={booking.time}
+                        disabled={saving}
+                        onUse={async (date, block) => {
+                            setSaving(true);
+                            try {
+                                const moved = await attempt(moveToDate(booking.bookingId, { date, time: block }), 'Could not move the booking.');
+                                if (moved.error) { setError(moved.error); return; }
+                                setOfferedDates([]);
+                                setError('');
+                                onUpdated?.(moved.data);
+                            } finally {
+                                setSaving(false);
+                            }
+                        }}
+                    />
 
                     <div className="sdm-customer-line">
                         <Icon name="user" />

@@ -20,7 +20,7 @@ const { manilaTodayKey } = require('../../utils/timeBlocks');
 const { addDays } = require('../../utils/extensionDays');
 const { matches, chain } = require('./memoryQueries');
 
-const state = { users: [], services: [], bookings: [], notes: [], closures: [], promos: [], backJobs: [], settings: null };
+const state = { backJobDelay: 0, users: [], services: [], bookings: [], notes: [], closures: [], promos: [], backJobs: [], settings: null };
 let seq = 0;
 let server;
 let base;
@@ -53,6 +53,7 @@ function reset({ users = [], services = [], settings = DEFAULT_SETTINGS } = {}) 
   state.closures = [];
   state.promos = [];
   state.backJobs = [];
+  state.backJobDelay = 0;
   seq = 0;
 }
 
@@ -81,21 +82,58 @@ async function install() {
     if (found && update.$set) Object.assign(found, update.$set);
     return chain(found || null);
   };
+  Booking.deleteOne = async (f) => {
+    const index = state.bookings.findIndex((b) => matches(b, f));
+    if (index >= 0) state.bookings.splice(index, 1);
+    return { deletedCount: index >= 0 ? 1 : 0 };
+  };
   Booking.updateOne = async (f, update) => {
     const found = state.bookings.find((b) => matches(b, f));
     if (found && update.$set) Object.assign(found, update.$set);
     return { acknowledged: true };
   };
-  BackJob.findOne = (f) => chain(state.backJobs.find((b) => matches(b, f)) || null);
+  BackJob.findOne = (f) => {
+    const found = state.backJobs.find((b) => matches(b, f)) || null;
+    // a short pause, so two requests made together both look before either saves (what a real database allows)
+    return state.backJobDelay ? new Promise((resolve) => { setTimeout(() => resolve(found), state.backJobDelay); }) : chain(found);
+  };
+  BackJob.create = async (data) => {
+    const doc = JSON.parse(JSON.stringify(data));
+    // the unique partial index: one OPEN claim per booking
+    if (state.backJobs.some((b) => b.originalBookingId === doc.originalBookingId && b.isOpen !== false && doc.isOpen !== false)) {
+      throw Object.assign(new Error('E11000 duplicate key error'), { code: 11000, keyPattern: { originalBookingId: 1 } });
+    }
+    const saved = { _id: `bj-${state.backJobs.length + 1}`, isOpen: true, ...doc, toObject() { return { ...this }; } };
+    state.backJobs.push(saved);
+    return saved;
+  };
+  BackJob.findById = (id) => chain(state.backJobs.find((b) => b._id === id) || null);
 
   const app = express();
   app.use(express.json());
   app.use('/api/bookings', require('../../routes/bookingRoutes'));
+  app.use('/api/back-jobs', require('../../routes/backJobRoutes'));
   server = await new Promise((resolve) => { const s = app.listen(0, () => resolve(s)); });
   base = `http://127.0.0.1:${server.address().port}`;
 }
 
 const close = () => server && server.close();
+
+// Puts a ready-made booking into the stand-in database (its service as a plain object, so warranty and pricing work).
+function addBooking(fields) {
+  const doc = asDoc({ _id: `oid-${state.bookings.length + 1}`, status: 'Pending', assignments: [], extensionDays: [], refund: {}, ...fields });
+  state.bookings.push(doc);
+  return doc;
+}
+
+// A JSON request to any mounted route, as the person named.
+async function callPath(method, path, as = 'CUS1', body, { role = 'customer' } = {}) {
+  const token = jwt.sign({ id: as, role }, process.env.JWT_SECRET, { expiresIn: '5m' });
+  const res = await fetch(`${base}${path}`, {
+    method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: body ? JSON.stringify(body) : undefined,
+  });
+  return { status: res.status, body: await res.json().catch(() => ({})) };
+}
 
 // A date the booking rules accept: about a week from today in Manila, never a Sunday.
 function goodDate(daysAhead = 7) {
@@ -130,4 +168,4 @@ async function call(method, path, as = 'CUS1', body, { role = 'customer' } = {})
   return { status: res.status, body: await res.json().catch(() => ({})) };
 }
 
-module.exports = { state, install, reset, close, post, call, goodDate, DEFAULT_SETTINGS };
+module.exports = { state, install, reset, close, post, call, callPath, addBooking, goodDate, DEFAULT_SETTINGS };

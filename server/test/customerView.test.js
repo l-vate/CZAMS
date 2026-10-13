@@ -223,7 +223,7 @@ test('PATCH refund flag and refund received return the customer view', async () 
 });
 
 test('PATCH pay and pay-balance return the customer view', async () => {
-  DB = [doc({ status: 'Pending', paymentMode: 'Cash', paymentMode2: 'Cash', paymentStatus: 'Unpaid', balancePaymentStatus: 'None' })];
+  DB = [doc({ status: 'Pending', paymentMode: 'Maya', paymentMode2: 'Cash', paymentStatus: 'Unpaid', balancePaymentStatus: 'None' })];
   const pay = await call('PATCH', '/api/bookings/CZ-1/pay', 'CUS1');
   assert.equal(pay.status, 200, JSON.stringify(pay.body));
   assertClean(pay.body, 'PATCH /pay');

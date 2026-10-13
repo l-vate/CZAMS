@@ -36,11 +36,12 @@ function nextWorkingDayKey(fromKey, closedKeys = new Set()) {
 function extensionSlotProblem({ date, time }, booking, today) {
   if (!isRealDateKey(date)) return 'Choose a valid date for the extra day.';
   if (!TIME_BLOCKS.includes(time)) return 'Choose Morning or Afternoon for the extra day.';
-  if (isSunday(date)) return 'The shop is closed on Sundays. Choose another day.';
-  const earliest = booking && booking.date && booking.date > today ? booking.date : today;
-  if (date < earliest) return 'The extra day cannot be before the job or in the past.';
+  // The block the job already has, or an extra day already approved, is named as such even on a Sunday.
   if (booking && date === booking.date && time === booking.time) return 'That is the time block this job already has. Choose another.';
   if (slotsOf(booking).some((s) => s.date === date && s.time === time)) return 'That extra day is already approved for this job.';
+  const earliest = booking && booking.date && booking.date > today ? booking.date : today;
+  if (date < earliest) return 'The extra day cannot be before the job or in the past.';
+  if (isSunday(date)) return 'The shop is closed on Sundays. Choose another day.';
   return null;
 }
 

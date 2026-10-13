@@ -139,7 +139,7 @@ test('the default skips a closed shop date', async () => {
 
 test('the lead can choose the day and block; a Sunday, a closed date, the past and the job\'s own block are refused', async () => {
   DB = [job()];
-  const later = addDays(tomorrow, 2);
+  const later = nextWorkingDayKey(addDays(tomorrow, 1)); // never a Sunday, whatever day the test runs
   const ok = await call('PATCH', '/api/bookings/CZ-1/extension/request', 'T1', { reason: 'x', date: later, time: 'Afternoon' });
   assert.equal(ok.status, 200, JSON.stringify(ok.body));
   assert.equal(DB[0].extensionRequest.requestedTime, 'Afternoon');
@@ -154,7 +154,9 @@ test('the lead can choose the day and block; a Sunday, a closed date, the past a
   let sunday = tomorrow;
   while (!isSunday(sunday)) sunday = addDays(sunday, 1);
   await refused({ date: sunday }, /Sundays/);
-  await refused({ date: addDays(TODAY, -2) }, /before the job or in the past/);
+  let past = addDays(TODAY, -2);
+  while (isSunday(past)) past = addDays(past, -1); // a past Sunday would be refused as a Sunday first
+  await refused({ date: past }, /before the job or in the past/);
   await refused({ date: TODAY, time: 'Morning' }, /already has/);
   await refused({ date: 'not-a-date' }, /valid date/);
   CLOSED = [later];
@@ -289,7 +291,7 @@ test('after a denial the lead can ask again, and a second day can be approved on
   DB = [job({ extensionRequest: { status: 'Denied' } })];
   assert.equal((await call('PATCH', '/api/bookings/CZ-1/extension/request', 'T1', { reason: 'again' })).status, 200);
   await call('PATCH', '/api/bookings/CZ-1/extension/approve', 'ADM1');
-  DB[0].extensionRequest = { status: 'Pending', requestedDate: addDays(tomorrow, 3), requestedTime: 'Morning' };
+  DB[0].extensionRequest = { status: 'Pending', requestedDate: nextWorkingDayKey(addDays(tomorrow, 2)), requestedTime: 'Morning' };
   const second = await call('PATCH', '/api/bookings/CZ-1/extension/approve', 'ADM1');
   assert.equal(second.status, 200, JSON.stringify(second.body));
   assert.equal(DB[0].extensionDays.length, 2);

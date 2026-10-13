@@ -153,7 +153,7 @@ function ServiceRequests() {
                                     <p className="req-title">{req.service?.name || 'N/A'}</p>
                                     <p className="req-id">{req.bookingId}</p>
                                     <p className="req-tech">
-                                        Technicians: {getMemberNames(req, 'Not Assigned')}
+                                        Technicians: {getMemberNames(req, 'Not Assigned')}{req.needsReassignment ? ' (needs a new technician)' : ''}
                                     </p>
                                     
                                     <div className="req-info-item">

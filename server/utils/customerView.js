@@ -43,7 +43,7 @@ const SHAPED = ['technician', 'assignments', 'discount', 'refund', 'rescheduleRe
 // of the Booking model (the test checks it), so a new field cannot reach customers by accident.
 const HIDDEN = [
   'technicianInstructions', 'assignmentHistory', 'queueRank', 'serviceAreaCheck', 'approvedAt',
-  'reportId', 'report', '__v', 'id', 'paymentEvents',
+  'reportId', 'report', '__v', 'id', 'paymentEvents', 'needsReassignment',
 ];
 
 function toCustomerView(booking) {

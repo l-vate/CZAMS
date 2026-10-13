@@ -47,6 +47,9 @@ const bookingSchema = new mongoose.Schema({
       at: Date,
       _id: false,
     }],
+    // Set when a technician on this job was deactivated and nobody has been assigned in their place yet. The admin sees it
+    // on the booking and in the assignment panel until the job is reassigned. Admin only.
+    needsReassignment: { type: Boolean, default: false },
     // The prices this booking was made at (utils/priceSnapshot.js). Totals use these, not the service's current price.
     // Bookings made before this existed have none and follow the current price.
     priceSnapshot: {

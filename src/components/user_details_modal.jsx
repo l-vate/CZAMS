@@ -37,6 +37,18 @@ function Icon({ name }) {
   }
 }
 
+// Sets an account active or not. A technician with open jobs: the server lists them and waits for a yes before deactivating.
+async function setActiveWithConfirmation(userId, isActive) {
+  try {
+    return await updateUser(userId, { isActive });
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 409 && err.data && err.data.needsConfirmation)) throw err;
+    const list = (err.data.openBookings || []).map((b) => `${b.bookingId} (${b.date}, ${b.time})`).join(String.fromCharCode(10));
+    if (!window.confirm(`${err.message}${String.fromCharCode(10, 10)}${list}`)) return null;
+    return updateUser(userId, { isActive, confirmReassign: true });
+  }
+}
+
 function UserDetailsModal({ user, onClose, onUpdated }) {
   const [formData, setFormData] = useState({
     name: '',
@@ -119,7 +131,8 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
     setError('');
     try {
       const updatedStatus = !formData.isActive;
-      const data = await updateUser(user._id, { isActive: updatedStatus });
+      const data = await setActiveWithConfirmation(user._id, updatedStatus);
+      if (!data) return; // the admin chose not to go ahead
 
       setFormData((prev) => ({ ...prev, isActive: updatedStatus }));
       onUpdated?.(data);

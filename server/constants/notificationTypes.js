@@ -27,6 +27,7 @@ const NOTIFICATION_TYPE = Object.freeze({
   EXTENSION_APPROVED: 'extension_approved',
   EXTENSION_DENIED: 'extension_denied',
   BACKJOB_FILED: 'backjob_filed',
+  TECHNICIAN_DEACTIVATED: 'technician_deactivated',
   BACKJOB_RECEIVED: 'backjob_received',
   BACKJOB_DECIDED: 'backjob_decided',
   SERVICE_REMINDER: 'service_reminder',

@@ -84,6 +84,9 @@ function AssignmentPanel({ booking, onUpdated }) {
   return (
     <div className="sdm-tech-strip assignment-panel-x1">
       <div className="sdm-tech-info assignment-panel-x2">
+        {booking.needsReassignment && (
+          <p className="sdm-error" role="alert">A technician on this job was deactivated. Assign someone else.</p>
+        )}
         <span className="sdm-row-label">ASSIGNED TECHNICIAN{manyPairs || names[0]?.helper ? 'S' : ''}</span>
 
         {names.length === 0 ? (

@@ -16,6 +16,11 @@ const { clearAuthCache } = require('../utils/authCache');
 const { userInputProblem } = require('../utils/adminInput');
 const { findUserByEmail, normalizeEmail } = require('../utils/accountInput');
 const { sendRouteError } = require('../utils/routeErrors');
+const { isFieldTechnician } = require('../utils/technicians');
+const { memberFilter } = require('../utils/assignments');
+const { notifyAdmins } = require('../utils/notifications');
+const { NOTIFICATION_TYPE } = require('../constants/notificationTypes');
+const { BOOKING_STATUS } = require('../constants/bookingStatus');
 
 const CLIENT_TYPES = ['Residential', 'Commercial'];
 const clientTypeProblem = (value) => (CLIENT_TYPES.includes(value) ? null : invalid('Client type must be Residential or Commercial.'));
@@ -213,6 +218,24 @@ router.put('/:id', auth, auditSpecs.userUpdate, async (req, res) => {
       return res.status(400).json({ message: 'You cannot deactivate your own account.' });
     }
 
+    // Deactivating a field technician who still has open jobs (Pending, Approved or In Progress) is refused with the list
+    // of those jobs, unless the admin confirms. With the confirmation the jobs are flagged "needs reassignment" and every
+    // admin is told, below.
+    let openJobs = [];
+    if (isActive === false && target.isActive !== false && isFieldTechnician(target)) {
+      openJobs = await Booking.find({
+        ...memberFilter(target._id),
+        status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS] },
+      }).select('bookingId date time status');
+      if (openJobs.length > 0 && req.body.confirmReassign !== true) {
+        return res.status(409).json({
+          message: `${target.name || 'This technician'} still has ${openJobs.length} open job${openJobs.length === 1 ? '' : 's'}. Deactivating will flag ${openJobs.length === 1 ? 'it' : 'them'} as needing a new technician. Confirm to go ahead.`,
+          openBookings: openJobs.map((j) => ({ bookingId: j.bookingId, date: j.date, time: j.time, status: j.status })),
+          needsConfirmation: true,
+        });
+      }
+    }
+
     const finalRole = role !== undefined ? role : target.role;
     if (clientType !== undefined && finalRole === ROLE.CUSTOMER) {
       const problem = clientTypeProblem(clientType);
@@ -255,6 +278,14 @@ router.put('/:id', auth, auditSpecs.userUpdate, async (req, res) => {
 
     // A role change or a deactivation applies to the very next request, not after the cache expires.
     clearAuthCache(updatedUser._id);
+
+    if (openJobs.length > 0) {
+      await Booking.updateMany({ _id: { $in: openJobs.map((j) => j._id) } }, { $set: { needsReassignment: true } });
+      await notifyAdmins(
+        NOTIFICATION_TYPE.TECHNICIAN_DEACTIVATED,
+        `${updatedUser.name || 'A technician'} was deactivated and is still on ${openJobs.length} open job${openJobs.length === 1 ? '' : 's'}: ${openJobs.map((j) => j.bookingId).slice(0, 8).join(', ')}. Assign someone else.`
+      );
+    }
 
     const userObj = updatedUser.toObject();
     if (updatedUser.role === ROLE.CUSTOMER) {

@@ -90,6 +90,17 @@ async function install() {
     }
     return chain(found || null);
   };
+  Booking.updateMany = async (f, update) => {
+    const hits = state.bookings.filter((b) => matches(b, f));
+    hits.forEach((b) => { if (update.$set) Object.assign(b, update.$set); });
+    return { modifiedCount: hits.length };
+  };
+  User.countDocuments = async (f) => state.users.filter((u) => u.role === f.role && u.isActive !== false && u._id !== (f._id && f._id.$ne)).length;
+  User.findByIdAndUpdate = (id, update) => {
+    const u = state.users.find((x) => x._id === id);
+    if (u) Object.assign(u, update);
+    return chain(u ? { ...u, toObject() { return { ...u }; } } : null);
+  };
   Booking.deleteOne = async (f) => {
     const index = state.bookings.findIndex((b) => matches(b, f));
     if (index >= 0) state.bookings.splice(index, 1);
@@ -121,6 +132,7 @@ async function install() {
   app.use(express.json());
   app.use('/api/bookings', require('../../routes/bookingRoutes'));
   app.use('/api/back-jobs', require('../../routes/backJobRoutes'));
+  app.use('/api/users', require('../../routes/userRoutes'));
   server = await new Promise((resolve) => { const s = app.listen(0, () => resolve(s)); });
   base = `http://127.0.0.1:${server.address().port}`;
 }

@@ -1625,6 +1625,7 @@ async function performAssignment(booking, requested, { changedBy, reason } = {})
   const previousAssignments = getAssignments(booking);
   booking.assignments = resolved;
   booking.technician = resolved[0].lead;
+  booking.needsReassignment = false; // whoever is on it now is active (only active field technicians can be assigned)
   await booking.save();
 
   // The trail of who was on the job. Appended on the first assignment and on every change after.

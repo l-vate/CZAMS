@@ -137,11 +137,12 @@ function planReverse(booking, track, reason) {
 
 // Applies a plan as one conditional update. Returns the updated booking document, or null when the booking was not in the
 // state the plan expected (someone else changed it first, or it was cancelled). `actor` is { id, name }.
-async function commitPayment(Booking, booking, plan, actor, now = new Date()) {
+async function commitPayment(Booking, booking, plan, actor, now = new Date(), { allowCancelled = false } = {}) {
   const expect = { ...plan.expect };
   // an older booking may have no balance status stored (it reads as None)
   if (expect.balancePaymentStatus === BALANCE_PAYMENT_STATUS.NONE) expect.balancePaymentStatus = { $in: [BALANCE_PAYMENT_STATUS.NONE, null] };
-  const filter = { _id: booking._id, status: { $ne: BOOKING_STATUS.CANCELLED }, ...expect };
+  // A cancelled booking cannot be changed, except to check the proof it was cancelled with (allowCancelled, and the flag in `expect`).
+  const filter = { _id: booking._id, ...(allowCancelled ? {} : { status: { $ne: BOOKING_STATUS.CANCELLED } }), ...expect };
   const update = {
     $set: plan.set,
     $push: { paymentEvents: { ...plan.event, by: { id: actor.id, name: actor.name }, at: now } },

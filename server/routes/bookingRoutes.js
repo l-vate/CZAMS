@@ -149,12 +149,19 @@ function computeDownPaymentAmount(booking) {
   return Math.round(getBookingUnitsSubtotal(booking) * ((booking.downPaymentPercent || 0) / 100));
 }
 
+// Returns 'opened' when a refund was opened, 'awaiting-check' when the down payment proof is still waiting to be verified (no refund is
+// opened for an amount nobody has checked: the booking is flagged, and the refund opens once an admin verifies the proof), or
+// 'none' when no down payment is on file.
 function openRefundIfEligible(booking) {
+  if (booking.downPaymentPercent > 0 && booking.paymentStatus === PAYMENT_STATUS.TO_VERIFY) {
+    booking.paymentCheckAfterCancel = true;
+    return 'awaiting-check';
+  }
   const hasDownPaymentOnFile =
     booking.downPaymentPercent > 0 &&
-    ![PAYMENT_STATUS.UNPAID, PAYMENT_STATUS.REJECTED].includes(booking.paymentStatus);
+    [PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(booking.paymentStatus);
 
-  if (!hasDownPaymentOnFile) return;
+  if (!hasDownPaymentOnFile) return 'none';
 
   // What the customer actually paid when they submitted it, else (older bookings) the current figure.
   const downPaymentAmount = typeof booking.downPaymentPaidAmount === 'number'
@@ -172,6 +179,7 @@ function openRefundIfEligible(booking) {
     refundableAmount: isSameDay ? undefined : downPaymentAmount,
     requestedAt: new Date(),
   };
+  return 'opened';
 }
 
 // ============================================
@@ -736,7 +744,7 @@ router.patch('/:bookingId/cancel', auth, auditSpecs.customerCancel, allowRoles(R
       return res.status(400).json({ message: 'This booking can no longer be cancelled.' });
     }
 
-    openRefundIfEligible(booking);
+    const refundOutcome = openRefundIfEligible(booking);
 
     const statusBeforeCancel = booking.status;
     booking.status = BOOKING_STATUS.CANCELLED;
@@ -755,6 +763,8 @@ router.patch('/:bookingId/cancel', auth, auditSpecs.customerCancel, allowRoles(R
         `Booking ${booking.bookingId} was cancelled by the customer and a refund request is waiting for review${booking.refund.isSameDay ? ' (same-day cancellation, deduction needed)' : ''}.`,
         { booking }
       );
+    } else if (refundOutcome === 'awaiting-check') {
+      await notifyAdmins(NOTIFICATION_TYPE.PAYMENT_SUBMITTED, `Booking ${booking.bookingId} was cancelled by the customer while its down payment proof is still waiting. Verify or reject the proof; a refund opens once it is verified.`, { booking });
     } else {
       await notifyAdmins(NOTIFICATION_TYPE.BOOKING_CANCELLED, `Booking ${booking.bookingId} was cancelled by the customer.`, { booking });
     }
@@ -1915,7 +1925,12 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
 
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
-    if (booking.status === BOOKING_STATUS.CANCELLED) {
+    // A cancelled booking cannot be edited, with one exception: it was cancelled while its down payment proof was still waiting, so the
+    // admin may verify or reject that proof (and nothing else). A refund opens once the proof is verified.
+    const checkingAfterCancel = booking.status === BOOKING_STATUS.CANCELLED && booking.paymentCheckAfterCancel === true
+      && req.body.paymentStatus !== undefined
+      && Object.keys(req.body).every((key) => ['paymentStatus', 'reason'].includes(key));
+    if (booking.status === BOOKING_STATUS.CANCELLED && !checkingAfterCancel) {
       return res.status(400).json({
         message: 'This booking is cancelled and can no longer be edited.'
       });
@@ -1995,11 +2010,12 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
     // Admin-initiated cancellation opens the same refund request the customer's own
     // /cancel route would, and is bound by the same rule: only bookings still
     // Pending/Approved/In Progress can be cancelled (never a Completed one).
+    let adminCancelOutcome = 'none';
     if (status === BOOKING_STATUS.CANCELLED) {
       if (![BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status)) {
         return res.status(400).json({ message: 'This booking can no longer be cancelled.' });
       }
-      openRefundIfEligible(booking);
+      adminCancelOutcome = openRefundIfEligible(booking);
     }
 
     // Admin Dashboard + Analytics Module: capture the first time this booking is
@@ -2020,7 +2036,11 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
     // the filter: if another admin got there first this one is refused and nothing else is saved or announced.
     if (paymentPlan.plan) {
       const actor = { id: req.userId, name: (await User.findById(req.userId).select('name'))?.name || '' };
-      const committed = await commitPayment(Booking, booking, paymentPlan.plan, actor);
+      const committed = await commitPayment(
+        Booking, booking,
+        checkingAfterCancel ? { ...paymentPlan.plan, expect: { ...paymentPlan.plan.expect, paymentCheckAfterCancel: true } } : paymentPlan.plan,
+        actor, new Date(), { allowCancelled: checkingAfterCancel }
+      );
       if (!committed) {
         return res.status(409).json({ message: 'This payment was just changed by someone else, or the booking was cancelled. Reload and check its status.' });
       }
@@ -2031,7 +2051,23 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
       });
     }
 
+    // The proof a cancelled booking was waiting on has been checked: a verified one opens the refund, a rejected one means nothing was
+    // paid. Either way the booking no longer waits.
+    let refundOpenedAfterCheck = false;
+    if (checkingAfterCancel) {
+      booking.paymentCheckAfterCancel = false;
+      if (paymentPlan.plan && paymentPlan.plan.action === 'verify') refundOpenedAfterCheck = openRefundIfEligible(booking) === 'opened';
+    }
+
     await booking.save();
+
+    if (refundOpenedAfterCheck) {
+      await notifyAdmins(
+        NOTIFICATION_TYPE.REFUND_REQUESTED,
+        `Booking ${booking.bookingId}: the down payment was verified after the booking was cancelled, so a refund request is waiting for review${booking.refund.isSameDay ? ' (same-day cancellation, deduction needed)' : ''}.`,
+        { booking }
+      );
+    }
 
     // Technicians: the admin cancelled the booking, or edited the instructions (without repeating what they say).
     if (status === BOOKING_STATUS.CANCELLED && prev.status !== BOOKING_STATUS.CANCELLED) {
@@ -2070,6 +2106,9 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
           { booking }
         );
       }
+      if (adminCancelOutcome === 'awaiting-check') {
+        await notifyAdmins(NOTIFICATION_TYPE.PAYMENT_SUBMITTED, `Booking ${booking.bookingId} was cancelled while its down payment proof is still waiting. Verify or reject the proof; a refund opens once it is verified.`, { booking });
+      }
     }
     const downPaymentNowVerified = [PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(booking.paymentStatus)
       && ![PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(prev.paymentStatus);
@@ -2088,7 +2127,7 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
       await sendNotification(
         booking.customer,
         NOTIFICATION_TYPE.PAYMENT_REJECTED,
-        `Your ${balanceNowRejected && !downPaymentNowRejected ? 'balance ' : ''}payment proof for booking ${booking.bookingId} could not be verified: ${String(req.body.reason || '').trim()}. Please upload a new proof.`,
+        `Your ${balanceNowRejected && !downPaymentNowRejected ? 'balance ' : ''}payment proof for booking ${booking.bookingId} could not be verified: ${String(req.body.reason || '').trim()}.${booking.status === BOOKING_STATUS.CANCELLED ? '' : ' Please upload a new proof.'}`,
         { booking }
       );
     }

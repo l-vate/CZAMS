@@ -1497,6 +1497,13 @@ async function approveRescheduleTo(booking, date, time, { by }) {
     }
   }
 
+  // Extra days approved against the old schedule no longer fit the job, so they stop holding the technicians (the same rule as
+  // the disruption reschedule). A pending request for another extra day is dropped with them. The 3-day rule is not checked
+  // here: it applies when the customer asks, not when the admin answers.
+  const releasedDays = (booking.extensionDays || []).length;
+  booking.extensionDays = [];
+  if (booking.extensionRequest?.status === 'Pending') booking.extensionRequest.status = 'Denied';
+
   booking.date = date;
   booking.time = time;
   booking.rescheduleRequest = { requestedDate: null, requestedTime: null, status: 'Approved' };
@@ -1511,7 +1518,7 @@ async function approveRescheduleTo(booking, date, time, { by }) {
       : `Your reschedule request for booking ${booking.bookingId} was approved. New schedule: ${booking.date}, ${booking.time}.`,
     { booking }
   );
-  await notifyMembersOfChange(booking, booking.status, NOTIFICATION_TYPE.RESCHEDULE_APPROVED, `Booking ${booking.bookingId} was rescheduled by ${who}. New schedule: ${booking.date}, ${booking.time}.`);
+  await notifyMembersOfChange(booking, booking.status, NOTIFICATION_TYPE.RESCHEDULE_APPROVED, `Booking ${booking.bookingId} was rescheduled by ${who}. New schedule: ${booking.date}, ${booking.time}.${releasedDays > 0 ? ` The extra ${releasedDays === 1 ? 'day' : 'days'} approved for the old schedule no longer apply, so you are free on ${releasedDays === 1 ? 'it' : 'them'}.` : ''}`);
   return { ok: true };
 }
 

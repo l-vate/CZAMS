@@ -33,6 +33,20 @@ const bookingSchema = new mongoose.Schema({
     bookingId: { type: String, unique: true, required: true },
     customer: { type: String, ref: 'User', required: true },
     service: { type: String, ref: 'Service', required: true },
+    // Every verification, rejection, reversal and in-person payment: who (admin id and name), when, which payment,
+    // the amount, the outcome and the reason. Added only by the payment routes (utils/paymentVerification.js).
+    paymentEvents: [{
+      track: { type: String, enum: ['down', 'balance'] },
+      status: { type: String, enum: ['verified', 'rejected', 'reversed', 'recorded'] },
+      amount: Number,
+      reason: String,
+      method: String,
+      reference: String,
+      inPerson: Boolean,
+      by: { id: String, name: String },
+      at: Date,
+      _id: false,
+    }],
     // The prices this booking was made at (utils/priceSnapshot.js). Totals use these, not the service's current price.
     // Bookings made before this existed have none and follow the current price.
     priceSnapshot: {

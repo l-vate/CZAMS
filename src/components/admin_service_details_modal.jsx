@@ -794,6 +794,22 @@ const [report, setReport] = useState(null);
                                         </button>
                                     </span>
                                 </div>
+                                {Array.isArray(booking.paymentEvents) && booking.paymentEvents.length > 0 && (
+                                    <div className="sdm-list-row">
+                                        <span>Payment history</span>
+                                        <span className="sdm-list-value">
+                                            <ul className="assignment-list">
+                                                {booking.paymentEvents.map((e, i) => (
+                                                    <li key={i}>
+                                                        {new Date(e.at).toLocaleString('en-US', { timeZone: 'Asia/Manila' })}: {e.track === 'balance' ? 'Balance' : 'Down payment'} {e.status}
+                                                        {e.amount ? `, ${formatPeso(e.amount)}` : ''}{e.method ? ` by ${e.method}` : ''}{e.reference ? ` (${e.reference})` : ''}
+                                                        {' '}by {e.by?.name || 'an admin'}{e.reason ? `. Reason: ${e.reason}` : ''}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </span>
+                                    </div>
+                                )}
                                 <div className="sdm-list-row">
                                     <span>Balance Paid</span>
                                     <span className="sdm-list-value">{booking.balancePaid ? 'Yes' : 'No'}</span>

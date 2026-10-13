@@ -103,6 +103,7 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
   const { downPaymentPercentages } = usePaymentSettings();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [reason, setReason] = useState(''); // required when rejecting; the customer is told it
 
   if (!payment) return null;
 
@@ -115,6 +116,10 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
     try {
       const isBalanceProof = Boolean(payment.raw?.balanceProofFile && payment.raw?.balancePaymentStatus === BALANCE_PAYMENT_STATUS.TO_VERIFY);
       const isRejecting = status === PAYMENT_STATUS.REJECTED;
+      if (isRejecting && reason.trim().length < 3) {
+        setError('Give a short reason for rejecting this payment. The customer will be told.');
+        return;
+      }
 
       // Decide target statuses based on whether it's a balance proof or down payment proof,
       // and whether this is an approval or a rejection. Rejecting a balance proof must NOT
@@ -122,8 +127,9 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
       const payload = isBalanceProof
         ? (isRejecting
             ? { balancePaymentStatus: BALANCE_PAYMENT_STATUS.REJECTED }
-            : { balancePaymentStatus: BALANCE_PAYMENT_STATUS.PAID, balancePaid: true })
+            : { balancePaymentStatus: BALANCE_PAYMENT_STATUS.PAID })
         : { paymentStatus: status }; // status can be 'partially_paid', 'fully_paid', or 'rejected'
+      if (isRejecting) payload.reason = reason.trim();
 
       await adminUpdateBooking(payment.bookingId, payload).catch(withFallback('Failed to update payment status.'));
 
@@ -226,6 +232,20 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
           )}
         </div>
 
+
+          <div className="payment-review-reason">
+            <label htmlFor="payment-reject-reason" className="sdm-row-label">REASON (needed to reject)</label>
+            <textarea
+              id="payment-reject-reason"
+              className="sdm-tech-select"
+              rows={2}
+              maxLength={300}
+              placeholder="For example: the reference number does not match"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              disabled={submitting}
+            />
+          </div>
 
           <div className="cancel-confirm-actions admin-payments-x13">
           <button

@@ -40,6 +40,9 @@ const asDoc = (obj) => {
     return this;
   };
   obj.toObject = () => JSON.parse(JSON.stringify(obj));
+  obj.get = function get(key) { return this[key]; };
+  obj.set = function set(key, value) { this[key] = value; };
+  obj.unmarkModified = () => {};
   return obj;
 };
 
@@ -79,7 +82,12 @@ async function install() {
   };
   Booking.findOneAndUpdate = (f, update) => {
     const found = state.bookings.find((b) => matches(b, f));
-    if (found && update.$set) Object.assign(found, update.$set);
+    if (found) {
+      if (update.$set) Object.assign(found, update.$set);
+      if (update.$unset) Object.keys(update.$unset).forEach((k) => { delete found[k]; });
+      if (update.$push) Object.entries(update.$push).forEach(([k, v]) => { found[k] = [...(found[k] || []), JSON.parse(JSON.stringify(v))]; });
+      if (!update.$set && !update.$unset && !update.$push) Object.assign(found, update);
+    }
     return chain(found || null);
   };
   Booking.deleteOne = async (f) => {

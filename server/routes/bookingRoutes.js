@@ -39,6 +39,7 @@ const { manilaToday, isAtLeastDaysAhead } = require('../utils/manilaDate');
 const { readFeedback } = require('../utils/feedbackInput');
 const { normalizeContactNumber } = require('../utils/contactNumber');
 const { sendRouteError } = require('../utils/routeErrors');
+const { planPaymentChange, commitPayment } = require('../utils/paymentVerification');
 const { buildPriceSnapshot } = require('../utils/priceSnapshot');
 const { serviceProblem, unitsProblem } = require('../utils/bookingValidation');
 const { downPaymentProblem, balanceProblem, firstPaymentModeProblem, DOWN_PAYMENT_BOOKING_STATUSES, DOWN_PAYMENT_OPEN, BALANCE_BOOKING_STATUSES, BALANCE_OPEN } = require('../utils/paymentGuards');
@@ -1764,6 +1765,11 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
       balancePaymentStatus: booking.balancePaymentStatus,
     };
 
+    // The payment part of the request, checked before anything is changed: allowed values only, a proof to verify, a reason to
+    // reject or reverse, the down payment before the balance (utils/paymentVerification.js).
+    const paymentPlan = planPaymentChange(booking, { paymentStatus, balancePaymentStatus, balancePaid, reverse: req.body.reverse, reason: req.body.reason });
+    if (paymentPlan.problem) return sendProblem(res, paymentPlan.problem);
+
     // Status rules. Admin can only approve a Pending booking or cancel one. In Progress
     // and Completed are set by the system alone: In Progress by the status job when the
     // time block starts, Completed when the technician submits the service report.
@@ -1845,41 +1851,19 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
       booking.cancelledBy = 'admin';
     }
 
-    // ── Down payment track ──
-    if (paymentStatus === PAYMENT_STATUS.REJECTED) {
-      booking.paymentStatus = PAYMENT_STATUS.REJECTED;
-      booking.proofFile = undefined;
-      booking.referenceNumber = undefined;
-    } else if (paymentStatus) {
-      booking.paymentStatus = paymentStatus;
-    }
-
-    // ── Balance payment track ──
-    if (balancePaymentStatus === BALANCE_PAYMENT_STATUS.REJECTED) {
-      booking.balancePaymentStatus = BALANCE_PAYMENT_STATUS.REJECTED;
-      booking.balanceProofFile = undefined;
-      booking.balanceReferenceNumber = undefined;
-    } else if (balancePaymentStatus) {
-      booking.balancePaymentStatus = balancePaymentStatus;
-    }
-
-    // Handle balance payment
-    if (balancePaid !== undefined) {
-      booking.balancePaid = balancePaid;
-      if (balancePaid) {
-        booking.balancePaymentStatus = BALANCE_PAYMENT_STATUS.PAID;
-        booking.paymentStatus = PAYMENT_STATUS.FULLY_PAID;
+    // ── Payments ── (verify, reject or reverse, one at a time). One conditional update with the expected old status in
+    // the filter: if another admin got there first this one is refused and nothing else is saved or announced.
+    if (paymentPlan.plan) {
+      const actor = { id: req.userId, name: (await User.findById(req.userId).select('name'))?.name || '' };
+      const committed = await commitPayment(Booking, booking, paymentPlan.plan, actor);
+      if (!committed) {
+        return res.status(409).json({ message: 'This payment was just changed by someone else, or the booking was cancelled. Reload and check its status.' });
       }
-    }
-
-    // Down payment amount on file (see Booking.downPaymentPaidAmount). A rejected proof means no
-    // money is on file. A payment an admin marks received with no submission before it (cash at
-    // the door) is recorded at the totals of this moment. Bookings paid long ago keep no snapshot.
-    if (booking.paymentStatus === PAYMENT_STATUS.REJECTED) {
-      booking.downPaymentPaidAmount = undefined;
-    } else if (paymentStatus && booking.downPaymentPercent > 0 && typeof booking.downPaymentPaidAmount !== 'number'
-      && [PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(booking.paymentStatus)) {
-      booking.downPaymentPaidAmount = computeDownPaymentAmount(booking);
+      // bring the document in step with what was saved, without writing it a second time
+      [...Object.keys(paymentPlan.plan.set), ...paymentPlan.plan.unset, 'paymentEvents'].forEach((key) => {
+        booking.set(key, committed.get(key));
+        booking.unmarkModified(key);
+      });
     }
 
     await booking.save();
@@ -1939,7 +1923,7 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
       await sendNotification(
         booking.customer,
         NOTIFICATION_TYPE.PAYMENT_REJECTED,
-        `Your ${balanceNowRejected && !downPaymentNowRejected ? 'balance ' : ''}payment proof for booking ${booking.bookingId} could not be verified. Please upload a new proof.`,
+        `Your ${balanceNowRejected && !downPaymentNowRejected ? 'balance ' : ''}payment proof for booking ${booking.bookingId} could not be verified: ${String(req.body.reason || '').trim()}. Please upload a new proof.`,
         { booking }
       );
     }

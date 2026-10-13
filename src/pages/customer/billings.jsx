@@ -8,13 +8,16 @@ import { getBookingLineItems, getPaymentBreakdown } from '../../utils/bookingPri
 import { usePaymentSettings } from '../../utils/paymentSettings';
 import PaymentSettingsUnavailable from '../../components/payment_settings_unavailable';
 import { getFilterPillStyle } from '../../utils/statusColors';
-import { ApiError, orFallback } from '../../services/apiClient';
+import { ApiError } from '../../services/apiClient';
 import { listMyBookings } from '../../services/bookingService';
 import { submitPayment, submitBalancePayment } from '../../services/paymentService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
 import { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } from '../../constants/paymentStatus';
 import { REFUND_STATUS } from '../../constants/refundStatus';
 
+import Notice from '../../components/notice';
+import { useNotice } from '../../hooks/useNotice';
+import LoadError from '../../components/load_error';
 function Billings() {
   const navigate = useNavigate();
   const [showPayment, setShowPayment] = useState(false);
@@ -24,6 +27,8 @@ function Billings() {
   const [searchTerm, setSearchTerm] = useState('');
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const { notice, showNotice, clearNotice } = useNotice();
   const [paymentType, setPaymentType] = useState('downpayment'); // 'downpayment' | 'balance'
   const { paymentMethods, ready: paymentSettingsReady, failed: paymentSettingsFailed, refetch: refetchPaymentSettings } = usePaymentSettings();
 
@@ -32,9 +37,10 @@ function Billings() {
   const filters = ['All', 'To Verify', 'Partially Paid', 'Fully Paid', 'Unpaid', 'Refunded'];
 
   const fetchBookings = () => {
-    orFallback(listMyBookings(), [])
+    listMyBookings()
       .then((data) => {
-        const mapped = (Array.isArray(data) ? data : []).map((b) => {
+        if (!Array.isArray(data)) throw new Error('Unexpected bookings reply');
+        const mapped = data.map((b) => {
 
           const isPartiallyPaid = b.paymentStatus === PAYMENT_STATUS.PARTIALLY_PAID;
           const isToVerify = b.paymentStatus === PAYMENT_STATUS.TO_VERIFY;
@@ -130,9 +136,16 @@ paymentStatus: b.paymentStatus,
           };
         });
         setBills(mapped);
+        setFailed(false);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => { setFailed(true); setLoading(false); }); // an error with a Retry, never "No matching bills"
+  };
+
+  const retry = () => {
+    setFailed(false);
+    setLoading(true);
+    fetchBookings();
   };
 
   useEffect(() => {
@@ -200,7 +213,7 @@ paymentStatus: b.paymentStatus,
       setShowPayment(false);
       fetchBookings();
     } catch (err) {
-      alert(err instanceof ApiError ? err.message || 'Failed to submit payment' : 'Could not connect to server.');
+      showNotice(err instanceof ApiError ? err.message || 'Failed to submit payment' : 'Could not connect to server.');
     }
   };
 
@@ -211,7 +224,7 @@ paymentStatus: b.paymentStatus,
       setShowPayment(false);
       fetchBookings();
     } catch (err) {
-      alert(err instanceof ApiError ? err.message || 'Failed to submit payment' : 'Could not connect to server.');
+      showNotice(err instanceof ApiError ? err.message || 'Failed to submit payment' : 'Could not connect to server.');
     }
   };
 
@@ -239,8 +252,11 @@ paymentStatus: b.paymentStatus,
         </div>
       </div>
 
+      <Notice message={notice} onClose={clearNotice} />
       {loading ? (
         <p>Loading bills...</p>
+      ) : failed ? (
+        <LoadError message="Could not load your bills." onRetry={retry} />
       ) : sortedBills.length === 0 ? (
         <p className="customer-billings-x3">No matching bills found.</p>
       ) : (

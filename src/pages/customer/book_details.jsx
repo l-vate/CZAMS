@@ -10,7 +10,7 @@ import { getMemberNames } from '../../utils/assignments';
 import { toLocalDateKey } from '../../utils/date';
 import { usePaymentSettings, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
 import {
-  FiCheck, FiMail, FiMessageSquare, FiBell, FiPrinter,
+  FiCheck, FiBell, FiPrinter,
   FiCalendar, FiClock, FiMapPin, FiInfo, FiCreditCard,
   FiUser, FiAlertTriangle, FiX, FiArrowRight, FiStar, FiPhone, FiFileText,
 } from 'react-icons/fi';
@@ -28,6 +28,8 @@ import { TIME_BLOCK_VALUES } from '../../constants/timeBlocks';
 import { NOTIFICATION_TYPE } from '../../constants/notificationTypes';
 import { ProofLink } from '../../components/proof_file';
 
+import Notice from '../../components/notice';
+import { useNotice } from '../../hooks/useNotice';
 const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
 
 const FEEDBACK_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -370,6 +372,7 @@ function BookDetails() {
   const location = useLocation();
   const navigate = useNavigate();
   const { downPaymentPercentages } = usePaymentSettings();
+  const { notice, showNotice, clearNotice } = useNotice();
 
   const [booking, setBooking] = useState(location.state?.booking || null);
   const [loading, setLoading] = useState(!location.state?.booking);
@@ -485,7 +488,7 @@ function BookDetails() {
       setBooking(data);
       setShowCancel(false);
     } catch (err) {
-      alert(err instanceof ApiError ? err.message || 'Failed to cancel booking' : 'Could not connect to server.');
+      showNotice(err instanceof ApiError ? err.message || 'Failed to cancel booking' : 'Could not connect to server.');
     } finally {
       setCancelling(false);
     }
@@ -498,7 +501,7 @@ function BookDetails() {
       setBooking(data);
       setShowReschedule(false);
     } catch (err) {
-      alert(err instanceof ApiError ? err.message || 'Failed to submit reschedule' : 'Could not connect to server.');
+      showNotice(err instanceof ApiError ? err.message || 'Failed to submit reschedule' : 'Could not connect to server.');
     } finally {
       setRescheduling(false);
     }
@@ -511,7 +514,7 @@ function BookDetails() {
       setBooking(data);
       setShowFeedback(false);
     } catch (err) {
-      alert(err instanceof ApiError ? err.message || 'Failed to submit feedback' : 'Could not connect to server.');
+      showNotice(err instanceof ApiError ? err.message || 'Failed to submit feedback' : 'Could not connect to server.');
     } finally {
       setSubmittingFeedback(false);
     }
@@ -523,7 +526,7 @@ function BookDetails() {
       const data = await reportBackJob({ bookingId: booking.bookingId, issueDescription });
       setBackJob(data);
     } catch (err) {
-      alert(err instanceof ApiError ? err.message || 'Failed to submit report' : 'Could not connect to server.');
+      showNotice(err instanceof ApiError ? err.message || 'Failed to submit report' : 'Could not connect to server.');
     } finally {
       setSubmittingBackJob(false);
     }
@@ -545,6 +548,7 @@ function BookDetails() {
 
   return (
     <CustomerLayout title="Booking Details">
+      <Notice message={notice} onClose={clearNotice} />
       {showCancelConfirm && (
         <CancelConfirmDialog
           onKeep={() => setShowCancel(false)}
@@ -605,14 +609,6 @@ function BookDetails() {
         </div>
 
         <div className="confirmation-notif-row">
-          <div className="confirmation-notif-card confirmation-notif-card--disabled">
-            <p className="confirmation-notif-title"><FiMail /> Email notification</p>
-            <p className="confirmation-notif-sub">Coming soon</p>
-          </div>
-          <div className="confirmation-notif-card confirmation-notif-card--disabled">
-            <p className="confirmation-notif-title"><FiMessageSquare /> SMS notification</p>
-            <p className="confirmation-notif-sub">Coming soon</p>
-          </div>
           <div className="confirmation-notif-card">
             <p className="confirmation-notif-title"><FiBell /> In-app notification</p>
             <p className="confirmation-notif-sub">

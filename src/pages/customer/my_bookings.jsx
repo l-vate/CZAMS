@@ -4,11 +4,14 @@ import { useNavigate } from 'react-router-dom';
 import { FiClock, FiMapPin, FiEye, FiStar } from 'react-icons/fi';
 import FeedbackModal from '../../components/feedback_modal';
 import { getFilterPillStyle } from '../../utils/statusColors';
-import { ApiError, orFallback } from '../../services/apiClient';
+import { ApiError } from '../../services/apiClient';
 import { listMyBookings, submitFeedback } from '../../services/bookingService';
 import { getMemberNames } from '../../utils/assignments';
 import { BOOKING_STATUS, BOOKING_STATUS_VALUES } from '../../constants/bookingStatus';
 
+import Notice from '../../components/notice';
+import { useNotice } from '../../hooks/useNotice';
+import LoadError from '../../components/load_error';
 const FEEDBACK_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // Same badge/left-accent classes as the technician's My Jobs card (staff.css) -
@@ -43,19 +46,30 @@ function MyBookings() {
   const [searchTerm, setSearchTerm] = useState('');
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const { notice, showNotice, clearNotice } = useNotice();
   const [feedbackBooking, setFeedbackBooking] = useState(null);
   const [feedbackAction, setFeedbackAction] = useState(null);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
   const filters = ['All', ...BOOKING_STATUS_VALUES];
 
+  // A failed load is an error with a Retry, never an empty list that reads "No bookings found".
   const fetchBookings = () => {
-    orFallback(listMyBookings(), [])
+    listMyBookings()
       .then((data) => {
-        setBookings(Array.isArray(data) ? data : []);
+        if (!Array.isArray(data)) throw new Error('Unexpected bookings reply');
+        setBookings(data);
+        setFailed(false);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => { setFailed(true); setLoading(false); });
+  };
+
+  const retry = () => {
+    setFailed(false);
+    setLoading(true);
+    fetchBookings();
   };
 
   useEffect(() => {
@@ -114,13 +128,13 @@ function MyBookings() {
       setFeedbackBooking(null);
       fetchBookings();
     } catch (err) {
-      alert(err instanceof ApiError ? err.message || 'Failed to submit feedback' : 'Could not connect to server.');
+      showNotice(err instanceof ApiError ? err.message || 'Failed to submit feedback' : 'Could not connect to server.');
     } finally {
       setSubmittingFeedback(false);
     }
   };
 
-  // The whole team (lead and helper of every assigned team), or a single technician.
+  // The names of the technicians on the booking, or a placeholder until it is approved.
   const formatTechnician = (booking) => getMemberNames(booking, 'Not Assigned');
 
   const formatDate = (dateString) => {
@@ -159,8 +173,11 @@ function MyBookings() {
         </div>
       </div>
 
+      <Notice message={notice} onClose={clearNotice} />
       {loading ? (
         <p>Loading bookings...</p>
+      ) : failed ? (
+        <LoadError message="Could not load your bookings." onRetry={retry} />
       ) : filteredBookings.length === 0 ? (
         <p className="customer-my-bookings-x3">No bookings found. <a href="/customer/book_service">Book one now</a></p>
       ) : (

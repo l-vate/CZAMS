@@ -34,6 +34,8 @@ import { PAYMENT_STATUS } from '../../constants/paymentStatus';
 import { TIME_BLOCK_VALUES, TIME_BLOCK } from '../../constants/timeBlocks';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
 
+import Notice from '../../components/notice';
+import { useNotice } from '../../hooks/useNotice';
 // System Configuration Module: payment methods and down payment percentages used
 // to be hardcoded here (DOWN_PAYMENT_OPTIONS / PAYMENT_MODES / getDownPaymentOptions).
 // Both are now admin-managed - see src/utils/paymentSettings.js (usePaymentSettings,
@@ -770,6 +772,7 @@ function BookService() {
   const { paymentMethods, downPaymentPercentages, ready: paymentSettingsReady, failed: paymentSettingsFailed, refetch: refetchPaymentSettings } = usePaymentSettings();
   const { promos } = usePublicPromos();
   const navigate = useNavigate();
+  const { notice, showNotice, clearNotice } = useNotice();
   const [step, setStep] = useState(1);
 
   const [form, setForm] = useState({
@@ -867,12 +870,13 @@ const canNext = () => {
 
       navigate(`/customer/book_details/${data.bookingId}`, { state: { booking: data } });
     } catch (err) {
-      alert(err instanceof ApiError ? err.message || 'Failed to create booking' : 'Could not connect to server. Is the backend running?');
+      showNotice(err instanceof ApiError ? err.message || 'Failed to create booking' : 'Could not connect to server. Is the backend running?');
     }
   };
 
   return (
     <CustomerLayout title="Book Service">
+      <Notice message={notice} onClose={clearNotice} />
       <h1 className="dashboard-welcome">Tell us what you need</h1>
 
       <StepIndicator current={step} />

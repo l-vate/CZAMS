@@ -8,6 +8,8 @@ import CustomerHistory from '../../components/customer_history';
 import ChangePasswordModal from '../../components/change_password_modal';
 import { uploadProfilePhoto, updateProfile, deleteAccount } from '../../services/authService';
 
+import Notice from '../../components/notice';
+import { useNotice } from '../../hooks/useNotice';
 /* ── Delete Account Confirm Dialog ─────────────────────── */
 function DeleteAccountDialog({ onKeep, onConfirmDelete, deleting }) {
   return (
@@ -15,8 +17,9 @@ function DeleteAccountDialog({ onKeep, onConfirmDelete, deleting }) {
       <div className="modal-card cancel-confirm-card" onClick={(e) => e.stopPropagation()}>
         <h4 className="modal-title cancel-confirm-title">Delete your account?</h4>
         <p className="cancel-confirm-text">
-          This action can't be undone. All your bookings, billing history, and
-          personal information will be permanently removed.
+          This action can't be undone. Your account and personal details are removed and you will be signed out. Your
+          past bookings, invoices and service reports stay as company records. If you still have an active booking, an
+          unsettled refund or a claim waiting for review, those must be finished first.
         </p>
         <div className="cancel-confirm-actions">
           <button className="bs-back-btn" onClick={onKeep} disabled={deleting}>
@@ -34,6 +37,7 @@ function DeleteAccountDialog({ onKeep, onConfirmDelete, deleting }) {
 /* ── Profile ────────────────────────────────────────────── */
 function Profile() {
   const navigate = useNavigate();
+  const { notice, showNotice, clearNotice } = useNotice();
 
   function loadUserFromStorage() {
   const stored = localStorage.getItem('user');
@@ -93,7 +97,7 @@ const [user, setUser] = useState(loadUserFromStorage);
     localStorage.setItem('user', JSON.stringify(data.user));
     setEditForm((prev) => ({ ...prev, photo: `${API_BASE}${data.user.profileImage}` }));
   } catch (err) {
-    alert(err instanceof ApiError ? err.message || 'Failed to upload photo' : 'Could not connect to server for photo upload.');
+    showNotice(err instanceof ApiError ? err.message || 'Failed to upload photo' : 'Could not connect to server for photo upload.');
   }
 };
 
@@ -125,7 +129,7 @@ const [user, setUser] = useState(loadUserFromStorage);
 
     setIsEditing(false);
   } catch (err) {
-    alert(err instanceof ApiError ? err.message || 'Failed to update profile' : 'Could not connect to server. Is the backend running?');
+    showNotice(err instanceof ApiError ? err.message || 'Failed to update profile' : 'Could not connect to server. Is the backend running?');
   }
 };
 
@@ -143,13 +147,14 @@ const [user, setUser] = useState(loadUserFromStorage);
       setShowDeleteConfirm(false);
       navigate('/register');
     } catch (err) {
-      alert(err instanceof ApiError ? err.message || 'Failed to delete account' : 'Could not connect to server.');
+      showNotice(err instanceof ApiError ? err.message || 'Failed to delete account' : 'Could not connect to server.');
       setDeleting(false);
     }
   };
 
   return (
     <CustomerLayout title="My Profile">
+      <Notice message={notice} onClose={clearNotice} />
       <div className="profile-page">
 
         {/* Profile Header - same layout/classes as the technician portal's

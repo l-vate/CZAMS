@@ -4,6 +4,7 @@ import { FiMenu, FiX, FiMessageCircle, FiSearch } from 'react-icons/fi';
 import Sidebar from '../../components/sidebars/customer_sidebar';
 import NotificationBell from '../../components/notification_bell';
 
+import { customerNotificationTarget } from '../../utils/notificationTarget';
 // Search moved here (topbar) rather than duplicated per-page - My Bookings and
 // Payment & Billing pass searchValue/onSearchChange/searchPlaceholder to opt
 // into showing it; every other page just omits those props and gets nothing.
@@ -12,9 +13,8 @@ function CustomerLayout({ title, children, searchValue, onSearchChange, searchPl
   const navigate = useNavigate();
 
   const handleNotificationClick = (notification) => {
-    if (notification.relatedBookingId) {
-      navigate(`/customer/book_details/${notification.relatedBookingId}`);
-    }
+    const target = customerNotificationTarget(notification);
+    if (target) navigate(target);
   };
 
   return (

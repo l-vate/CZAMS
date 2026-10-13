@@ -33,6 +33,17 @@ const bookingSchema = new mongoose.Schema({
     bookingId: { type: String, unique: true, required: true },
     customer: { type: String, ref: 'User', required: true },
     service: { type: String, ref: 'Service', required: true },
+    // The prices this booking was made at (utils/priceSnapshot.js). Totals use these, not the service's current price.
+    // Bookings made before this existed have none and follow the current price.
+    priceSnapshot: {
+      serviceId: String,
+      serviceName: String,
+      serviceType: String,
+      tier: String,
+      basePrice: Number,
+      lines: [{ type: { type: String }, quantity: Number, unitPrice: Number, lineTotal: Number, _id: false }],
+      frozenAt: Date,
+    },
 
     // Multi-Unit Booking Redesign: a customer can now list one or more unit
     // entries, each with its own type, quantity, and brand/model - replacing the

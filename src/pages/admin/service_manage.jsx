@@ -179,11 +179,11 @@ function ServiceManage() {
 
   async function handleDelete() {
     if (!editingService) return;
-    const confirmed = window.confirm(`Delete "${editingService.name}"? This cannot be undone.`);
+    const confirmed = window.confirm(`Archive "${editingService.name}"? Customers will no longer see it and it cannot be booked. Old bookings keep it and their prices.`);
     if (!confirmed) return;
 
     try {
-      await deleteService(editingService._id).catch(withMessage('Failed to delete service.'));
+      await deleteService(editingService._id).catch(withMessage('Failed to archive service.'));
       
       setServices((prev) => prev.filter((s) => s._id !== editingService._id));
       closeModal();
@@ -271,6 +271,9 @@ function ServiceManage() {
           <div className="svc-modal" onClick={(e) => e.stopPropagation()}>
             <div className="svc-modal-header">
               <h2 className="modal-title">{editingService ? 'Edit Service' : 'Add New Service'}</h2>
+              {editingService && (
+                <p className="sdm-muted">Changes apply to new bookings only. Bookings already made keep the prices they were made at.</p>
+              )}
               <button type="button" className="modal-close-btn" onClick={closeModal}>✕</button>
             </div>
 
@@ -409,7 +412,7 @@ function ServiceManage() {
                     className="svc-btn svc-btn-danger"
                     onClick={handleDelete}
                   >
-                    Delete
+                    Archive
                   </button>
                 ) : <div />}
 

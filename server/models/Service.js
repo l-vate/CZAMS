@@ -10,6 +10,9 @@ const serviceSchema = new mongoose.Schema({
   category: String,
   icon: String,
   isActive: { type: Boolean, default: true },
+  // An archived service is hidden from customers and cannot be booked, but old bookings still resolve it (their name,
+  // type and warranty). Deleting a service archives it; it is only removed for good when no booking uses it.
+  isArchived: { type: Boolean, default: false },
 
   // Which warranty rule applies to bookings of this service (Warranty Tracking
   // Module) - explicit rather than guessed from name/category text. 'Leak Repair'

@@ -20,6 +20,15 @@ export function getUnitPrice(service, unitType) {
   return override ? override.price : (service?.price || 0);
 }
 
+// The price of the unit at `index` on a saved booking. A booking made after prices were frozen carries the prices it was
+// made at (priceSnapshot), so a later change to the service never changes it. An older booking has none and follows the
+// service's current price. Server mirror: unitPriceOf in server/utils/pricing.js.
+export function unitPriceOf(booking, index, unit) {
+  const line = booking?.priceSnapshot?.lines?.[index];
+  if (line && line.type === unit.type && typeof line.unitPrice === 'number') return line.unitPrice;
+  return getUnitPrice(booking?.service, unit.type);
+}
+
 // The discount a saved booking gets. A promo and an Approved Senior/PWD discount do not stack:
 // whichever takes off more is applied (a tie goes to the promo). A Pending or Rejected
 // Senior/PWD request counts as 0. The promo amount is recomputed from the promo as it was
@@ -50,8 +59,8 @@ export function getAppliedDiscount(booking, grossUnitsSubtotal) {
 
 // Itemizes an already-saved booking (as returned by the API, `service` populated). Bookings created
 // before the Multi-Unit Booking Redesign have no `units`, only the old flat `unitTypes` list - each
-// listed type is treated as quantity 1. Nothing freezes a price at booking time, so these totals
-// follow the service's current pricing. A booking with no unit data at all falls back to the flat
+// listed type is treated as quantity 1. A booking made after prices were frozen uses its own snapshot; an older one
+// follows the service's current pricing. A booking with no unit data at all falls back to the flat
 // service price (empty lineItems), same as the server.
 export function getBookingLineItems(booking) {
   const service = booking?.service;
@@ -59,8 +68,8 @@ export function getBookingLineItems(booking) {
     ? booking.units
     : (booking?.unitTypes || []).map((type) => ({ type, quantity: 1, brandModel: booking?.brandModel || '' }));
 
-  const lineItems = units.map((u) => {
-    const unitPrice = getUnitPrice(service, u.type);
+  const lineItems = units.map((u, index) => {
+    const unitPrice = unitPriceOf(booking, index, u);
     return { ...u, unitPrice, subtotal: unitPrice * (u.quantity || 0) };
   });
 

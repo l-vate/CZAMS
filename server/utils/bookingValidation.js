@@ -38,7 +38,7 @@ async function unitsProblem(units, service) {
 // `cleaningServices` are the active Cleaning-type services.
 async function serviceProblem({ service, cleaningServices, answers, isAdmin }) {
   if (!service) return invalid('That service does not exist. Choose a service from the list.');
-  if (service.isActive === false) return invalid('That service is not available right now. Choose another one.');
+  if (service.isActive === false || service.isArchived === true) return invalid('That service is not available right now. Choose another one.');
   if (isAdmin) return null;
 
   if (service.serviceType === SERVICE_TYPE.LEAK_REPAIR) {

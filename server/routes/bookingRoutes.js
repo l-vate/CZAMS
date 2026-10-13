@@ -39,6 +39,7 @@ const { manilaToday, isAtLeastDaysAhead } = require('../utils/manilaDate');
 const { readFeedback } = require('../utils/feedbackInput');
 const { normalizeContactNumber } = require('../utils/contactNumber');
 const { sendRouteError } = require('../utils/routeErrors');
+const { buildPriceSnapshot } = require('../utils/priceSnapshot');
 const { serviceProblem, unitsProblem } = require('../utils/bookingValidation');
 const { downPaymentProblem, balanceProblem, firstPaymentModeProblem, DOWN_PAYMENT_BOOKING_STATUSES, DOWN_PAYMENT_OPEN, BALANCE_BOOKING_STATUSES, BALANCE_OPEN } = require('../utils/paymentGuards');
 const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/queue');
@@ -331,11 +332,11 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
 
     // The booking must fit its service: the service exists and is open for booking, a cleaning booking uses the tier its
     // two answers lead to, and every unit has a known type, a whole quantity and a price (utils/bookingValidation.js).
-    const serviceDoc = await Service.findById(service).select('name serviceType isActive hiddenFromDirectSelection price unitTypePricing');
+    const serviceDoc = await Service.findById(service).select('name serviceType isActive isArchived hiddenFromDirectSelection price unitTypePricing');
     const serviceIssue = await serviceProblem({
       service: serviceDoc,
       cleaningServices: serviceDoc?.serviceType === SERVICE_TYPE.CLEANING
-        ? await Service.find({ serviceType: SERVICE_TYPE.CLEANING, isActive: { $ne: false } }).select('name price')
+        ? await Service.find({ serviceType: SERVICE_TYPE.CLEANING, isActive: { $ne: false }, isArchived: { $ne: true } }).select('name price')
         : [],
       answers: { lastCleanedOver6MonthsAgo, isActivelyLeaking },
       isAdmin: req.userRole === ROLE.ADMIN,
@@ -491,6 +492,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
       queueRank,
       customer: bookingCustomerId,
       service, units, problemDescription,
+      priceSnapshot: buildPriceSnapshot(serviceDoc, units),
       date, time, requestedTechnician: technician || undefined, address: address.trim(), contactNumber: cleanContactNumber,
       downPaymentPercent, paymentMode, paymentMode2,
       paymentStatus, proofFile, referenceNumber: paymentSubmission.reference,

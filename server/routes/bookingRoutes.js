@@ -28,7 +28,7 @@ const { getOrCreateSettings } = require('../utils/paymentSettings');
 const { proposeAssignment } = require('../utils/autoAssign');
 const { toTechnicianView } = require('../utils/technicianView');
 const { allowRoles } = require('../middleware/roles');
-const { listFieldTechnicians, hasFieldPosition } = require('../utils/technicians');
+const { listFieldTechnicians, hasFieldPosition, isFieldTechnician } = require('../utils/technicians');
 const { toCustomerView } = require('../utils/customerView');
 const { loadBackJobContexts } = require('../utils/backJobContext');
 const BackJob = require('../models/BackJob');
@@ -299,12 +299,12 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
       return res.status(400).json({ message: 'A valid contact number is required (7 to 15 digits).' });
     }
 
+    // A requested technician must be an active field technician (not a secretary, a cashier, an admin or anyone else).
+    // If they are busy that day the system simply chooses someone else (below); the customer is not turned away.
     if (technician) {
-      const conflict = await findConflictingBooking(technician, date, time);
-      if (conflict) {
-        return res.status(400).json({
-          message: `This technician is already booked ${date} (${time}). Choose a different technician or time.`
-        });
+      const requested = typeof technician === 'string' ? await User.findById(technician).select('role isActive position') : null;
+      if (!isFieldTechnician(requested)) {
+        return res.status(400).json({ message: 'That technician cannot be requested. Choose a technician from the list, or leave it open.' });
       }
     }
 
@@ -571,9 +571,10 @@ clientSuppliedUnit: isClientSuppliedUnit,
       { booking: populated }
     );
 
-    // The customer did not pick a technician: the system chooses one. A failure here never
-    // fails the booking, it just stays unassigned for the admin to assign by hand.
-    if (!technician) await autoAssignNewBooking(populated);
+    // The system proposes who will do it: the technician the customer asked for if they are free, otherwise the usual
+    // choice. It is only a proposal: hidden from the customer and from the technicians until the admin approves. A
+    // failure here never fails the booking, it just stays unassigned for the admin to assign by hand.
+    await autoAssignNewBooking(populated);
 
     // an admin booking for a walk-in sees everything; a customer only what is theirs to see
     res.status(201).json(req.userRole === ROLE.ADMIN ? withWarranty(populated) : customerBooking(populated));

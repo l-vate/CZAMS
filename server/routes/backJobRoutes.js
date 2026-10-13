@@ -14,6 +14,7 @@ const BackJob = require('../models/BackJob');
 const Report = require('../models/Report');
 const { getWarrantyStatus } = require('../utils/warranty');
 const { notifyAdmins } = require('../utils/notifications');
+const { sendRouteError } = require('../utils/routeErrors');
 const {
   createWithUniqueBookingId, BookingIdExhaustedError,
   createWithUniqueBackJobId, BackJobIdExhaustedError, isBackJobIdCollision,
@@ -128,9 +129,8 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER), async (req, res) => {
     const populated = await BackJob.findById(backJob._id).populate('resultingBooking');
     res.status(201).json(toCustomerBackJob(populated));
   } catch (err) {
-    console.error(err);
-    if (err instanceof BookingIdExhaustedError || err instanceof BackJobIdExhaustedError) return res.status(500).json({ message: err.message });
-    res.status(500).json({ message: 'Server error' });
+    if (err instanceof BookingIdExhaustedError || err instanceof BackJobIdExhaustedError) { console.error(err); return res.status(500).json({ message: err.message }); }
+    sendRouteError(res, err);
   }
 });
 

@@ -16,6 +16,9 @@ const { loginLimiter, registerLimiter } = require('../middleware/rateLimit');
 const Booking = require('../models/Booking');
 const BackJob = require('../models/BackJob');
 const { findDeletionBlockers } = require('../utils/deletionBlockers');
+const { normalizeEmail, findUserByEmail, validateRegistration, validateProfileUpdate } = require('../utils/accountInput');
+const { sendProblem } = require('../utils/validation');
+const { sendRouteError } = require('../utils/routeErrors');
 
 // Simple ID generator matching your ADM001-style pattern
 function generateUserId(role) {
@@ -35,11 +38,16 @@ router.post('/register', registerLimiter, async (req, res) => {
   try {
     const { firstName, lastName, email, phone, password, clientType } = req.body;
 
+    // Names, a real email, a contact number and a password of at least 8 characters, checked here as well as in the form.
+    const inputProblem = validateRegistration({ firstName, lastName, email, phone, password });
+    if (inputProblem) return sendProblem(res, inputProblem);
+
     // Company details only apply to a Commercial customer; anything else is ignored.
     const profile = readProfileFields({ role: ROLE.CUSTOMER, clientType, body: req.body });
     if (profile.problem) return res.status(profile.problem.status).json({ message: profile.problem.message });
 
-    const existing = await User.findOne({ email });
+    // Found without regard to letter case, so Ana@Mail.com and ana@mail.com are the same account.
+    const existing = await findUserByEmail(User, email);
     if (existing) {
       return res.status(400).json({ message: 'Email already registered' });
     }
@@ -53,9 +61,9 @@ router.post('/register', registerLimiter, async (req, res) => {
 
     const user = await User.create({
       _id: generateUserId(mappedRole),
-      name: `${firstName} ${lastName}`,
-      email,
-      phone,
+      name: `${firstName.trim()} ${lastName.trim()}`,
+      email: normalizeEmail(email),
+      phone: phone.trim(),
       password: hashedPassword,
       role: mappedRole,
       isActive: true,
@@ -86,15 +94,14 @@ router.post('/register', registerLimiter, async (req, res) => {
   },
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
 router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
+    const user = typeof email === 'string' && email.trim() ? await findUserByEmail(User, email) : null;
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
@@ -131,8 +138,7 @@ router.post('/login', loginLimiter, async (req, res) => {
   },
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -140,22 +146,27 @@ router.put('/profile', auth, async (req, res) => {
   try {
     const { firstName, lastName, email, phone, address } = req.body;
 
+    // A name and a real email are required, a phone number must be valid when given; "undefined undefined" can never be saved.
+    const inputProblem = validateProfileUpdate({ firstName, lastName, email, phone });
+    if (inputProblem) return sendProblem(res, inputProblem);
+
     const user = await User.findById(req.userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    if (email && email !== user.email) {
-      const existing = await User.findOne({ email });
+    const newEmail = normalizeEmail(email);
+    if (newEmail !== String(user.email).toLowerCase()) {
+      const existing = await findUserByEmail(User, newEmail, req.userId);
       if (existing) {
         return res.status(400).json({ message: 'Email already in use' });
       }
+      user.email = newEmail;
     }
 
-    user.name = `${firstName} ${lastName}`.trim();
-    user.email = email || user.email;
-    user.phone = phone || user.phone;
-    user.address = address || user.address;
+    user.name = `${firstName.trim()} ${lastName.trim()}`;
+    if (typeof phone === 'string' && phone.trim()) user.phone = phone.trim();
+    if (typeof address === 'string' && address.trim()) user.address = address.trim();
 
     await user.save();
 
@@ -172,8 +183,7 @@ router.put('/profile', auth, async (req, res) => {
       },
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 

@@ -200,6 +200,7 @@ const handleSubmit = async (e) => {
                   value={formData.password}
                   onChange={handleChange}
                   required
+                  minLength={8}
                 />
                 <button
                   type="button"

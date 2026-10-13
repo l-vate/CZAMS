@@ -35,6 +35,8 @@ const BackJob = require('../models/BackJob');
 const { TECHNICIAN_BOOKING_FILTER, isHiddenFromTechnicians } = require('../utils/technicianVisibility');
 const scheduling = require('../constants/scheduling');
 const { createUploader, discardUploads, PROOF_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
+const { normalizeContactNumber } = require('../utils/contactNumber');
+const { sendRouteError } = require('../utils/routeErrors');
 const { serviceProblem, unitsProblem } = require('../utils/bookingValidation');
 const { downPaymentProblem, balanceProblem, firstPaymentModeProblem, DOWN_PAYMENT_BOOKING_STATUSES, DOWN_PAYMENT_OPEN, BALANCE_BOOKING_STATUSES, BALANCE_OPEN } = require('../utils/paymentGuards');
 const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/queue');
@@ -90,15 +92,6 @@ function isDateAllowed(dateStr) {
   selected.setHours(0, 0, 0, 0);
 
   return selected >= minDate;
-}
-
-// A phone number the technician can actually call: digits plus the usual
-// separators, 7 to 15 digits. Returns the trimmed value, or null if invalid.
-function normalizeContactNumber(raw) {
-  const value = String(raw || '').trim();
-  if (!/^\+?[0-9\s\-()]+$/.test(value)) return null;
-  const digits = value.replace(/\D/g, '');
-  return digits.length >= 7 && digits.length <= 15 ? value : null;
 }
 
 // What an admin may do to a booking's status: null when allowed, otherwise { status, message }.
@@ -309,6 +302,10 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
       return res.status(400).json({ message: 'Time must be Morning or Afternoon.' });
     }
 
+    if (typeof address !== 'string' || !address.trim()) {
+      return res.status(400).json({ message: 'Address is required.' });
+    }
+
     const cleanContactNumber = normalizeContactNumber(contactNumber);
     if (!cleanContactNumber) {
       return res.status(400).json({ message: 'A valid contact number is required (7 to 15 digits).' });
@@ -497,7 +494,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
       queueRank,
       customer: bookingCustomerId,
       service, units, problemDescription,
-      date, time, requestedTechnician: technician || undefined, address, contactNumber: cleanContactNumber,
+      date, time, requestedTechnician: technician || undefined, address: address.trim(), contactNumber: cleanContactNumber,
       downPaymentPercent, paymentMode, paymentMode2,
       paymentStatus, proofFile, referenceNumber: paymentSubmission.reference,
 clientSuppliedUnit: isClientSuppliedUnit,
@@ -584,9 +581,8 @@ clientSuppliedUnit: isClientSuppliedUnit,
     // an admin booking for a walk-in sees everything; a customer only what is theirs to see
     res.status(201).json(req.userRole === ROLE.ADMIN ? withWarranty(populated) : customerBooking(populated));
   } catch (err) {
-    console.error(err);
-    if (err instanceof BookingIdExhaustedError) return res.status(500).json({ message: err.message });
-    res.status(500).json({ message: 'Server error' });
+    if (err instanceof BookingIdExhaustedError) { console.error(err); return res.status(500).json({ message: err.message }); }
+    sendRouteError(res, err);
   }
 });
 

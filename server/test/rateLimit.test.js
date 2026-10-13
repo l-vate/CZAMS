@@ -114,7 +114,7 @@ let base;
 
 test.before(async () => {
   user = new User({ _id: 'CUS1', role: 'customer', email: 'real@example.com', name: 'Real', password: await hashPassword(GOOD) });
-  User.findOne = async (filter) => (filter.email === 'real@example.com' ? user : null);
+  User.findOne = async (filter) => (filter.email instanceof RegExp ? filter.email.test('real@example.com') : filter.email === 'real@example.com') ? user : null;
   User.create = async (doc) => ({ ...doc, toObject() { return doc; } });
 
   const app = express();

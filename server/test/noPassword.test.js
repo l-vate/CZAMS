@@ -35,7 +35,7 @@ test.before(async () => {
   const everyone = [tech, admin];
 
   User.findById = (id) => query(everyone.find((u) => u._id === id) || null);
-  User.findOne = (filter) => query(everyone.find((u) => u.email === filter.email || u._id === filter._id) || null);
+  User.findOne = (filter) => query(everyone.find((u) => (filter.email instanceof RegExp ? filter.email.test(u.email) : u.email === filter.email) || u._id === filter._id) || null);
   User.find = (filter = {}) => query(everyone.filter((u) => !filter.role || u.role === filter.role));
 
   app = express();

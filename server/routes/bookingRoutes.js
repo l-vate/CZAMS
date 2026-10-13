@@ -26,7 +26,6 @@ const { isWithinServiceArea } = require('../utils/serviceArea');
 const { runBookingStatusCheck } = require('../jobs/bookingStatusJob');
 const { getOrCreateSettings } = require('../utils/paymentSettings');
 const { proposeAssignment } = require('../utils/autoAssign');
-const { summarizeRatings } = require('../utils/ratings');
 const { toTechnicianView } = require('../utils/technicianView');
 const { allowRoles } = require('../middleware/roles');
 const { listFieldTechnicians, hasFieldPosition } = require('../utils/technicians');
@@ -1163,9 +1162,8 @@ router.get('/technician/mine', auth, async (req, res) => {
 router.get('/technician/mine/stats', auth, async (req, res) => {
   try {
     // Jobs count for the lead and the helper alike.
-    const jobs = await Booking.find({ ...memberFilter(req.userId), ...TECHNICIAN_BOOKING_FILTER })
-      .populate('customer', 'name');
-    
+    const jobs = await Booking.find({ ...memberFilter(req.userId), ...TECHNICIAN_BOOKING_FILTER });
+
     // Back job visits (free repairs after a warranty claim) are counted on their own, not in the regular totals.
     const regular = jobs.filter((j) => !j.isBackJob);
     const backJobVisits = jobs.filter((j) => j.isBackJob);
@@ -1186,20 +1184,8 @@ router.get('/technician/mine/stats', auth, async (req, res) => {
     const completedWithoutReport = completedIds.filter(id => !reportedIds.has(id)).length;
     // An In Progress job is waiting for its report (submitting it is what completes the job).
     const pendingReports = leadJobs.filter(j => j.status === BOOKING_STATUS.IN_PROGRESS).length + completedWithoutReport;
-    const feedbacks = jobs
-      .filter(j => j.feedback?.text)
-      .map(j => ({
-        name: j.customer?.name || 'Customer',
-        text: j.feedback.text,
-        rating: j.feedback.rating,
-        // A handful of older feedback docs were written before the schema had
-        // `createdAt` and only have the earlier field name `submittedAt` - not
-        // missing data, just an older shape. Fall back to it so those don't
-        // show as undated.
-        createdAt: j.feedback.createdAt || j.feedback.submittedAt,
-      }));
-
-    res.json({ ongoing, completed, pendingReports, backJobs, feedbacks, ...summarizeRatings(jobs) });
+    // No ratings or customer feedback here: technicians do not receive them. Admins read them in the Performance Review.
+    res.json({ ongoing, completed, pendingReports, backJobs });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });

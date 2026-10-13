@@ -70,7 +70,7 @@ test.beforeEach(() => {
   reportFilters = [];
   scheduling.PENDING_HOLDS_SLOT = true;
   const pending = makeBooking({ feedback: { rating: 1 } }); // a rating that would show up in an average if Pending leaked
-  const approved = makeBooking({ bookingId: 'CZ-A', status: 'Approved', time: 'Afternoon', feedback: { rating: 5 } });
+  const approved = makeBooking({ bookingId: 'CZ-A', status: 'Approved', time: 'Afternoon', feedback: { rating: 5, text: 'Great work by the crew' } });
   DB = [pending, approved];
   REPORTS = [new Report({ bookingId: 'CZ-P', booking: '64b64c1f1c1f1c1f1c1f1c1f', technicianId: 'T1', workSummary: 'x' })];
 });
@@ -93,12 +93,13 @@ const unassignedNotes = () => notes.filter((n) => n.type === 'job_unassigned');
   });
 });
 
-test('dashboard counts: a Pending booking adds nothing (its rating is not in the average)', async () => {
+test('dashboard counts: a Pending booking adds nothing, and technicians receive no rating or feedback data at all', async () => {
   const res = await call('GET', '/api/bookings/technician/mine/stats', 'T1');
   assert.equal(res.status, 200);
   assert.equal(res.body.ongoing, 1); // only the Approved one
-  assert.equal(res.body.averageRating, 5);
-  assert.equal(res.body.ratingCount, 1);
+  ['averageRating', 'ratingCount', 'feedbacks', 'feedback'].forEach((key) => assert.equal(key in res.body, false, `${key} must not be sent to a technician`));
+  assert.doesNotMatch(JSON.stringify(res.body), /Great work by the crew/, 'no feedback text');
+  assert.deepEqual(Object.keys(res.body).sort(), ['backJobs', 'completed', 'ongoing', 'pendingReports']);
 });
 
 test('reporting a disruption or asking for an extension on a Pending booking is a 404, as if it does not exist', async () => {
@@ -186,7 +187,7 @@ test('after approval the booking appears for the technician, on every route that
   assert.deepEqual(idsOf(list.body), ['CZ-A', 'CZ-P']);
   assert.equal((await call('GET', '/api/bookings/CZ-P/assignment-history', 'T1')).status, 200);
   const stats = await call('GET', '/api/bookings/technician/mine/stats', 'T1');
-  assert.equal(stats.body.ratingCount, 2);
+  assert.equal(stats.body.ongoing, 2, 'the approved booking now counts on the dashboard');
 });
 
 test('after approval a reassignment notifies the new technicians and the ones taken off, as it always did', async () => {

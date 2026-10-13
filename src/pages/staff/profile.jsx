@@ -3,7 +3,6 @@ import StaffLayout from './staff_layout';
 import {
   FiUser,
   FiEdit2,
-  FiStar,
   FiCheckCircle,
   FiFileText,
   FiMail,
@@ -66,7 +65,6 @@ function Profile() {
   };
 
   const statsOk = !!stats && !statsFailed;
-  const ratingText = !statsOk ? '-' : stats.averageRating === null ? 'No ratings yet' : `${stats.averageRating} / 5`;
 
   const handleEditClick = () => {
     setEditForm(profile);
@@ -258,13 +256,6 @@ function Profile() {
 
       <h2 className="section-title">Performance</h2>
       <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-label">
-            <FiStar className="staff-profile-x6" />
-            Average Client Rating
-          </div>
-          <div className="stat-value">{ratingText}</div>
-        </div>
         <div className="stat-card">
           <div className="stat-label">
             <FiCheckCircle className="staff-profile-x6" />

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import StaffLayout from './staff_layout';
-import { FiUser, FiTool, FiCheckCircle, FiFileText, FiStar, FiEye, FiCalendar, FiClock, FiMapPin, FiRotateCcw } from 'react-icons/fi';
+import { FiUser, FiTool, FiCheckCircle, FiFileText, FiEye, FiCalendar, FiClock, FiMapPin, FiRotateCcw } from 'react-icons/fi';
 import { orFallback } from '../../services/apiClient';
 import LoadError from '../../components/load_error';
 import { getTechnicianStats, listTechnicianJobs } from '../../services/bookingService';
@@ -39,18 +39,12 @@ const CATEGORY_ACCENT_CLASS = {
   General: 'tech-announcement-card--general',
 };
 
-function feedbackAccentClass(rating) {
-  if (rating >= 4) return 'tech-feedback-card--good';
-  if (rating === 3) return 'tech-feedback-card--mid';
-  return 'tech-feedback-card--low';
-}
-
 function Dashboard() {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user'));
   const firstName = user?.name?.split(' ')[0] || 'Technician';
 
-  const [stats, setStats] = useState({ ongoing: 0, completed: 0, pendingReports: 0, backJobs: { ongoing: 0, completed: 0 }, feedbacks: [] });
+  const [stats, setStats] = useState({ ongoing: 0, completed: 0, pendingReports: 0, backJobs: { ongoing: 0, completed: 0 } });
   const [loading, setLoading] = useState(true);
   const [statsFailed, setStatsFailed] = useState(false);
   const [jobs, setJobs] = useState([]);
@@ -151,7 +145,7 @@ function Dashboard() {
         </button>
       </div>
 
-      {statsFailed && <LoadError message="Could not load your numbers and feedback." onRetry={retryStats} />}
+      {statsFailed && <LoadError message="Could not load your numbers." onRetry={retryStats} />}
 
       <div className="tech-stats-grid">
         <div className="tech-stat-card">
@@ -263,41 +257,6 @@ function Dashboard() {
           </div>
         </>
       )}
-
-      <h2 className="tech-section-title">Customer Feedbacks</h2>
-      <div className="tech-feedback-list">
-        {loading ? (
-          <p className="tech-job-empty">Loading feedback...</p>
-        ) : statsFailed ? (
-          <p className="tech-job-empty">Could not load feedback.</p>
-        ) : stats.feedbacks.length === 0 ? (
-          <p className="tech-job-empty">No feedback yet.</p>
-        ) : (
-          stats.feedbacks.map((f, i) => (
-            <div className={`tech-feedback-card ${feedbackAccentClass(f.rating || 0)}`} key={i}>
-              <div className="tech-feedback-left">
-                <div className="tech-feedback-avatar"><FiUser /></div>
-                <div>
-                  <div className="tech-feedback-name">{f.name}</div>
-                  <div className="tech-feedback-text">{f.text}</div>
-                </div>
-              </div>
-              <div className="tech-feedback-right">
-                <div className="tech-stars">
-                  {Array.from({ length: f.rating || 0 }, (_, i) => (
-                    <FiStar key={i} fill="currentColor" />
-                  ))}
-                </div>
-                {f.createdAt && (
-                  <div className="tech-feedback-date">
-                    {new Date(f.createdAt).toLocaleDateString()}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
     </StaffLayout>
   );
 }

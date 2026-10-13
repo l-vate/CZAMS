@@ -22,10 +22,12 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
   const [form, setForm] = useState({
     workSummary: '',
     partsUsed: '',
+    partsNone: false, // the lead confirms no parts were used
     recommendations: '',
+    recommendationsNone: false, // the lead confirms there are no recommendations
     laborHours: '',
-    issueResolution: 'Partial',
-    followUpRequired: false,
+    issueResolution: '', // no default: the lead chooses how it ended
+    followUpRequired: null, // no default: Yes or No must be chosen
     followUpDate: '',
     notes: '',
     preExistingIssueFlagged: false,
@@ -65,10 +67,10 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setForm({
-      ...form,
-      [name]: type === 'checkbox' ? checked : value,
-    });
+    const next = { ...form, [name]: type === 'checkbox' ? checked : value };
+    if (name === 'partsNone' && checked) next.partsUsed = '';
+    if (name === 'recommendationsNone' && checked) next.recommendations = '';
+    setForm(next);
     setError('');
   };
 
@@ -78,8 +80,25 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
       setError('Please provide a summary of the work done.');
       return;
     }
-    if (form.laborHours !== '' && !(Number(form.laborHours) >= 0 && Number(form.laborHours) <= 24)) {
+    if (!form.issueResolution) {
+      setError('Choose how the issue was resolved: Complete, Partial or Unresolved.');
+      return;
+    }
+    if (form.laborHours === '') {
+      setError('Labor hours are required: a number from 0 to 24 in steps of 0.5.');
+      return;
+    }
+    const hours = Number(form.laborHours);
+    if (!(hours >= 0 && hours <= 24)) {
       setError('Labor hours must be a number from 0 to 24.');
+      return;
+    }
+    if (Math.round(hours * 2) !== hours * 2) {
+      setError('Labor hours must be in steps of 0.5 (for example 1.5).');
+      return;
+    }
+    if (form.followUpRequired === null) {
+      setError('Say whether a follow-up service is needed (Yes or No).');
       return;
     }
     if (form.followUpRequired && !form.followUpDate) {
@@ -105,7 +124,15 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
     }
     if (sendingRef.current) return;
     sendingRef.current = true;
-    Promise.resolve(onSubmit(form, photo)).finally(() => { sendingRef.current = false; });
+    // What is sent: "None" where the lead ticked it, and no follow-up date unless the follow-up is Yes.
+    const { partsNone, recommendationsNone, ...answers } = form;
+    const payload = {
+      ...answers,
+      partsUsed: partsNone ? 'None' : form.partsUsed,
+      recommendations: recommendationsNone ? 'None' : form.recommendations,
+      followUpDate: form.followUpRequired ? form.followUpDate : '',
+    };
+    Promise.resolve(onSubmit(payload, photo)).finally(() => { sendingRef.current = false; });
   };
 
   return (
@@ -175,11 +202,11 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
             />
           </div>
 
-          {/* Labor Hours & Resolution */}
+          {/* Labor Hours & Resolution: both required */}
           <div className="staff-reports-x5">
             <div className="form-group">
               <label htmlFor="laborHours" className="tech-stat-label">
-                Labor Hours <span className="staff-reports-x6">(Optional)</span>
+                Labor Hours <span className="staff-reports-x3">*</span>
               </label>
               <input
                 type="number"
@@ -197,7 +224,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
 
             <div className="form-group">
               <label htmlFor="issueResolution" className="tech-stat-label">
-                Resolution
+                Resolution <span className="staff-reports-x3">*</span>
               </label>
               <select
                 id="issueResolution"
@@ -206,6 +233,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
                 value={form.issueResolution}
                 onChange={handleChange}
               >
+                <option value="">Choose...</option>
                 <option value="Complete">Complete</option>
                 <option value="Partial">Partial</option>
                 <option value="Unresolved">Unresolved</option>
@@ -213,7 +241,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
             </div>
           </div>
 
-          {/* Parts Used */}
+          {/* Parts Used: optional, with a tick to confirm there were none */}
           <div className="form-group">
             <label htmlFor="partsUsed" className="tech-stat-label">
               Parts Used <span className="staff-reports-x6">(Optional)</span>
@@ -226,26 +254,41 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
               placeholder="e.g. 1x capacitor, refrigerant top-up"
               value={form.partsUsed}
               onChange={handleChange}
+              disabled={form.partsNone}
             />
-          </div>
-
-          {/* Follow-up Checkbox */}
-          <div className="form-group staff-reports-x7">
-            <input
-              type="checkbox"
-              id="followUpRequired"
-              name="followUpRequired"
-              checked={form.followUpRequired}
-              onChange={handleChange}
-              className="staff-reports-x8"
-            />
-            <label htmlFor="followUpRequired" className="tech-stat-label staff-reports-x9">
-              Follow-up service required
+            <label className="staff-reports-x9" htmlFor="partsNone">
+              <input type="checkbox" id="partsNone" name="partsNone" checked={form.partsNone} onChange={handleChange} /> None, no parts were used
             </label>
           </div>
 
-          {/* Conditional Follow-up Date */}
-          {form.followUpRequired && (
+          {/* Follow-up: Yes or No must be chosen */}
+          <fieldset className="form-group">
+            <legend className="tech-stat-label">
+              Follow-up service needed? <span className="staff-reports-x3">*</span>
+            </legend>
+            <label className="staff-reports-x9" htmlFor="followUpYes">
+              <input
+                type="radio"
+                id="followUpYes"
+                name="followUpRequired"
+                checked={form.followUpRequired === true}
+                onChange={() => { setForm({ ...form, followUpRequired: true }); setError(''); }}
+              /> Yes
+            </label>
+            {' '}
+            <label className="staff-reports-x9" htmlFor="followUpNo">
+              <input
+                type="radio"
+                id="followUpNo"
+                name="followUpRequired"
+                checked={form.followUpRequired === false}
+                onChange={() => { setForm({ ...form, followUpRequired: false, followUpDate: '' }); setError(''); }}
+              /> No
+            </label>
+          </fieldset>
+
+          {/* Follow-up date: only when the answer is Yes */}
+          {form.followUpRequired === true && (
             <div className="form-group">
               <label htmlFor="followUpDate" className="tech-stat-label">
                 Follow-up Date <span className="staff-reports-x3">*</span>
@@ -262,7 +305,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
             </div>
           )}
 
-          {/* Recommendations */}
+          {/* Recommendations: optional, with a tick to confirm there were none */}
           <div className="form-group">
             <label htmlFor="recommendations" className="tech-stat-label">
               Recommendations <span className="staff-reports-x6">(Optional)</span>
@@ -274,7 +317,11 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
               placeholder="Preventive maintenance tips, safety notes..."
               value={form.recommendations}
               onChange={handleChange}
+              disabled={form.recommendationsNone}
             />
+            <label className="staff-reports-x9" htmlFor="recommendationsNone">
+              <input type="checkbox" id="recommendationsNone" name="recommendationsNone" checked={form.recommendationsNone} onChange={handleChange} /> None, nothing to recommend
+            </label>
           </div>
 
           {/* Additional Notes */}

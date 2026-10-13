@@ -46,6 +46,37 @@ function validateReportInput({ laborHours, issueResolution, followUpRequired, fo
   return null;
 }
 
+// What a new service report must contain, checked before anything else about the booking. The paper lists these
+// sections, so the lead has to answer each one on purpose; nothing is filled in silently:
+//   - the work summary;
+//   - how the issue was resolved (Complete, Partial or Unresolved), with no default;
+//   - the labor hours, a number from 0 to 24 in steps of 0.5;
+//   - whether a follow-up is needed (Yes or No), and when it is, a date that is not in the past.
+// Parts used and recommendations stay optional. `followUpRequired` is the raw value sent (true, false, "true" or
+// "false"); anything else, including nothing, is a missing answer. Returns { status, message } or null.
+const YES_NO = [true, false, 'true', 'false'];
+
+function validateReportSections({ workSummary, issueResolution, laborHours, followUpRequired, followUpDate, today }) {
+  if (typeof workSummary !== 'string' || workSummary.trim() === '') return bad('Work summary is required');
+
+  if (typeof issueResolution !== 'string' || issueResolution === '') {
+    return bad(`Choose how the issue was resolved: ${RESOLUTIONS.join(', ')}.`);
+  }
+
+  const hasHours = laborHours !== undefined && laborHours !== null && String(laborHours).trim() !== '';
+  if (!hasHours) return bad(`Labor hours are required: a number from 0 to ${LABOR_HOURS_MAX} in steps of 0.5.`);
+  const hours = Number(laborHours);
+  if (Number.isFinite(hours) && hours >= 0 && hours <= LABOR_HOURS_MAX && Math.round(hours * 2) !== hours * 2) {
+    return bad('Labor hours must be in steps of 0.5 (for example 1.5).');
+  }
+
+  if (!YES_NO.includes(followUpRequired)) return bad('Say whether a follow-up service is needed (Yes or No).');
+  if ((followUpRequired === true || followUpRequired === 'true') && (followUpDate === undefined || followUpDate === null || String(followUpDate).trim() === '')) {
+    return bad('Follow-up date is required when follow-up is needed');
+  }
+  return validateReportInput({ laborHours, issueResolution, followUpRequired: followUpRequired === true || followUpRequired === 'true', followUpDate, today });
+}
+
 // A second report for the same booking, caught by the unique index on reports.bookingId.
 function isDuplicateKey(err) {
   return !!err && (err.code === 11000 || err.code === 11001);
@@ -69,4 +100,4 @@ function reportErrorResponse(err) {
   return null;
 }
 
-module.exports = { validateReportInput, reportErrorResponse, isDuplicateKey, RESOLUTIONS, LABOR_HOURS_MAX };
+module.exports = { validateReportInput, validateReportSections, reportErrorResponse, isDuplicateKey, RESOLUTIONS, LABOR_HOURS_MAX };

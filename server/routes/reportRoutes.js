@@ -17,7 +17,7 @@ const BackJob = require('../models/BackJob');
 const { TECHNICIAN_BOOKING_FILTER, isHiddenFromTechnicians } = require('../utils/technicianVisibility');
 const { manilaTodayKey } = require('../utils/timeBlocks');
 const { createUploader, PHOTO_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
-const { reportErrorResponse, validateReportInput } = require('../utils/reportErrors');
+const { reportErrorResponse, validateReportInput, validateReportSections } = require('../utils/reportErrors');
 const { PHOTO_MAX_BYTES, consentProblem, readFlag } = require('../utils/reportEvidence');
 
 // The photo of the signed paper form: JPG or PNG only, 5 MB at most, random stored name with an
@@ -82,13 +82,11 @@ router.post('/', auth, receivePhoto, async (req, res) => {
             return res.status(400).json({ message: 'Booking ID is required' });
         }
 
-        if (!workSummary || !workSummary.trim()) {
-            return res.status(400).json({ message: 'Work summary is required' });
-        }
-
-        if (followUpRequired && !followUpDate) {
-            return res.status(400).json({ message: 'Follow-up date is required when follow-up is needed' });
-        }
+        // The paper's report sections, each answered on purpose: work summary, resolution, labor hours, follow-up.
+        const sectionProblem = validateReportSections({
+            workSummary, issueResolution, laborHours, followUpRequired: req.body.followUpRequired, followUpDate, today: manilaTodayKey(),
+        });
+        if (sectionProblem) return res.status(sectionProblem.status).json({ message: sectionProblem.message });
 
         if (preExistingIssueFlagged && !preExistingIssueDescription?.trim()) {
             return res.status(400).json({ message: 'Please describe the pre-existing issue.' });
@@ -150,8 +148,8 @@ router.post('/', auth, receivePhoto, async (req, res) => {
             workSummary: workSummary.trim(),
             partsUsed: partsUsed?.trim() || null,
             recommendations: recommendations?.trim() || null,
-            laborHours: laborHours ? parseFloat(laborHours) : null,
-            issueResolution: issueResolution || 'Partial',
+            laborHours: Number(laborHours), // required and checked above, so 0 is a real answer
+            issueResolution, // required and checked above: no silent default
             followUpRequired: followUpRequired || false,
             followUpDate: followUpRequired ? new Date(followUpDate) : null,
             notes: notes?.trim() || null,

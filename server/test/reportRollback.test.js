@@ -77,7 +77,7 @@ const submit = async () => {
   const res = await fetch(`${base}/api/reports`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({
-      bookingId: 'CZ-1', workSummary: 'Cleaned the unit', clientConsentSignedName: 'Customer One',
+      bookingId: 'CZ-1', workSummary: 'Cleaned the unit', issueResolution: 'Complete', laborHours: 2, followUpRequired: false, clientConsentSignedName: 'Customer One',
       clientConsentSignatureDataUrl: 'data:image/png;base64,AAAA',
     }),
   });

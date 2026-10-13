@@ -167,7 +167,7 @@ test('a technician with no back jobs gets zeros, not a missing field', async () 
 
 // ---- the report
 const reportBody = (over = {}) => ({
-  bookingId: 'CZ-5', workSummary: 'Fixed the leak again', clientConsentSignedName: 'Customer One', clientConsentSignatureDataUrl: 'data:image/png;base64,AAAA', ...over,
+  bookingId: 'CZ-5', workSummary: 'Fixed the leak again', issueResolution: 'Complete', laborHours: 2, followUpRequired: false, clientConsentSignedName: 'Customer One', clientConsentSignatureDataUrl: 'data:image/png;base64,AAAA', ...over,
 });
 
 test('a report on a back job visit records the link to the claim, the original booking and the original report', async () => {

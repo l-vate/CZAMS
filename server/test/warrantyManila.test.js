@@ -151,7 +151,7 @@ const call = async (method, p, as, body = {}) => {
   const res = await fetch(`${base}${p}`, { method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: method === 'GET' ? undefined : JSON.stringify(body) });
   return { status: res.status, body: await res.json().catch(() => ({})) };
 };
-const reportBody = { bookingId: 'CZ-1', workSummary: 'Cleaned the unit', clientConsentSignedName: 'Customer One', clientConsentSignatureDataUrl: 'data:image/png;base64,AAAA' };
+const reportBody = { bookingId: 'CZ-1', workSummary: 'Cleaned the unit', issueResolution: 'Complete', laborHours: 2, followUpRequired: false, clientConsentSignedName: 'Customer One', clientConsentSignatureDataUrl: 'data:image/png;base64,AAAA' };
 const existingReport = () => {
   const report = new Report({ bookingId: 'CZ-1', booking: '64b64c1f1c1f1c1f1c1f1c1f', technicianId: 'T1', workSummary: 'first' });
   report.deleteOne = async () => ({}); // the route deletes through the document

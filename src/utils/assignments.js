@@ -1,4 +1,4 @@
-import { SERVICE_TYPE } from '../constants/serviceTypes';
+import { SERVICE_TYPE } from '../constants/serviceTypes.js';
 // Who is assigned to a booking, for display and for the same staffing rule the server
 // enforces (server/utils/assignments.js). A booking that only has `technician` (made before
 // teams existed) is read as a solo assignment: nothing is migrated.

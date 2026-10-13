@@ -254,6 +254,7 @@ function chooseStoreName(env = process.env) {
 function withLegacyDisk(primary, legacy) {
   return {
     kind: primary.kind,
+    hasLegacyFallback: true,
     save: (file) => primary.save(file),
     async open(name) { return (await primary.open(name)) || legacy.open(name); },
     async exists(name) { return (await primary.exists(name)) || legacy.exists(name); },

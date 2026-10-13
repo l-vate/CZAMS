@@ -7,7 +7,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const {
-  KINDS, FileExistsError, createMemoryStore, createDiskStore, createGridFsStore, withLegacyDisk, chooseStoreName, legacyFallbackEnabled,
+  KINDS, FileExistsError, createMemoryStore, createDiskStore, createGridFsStore, withLegacyDisk, chooseStoreName, legacyFallbackEnabled, buildStore,
 } = require('../storage/fileStore');
 
 const NAME = '0123456789abcdef0123456789abcdef.png';
@@ -142,4 +142,16 @@ test('with the fallback, reads try the primary then the legacy store, and writes
 test('the GridFS store says clearly when the database is not connected', async () => {
   const store = createGridFsStore({ getDb: () => null, mongo: {} });
   await assert.rejects(store.exists(NAME), /not connected/);
+});
+
+test('the store built from the environment: gridfs in production with no disk fallback, gridfs with the fallback in development, disk with FILE_STORE=disk', () => {
+  const production = buildStore({ NODE_ENV: 'production', FILE_STORE: 'gridfs' });
+  assert.equal(production.kind, 'gridfs');
+  assert.notEqual(production.hasLegacyFallback, true, 'in production a name that is not in the store is a 404');
+  assert.equal(buildStore({ NODE_ENV: 'production' }).kind, 'gridfs');
+  const development = buildStore({ NODE_ENV: 'development', FILE_STORE: 'gridfs' });
+  assert.equal(development.kind, 'gridfs');
+  assert.equal(development.hasLegacyFallback, true);
+  assert.equal(buildStore({ NODE_ENV: 'production', FILE_STORE: 'disk' }).kind, 'disk');
+  assert.equal(buildStore({}).kind, 'disk');
 });

@@ -1,10 +1,7 @@
-// Run with: npm test (inside server/). The real file routes and the real auth middleware serve real files from
-// a temporary folder. Only the database lookups are stubbed, so no database is needed.
+// Run with: npm test (inside server/). The real file routes and the real auth middleware serve files from an in-memory file store.
+// Only the database lookups are stubbed, so no database is needed.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -17,6 +14,7 @@ const { authCache } = require('../utils/authCache');
 const { createFileRouter } = require('../routes/fileRoutes');
 const { mountUploads } = require('../config/uploadsStatic');
 const { createLinkParts } = require('../utils/fileAccess');
+const { createMemoryStore, withLegacyDisk, KINDS } = require('../storage/fileStore');
 
 const accounts = {
   ADM1: 'admin', CUS1: 'customer', CUS2: 'customer', T1: 'staff', T2: 'staff', T9: 'staff',
@@ -43,17 +41,18 @@ const query = (value) => ({
   then(resolve, reject) { return Promise.resolve(value).then(resolve, reject); },
 });
 
-let root;
+let store;
 let server;
 let base;
 
+const TYPES = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp', pdf: 'application/pdf', html: 'text/html' };
+const put = (target, name, body, kind = KINDS.PROOF) => target.save({ name, buffer: Buffer.from(body), contentType: TYPES[name.split('.').pop()] || 'text/plain', metadata: { kind } });
+
 test.before(async () => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'cza-files-test-'));
-  fs.mkdirSync(path.join(root, 'proofs'));
-  fs.mkdirSync(path.join(root, 'profile-images'));
-  Object.entries(FILES).forEach(([name, body]) => fs.writeFileSync(path.join(root, 'proofs', name), body));
-  fs.writeFileSync(path.join(root, 'profile-images', 'face.png'), 'face-bytes');
-  fs.writeFileSync(path.join(root, 'secret.txt'), 'outside the proofs folder');
+  store = createMemoryStore();
+  for (const [name, body] of Object.entries(FILES)) await put(store, name, body);
+  await put(store, 'face.png', 'face-bytes', KINDS.PROFILE_IMAGE);
+  await put(store, 'secret.txt', 'outside the proofs folder');
 
   User.findById = (id) => query(accounts[id] ? { _id: id, role: accounts[id], isActive: true } : null);
   Booking.find = (filter) => {
@@ -68,16 +67,13 @@ test.before(async () => {
 
   const app = express();
   app.use(express.json());
-  mountUploads(app, root);
-  app.use('/api/files', createFileRouter({ proofsDir: path.join(root, 'proofs') }));
+  mountUploads(app, { store });
+  app.use('/api/files', createFileRouter({ store }));
   server = await new Promise((resolve) => { const s = app.listen(0, () => resolve(s)); });
   base = `http://127.0.0.1:${server.address().port}`;
 });
 
-test.after(() => {
-  server && server.close();
-  fs.rmSync(root, { recursive: true, force: true });
-});
+test.after(() => server && server.close());
 test.beforeEach(() => authCache.clear());
 
 const bearer = (id) => ({ Authorization: `Bearer ${jwt.sign({ id, role: accounts[id] }, process.env.JWT_SECRET, { expiresIn: '5m' })}` });
@@ -233,4 +229,51 @@ test('nothing else under /uploads is served, and the proofs folder cannot be rea
   assert.equal((await fetch(`${base}/uploads/secret.txt`)).status, 404);
   assert.equal((await fetch(`${base}/uploads/profile-images/..%2Fproofs%2Fdown.png`)).status, 404);
   assert.equal((await fetch(`${base}/uploads/profile-images/%2e%2e/proofs/down.png`)).status, 404);
+});
+
+test('profile photos are public for a day, and only a file stored as a profile image is ever served there', async () => {
+  const res = await fetch(`${base}/uploads/profile-images/face.png`);
+  assert.equal(res.headers.get('cache-control'), 'public, max-age=86400');
+  assert.equal(res.headers.get('content-type'), 'image/png');
+  assert.match(res.headers.get('content-disposition'), /^inline;/);
+  // a proof that exists in the same store is not reachable through the public profile address, with or without a login
+  assert.equal((await fetch(`${base}/uploads/profile-images/down.png`)).status, 404);
+  assert.equal((await fetch(`${base}/uploads/profile-images/down.png`, { headers: bearer('ADM1') })).status, 404);
+  assert.equal((await fetch(`${base}/uploads/profile-images/missing.png`)).status, 404);
+});
+
+test('a proof is never cached and a missing file is a 404 for everyone', async () => {
+  const res = await open('down.png', 'CUS1');
+  assert.equal(res.headers.get('cache-control'), 'private, no-store');
+  assert.equal(res.headers.get('content-length'), String('png-bytes'.length));
+  assert.equal((await open('gone-from-the-store.png', 'ADM1')).status, 404);
+  assert.equal((await makeLink('gone-from-the-store.png', 'ADM1')).status, 404);
+});
+
+test.describe('files that only exist on the local disk (saved before the store existed)', () => {
+  // `legacy` stands in for the local folder; `primary` for GridFS, which does not have the file
+  const serveFrom = async (target) => {
+    const app = express();
+    app.use(express.json());
+    app.use('/api/files', createFileRouter({ store: target }));
+    const local = await new Promise((resolve) => { const srv = app.listen(0, () => resolve(srv)); });
+    return { url: `http://127.0.0.1:${local.address().port}`, close: () => local.close() };
+  };
+
+  test('are served through the same access rules when the fallback is on, and are a 404 when it is off', async () => {
+    const legacy = createMemoryStore();
+    await put(legacy, 'signed.png', 'old-disk-bytes');
+    const withFallback = await serveFrom(withLegacyDisk(createMemoryStore(), legacy));
+    const without = await serveFrom(createMemoryStore());
+    try {
+      const get = (srv, id) => fetch(`${srv.url}/api/files/proofs/signed.png`, { headers: bearer(id) });
+      assert.equal(await (await get(withFallback, 'CUS1')).text(), 'old-disk-bytes');
+      assert.equal((await get(withFallback, 'T1')).status, 200, 'the technician rule still applies');
+      assert.equal((await get(withFallback, 'CUS2')).status, 404, 'and so does the owner rule');
+      assert.equal((await get(without, 'ADM1')).status, 404, 'with the fallback off even an admin gets a 404');
+    } finally {
+      withFallback.close();
+      without.close();
+    }
+  });
 });

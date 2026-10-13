@@ -16,6 +16,7 @@ import AssignmentHistory from '../../components/assignment_history';
 import { JOB_SORT, JOB_SORT_OPTIONS, sortJobs } from '../../utils/jobSort';
 import { BOOKING_STATUS, BOOKING_STATUS_VALUES } from '../../constants/bookingStatus';
 import { BackJobBadge, BackJobInfo } from '../../components/back_job_info';
+import ServiceReportViewer from '../../components/service_report_viewer';
 
 
 const statusClass = {
@@ -308,6 +309,7 @@ function toViewJob(booking) {
     myRole: booking.myRole || 'Lead',
     // The lead of the first pair files the service report; another lead on a job with several pairs only reads it.
     isPrimaryLead: booking.isPrimaryLead !== false,
+    reportSubmitted: !!booking.reportSubmitted,
     assigned: getAssignedNames(booking, ''),
   };
 }
@@ -324,6 +326,7 @@ function MyJobs() {
   const [sortBy, setSortBy] = useState(JOB_SORT.NEWEST);
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [reportModal, setReportModal] = useState(null); // { kind: 'disruption' | 'extension', job }
+  const [viewingReport, setViewingReport] = useState(null); // the job whose filed service report is open, read-only
   const [submittingReport, setSubmittingReport] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const sortWrapperRef = useRef(null);
@@ -504,6 +507,12 @@ function MyJobs() {
                 <FiEye size={14} /> View Details
               </button>
 
+              {job.reportSubmitted && !(job.myRole === 'Lead' && job.isPrimaryLead) && (
+                <button className="tech-job-view-link staff-my-jobs-x6" onClick={() => setViewingReport(job)}>
+                  <FiInfo /> View service report
+                </button>
+              )}
+
               {job.status === BOOKING_STATUS.IN_PROGRESS && job.myRole === 'Lead' && (
                 <>
                   <button
@@ -526,6 +535,14 @@ function MyJobs() {
       </div>
 
       {selectedJob && <JobDetailsModal job={selectedJob} onClose={handleCloseDetails} />}
+
+      {viewingReport && (
+        <ServiceReportViewer
+          bookingId={viewingReport.bookingId}
+          fallback={{ service: viewingReport.service, customer: viewingReport.customerName, address: viewingReport.address, date: viewingReport.date }}
+          onClose={() => setViewingReport(null)}
+        />
+      )}
 
       {reportModal && (
         <DisruptionExtensionModal

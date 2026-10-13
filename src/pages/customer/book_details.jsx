@@ -4,6 +4,7 @@ import CustomerLayout from './customer_layout';
 import ReceiptModal from '../../components/receipt_modal';
 import FeedbackModal from '../../components/feedback_modal';
 import BackJobModal from '../../components/back_job_modal';
+import ServiceReportViewer from '../../components/service_report_viewer';
 import { getBookingLineItems, getPaymentBreakdown, formatPeso } from '../../utils/bookingPricing';
 import { getMemberNames } from '../../utils/assignments';
 import { toLocalDateKey } from '../../utils/date';
@@ -11,7 +12,7 @@ import { usePaymentSettings, getDefaultDownPaymentPercent } from '../../utils/pa
 import {
   FiCheck, FiMail, FiMessageSquare, FiBell, FiPrinter,
   FiCalendar, FiClock, FiMapPin, FiInfo, FiCreditCard,
-  FiUser, FiAlertTriangle, FiX, FiArrowRight, FiStar, FiPhone,
+  FiUser, FiAlertTriangle, FiX, FiArrowRight, FiStar, FiPhone, FiFileText,
 } from 'react-icons/fi';
 import { ApiError, orFallback } from '../../services/apiClient';
 import { getBooking, cancelBooking, rescheduleBooking, submitFeedback, requestDiscount } from '../../services/bookingService';
@@ -380,6 +381,7 @@ function BookDetails() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const [showBackJob, setShowBackJob] = useState(false);
+  const [showReport, setShowReport] = useState(false);
   const [submittingBackJob, setSubmittingBackJob] = useState(false);
   const [backJob, setBackJob] = useState(null);
   const [bookingNotification, setBookingNotification] = useState(null);
@@ -574,6 +576,14 @@ function BookDetails() {
           onClose={() => setShowFeedback(false)}
           onSubmit={handleFeedbackSubmit}
           submitting={submittingFeedback}
+        />
+      )}
+
+      {showReport && (
+        <ServiceReportViewer
+          bookingId={booking.bookingId}
+          fallback={{ service: booking.service?.name, customer: booking.customer?.name, address: booking.address, date: booking.date }}
+          onClose={() => setShowReport(false)}
         />
       )}
 
@@ -817,6 +827,12 @@ function BookDetails() {
             {getFeedbackAction(booking) && (
               <button className="bs-back-btn" onClick={() => setShowFeedback(true)}>
                 <FiStar /> {FEEDBACK_ACTION_LABEL[getFeedbackAction(booking)]}
+              </button>
+            )}
+
+            {booking.status === BOOKING_STATUS.COMPLETED && booking.reportSubmitted && (
+              <button className="bs-back-btn" onClick={() => setShowReport(true)}>
+                <FiFileText /> View Service Report
               </button>
             )}
 

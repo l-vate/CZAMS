@@ -388,6 +388,8 @@ function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
         status = 'free_back_job';
       } else if (b.refund?.status === REFUND_STATUS.PROCESSED) {
         status = 'refunded';
+      } else if (b.status === BOOKING_STATUS.CANCELLED && b.paymentCheckAfterCancel) {
+        status = 'to_verify'; // cancelled while its proof was still waiting: the admin checks the proof, then a refund can open
       } else if (b.status === BOOKING_STATUS.CANCELLED) {
         status = b.refund?.status === REFUND_STATUS.PENDING ? 'cancelled_refund_pending' : 'cancelled';
       } else if (b.paymentStatus === PAYMENT_STATUS.REJECTED) {

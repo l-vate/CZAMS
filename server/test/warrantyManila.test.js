@@ -14,6 +14,7 @@ process.env.JWT_SECRET = 'test-secret-not-a-real-one';
 const User = require('../models/User');
 const Booking = require('../models/Booking');
 const Report = require('../models/Report');
+const BackJob = require('../models/BackJob');
 const Notification = require('../models/Notification');
 const { authCache } = require('../utils/authCache');
 const { getWarrantyStatus, addDays, addMonths, addYears } = require('../utils/warranty');
@@ -131,6 +132,7 @@ test.before(async () => {
     Object.keys(update.$unset || {}).forEach((k) => delete booking[k]);
     return {};
   };
+  BackJob.findOne = () => chain(null); // no back job claim depends on these reports
   Report.findById = (id) => chain(reports.find((r) => String(r._id) === String(id)) || null);
   Report.findOne = (f) => chain(reports.find((r) => r.bookingId === f.bookingId) || null);
   Report.prototype.save = async function save() { reports.push(this); return this; };
@@ -163,7 +165,7 @@ test('deleting a report puts the job back In Progress, clears the completion tim
   booking = makeBooking({ paymentDueAt: new Date('2026-10-12T00:00:00Z') });
   const report = existingReport();
   reports = [report];
-  const res = await call('DELETE', `/api/reports/${report._id}`, 'ADM1');
+  const res = await call('DELETE', `/api/reports/${report._id}`, 'ADM1', { reason: 'Filed on the wrong job' });
   assert.equal(res.status, 200, JSON.stringify(res.body));
   assert.equal(booking.status, 'In Progress', 'a job with no report is not Completed');
   assert.equal(booking.reportSubmitted, false);
@@ -181,7 +183,7 @@ test('the new report after a deletion starts the clock again: completedAt is the
   booking = makeBooking();
   const report = existingReport();
   reports = [report];
-  await call('DELETE', `/api/reports/${report._id}`, 'ADM1');
+  await call('DELETE', `/api/reports/${report._id}`, 'ADM1', { reason: 'Filed on the wrong job' });
   reports = [];
   const before = Date.now();
   const res = await call('POST', '/api/reports', 'T1', reportBody);
@@ -195,7 +197,7 @@ test('the warranty then runs from the new completion time', async () => {
   booking = makeBooking();
   const report = existingReport();
   reports = [report];
-  await call('DELETE', `/api/reports/${report._id}`, 'ADM1');
+  await call('DELETE', `/api/reports/${report._id}`, 'ADM1', { reason: 'Filed on the wrong job' });
   reports = [];
   await call('POST', '/api/reports', 'T1', reportBody);
   const w = getWarrantyStatus({ ...booking, status: 'Completed' });

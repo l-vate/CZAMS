@@ -2,6 +2,9 @@ const { NOTIFICATION_TYPE } = require('../constants/notificationTypes');
 const { ROLE } = require('../constants/roles');
 const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const auditSpecs = require('../utils/auditSpecs');
+const { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } = require('../constants/paymentStatus');
+const { safeProofName } = require('../utils/fileAccess');
+const { sendRouteError } = require('../utils/routeErrors');
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -407,29 +410,47 @@ router.patch('/:id', auth, auditSpecs.reportEdit, async (req, res) => {
             return res.status(400).json({ message: 'This report is final and cannot be updated' });
         }
 
-        const updates = req.body;
+        const updates = req.body || {};
         const allowedUpdates = [
-            'workSummary', 'partsUsed', 'recommendations', 
-            'laborHours', 'issueResolution', 'followUpRequired', 
+            'workSummary', 'partsUsed', 'recommendations',
+            'laborHours', 'issueResolution', 'followUpRequired',
             'followUpDate', 'notes'
         ];
+        const changed = allowedUpdates.filter((key) => updates[key] !== undefined);
 
-        Object.keys(updates).forEach(key => {
-            if (allowedUpdates.includes(key)) {
-                report[key] = updates[key];
-            }
+        // The same rules as when the report was filed (work summary, resolution, labor hours in steps of 0.5, a follow-up
+        // Yes or No with a date), checked on the report as it would be after the edit. A section an old report never had
+        // and that this edit does not touch is not demanded now, and a follow-up date that is not being changed is not
+        // held against the date today.
+        const textTooLong = ['partsUsed', 'recommendations', 'notes', 'workSummary'].find((key) => updates[key] !== undefined && (typeof updates[key] !== 'string' || updates[key].length > 2000));
+        if (textTooLong) return res.status(400).json({ message: `${textTooLong} must be text of 2000 characters or fewer.` });
+        const stored = report.toObject();
+        const touched = (key) => updates[key] !== undefined;
+        const followUpDateKey = (value) => (value ? new Date(value).toISOString().slice(0, 10) : undefined);
+        const candidate = {
+            workSummary: touched('workSummary') ? updates.workSummary : stored.workSummary,
+            issueResolution: touched('issueResolution') ? updates.issueResolution : (stored.issueResolution || 'Partial'),
+            laborHours: touched('laborHours') ? updates.laborHours : (typeof stored.laborHours === 'number' ? stored.laborHours : 0),
+            followUpRequired: touched('followUpRequired') ? updates.followUpRequired : !!stored.followUpRequired,
+            followUpDate: touched('followUpDate') ? updates.followUpDate : followUpDateKey(stored.followUpDate),
+        };
+        const sectionProblem = validateReportSections({
+            ...candidate,
+            today: touched('followUpDate') || touched('followUpRequired') ? manilaTodayKey() : '0000-01-01',
         });
+        if (sectionProblem) return res.status(sectionProblem.status).json({ message: sectionProblem.message });
 
-        // Validate follow-up date if required
-        if (report.followUpRequired && !report.followUpDate) {
-            return res.status(400).json({ message: 'Follow-up date is required when follow-up is needed' });
-        }
+        changed.forEach((key) => {
+            report[key] = key === 'laborHours' ? Number(updates[key]) : updates[key];
+        });
+        if (touched('followUpRequired')) report.followUpRequired = updates.followUpRequired === true || updates.followUpRequired === 'true';
+        if (touched('followUpRequired') && !report.followUpRequired) report.followUpDate = undefined;
 
         await report.save();
         res.json(report);
     } catch (error) {
-        console.error('Error updating report:', error);
-        res.status(500).json({ message: 'Error updating report' });
+        console.error('Error updating report:', error.message);
+        sendRouteError(res, error);
     }
 });
 
@@ -454,10 +475,20 @@ async function notifyLeadsReportRemoved(booking) {
 // 4. DELETE REPORT (Admin only)
 // ============================================
 
+// Rules, in order. A reason (3 to 300 characters) is required and goes on the audit trail. The delete is refused (409) while
+// a back job claim on this booking exists, or a later report links back to this one, because those need the report. It is
+// also refused when the booking is already fully paid: taking a paid job back to In Progress would reopen a settled booking.
+// Otherwise the report is deleted, its photo file is removed from disk, the booking goes back to In Progress (completion time
+// cleared, so the warranty restarts with the next report) and every lead is told.
 router.delete('/:id', auth, auditSpecs.reportDelete, async (req, res) => {
     try {
         if (req.userRole !== ROLE.ADMIN) {
             return res.status(403).json({ message: 'Forbidden' });
+        }
+
+        const reason = typeof (req.body && req.body.reason) === 'string' ? req.body.reason.trim() : '';
+        if (reason.length < 3 || reason.length > 300) {
+            return res.status(400).json({ message: 'Give a reason of 3 to 300 characters for deleting a service report.' });
         }
 
         const report = await Report.findById(req.params.id);
@@ -465,10 +496,17 @@ router.delete('/:id', auth, auditSpecs.reportDelete, async (req, res) => {
             return res.status(404).json({ message: 'Report not found' });
         }
 
-        // A job with no report must not stay Completed. It goes back to In Progress, and the time it was completed
-        // (which starts the warranty and the payment terms) is cleared, so the next report starts them again from
-        // when it is submitted, not from the first submission.
+        const claim = await BackJob.findOne({ originalBookingId: report.bookingId });
+        const linked = await Report.findOne({ 'backJob.originalReportId': report._id });
+        if (claim || linked) {
+            return res.status(409).json({ message: 'This report cannot be deleted: a back job claim depends on it. Deal with the claim first.' });
+        }
+
         const booking = await Booking.findOne({ bookingId: report.bookingId });
+        if (booking && (booking.paymentStatus === PAYMENT_STATUS.FULLY_PAID || booking.balancePaymentStatus === BALANCE_PAYMENT_STATUS.PAID)) {
+            return res.status(409).json({ message: 'This report cannot be deleted: the booking is already fully paid, and deleting the report would reopen it. Edit the report instead.' });
+        }
+
         await Booking.updateOne(
             { bookingId: report.bookingId },
             {
@@ -478,15 +516,29 @@ router.delete('/:id', auth, auditSpecs.reportDelete, async (req, res) => {
         );
 
         await report.deleteOne();
+        await removeProofFile(report.signedFormPhoto);
 
         // The lead technician is told the job is open again and needs a new report.
         if (booking) await notifyLeadsReportRemoved(booking);
         res.json({ message: 'Report deleted successfully' });
     } catch (error) {
-        console.error('Error deleting report:', error);
-        res.status(500).json({ message: 'Error deleting report' });
+        console.error('Error deleting report:', error.message);
+        sendRouteError(res, error);
     }
 });
+
+// Removes an uploaded proof or photo from disk. Only a plain file name inside the proofs folder is ever touched, and a
+// file that is already gone is fine.
+async function removeProofFile(storedPath) {
+    if (typeof storedPath !== 'string') return;
+    const name = safeProofName(path.basename(storedPath));
+    if (!name) return;
+    try {
+        await fs.promises.unlink(path.join(UPLOADS_ROOT, 'proofs', name));
+    } catch (err) {
+        if (err.code !== 'ENOENT') console.error('Could not remove a report photo:', err.message);
+    }
+}
 
 // ============================================
 // 5. STATISTICS

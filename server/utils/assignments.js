@@ -57,6 +57,12 @@ function getLeadIds(booking) {
   return [...new Set(getAssignments(booking).map((a) => a.lead))];
 }
 
+// The primary lead is the lead of the first pair. On a job with several pairs only the primary lead files the
+// service report; every other lead and every helper reads it. Reordering or replacing the first pair changes who it is.
+function getPrimaryLeadId(booking) {
+  return getAssignments(booking)[0]?.lead || null;
+}
+
 // 'Lead', 'Helper', or null for someone not on the job.
 function getRoleFor(booking, userId) {
   const id = idOf(userId);
@@ -152,6 +158,7 @@ module.exports = {
   getAssignments,
   getMemberIds,
   getLeadIds,
+  getPrimaryLeadId,
   getRoleFor,
   getMinTechnicians,
   isStaffed,

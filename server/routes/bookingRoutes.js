@@ -45,7 +45,7 @@ const Closure = require('../models/Closure');
 const { closureProblemFor } = require('../utils/closures');
 const { nextWorkingDayKey, extensionSlotProblem, addDays } = require('../utils/extensionDays');
 const {
-  ASSIGNMENT_POPULATE, getMemberIds, getLeadIds, getRoleFor,
+  ASSIGNMENT_POPULATE, getMemberIds, getLeadIds, getPrimaryLeadId, getRoleFor,
   memberFilter, findConflictingBooking, getBusyTechnicianIds, getAssignments, staffingProblem,
 } = require('../utils/assignments');
 const { readReason, buildHistoryEntry, viewHistory, idsIn } = require('../utils/assignmentHistory');
@@ -1150,7 +1150,7 @@ router.get('/technician/mine', auth, async (req, res) => {
     const backJobs = await loadBackJobContexts(jobs, { BackJob, Booking, Report, User });
     // A whitelist, never the whole booking: no payments, proofs, discount ID or refund data.
     res.json(jobs.map((j) => toTechnicianView(j.toObject(), {
-      myRole: getRoleFor(j, req.userId),
+      myRole: getRoleFor(j, req.userId), isPrimaryLead: getPrimaryLeadId(j) === req.userId,
       ...(backJobs.has(j.bookingId) ? { backJob: backJobs.get(j.bookingId) } : {}),
     })));
   } catch (err) {
@@ -1250,7 +1250,7 @@ router.patch('/:bookingId/disruption/report', auth, async (req, res) => {
       { booking }
     );
     const populated = await booking.populate(['service', 'technician', 'customer', ...ASSIGNMENT_POPULATE]);
-    res.json(toTechnicianView(populated.toObject(), { myRole: getRoleFor(populated, req.userId) }));
+    res.json(toTechnicianView(populated.toObject(), { myRole: getRoleFor(populated, req.userId), isPrimaryLead: getPrimaryLeadId(populated) === req.userId }));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -1325,7 +1325,7 @@ router.patch('/:bookingId/extension/request', auth, async (req, res) => {
       { booking }
     );
     const populated = await booking.populate(['service', 'technician', 'customer', ...ASSIGNMENT_POPULATE]);
-    res.json(toTechnicianView(populated.toObject(), { myRole: getRoleFor(populated, req.userId) }));
+    res.json(toTechnicianView(populated.toObject(), { myRole: getRoleFor(populated, req.userId), isPrimaryLead: getPrimaryLeadId(populated) === req.userId }));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });

@@ -705,8 +705,8 @@ function Reports() {
       // A job is waiting for its report while it is In Progress (filing the report is what
       // completes it). Completed jobs are listed too, so ones finished before this rule
       // existed that still have no report can get one.
-      // Only the lead technician files the report, so only the lead's jobs are listed here.
-      const reportableBookings = bookingsData.filter(b => [BOOKING_STATUS.IN_PROGRESS, BOOKING_STATUS.COMPLETED].includes(b.status) && b.myRole === 'Lead');
+      // Only the primary lead (the lead of the first pair) files the report, so only their jobs are listed here.
+      const reportableBookings = bookingsData.filter(b => [BOOKING_STATUS.IN_PROGRESS, BOOKING_STATUS.COMPLETED].includes(b.status) && b.myRole === 'Lead' && b.isPrimaryLead !== false);
 
       // One request for every report, instead of one per completed job.
       let reportsByBooking = null;

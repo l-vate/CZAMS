@@ -10,7 +10,7 @@ const Report = require('../models/Report');
 const Booking = require('../models/Booking');
 const User = require('../models/User'); // Add this import
 const { sendNotification } = require('../utils/notifications');
-const { getMemberIds, getLeadIds, memberFilter } = require('../utils/assignments');
+const { getMemberIds, getLeadIds, getPrimaryLeadId, memberFilter } = require('../utils/assignments');
 const { toTechnicianView } = require('../utils/technicianView');
 const { toCustomerView } = require('../utils/customerView');
 const BackJob = require('../models/BackJob');
@@ -135,9 +135,13 @@ router.post('/', auth, receivePhoto, async (req, res) => {
         if (!getMemberIds(booking).includes(req.userId)) {
             return res.status(403).json({ message: 'You are not assigned to this booking' });
         }
-        // A team's helper can see the job but only a lead files the report.
+        // A helper can see the job but cannot file. On a job with several pairs only the primary lead (the lead of
+        // the first pair) files the one report; the other leads read it.
         if (!getLeadIds(booking).includes(req.userId)) {
             return res.status(403).json({ message: 'Only the lead technician can submit the service report.' });
+        }
+        if (getPrimaryLeadId(booking) !== req.userId) {
+            return res.status(403).json({ message: 'Only the primary lead of this job files the service report. You can read it once it is filed.' });
         }
 
         // Create the report with string IDs

@@ -44,6 +44,9 @@ function JobDetailsModal({ job, onClose }) {
         </div>
         <p className="tech-job-detail-booking">Booking ID: {job.bookingId}{job.isBackJob ? ' (back job)' : ''}</p>
         <p className="tech-job-detail-booking">Your role: <strong>{job.myRole}</strong>{job.assigned ? ` · Assigned: ${job.assigned}` : ''}</p>
+        {job.myRole === 'Lead' && !job.isPrimaryLead && (
+          <p className="tech-job-detail-booking">Primary lead files the report. You lead a pair on this job, so the service report is read-only for you.</p>
+        )}
         {job.myRole === 'Helper' && (
           <p className="tech-job-detail-booking">You are the helper on this job, so it is read-only for you. The lead technician reports disruptions, asks for extensions and submits the service report.</p>
         )}
@@ -303,6 +306,8 @@ function toViewJob(booking) {
     backJob: booking.backJob || null,
     // 'Lead' or 'Helper'. Only a lead can report a disruption or ask for an extension.
     myRole: booking.myRole || 'Lead',
+    // The lead of the first pair files the service report; another lead on a job with several pairs only reads it.
+    isPrimaryLead: booking.isPrimaryLead !== false,
     assigned: getAssignedNames(booking, ''),
   };
 }
@@ -404,7 +409,7 @@ function MyJobs() {
       const send = reportModal.kind === 'disruption' ? reportDisruption : requestExtension;
       const data = await send(reportModal.job.bookingId, reasonText, slot);
       // the action response is not per-technician, so keep the role already known for this job
-      const updatedJob = { ...toViewJob(data), myRole: reportModal.job.myRole, backJob: reportModal.job.backJob };
+      const updatedJob = { ...toViewJob(data), myRole: reportModal.job.myRole, isPrimaryLead: reportModal.job.isPrimaryLead, backJob: reportModal.job.backJob };
       setJobs((prev) => prev.map((j) => (j.bookingId === updatedJob.bookingId ? updatedJob : j)));
       setReportModal({ kind: reportModal.kind, job: updatedJob });
     } catch (err) {

@@ -19,6 +19,7 @@ const { findDeletionBlockers } = require('../utils/deletionBlockers');
 const { normalizeEmail, findUserByEmail, validateRegistration, validateProfileUpdate } = require('../utils/accountInput');
 const { sendProblem } = require('../utils/validation');
 const { sendRouteError } = require('../utils/routeErrors');
+const { createWithUniqueUserId, UserIdExhaustedError, isDuplicateOn } = require('../utils/uniqueUserId');
 
 // Simple ID generator matching your ADM001-style pattern
 function generateUserId(role) {
@@ -59,8 +60,8 @@ router.post('/register', registerLimiter, async (req, res) => {
 
     const hashedPassword = await hashPassword(password);
 
-    const user = await User.create({
-      _id: generateUserId(mappedRole),
+    const user = await createWithUniqueUserId((id) => User.create({
+      _id: id,
       name: `${firstName.trim()} ${lastName.trim()}`,
       email: normalizeEmail(email),
       phone: phone.trim(),
@@ -71,7 +72,7 @@ router.post('/register', registerLimiter, async (req, res) => {
       // and keep the schema default.
       ...(mappedRole === ROLE.CUSTOMER && clientType === 'Commercial' ? { clientType: 'Commercial' } : {}),
       ...profile.values,
-});
+    }), () => generateUserId(mappedRole));
 
     const token = jwt.sign(
       { id: user._id, role: user.role },
@@ -94,6 +95,9 @@ router.post('/register', registerLimiter, async (req, res) => {
   },
     });
   } catch (err) {
+    // two accounts registering with the same email at once: the second is told so, not given an error
+    if (isDuplicateOn('email', err)) return res.status(400).json({ message: 'Email already registered' });
+    if (err instanceof UserIdExhaustedError) return res.status(503).json({ message: err.message });
     sendRouteError(res, err);
   }
 });

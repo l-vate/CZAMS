@@ -141,6 +141,11 @@ test.before(async () => {
   User.findOne = () => chain({ _id: 'ADM1' });
   Booking.find = (f) => chain(DB.filter((d) => matches(d, f)));
   Booking.findOne = (f) => chain(DB.find((d) => matches(d, f)) || null);
+  Booking.findOneAndUpdate = (f, update) => {
+    const found = DB.find((d) => matches(d, f));
+    if (found) Object.assign(found, update.$set);
+    return chain(found || null);
+  };
   Booking.updateOne = async () => ({});
   Report.findOne = (f) => chain(REPORTS.find((r) => r.bookingId === f.bookingId) || null);
   BackJob.findOne = (f) => chain(CLAIMS.find((c) => matches(c, f)) || null);
@@ -218,10 +223,11 @@ test('PATCH refund flag and refund received return the customer view', async () 
 });
 
 test('PATCH pay and pay-balance return the customer view', async () => {
-  DB = [doc({ status: 'Pending', paymentMode: 'Cash', paymentMode2: 'Cash', paymentStatus: 'unpaid', balancePaymentStatus: 'none' })];
+  DB = [doc({ status: 'Pending', paymentMode: 'Cash', paymentMode2: 'Cash', paymentStatus: 'Unpaid', balancePaymentStatus: 'None' })];
   const pay = await call('PATCH', '/api/bookings/CZ-1/pay', 'CUS1');
   assert.equal(pay.status, 200, JSON.stringify(pay.body));
   assertClean(pay.body, 'PATCH /pay');
+  Object.assign(DB[0], { paymentStatus: 'partially_paid', status: 'Approved' }); // approved and the down payment verified, so a balance is due
   const balance = await call('PATCH', '/api/bookings/CZ-1/pay-balance', 'CUS1');
   assert.equal(balance.status, 200, JSON.stringify(balance.body));
   assertClean(balance.body, 'PATCH /pay-balance');

@@ -69,6 +69,12 @@ const filesOf = (req) => {
   return Object.values(req.files || {}).flat();
 };
 
+// Deletes every file this request saved. A route calls it when it refuses a request after the upload step,
+// so a refused upload leaves nothing behind on disk.
+function discardUploads(req) {
+  filesOf(req).forEach((f) => fs.unlink(f.path, () => {}));
+}
+
 // Express middleware for the step right after multer: every saved file must pass the byte check.
 // If any fails, all of this request's files are removed and the request ends with a 400.
 function verifyUploads(allowedTypes) {
@@ -128,5 +134,5 @@ const UPLOADS_ROOT = path.join(__dirname, '..', 'uploads');
 
 module.exports = {
   FILE_TYPES, IMAGE_TYPES, PHOTO_TYPES, PROOF_TYPES, UPLOADS_ROOT,
-  extensionFor, bytesMatch, verifySavedFile, verifyUploads, createUploader, describeTypes,
+  extensionFor, bytesMatch, verifySavedFile, verifyUploads, discardUploads, createUploader, describeTypes,
 };

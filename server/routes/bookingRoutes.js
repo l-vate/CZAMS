@@ -17,7 +17,7 @@ const { sendNotification, notifyAdmins } = require('../utils/notifications');
 const Report = require('../models/Report');
 const {
   getBookingBasePrice, getBookingUnitsSubtotal, getBookingGrossUnitsSubtotal, getBookingTotalQuantity,
-  getSeniorDiscountAmount, getAppliedDiscount,
+  getSeniorDiscountAmount, getAppliedDiscount, getPaymentBreakdown,
 } = require('../utils/pricing');
 const Promo = require('../models/Promo');
 const { pickBestPromo } = require('../utils/promos');
@@ -34,7 +34,8 @@ const { loadBackJobContexts } = require('../utils/backJobContext');
 const BackJob = require('../models/BackJob');
 const { TECHNICIAN_BOOKING_FILTER, isHiddenFromTechnicians } = require('../utils/technicianVisibility');
 const scheduling = require('../constants/scheduling');
-const { createUploader, PROOF_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
+const { createUploader, discardUploads, PROOF_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
+const { downPaymentProblem, balanceProblem, DOWN_PAYMENT_BOOKING_STATUSES, DOWN_PAYMENT_OPEN, BALANCE_BOOKING_STATUSES, BALANCE_OPEN } = require('../utils/paymentGuards');
 const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/queue');
 const { generateBookingId, createWithUniqueBookingId, BookingIdExhaustedError } = require('../utils/bookingId');
 const { invalid, sendProblem } = require('../utils/validation');
@@ -532,9 +533,10 @@ clientSuppliedUnit: isClientSuppliedUnit,
       const basePrice = getBookingBasePrice(populated);
       populated.vatAmount = Math.round(basePrice * 0.12);
     }
-    // Remember what the down payment came to now, while the totals are what the customer saw.
-    const downPaymentOnFile = populated.downPaymentPercent > 0
-      && [PAYMENT_STATUS.TO_VERIFY, PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(populated.paymentStatus);
+    // The amount of a down payment on file is recorded when it is verified, not from a submission nobody has
+    // checked (an admin walk-in that is paid on the spot is the one case recorded here).
+    const downPaymentOnFile = isAdminWalkIn && populated.downPaymentPercent > 0
+      && [PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(populated.paymentStatus);
     if (downPaymentOnFile) populated.downPaymentPaidAmount = computeDownPaymentAmount(populated);
     if (isCommercial || discountApprovedNow || bestPromo || downPaymentOnFile) {
       await populated.save();
@@ -735,53 +737,88 @@ router.patch('/:bookingId/cancel', auth, allowRoles(ROLE.CUSTOMER), async (req, 
   }
 });
 
-// Customer: Submit/upload initial down payment proof
+// Customer: Submit/upload initial down payment proof. Only for the owner, only while the booking is Pending or
+// Approved, and only while no proof is waiting or verified (nothing yet, or the admin rejected the last one). The
+// status change is one conditional update, so two submissions at once cannot both pass, and a verified proof is
+// never overwritten. The amount on file is not touched here: it is set when the admin verifies the payment.
 router.patch('/:bookingId/pay', auth, allowRoles(ROLE.CUSTOMER), upload.single('proof'), async (req, res) => {
+  const refuse = (problem) => { discardUploads(req); return sendProblem(res, problem); };
   try {
     const proofFile = req.file ? `/uploads/proofs/${req.file.filename}` : undefined;
 
     const booking = await Booking.findOne({ bookingId: req.params.bookingId, customer: req.userId }).populate('service');
-    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    if (!booking) { discardUploads(req); return res.status(404).json({ message: 'Booking not found' }); }
+
+    const stateProblem = downPaymentProblem(booking);
+    if (stateProblem) return refuse(stateProblem);
 
     const submission = readPaymentSubmission({
       mode: booking.paymentMode, reference: req.body.referenceNumber, hasProof: !!proofFile, strict: true,
     });
-    if (submission.problem) return sendProblem(res, submission.problem);
+    if (submission.problem) return refuse(submission.problem);
 
-    booking.paymentStatus = PAYMENT_STATUS.TO_VERIFY;
-    if (proofFile) booking.proofFile = proofFile;
-    if (submission.reference) booking.referenceNumber = submission.reference;
-    // The amount submitted now, from the totals as they are now.
-    if (booking.downPaymentPercent > 0) booking.downPaymentPaidAmount = computeDownPaymentAmount(booking);
-    await booking.save();
+    const updated = await Booking.findOneAndUpdate(
+      {
+        _id: booking._id,
+        customer: req.userId,
+        status: { $in: DOWN_PAYMENT_BOOKING_STATUSES },
+        paymentStatus: { $in: DOWN_PAYMENT_OPEN },
+      },
+      { $set: {
+        paymentStatus: PAYMENT_STATUS.TO_VERIFY,
+        ...(proofFile ? { proofFile } : {}),
+        ...(submission.reference ? { referenceNumber: submission.reference } : {}),
+      } },
+      { new: true }
+    ).populate('service');
+    if (!updated) return refuse(invalid('Your payment could not be saved because the booking just changed. Reload and check its status.', 409));
 
-    res.json(customerBooking(booking));
+    res.json(customerBooking(updated));
   } catch (err) {
+    discardUploads(req);
     console.error(err);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Customer: Submit/upload final balance payment proof
+// Customer: Submit/upload final balance payment proof. Only for the owner, only when a balance is really due (the
+// down payment is verified and the balance is not waiting or verified), on an Approved, In Progress or Completed
+// booking. Same atomic update and same file cleanup as the down payment.
 router.patch('/:bookingId/pay-balance', auth, allowRoles(ROLE.CUSTOMER), upload.single('proof'), async (req, res) => {
+  const refuse = (problem) => { discardUploads(req); return sendProblem(res, problem); };
   try {
     const proofFile = req.file ? `/uploads/proofs/${req.file.filename}` : undefined;
 
     const booking = await Booking.findOne({ bookingId: req.params.bookingId, customer: req.userId }).populate('service');
-    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    if (!booking) { discardUploads(req); return res.status(404).json({ message: 'Booking not found' }); }
+
+    const stateProblem = balanceProblem(booking, getPaymentBreakdown(booking).balance);
+    if (stateProblem) return refuse(stateProblem);
 
     const submission = readPaymentSubmission({
       mode: booking.paymentMode2, reference: req.body.referenceNumber, hasProof: !!proofFile, strict: true,
     });
-    if (submission.problem) return sendProblem(res, submission.problem);
+    if (submission.problem) return refuse(submission.problem);
 
-    booking.balancePaymentStatus = BALANCE_PAYMENT_STATUS.TO_VERIFY;
-    if (proofFile) booking.balanceProofFile = proofFile;
-    if (submission.reference) booking.balanceReferenceNumber = submission.reference;
-    await booking.save();
+    const updated = await Booking.findOneAndUpdate(
+      {
+        _id: booking._id,
+        customer: req.userId,
+        status: { $in: BALANCE_BOOKING_STATUSES },
+        balancePaymentStatus: { $in: BALANCE_OPEN },
+      },
+      { $set: {
+        balancePaymentStatus: BALANCE_PAYMENT_STATUS.TO_VERIFY,
+        ...(proofFile ? { balanceProofFile: proofFile } : {}),
+        ...(submission.reference ? { balanceReferenceNumber: submission.reference } : {}),
+      } },
+      { new: true }
+    ).populate('service');
+    if (!updated) return refuse(invalid('Your payment could not be saved because the booking just changed. Reload and check its status.', 409));
 
-    res.json(customerBooking(booking));
+    res.json(customerBooking(updated));
   } catch (err) {
+    discardUploads(req);
     console.error(err);
     res.status(500).json({ message: 'Server error' });
   }

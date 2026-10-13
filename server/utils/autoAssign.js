@@ -42,7 +42,7 @@ function weekRange(key) {
   return { start: monday, end: addDays(monday, 6) };
 }
 
-const isSunday = (key) => toUtc(key).getUTCDay() === 0;
+const { isBusinessDay } = require('./businessDays');
 
 // ---------- pure selection
 
@@ -136,7 +136,7 @@ function findNextFreeDates({
   const found = [];
   for (let i = 1; i <= searchDays && found.length < limit; i += 1) {
     const key = addDays(afterDateKey, i);
-    if (isSunday(key) || closedDates.has(key)) continue;
+    if (!isBusinessDay(key, closedDates)) continue;
     const busy = busyByDate.get(key) || new Set();
     const someoneFree = technicians.filter((t) => !busy.has(t._id)).length >= (minTechnicians <= 1 ? 1 : 2);
     if (someoneFree) found.push(key);

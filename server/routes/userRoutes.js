@@ -7,7 +7,7 @@ const auth = require('../middleware/auth');
 const { resolveClassification } = require('../utils/classification');
 const { hashPassword, generateTemporaryPassword } = require('../utils/password');
 const { invalid, sendProblem } = require('../utils/validation');
-const { readProfileFields } = require('../utils/profileFields');
+const { readProfileFields, readAgreedTerms } = require('../utils/profileFields');
 const Booking = require('../models/Booking');
 const BackJob = require('../models/BackJob');
 const { summarizeHistory } = require('../utils/customerHistory');
@@ -212,7 +212,16 @@ router.put('/:id', auth, async (req, res) => {
     });
     if (profile.problem) return sendProblem(res, profile.problem);
 
+    // Payment terms agreed with a Commercial client: only an admin sets them, and only on a Commercial customer.
+    const terms = readAgreedTerms({
+      role: finalRole,
+      clientType: clientType !== undefined ? clientType : target.clientType,
+      body: req.body,
+    });
+    if (terms.problem) return sendProblem(res, terms.problem);
+
     const update = { ...profile.values };
+    if (terms.value !== undefined && finalRole === ROLE.CUSTOMER) update.agreedPaymentTermsDays = terms.value;
     if (name !== undefined) update.name = name.trim();
     if (email !== undefined) update.email = email.trim().toLowerCase();
     if (phone !== undefined) update.phone = phone.trim();

@@ -6,6 +6,7 @@ import ClosureDateInput from '../../components/closure_date_input';
 import DiscountOption from '../../components/discount_option';
 import { usePublicPromos } from '../../utils/promos';
 import { getCostBreakdown } from '../../utils/costBreakdown';
+import { getMe } from '../../services/userService';
 import { UNIT_TYPES, MAX_UNIT_QUANTITY } from '../../constants/unitTypes';
 import { resolveCleaningTier } from '../../../shared/bookingRules.js';
 import { useServices } from '../../hooks/useServices';
@@ -378,6 +379,14 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
 
 /* ── Step 3: Location & Schedule ──────────────────────────── */
 export function Step3({ form, setForm, technicians }) {
+  // Only a Commercial client is asked for a purchase order number. The account is asked once.
+  const [isCommercial, setIsCommercial] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    getMe().then((me) => { if (!cancelled) setIsCommercial(me.clientType === 'Commercial'); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   const minDate = (() => {
     const d = new Date();
     d.setDate(d.getDate() + 3);
@@ -487,6 +496,20 @@ export function Step3({ form, setForm, technicians }) {
           The number our technician will call. Prefilled from your profile, change it if someone else will be on site.
         </p>
       </div>
+
+      {isCommercial && (
+        <div className="bs-field-group">
+          <label className="bs-label">Purchase Order Number (optional)</label>
+          <input
+            type="text"
+            className="bs-input"
+            maxLength={40}
+            placeholder="Your PO number, if you use one"
+            value={form.poNumber || ''}
+            onChange={(e) => setForm({ ...form, poNumber: e.target.value })}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -819,6 +842,7 @@ const canNext = () => {
       formData.append('technician', form.technician || '');
       formData.append('address', form.address);
       formData.append('contactNumber', form.contactNumber || '');
+      if (form.poNumber) formData.append('poNumber', form.poNumber);
       formData.append('clientSuppliedUnit', form.clientSuppliedUnit || false);
       if (form.clientSuppliedUnit) {
         formData.append('unitWaiverAcknowledged', form.unitWaiverAcknowledged || false);

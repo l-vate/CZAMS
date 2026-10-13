@@ -24,7 +24,7 @@ function addDays(key, n) {
   return date.toISOString().slice(0, 10);
 }
 
-const isSunday = (key) => new Date(`${key}T00:00:00Z`).getUTCDay() === 0;
+const { isSunday, sundaysAreClosed } = require('./businessDays');
 
 const KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -47,7 +47,7 @@ async function getAvailability(from, to) {
   for (let key = from; key <= to; key = addDays(key, 1)) {
     if (key < today) { days.push({ date: key, status: 'past' }); continue; }
     if (closureReason.has(key)) { days.push({ date: key, status: 'shop-closed', reason: closureReason.get(key) }); continue; }
-    if (isSunday(key)) { days.push({ date: key, status: 'closed' }); continue; }
+    if (sundaysAreClosed() && isSunday(key)) { days.push({ date: key, status: 'closed' }); continue; }
     if (key < firstBookable) { days.push({ date: key, status: 'too-soon' }); continue; }
 
     const open = {};

@@ -3,8 +3,7 @@
 // own date and block (see findConflictingBooking in utils/assignments.js). The rules here are pure.
 const { TIME_BLOCKS } = require('./timeBlocks');
 const { isRealDateKey } = require('./closures');
-
-const isSunday = (key) => new Date(`${key}T00:00:00Z`).getUTCDay() === 0;
+const { isSunday, isBusinessDay, sundaysAreClosed, SUNDAY_MESSAGE } = require('./businessDays');
 
 function addDays(key, n) {
   const [y, m, d] = key.split('-').map(Number);
@@ -21,12 +20,13 @@ function slotsOf(booking) {
   return slots;
 }
 
-// The first working day after `fromKey`: not a Sunday and not one of `closedKeys`. Looks up to 30 days ahead.
+// The first working day after `fromKey`: a business day (utils/businessDays.js), not one of `closedKeys`. Looks up to
+// 30 days ahead.
 function nextWorkingDayKey(fromKey, closedKeys = new Set()) {
   let key = fromKey;
   for (let i = 0; i < 30; i += 1) {
     key = addDays(key, 1);
-    if (!isSunday(key) && !closedKeys.has(key)) return key;
+    if (isBusinessDay(key, closedKeys)) return key;
   }
   return key;
 }
@@ -41,7 +41,7 @@ function extensionSlotProblem({ date, time }, booking, today) {
   if (slotsOf(booking).some((s) => s.date === date && s.time === time)) return 'That extra day is already approved for this job.';
   const earliest = booking && booking.date && booking.date > today ? booking.date : today;
   if (date < earliest) return 'The extra day cannot be before the job or in the past.';
-  if (isSunday(date)) return 'The shop is closed on Sundays. Choose another day.';
+  if (sundaysAreClosed() && isSunday(date)) return SUNDAY_MESSAGE;
   return null;
 }
 

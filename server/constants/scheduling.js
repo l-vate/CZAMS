@@ -14,8 +14,22 @@
 //   utils/availability.js   getAvailability (public calendar)
 //   utils/queue.js          getQueue (free technicians and pairs shown in the Pending queue)
 //   routes/bookingRoutes.js the approval check, which only runs when this is false
+//
+// SUNDAY_CLOSED  (an OWNER DECISION, default true)
+//   true:  the shop is closed on Sundays. No booking, reschedule, reschedule approval, disruption reschedule, extra day
+//          or back job visit can land on a Sunday, the public calendar shows Sundays as closed, and auto-assign never
+//          suggests one. This is what the landing page footer, the public calendar and auto-assign already said.
+//   false: Sundays are ordinary days.
+//   Every place reads it through utils/businessDays.js (isBusinessDay, nextBusinessDay, businessDayProblem):
+//     routes/bookingRoutes.js   create, customer reschedule, reschedule approval, disruption reschedule, extension days
+//     routes/backJobRoutes.js   the free visit date
+//     utils/extensionDays.js    nextWorkingDayKey, extensionSlotProblem
+//     utils/availability.js     the public calendar
+//     utils/autoAssign.js       suggested dates
+//   The landing page footer line "Sunday: Closed" (src/pages/public/landing_page.jsx) is text and must be edited by hand.
 const scheduling = {
   PENDING_HOLDS_SLOT: true,
+  SUNDAY_CLOSED: true,
 };
 
 module.exports = scheduling;

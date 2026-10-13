@@ -46,7 +46,7 @@ const { invalid, sendProblem } = require('../utils/validation');
 const { readPaymentSubmission, findSameReference } = require('../utils/paymentReference');
 const { resolveRefundAmounts } = require('../utils/refundAmounts');
 const Closure = require('../models/Closure');
-const { closureProblemFor } = require('../utils/closures');
+const { businessDayProblem } = require('../utils/businessDays');
 const { nextWorkingDayKey, extensionSlotProblem, addDays } = require('../utils/extensionDays');
 const {
   ASSIGNMENT_POPULATE, getMemberIds, getLeadIds, getPrimaryLeadId, getRoleFor,
@@ -267,7 +267,9 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
       poNumber, paymentTermsDays, discountType,
     } = req.body;
 
-    if (paymentTermsDays !== undefined && paymentTermsDays !== '' && paymentTermsDays !== null) {
+    // Payment terms are agreed by an admin, never sent by a customer: a customer's paymentTermsDays is ignored. Only an
+    // admin booking a walk-in may give terms here, and they must be 7 to 10 days.
+    if (req.userRole === ROLE.ADMIN && paymentTermsDays !== undefined && paymentTermsDays !== '' && paymentTermsDays !== null) {
       const days = Number(paymentTermsDays);
       if (!Number.isInteger(days) || days < 7 || days > 10) {
         return res.status(400).json({ message: 'Payment terms must be between 7 and 10 days.' });
@@ -280,7 +282,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
       });
     }
 
-    const closedOnCreate = await closureProblemFor(Closure, date);
+    const closedOnCreate = await businessDayProblem(Closure, date);
     if (closedOnCreate) return sendProblem(res, closedOnCreate);
 
     if (!TIME_BLOCKS.includes(time)) {
@@ -371,6 +373,15 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
     // isCommercial anyway.
     const isCommercial = bookingCustomer?.clientType === 'Commercial';
 
+    // The terms on this booking: the ones the admin agreed for the account, or (an admin walk-in only) the ones the admin
+    // typed. A commercial client with no terms pays a down payment like everyone else.
+    const agreedTerms = bookingCustomer?.agreedPaymentTermsDays;
+    let termsDays = null;
+    if (isCommercial) {
+      if (Number.isInteger(agreedTerms) && agreedTerms >= 7 && agreedTerms <= 10) termsDays = agreedTerms;
+      else if (req.userRole === ROLE.ADMIN && paymentTermsDays) termsDays = Number(paymentTermsDays);
+    }
+
     // Down payment and payment modes must come from what admin has configured in
     // Payment Settings. 0% is a perk, not a configured option: only a Return
     // customer, or a Commercial booking billed on payment terms, may use it.
@@ -383,7 +394,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
       return res.status(400).json({ message: 'A down payment option is required.' });
     }
     if (!allowedPercents.includes(dpPercent)) {
-      const hasPaymentTerms = isCommercial && !!paymentTermsDays;
+      const hasPaymentTerms = termsDays !== null;
       const zeroAllowed = dpPercent === 0 &&
         (hasPaymentTerms || (await resolveClassification(bookingCustomer)) === 'Return');
       if (!zeroAllowed) {
@@ -494,8 +505,8 @@ clientSuppliedUnit: isClientSuppliedUnit,
         isActivelyLeaking: isActivelyLeaking === 'true' || isActivelyLeaking === true,
       } : undefined,
       isCommercial,
-      poNumber: isCommercial && poNumber ? String(poNumber).trim() : null,
-      paymentTermsDays: isCommercial && paymentTermsDays ? Number(paymentTermsDays) : null,
+      poNumber: isCommercial && poNumber ? String(poNumber).trim().slice(0, 40) : null,
+      paymentTermsDays: termsDays,
       ...(discount ? { discount } : {}),
     }), { firstId: req.generatedBookingId });
 
@@ -1057,7 +1068,7 @@ router.patch('/:bookingId/reschedule', auth, allowRoles(ROLE.CUSTOMER), async (r
       });
     }
 
-    const closedOnReschedule = await closureProblemFor(Closure, date);
+    const closedOnReschedule = await businessDayProblem(Closure, date);
     if (closedOnReschedule) return sendProblem(res, closedOnReschedule);
 
     if (!TIME_BLOCKS.includes(time)) {
@@ -1297,7 +1308,7 @@ async function resolveExtensionSlot(booking, { date, time }) {
   const chosenTime = typeof time === 'string' && time.trim() ? time.trim() : booking.time;
   const problem = extensionSlotProblem({ date: chosenDate, time: chosenTime }, booking, today);
   if (problem) return { error: { status: 400, message: problem } };
-  const closedProblem = await closureProblemFor(Closure, chosenDate);
+  const closedProblem = await businessDayProblem(Closure, chosenDate);
   if (closedProblem) return { error: { status: closedProblem.status || 400, message: closedProblem.message } };
   return { date: chosenDate, time: chosenTime };
 }
@@ -1403,7 +1414,7 @@ router.patch('/:bookingId/reschedule/approve', auth, async (req, res) => {
     }
 
     // The shop may have been closed on that date after the customer asked.
-    const closedOnApprove = await closureProblemFor(Closure, booking.rescheduleRequest.requestedDate);
+    const closedOnApprove = await businessDayProblem(Closure, booking.rescheduleRequest.requestedDate);
     if (closedOnApprove) return sendProblem(res, closedOnApprove);
 
     const conflict = await findConflictingBooking(
@@ -2129,7 +2140,7 @@ router.patch('/:bookingId/disruption/reschedule', auth, async (req, res) => {
       return res.status(400).json({ message: 'Time must be Morning or Afternoon.' });
     }
 
-    const closedOnDisruption = await closureProblemFor(Closure, date);
+    const closedOnDisruption = await businessDayProblem(Closure, date);
     if (closedOnDisruption) return sendProblem(res, closedOnDisruption);
 
     const conflict = await findConflictingBooking(getMemberIds(booking), date, time, booking.bookingId);

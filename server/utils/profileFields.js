@@ -41,4 +41,21 @@ function readProfileFields({ role, clientType, body }) {
   return { problem: null, values };
 }
 
-module.exports = { POSITION_MAX, COMPANY_NAME_MAX, REPRESENTATIVE_NAME_MAX, POSITION_SUGGESTIONS, readProfileFields };
+// Payment terms an admin agrees with a Commercial client: a whole number of days from 7 to 10, or empty for none.
+// Returns { problem, value }: `value` is undefined when nothing was sent, null to clear, or the number of days. Sent for
+// anything but a Commercial customer it is refused, and a customer who is not Commercial has no terms at all.
+function readAgreedTerms({ role, clientType, body }) {
+  const isCommercialCustomer = role === ROLE.CUSTOMER && clientType === 'Commercial';
+  if (role === ROLE.CUSTOMER && !isCommercialCustomer) return { problem: null, value: null };
+  const raw = body.agreedPaymentTermsDays;
+  if (raw === undefined) return { problem: null, value: undefined };
+  if (raw === null || raw === '') return { problem: null, value: null };
+  const days = Number(raw);
+  if (!Number.isInteger(days) || days < 7 || days > 10) {
+    return { problem: invalid('Payment terms must be a whole number of days from 7 to 10, or empty for none.') };
+  }
+  if (!isCommercialCustomer) return { problem: invalid('Payment terms can only be agreed with a Commercial customer.') };
+  return { problem: null, value: days };
+}
+
+module.exports = { readAgreedTerms, POSITION_MAX, COMPANY_NAME_MAX, REPRESENTATIVE_NAME_MAX, POSITION_SUGGESTIONS, readProfileFields };

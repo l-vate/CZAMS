@@ -50,6 +50,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
     position: '',
     companyName: '',
     representativeName: '',
+    agreedPaymentTermsDays: '', // days agreed with a Commercial client, 7 to 10, or '' for none
   });
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -69,6 +70,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
         position: user.position || '',
         companyName: user.companyName || '',
         representativeName: user.representativeName || '',
+        agreedPaymentTermsDays: user.agreedPaymentTermsDays ?? '',
       });
       setIsEditing(false);
     }
@@ -341,6 +343,28 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
                         />
                       ) : (
                         <p className="sdm-row-value">{formData.representativeName || 'Not recorded'}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="sdm-row">
+                    <div className="sdm-row-icon"><Icon name="pin" /></div>
+                    <div>
+                      <span className="sdm-row-label">AGREED PAYMENT TERMS (DAYS AFTER SERVICE, 7 TO 10)</span>
+                      {isEditing ? (
+                        <input
+                          type="number"
+                          className="sdm-tech-select"
+                          min="7"
+                          max="10"
+                          step="1"
+                          placeholder="None agreed"
+                          value={formData.agreedPaymentTermsDays}
+                          onChange={(e) => setFormData({ ...formData, agreedPaymentTermsDays: e.target.value })}
+                        />
+                      ) : (
+                        <p className="sdm-row-value">
+                          {formData.agreedPaymentTermsDays ? `${formData.agreedPaymentTermsDays} days (may book without a down payment)` : 'None agreed'}
+                        </p>
                       )}
                     </div>
                   </div>

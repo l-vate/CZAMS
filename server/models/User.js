@@ -28,6 +28,11 @@ const userSchema = new mongoose.Schema({
   // Staff only: a free-text job title (the form suggests Technician, Secretary and Cashier).
   position: { type: String, maxlength: 40 },
 
+  // Commercial customers only: payment terms the admin AGREED with this client, in days after the service (7 to 10).
+  // Set by an admin, never by the customer. A commercial client with terms may book without a down payment, and their
+  // invoices carry these terms. Empty means no terms were agreed.
+  agreedPaymentTermsDays: { type: Number, min: 7, max: 10, default: null },
+
   // Commercial customers only, shown on their invoice. Accounts made before these existed have none.
   companyName: { type: String, maxlength: 80 },
   representativeName: { type: String, maxlength: 80 },

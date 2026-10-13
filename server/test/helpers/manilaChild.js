@@ -7,6 +7,7 @@ mock.timers.enable({ apis: ['Date'], now: new Date(process.env.NOW) });
 const harness = require('./createBooking');
 const { manilaToday, monthsAgoManilaKey, monthsAgoManila } = require('../../utils/manilaDate');
 const { addDays } = require('../../utils/extensionDays');
+const { nextBusinessDay } = require('../../utils/businessDays');
 
 (async () => {
   await harness.install();
@@ -19,8 +20,9 @@ const { addDays } = require('../../utils/extensionDays');
 
   // the 3-day rule on create: two days ahead is refused, three is accepted (a Sunday is skipped in the test data by
   // using a fixed offset and reporting the status, whatever weekday it falls on)
+  // Sundays are closed, so the earliest bookable day is the first business day from three days ahead
   out.createTwoAhead = (await harness.post({ date: addDays(today, 2) })).status;
-  out.createThreeAhead = (await harness.post({ date: addDays(today, 3) })).status;
+  out.createThreeAhead = (await harness.post({ date: nextBusinessDay(addDays(today, 3), new Set(), { inclusive: true }) })).status;
 
   // same-day cancellation: a booking dated today in Manila is same-day, one dated tomorrow is not
   const cancelWith = async (date) => {

@@ -164,6 +164,10 @@ const bookingSchema = new mongoose.Schema({
         text: String,
         rating: Number,
         createdAt: Date,
+        // Set when the customer changes it inside the 24-hour window. `edits` keeps each earlier version with the time
+        // it was replaced.
+        editedAt: Date,
+        edits: [{ text: String, rating: Number, replacedAt: Date }],
     },
 
     // Down-payment refund on a cancelled booking. Only set when the booking actually

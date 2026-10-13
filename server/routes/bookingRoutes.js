@@ -36,6 +36,7 @@ const { TECHNICIAN_BOOKING_FILTER, isHiddenFromTechnicians } = require('../utils
 const scheduling = require('../constants/scheduling');
 const { createUploader, discardUploads, PROOF_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
 const { manilaToday, isAtLeastDaysAhead } = require('../utils/manilaDate');
+const { readFeedback } = require('../utils/feedbackInput');
 const { normalizeContactNumber } = require('../utils/contactNumber');
 const { sendRouteError } = require('../utils/routeErrors');
 const { serviceProblem, unitsProblem } = require('../utils/bookingValidation');
@@ -1057,7 +1058,9 @@ router.patch('/:bookingId/unit-purchase-proof', auth, allowRoles(ROLE.ADMIN), up
   }
 });
 
-// Request a reschedule (or apply directly if still Pending)
+// Request a reschedule. Only a Pending booking (the date changes straight away) or an Approved one (the admin must
+// approve the new date) can be moved. An In Progress, Completed or Cancelled booking cannot. A booking has one open
+// request at a time: a second one while the first waits is refused and does not notify the admins again.
 router.patch('/:bookingId/reschedule', auth, allowRoles(ROLE.CUSTOMER), async (req, res) => {
   try {
     const { date, time } = req.body;
@@ -1075,73 +1078,79 @@ router.patch('/:bookingId/reschedule', auth, allowRoles(ROLE.CUSTOMER), async (r
       return res.status(400).json({ message: 'Time must be Morning or Afternoon.' });
     }
 
-    const booking = await Booking.findOne({ 
-      bookingId: req.params.bookingId, 
-      customer: req.userId 
+    const booking = await Booking.findOne({
+      bookingId: req.params.bookingId,
+      customer: req.userId
     });
-    
+
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
-    let needsAdminApproval = false;
+    if (![BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED].includes(booking.status)) {
+      return res.status(400).json({
+        message: `A ${booking.status} booking can no longer be rescheduled. Only a Pending or Approved booking can be moved.`
+      });
+    }
+    if (booking.date === date && booking.time === time) {
+      return res.status(400).json({ message: 'That is the date and time the booking already has. Choose another.' });
+    }
 
-    let repose = false;
+    const populateAfter = [
+      { path: 'service' },
+      { path: 'technician', select: 'name' },
+      ...ASSIGNMENT_POPULATE,
+    ];
+
     if (booking.status === BOOKING_STATUS.PENDING) {
       // The date changes straight away. Whoever was proposed for the old date is dropped and proposed again below.
       booking.date = date;
       booking.time = time;
       booking.rescheduleRequest = { requestedDate: null, requestedTime: null, status: 'None' };
-      repose = true;
-    } else if ([BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status)) {
-      booking.rescheduleRequest = { 
-        requestedDate: date, 
-        requestedTime: time, 
-        status: 'Pending' 
-      };
-      needsAdminApproval = true;
-    } else {
-      return res.status(400).json({ 
-        message: 'This booking can no longer be rescheduled.' 
-      });
-    }
-
-    await booking.save();
-
-    if (repose) {
+      await booking.save();
       await booking.populate('service');
       await repropose(booking, req.userId);
+      const populated = await booking.populate(populateAfter);
+      return res.json(customerBooking(populated));
     }
 
-    if (needsAdminApproval) {
-      await notifyAdmins(
-        NOTIFICATION_TYPE.RESCHEDULE_REQUESTED,
-        `Booking ${booking.bookingId}: the customer asked to move the service to ${date}, ${time}. Approval needed.`,
-        { booking }
-      );
+    // Approved: one open request per booking. The status check is part of the update, so two requests at once cannot both pass.
+    const updated = await Booking.findOneAndUpdate(
+      { _id: booking._id, customer: req.userId, status: BOOKING_STATUS.APPROVED, 'rescheduleRequest.status': { $ne: 'Pending' } },
+      { $set: { rescheduleRequest: { requestedDate: date, requestedTime: time, status: 'Pending' } } },
+      { new: true }
+    );
+    if (!updated) {
+      return res.status(400).json({ message: 'You already asked to move this booking. Please wait for our team to answer that request.' });
     }
 
-    const populated = await booking.populate([
-      { path: 'service' },
-      { path: 'technician', select: 'name' },
-      ...ASSIGNMENT_POPULATE,
-    ]);
+    await notifyAdmins(
+      NOTIFICATION_TYPE.RESCHEDULE_REQUESTED,
+      `Booking ${updated.bookingId}: the customer asked to move the service to ${date}, ${time}. Approval needed.`,
+      { booking: updated }
+    );
+    // the customer gets a confirmation that the request was received
+    await sendNotification(
+      updated.customer,
+      NOTIFICATION_TYPE.RESCHEDULE_RECEIVED,
+      `We received your request to move booking ${updated.bookingId} to ${date}, ${time}. Our team will confirm it. Until then your booking stays on ${updated.date}, ${updated.time}.`,
+      { booking: updated }
+    );
+
+    const populated = await updated.populate(populateAfter);
     res.json(customerBooking(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
-// Submit or edit feedback for a completed booking (customer)
+// Submit or edit feedback for a completed booking (customer). The rating is a whole number from 1 to 5 and the comment
+// is at most 500 characters. It can be changed for 24 hours after it was first given; each change keeps the earlier
+// version with the time it was replaced.
 const FEEDBACK_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 router.patch('/:bookingId/feedback', auth, allowRoles(ROLE.CUSTOMER), async (req, res) => {
   try {
-    const { rating, text } = req.body;
-    const parsedRating = Number(rating);
-
-    if (!parsedRating || parsedRating < 1 || parsedRating > 5) {
-      return res.status(400).json({ message: 'A rating from 1 to 5 is required.' });
-    }
+    const input = readFeedback(req.body);
+    if (input.problem) return sendProblem(res, input.problem);
 
     const booking = await Booking.findOne({
       bookingId: req.params.bookingId,
@@ -1154,15 +1163,23 @@ router.patch('/:bookingId/feedback', auth, allowRoles(ROLE.CUSTOMER), async (req
       return res.status(400).json({ message: 'Feedback can only be left once the service is completed.' });
     }
 
-    const previouslySubmittedAt = booking.feedback?.createdAt;
+    const previousFeedback = booking.feedback;
+    const previouslySubmittedAt = previousFeedback?.createdAt;
     if (previouslySubmittedAt && Date.now() - new Date(previouslySubmittedAt).getTime() > FEEDBACK_EDIT_WINDOW_MS) {
       return res.status(400).json({ message: 'Feedback can no longer be edited (24-hour window has passed).' });
     }
 
+    const now = new Date();
     booking.feedback = {
-      text: text?.trim() || '',
-      rating: parsedRating,
-      createdAt: previouslySubmittedAt || new Date(),
+      text: input.values.text,
+      rating: input.values.rating,
+      createdAt: previouslySubmittedAt || now,
+      ...(previouslySubmittedAt
+        ? {
+          editedAt: now,
+          edits: [...(previousFeedback.edits || []), { text: previousFeedback.text || '', rating: previousFeedback.rating, replacedAt: now }],
+        }
+        : {}),
     };
 
     await booking.save();
@@ -1173,8 +1190,7 @@ router.patch('/:bookingId/feedback', auth, allowRoles(ROLE.CUSTOMER), async (req
     ]);
     res.json(customerBooking(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 

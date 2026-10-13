@@ -59,6 +59,7 @@ function FeedbackModal({ booking, readOnly = false, onClose, onSubmit, submittin
             rows={3}
             placeholder="Tell us more about your experience..."
             value={text}
+            maxLength={500}
             onChange={(e) => setText(e.target.value)}
             disabled={readOnly}
             readOnly={readOnly}

@@ -801,7 +801,7 @@ function BookDetails() {
                   <button className="bs-back-btn" disabled>
                     Reschedule Pending Approval
                   </button>
-                ) : (
+                ) : booking.status !== BOOKING_STATUS.IN_PROGRESS && (
                   <button className="bs-back-btn" onClick={() => setShowReschedule(true)}>
                     {rescheduleStatus === 'Denied' ? 'Pick New Date' : 'Reschedule'}
                   </button>

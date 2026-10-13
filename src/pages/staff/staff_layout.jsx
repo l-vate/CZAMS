@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { FiMenu, FiX } from 'react-icons/fi';
 import Sidebar from '../../components/sidebars/staff_sidebar';
+import NotificationBell from '../../components/notification_bell';
 
 function StaffLayout({ title, children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -21,6 +22,7 @@ function StaffLayout({ title, children }) {
             {sidebarOpen ? <FiX /> : <FiMenu />}
           </button>
           {title}
+          <NotificationBell />
         </div>
 
         <div className="dashboard-body">

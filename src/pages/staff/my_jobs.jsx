@@ -94,12 +94,119 @@ function JobDetailsModal({ job, onClose }) {
           </div>
         </div>
 
+        {job.technicianInstructions && (
+          <div className="tech-job-detail-cell tech-job-detail-full" style={{ background: '#fff8ec', borderColor: '#f3c98b' }}>
+            <span className="confirmation-detail-icon"><FiInfo /></span>
+            <div>
+              <p className="confirmation-detail-label">Instructions from Admin</p>
+              <p className="confirmation-detail-value">{job.technicianInstructions}</p>
+            </div>
+          </div>
+        )}
+
         <button className="bs-back-btn" style={{ width: '100%', marginTop: '4px' }} onClick={onClose}>
           Close
         </button>
       </div>
     </div>
   );
+}
+
+const DISRUPTION_EXTENSION_COPY = {
+  disruption: {
+    title: 'Report a Disruption',
+    description: "Let admin know this job was interrupted or is running longer than scheduled. Admin will review and reschedule it.",
+    placeholder: "e.g. Unit needed a part we didn't have on hand...",
+    statusText: {
+      Reported: 'Reported — waiting for admin to reschedule this job.',
+      Rescheduled: 'Resolved — this job has been rescheduled.',
+    },
+  },
+  extension: {
+    title: 'Request an Extension',
+    description: "Ask admin for an extra day to finish this job. This isn't automatic — admin has to approve it first.",
+    placeholder: 'e.g. Job is more complex than expected, need one more day...',
+    statusText: {
+      Pending: 'Pending — waiting for admin approval.',
+      Approved: 'Approved — you have the extra day.',
+      Denied: 'Not approved.',
+    },
+  },
+};
+
+function DisruptionExtensionModal({ kind, job, onClose, onSubmit, submitting }) {
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState('');
+
+  const copy = DISRUPTION_EXTENSION_COPY[kind];
+  const record = kind === 'disruption' ? job.disruption : job.extensionRequest;
+  const status = record?.status || 'None';
+  const isResolved = status !== 'None';
+
+  const handleSubmit = () => {
+    if (!reason.trim()) {
+      setError('Please describe what happened.');
+      return;
+    }
+    setError('');
+    onSubmit(reason.trim());
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h4 className="modal-title">{copy.title}</h4>
+          <button className="modal-close-btn" onClick={onClose}><FiX /></button>
+        </div>
+
+        {isResolved ? (
+          <>
+            <p className="modal-instruction">{copy.statusText[status]}</p>
+            <p className="cancel-confirm-text">"{record.reason}"</p>
+            <button className="bs-back-btn" style={{ width: '100%', marginTop: '10px' }} onClick={onClose}>
+              Close
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="modal-instruction">{copy.description}</p>
+            <div className="bs-field-group">
+              <label className="bs-label">Details</label>
+              <textarea
+                className="bs-textarea"
+                rows={4}
+                placeholder={copy.placeholder}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </div>
+            {error && (
+              <p style={{ fontSize: '12px', color: '#e05a5a', marginTop: '-8px', marginBottom: '12px' }}>{error}</p>
+            )}
+            <button className="modal-submit-btn" onClick={handleSubmit} disabled={submitting}>
+              {submitting ? 'Submitting...' : 'Submit'}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function disruptionLabel(job) {
+  const status = job.disruption?.status || 'None';
+  if (status === 'None') return 'Report Disruption';
+  if (status === 'Reported') return 'Disruption Reported';
+  return 'Disruption Resolved';
+}
+
+function extensionLabel(job) {
+  const status = job.extensionRequest?.status || 'None';
+  if (status === 'None') return 'Request Extension';
+  if (status === 'Pending') return 'Extension Pending';
+  if (status === 'Approved') return 'Extension Approved';
+  return 'Extension Denied';
 }
 
 function toViewJob(booking) {
@@ -114,6 +221,9 @@ function toViewJob(booking) {
     contactNumber: booking.customer?.phone || '',
     unitType: booking.unitTypes?.join(', '),
     problemDescription: booking.problemDescription,
+    technicianInstructions: booking.technicianInstructions,
+    disruption: booking.disruption,
+    extensionRequest: booking.extensionRequest,
   };
 }
 
@@ -124,6 +234,8 @@ function MyJobs() {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('newest');
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const [reportModal, setReportModal] = useState(null); // { kind: 'disruption' | 'extension', job }
+  const [submittingReport, setSubmittingReport] = useState(false);
   const sortWrapperRef = useRef(null);
 
   useEffect(() => {
@@ -140,6 +252,38 @@ function MyJobs() {
   const handleViewDetails = (job) => setSelectedJob(job);
   const handleCloseDetails = () => setSelectedJob(null);
   const handleSelectSort = (value) => { setSortBy(value); setShowSortMenu(false); };
+
+  const handleSubmitReport = async (reasonText) => {
+    if (!reportModal) return;
+    setSubmittingReport(true);
+    try {
+      const token = localStorage.getItem('token');
+      const endpoint = reportModal.kind === 'disruption'
+        ? `${API_BASE}/api/bookings/${reportModal.job.bookingId}/disruption/report`
+        : `${API_BASE}/api/bookings/${reportModal.job.bookingId}/extension/request`;
+
+      const res = await fetch(endpoint, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ reason: reasonText }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || 'Failed to submit.');
+        return;
+      }
+      const updatedJob = toViewJob(data);
+      setJobs((prev) => prev.map((j) => (j.bookingId === updatedJob.bookingId ? updatedJob : j)));
+      setReportModal({ kind: reportModal.kind, job: updatedJob });
+    } catch (err) {
+      alert('Could not connect to server.');
+    } finally {
+      setSubmittingReport(false);
+    }
+  };
 
   useEffect(() => {
     if (!showSortMenu) return;
@@ -241,12 +385,41 @@ function MyJobs() {
               >
                 <FiClock /> View Details
               </button>
+
+              {job.status === 'In Progress' && (
+                <>
+                  <button
+                    className="tech-job-view-link"
+                    onClick={() => setReportModal({ kind: 'disruption', job })}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                  >
+                    <FiInfo /> {disruptionLabel(job)}
+                  </button>
+                  <button
+                    className="tech-job-view-link"
+                    onClick={() => setReportModal({ kind: 'extension', job })}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                  >
+                    <FiInfo /> {extensionLabel(job)}
+                  </button>
+                </>
+              )}
             </div>
           ))
         )}
       </div>
 
       {selectedJob && <JobDetailsModal job={selectedJob} onClose={handleCloseDetails} />}
+
+      {reportModal && (
+        <DisruptionExtensionModal
+          kind={reportModal.kind}
+          job={reportModal.job}
+          onClose={() => setReportModal(null)}
+          onSubmit={handleSubmitReport}
+          submitting={submittingReport}
+        />
+      )}
     </StaffLayout>
   );
 }

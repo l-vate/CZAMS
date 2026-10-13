@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import StaffLayout from './staff_layout';
 import { FiClock, FiFileText, FiX, FiUser, FiMapPin } from 'react-icons/fi';
+import SignaturePad from '../../components/signature_pad';
+import ServiceReportPdfModal from '../../components/service_report_pdf_modal';
 
 const API_BASE = 'http://localhost:5000';
 
@@ -14,6 +16,10 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
     followUpRequired: false,
     followUpDate: '',
     notes: '',
+    preExistingIssueFlagged: false,
+    preExistingIssueDescription: '',
+    clientConsentSignedName: '',
+    clientConsentSignatureDataUrl: null,
   });
   const [error, setError] = useState('');
 
@@ -34,6 +40,18 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
     }
     if (form.followUpRequired && !form.followUpDate) {
       setError('Please specify a follow-up date if follow-up is required.');
+      return;
+    }
+    if (form.preExistingIssueFlagged && !form.preExistingIssueDescription.trim()) {
+      setError('Please describe the pre-existing issue.');
+      return;
+    }
+    if (!form.clientConsentSignedName.trim()) {
+      setError("Please enter the client's full name.");
+      return;
+    }
+    if (!form.clientConsentSignatureDataUrl) {
+      setError("The client's signature is required to finalize this report.");
       return;
     }
     onSubmit(form);
@@ -219,6 +237,61 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
             />
           </div>
 
+          {/* Pre-existing Issue Checkbox */}
+          <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              id="preExistingIssueFlagged"
+              name="preExistingIssueFlagged"
+              checked={form.preExistingIssueFlagged}
+              onChange={handleChange}
+              style={{ accentColor: 'var(--navy)', width: '16px', height: '16px' }}
+            />
+            <label htmlFor="preExistingIssueFlagged" className="tech-stat-label" style={{ margin: 0, cursor: 'pointer' }}>
+              Unit had a pre-existing issue or sign of a problem, unrelated to this job
+            </label>
+          </div>
+
+          {/* Conditional Pre-existing Issue Description */}
+          {form.preExistingIssueFlagged && (
+            <div className="form-group">
+              <label htmlFor="preExistingIssueDescription" className="tech-stat-label">
+                Describe what you found <span style={{ color: '#ef4444' }}>*</span>
+              </label>
+              <textarea
+                id="preExistingIssueDescription"
+                name="preExistingIssueDescription"
+                className="tech-search-input"
+                style={{ minHeight: '60px', resize: 'vertical' }}
+                placeholder="e.g. Compressor already showing signs of wear before we started..."
+                value={form.preExistingIssueDescription}
+                onChange={handleChange}
+              />
+            </div>
+          )}
+
+          {/* Client Consent + E-Signature */}
+          <div className="form-group">
+            <label className="tech-stat-label">
+              Client Consent &amp; Signature <span style={{ color: '#ef4444' }}>*</span>
+            </label>
+            <p style={{ fontSize: '11px', color: 'var(--ink-soft)', marginBottom: '8px' }}>
+              Have the client review this report and sign below before submitting.
+            </p>
+            <input
+              type="text"
+              name="clientConsentSignedName"
+              className="tech-search-input"
+              style={{ marginBottom: '8px' }}
+              placeholder="Client's full name"
+              value={form.clientConsentSignedName}
+              onChange={handleChange}
+            />
+            <SignaturePad
+              onChange={(dataUrl) => setForm({ ...form, clientConsentSignatureDataUrl: dataUrl })}
+            />
+          </div>
+
           {error && (
             <p style={{ color: '#ef4444', fontSize: '13px', margin: '4px 0 0 0' }}>{error}</p>
           )}
@@ -249,6 +322,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
 
 function ViewReportModal({ reportItem, onClose }) {
   const { report } = reportItem;
+  const [showPdf, setShowPdf] = useState(false);
 
   const getResolutionStyle = (res) => {
     switch (res) {
@@ -395,6 +469,31 @@ function ViewReportModal({ reportItem, onClose }) {
             </div>
           )}
 
+          {/* Pre-existing Issue */}
+          {report.preExistingIssue?.flagged && (
+            <div className="tech-job-detail-cell tech-job-detail-full">
+              <span className="confirmation-detail-icon"><FiFileText /></span>
+              <div>
+                <p className="confirmation-detail-label">Pre-existing Issue Flagged</p>
+                <p className="confirmation-detail-value">{report.preExistingIssue.description}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Client Consent */}
+          {report.clientConsent?.signedName && (
+            <div className="tech-job-detail-cell tech-job-detail-full">
+              <span className="confirmation-detail-icon"><FiUser /></span>
+              <div>
+                <p className="confirmation-detail-label">Client Consent</p>
+                <p className="confirmation-detail-value">
+                  Signed by {report.clientConsent.signedName}
+                  {report.clientConsent.signedAt ? ` on ${new Date(report.clientConsent.signedAt).toLocaleDateString()}` : ''}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Submitted On */}
           <div className="tech-job-detail-cell tech-job-detail-full">
             <span className="confirmation-detail-icon"><FiClock /></span>
@@ -407,14 +506,31 @@ function ViewReportModal({ reportItem, onClose }) {
           </div>
         </div>
 
-        <button
-          className="tech-sort-btn"
-          style={{ width: '100%', marginTop: '16px', justifyContent: 'center' }}
-          onClick={onClose}
-        >
-          Close
-        </button>
+        <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
+          <button
+            className="tech-sort-btn"
+            style={{ flex: 1, justifyContent: 'center' }}
+            onClick={onClose}
+          >
+            Close
+          </button>
+          <button
+            className="tech-sort-btn"
+            style={{ flex: 1, justifyContent: 'center', background: 'var(--navy)', color: 'white', borderColor: 'var(--navy)' }}
+            onClick={() => setShowPdf(true)}
+          >
+            <FiFileText /> Export PDF
+          </button>
+        </div>
       </div>
+
+      {showPdf && (
+        <ServiceReportPdfModal
+          report={report}
+          reportItem={reportItem}
+          onClose={() => setShowPdf(false)}
+        />
+      )}
     </div>
   );
 }

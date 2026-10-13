@@ -19,6 +19,7 @@ const EMPTY_FORM = {
   category: '',
   icon: 'FiSettings',
   isActive: true,
+  serviceType: 'Other',
 };
 
 function ServiceManage() {
@@ -76,6 +77,7 @@ function ServiceManage() {
       category: service.category || '',
       icon: service.icon || 'FiSettings',
       isActive: service.isActive !== undefined ? service.isActive : true,
+      serviceType: service.serviceType || 'Other',
     });
     setFormError('');
     setShowModal(true);
@@ -117,6 +119,7 @@ function ServiceManage() {
       category: form.category,
       icon: form.icon,
       isActive: form.isActive,
+      serviceType: form.serviceType,
     };
 
     setSaving(true);
@@ -311,6 +314,30 @@ function ServiceManage() {
                   <option value="FiTool">FiTool (Repair/Maintenance)</option>
                   <option value="FiThermometer">FiThermometer (Cooling/AC)</option>
                 </select>
+              </div>
+
+              <div className="svc-field">
+                <label>Service Type</label>
+                <select
+                  name="serviceType"
+                  value={form.serviceType}
+                  onChange={handleChange}
+                  style={{
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    padding: '9px 12px',
+                    fontSize: '14px',
+                  }}
+                >
+                  <option value="Cleaning">Cleaning</option>
+                  <option value="Installation">Installation</option>
+                  <option value="Repair">Repair</option>
+                  <option value="Maintenance">Maintenance</option>
+                  <option value="Other">Other</option>
+                </select>
+                <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
+                  Determines which Warranty Tracking rule applies to bookings of this service.
+                </p>
               </div>
 
               <div className="svc-modal-actions">

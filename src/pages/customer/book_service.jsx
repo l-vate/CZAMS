@@ -22,12 +22,15 @@ const ICON_MAP = {
   FiSettings: <FiSettings />,
 };
 
-function useServices() {
+export function useServices() {
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/services')
+    const token = localStorage.getItem('token');
+    fetch('http://localhost:5000/api/services', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
       .then((res) => res.json())
       .then((data) => {
         const mapped = data.map((s) => ({
@@ -36,6 +39,7 @@ function useServices() {
           desc: s.description,
           price: s.price,
           icon: ICON_MAP[s.icon] || <FiSettings />,
+          serviceType: s.serviceType,
         }));
         setServices(mapped);
         setLoading(false);
@@ -46,7 +50,7 @@ function useServices() {
   return { services, loading };
 }
 
-function useTechnicians() {
+export function useTechnicians() {
   const [technicians, setTechnicians] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -63,16 +67,42 @@ function useTechnicians() {
   return { technicians, loading };
 }
 
-const UNIT_TYPES = ['Window Type', 'Split Type', 'Floor Mounted', 'Cassette Type', 'Portable'];
+export const UNIT_TYPES = ['Window Type', 'Split Type', 'Floor Mounted', 'Cassette Type', 'Portable'];
 
-const DOWN_PAYMENT_OPTIONS = [
+export const DOWN_PAYMENT_OPTIONS = [
   { label: 'Full Payment (100%)', value: 100 },
   { label: '30% Down Payment', value: 30 },
   { label: '50% Down Payment', value: 50 },
-  { label: '10% Down Payment', value: 10 },
 ];
 const FIRST_PAYMENT_MODES = ['E-Wallet (GCash, Maya...)', 'Bank Transfer'];
-const PAYMENT_MODES = ['Cash', 'E-Wallet (GCash, Maya...)', 'Bank Transfer'];
+export const PAYMENT_MODES = ['Cash', 'E-Wallet (GCash, Maya...)', 'Bank Transfer'];
+
+// Customer Classification Module perk: a "Return" customer (4+ completed bookings
+// in the trailing 12 months) sees an extra no-down-payment option up front.
+export function getDownPaymentOptions(isReturnCustomer) {
+  if (!isReturnCustomer) return DOWN_PAYMENT_OPTIONS;
+  return [
+    { label: 'No Down Payment (Return Customer)', value: 0 },
+    ...DOWN_PAYMENT_OPTIONS,
+  ];
+}
+
+// Fetches the logged-in customer's own classification (Customer Classification Module)
+export function useMyClassification() {
+  const [classification, setClassification] = useState('Regular');
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    fetch('http://localhost:5000/api/users/me', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => setClassification(data.classification || 'Regular'))
+      .catch(() => {});
+  }, []);
+
+  return classification;
+}
 
 const TOTAL_STEPS = 5;
 
@@ -84,7 +114,7 @@ function generateBookingId() {
 }
 
 // Shared cost breakdown math — used by Step4 and Step5
-function getCostBreakdown(form, services) {
+export function getCostBreakdown(form, services) {
   const selected = services.find((s) => s.id === form.service);
   const basePrice = selected?.price || 0;
   const dpPercent = form.downPaymentPercent ?? 10;
@@ -95,10 +125,10 @@ function getCostBreakdown(form, services) {
 }
 
 /* ── Step Indicator ───────────────────────────────────────── */
-function StepIndicator({ current }) {
+export function StepIndicator({ current, total = TOTAL_STEPS }) {
   return (
     <div className="step-indicator">
-      {Array.from({ length: TOTAL_STEPS }, (_, i) => {
+      {Array.from({ length: total }, (_, i) => {
         const num = i + 1;
         const isCompleted = num < current;
         const isActive = num === current;
@@ -107,7 +137,7 @@ function StepIndicator({ current }) {
             <div className={`step-dot ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}>
               {isCompleted ? <FiCheck /> : num}
             </div>
-            {num < TOTAL_STEPS && (
+            {num < total && (
               <div className={`step-line ${isCompleted ? 'completed' : ''}`} />
             )}
           </div>
@@ -118,7 +148,7 @@ function StepIndicator({ current }) {
 }
 
 /* ── Step 1: Choose a Service ─────────────────────────────── */
-function Step1({ form, setForm, services }) {
+export function Step1({ form, setForm, services }) {
   return (
     <div className="bs-card">
       <h3 className="bs-card-title">Choose a Service</h3>
@@ -129,7 +159,15 @@ function Step1({ form, setForm, services }) {
             key={s.id}
             type="button"
             className={`service-option ${form.service === s.id ? 'selected' : ''}`}
-            onClick={() => setForm({ ...form, service: s.id })}
+            onClick={() => setForm({
+              ...form,
+              service: s.id,
+              // A different service may not be Installation at all, or may need
+              // the unit-source question re-asked — don't carry stale answers over.
+              clientSuppliedUnit: false,
+              unitWaiverAcknowledged: false,
+              unitWaiverName: '',
+            })}
           >
             <div className="service-option-left">
               <span className="service-icon">{s.icon}</span>
@@ -147,13 +185,25 @@ function Step1({ form, setForm, services }) {
 }
 
 /* ── Step 2: Unit Details ─────────────────────────────────── */
-function Step2({ form, setForm }) {
+export function Step2({ form, setForm, services = [] }) {
   const toggleUnit = (type) => {
     const current = form.unitTypes || [];
     const updated = current.includes(type)
       ? current.filter((t) => t !== type)
       : [...current, type];
     setForm({ ...form, unitTypes: updated });
+  };
+
+  const selectedService = services.find((s) => s.id === form.service);
+  const isInstallation = selectedService?.serviceType === 'Installation';
+
+  const setClientSuppliedUnit = (clientSupplied) => {
+    setForm({
+      ...form,
+      clientSuppliedUnit: clientSupplied,
+      unitWaiverAcknowledged: false,
+      unitWaiverName: '',
+    });
   };
 
   return (
@@ -188,6 +238,55 @@ function Step2({ form, setForm }) {
         />
       </div>
 
+      {isInstallation && (
+        <div className="bs-field-group">
+          <label className="bs-label">Unit Source</label>
+          <div className="time-toggle">
+            <button
+              type="button"
+              className={`time-btn ${!form.clientSuppliedUnit ? 'selected' : ''}`}
+              onClick={() => setClientSuppliedUnit(false)}
+            >
+              CZA-Supplied Unit
+            </button>
+            <button
+              type="button"
+              className={`time-btn ${form.clientSuppliedUnit ? 'selected' : ''}`}
+              onClick={() => setClientSuppliedUnit(true)}
+            >
+              My Own Unit
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isInstallation && form.clientSuppliedUnit && (
+        <div className="bs-field-group waiver-box">
+          <label className="bs-label">Unit Warranty Waiver</label>
+          <p className="bs-card-sub">
+            Since this unit wasn't purchased through Cooling Zone, our Unit Warranty (compressor
+            and parts coverage) does not apply to it. Installation workmanship is still covered
+            for 3 months.
+          </p>
+          <label className="waiver-checkbox-label">
+            <input
+              type="checkbox"
+              checked={form.unitWaiverAcknowledged || false}
+              onChange={(e) => setForm({ ...form, unitWaiverAcknowledged: e.target.checked })}
+            />
+            I confirm this unit was not purchased through Cooling Zone Aircon Services, and
+            understand the Unit Warranty does not apply to it.
+          </label>
+          <input
+            type="text"
+            className="bs-input"
+            placeholder="Type your full name to confirm"
+            value={form.unitWaiverName || ''}
+            onChange={(e) => setForm({ ...form, unitWaiverName: e.target.value })}
+          />
+        </div>
+      )}
+
       <div className="bs-field-group">
         <label className="bs-label">Problem Description <span className="bs-label-hint">(Optional)</span></label>
         <textarea
@@ -203,13 +302,13 @@ function Step2({ form, setForm }) {
 }
 
 /* ── Step 3: Location & Schedule ──────────────────────────── */
-function Step3({ form, setForm, technicians }) {
+export function Step3({ form, setForm, technicians }) {
   const minDate = (() => {
     const d = new Date();
-    d.setDate(d.getDate() + 5);
+    d.setDate(d.getDate() + 3);
     return d.toISOString().split('T')[0]; // YYYY-MM-DD for <input type="date">
   })();
-  
+
    return (
     <div className="bs-card">
       <h3 className="bs-card-title">Location &amp; Schedule</h3>
@@ -277,9 +376,10 @@ function Step3({ form, setForm, technicians }) {
 }
 
 /* ── Step 4: Payment ──────────────────────────────────────── */
-function Step4({ form, setForm, services }) {
+function Step4({ form, setForm, services, isReturnCustomer }) {
   const [showModal, setShowModal] = useState(false);
   const { basePrice, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services);
+  const isNoDownPayment = dpPercent === 0;
 
 const handleSubmitPayment = ({ proof }) => {
     setForm({ ...form, paymentStatus: 'to_verify', proofFile: proof?.name || null, proofFileObj: proof || null });
@@ -309,11 +409,11 @@ const handleSubmitPayment = ({ proof }) => {
           <h3 className="bs-card-title">Payment</h3>
           <p className="bs-card-sub">Choose payment option.</p>
 
-          {/* Down Payment — 2×2 radio grid */}
+          {/* Down Payment — 2×2 radio grid (return customers get an extra 0% option) */}
           <div className="bs-field-group">
             <label className="bs-label">Down Payment</label>
             <div className="dp-radio-grid">
-              {DOWN_PAYMENT_OPTIONS.map((opt) => (
+              {getDownPaymentOptions(isReturnCustomer).map((opt) => (
                 <label key={opt.value} className="dp-radio-label">
                   <input
                     type="radio"
@@ -321,7 +421,7 @@ const handleSubmitPayment = ({ proof }) => {
                     value={opt.value}
                     checked={dpPercent === opt.value}
                     onChange={() =>
-                      setForm({ ...form, downPaymentPercent: opt.value, paymentMode2: '' })
+                      setForm({ ...form, downPaymentPercent: opt.value, paymentMode: '', paymentMode2: '' })
                     }
                     className="dp-radio-input"
                   />
@@ -331,36 +431,42 @@ const handleSubmitPayment = ({ proof }) => {
             </div>
           </div>
 
-          {/* Mode of Payment */}
-          <div className="bs-field-group">
-            <label className="bs-label">Mode of Payment</label>
-            <select
-              className="bs-select"
-              value={form.paymentMode || ''}
-              onChange={(e) => setForm({ ...form, paymentMode: e.target.value })}
-            >
-              <option value="">Select mode</option>
-              {FIRST_PAYMENT_MODES.map((m) => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
-          </div>
+          {/* Nothing is due right now for a 0% down payment — no payment mode or
+              proof to collect until the customer settles the balance later. */}
+          {!isNoDownPayment && (
+            <>
+              {/* Mode of Payment */}
+              <div className="bs-field-group">
+                <label className="bs-label">Mode of Payment</label>
+                <select
+                  className="bs-select"
+                  value={form.paymentMode || ''}
+                  onChange={(e) => setForm({ ...form, paymentMode: e.target.value })}
+                >
+                  <option value="">Select mode</option>
+                  {FIRST_PAYMENT_MODES.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
 
-          {/* Mode for 2nd Payment — hidden when Full Payment */}
-          {!isFullPay && (
-            <div className="bs-field-group">
-              <label className="bs-label">Mode for 2nd Payment</label>
-              <select
-                className="bs-select"
-                value={form.paymentMode2 || ''}
-                onChange={(e) => setForm({ ...form, paymentMode2: e.target.value })}
-              >
-                <option value="">Select mode</option>
-                {PAYMENT_MODES.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-            </div>
+              {/* Mode for 2nd Payment — hidden when Full Payment */}
+              {!isFullPay && (
+                <div className="bs-field-group">
+                  <label className="bs-label">Mode for 2nd Payment</label>
+                  <select
+                    className="bs-select"
+                    value={form.paymentMode2 || ''}
+                    onChange={(e) => setForm({ ...form, paymentMode2: e.target.value })}
+                  >
+                    <option value="">Select mode</option>
+                    {PAYMENT_MODES.map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -375,29 +481,37 @@ const handleSubmitPayment = ({ proof }) => {
 
           <div className="cost-divider" />
 
-          <div className="cost-row">
-            <span>Payment Status</span>
-            <span className={form.paymentStatus === 'Paid' ? 'cost-status-paid' : 'cost-status-unpaid'}>
-              {form.paymentStatus || 'Unpaid'}
-            </span>
-          </div>
-          <div className="cost-row">
-            <span>Proof of Payment</span>
-            <span className="cost-link">{form.proofFile || '—'}</span>
-          </div>
-
-          <button
-            className="pay-down-btn"
-            onClick={() => setShowModal(true)}
-            disabled={!form.paymentMode}
-          >
-            Pay Downpayment
-          </button>
-
-           {form.paymentStatus !== 'Paid' && (
-            <p style={{ fontSize: '12px', color: '#e05a5a', marginTop: '10px', textAlign: 'center' }}>
-              Please complete payment and upload proof before continuing.
+          {isNoDownPayment ? (
+            <p style={{ fontSize: '12px', color: 'var(--ink-soft)', marginTop: '10px', textAlign: 'center' }}>
+              As a return customer, no down payment is required. The full amount will be due upon completion of service.
             </p>
+          ) : (
+            <>
+              <div className="cost-row">
+                <span>Payment Status</span>
+                <span className={form.paymentStatus === 'Paid' ? 'cost-status-paid' : 'cost-status-unpaid'}>
+                  {form.paymentStatus || 'Unpaid'}
+                </span>
+              </div>
+              <div className="cost-row">
+                <span>Proof of Payment</span>
+                <span className="cost-link">{form.proofFile || '—'}</span>
+              </div>
+
+              <button
+                className="pay-down-btn"
+                onClick={() => setShowModal(true)}
+                disabled={!form.paymentMode}
+              >
+                Pay Downpayment
+              </button>
+
+              {form.paymentStatus !== 'Paid' && (
+                <p style={{ fontSize: '12px', color: '#e05a5a', marginTop: '10px', textAlign: 'center' }}>
+                  Please complete payment and upload proof before continuing.
+                </p>
+              )}
+            </>
           )}
 
         </div>
@@ -408,7 +522,7 @@ const handleSubmitPayment = ({ proof }) => {
 }
 
 /* ── Step 5: Booking Summary ──────────────────────────────── */
-function Step5({ form, services, technicians }) {
+export function Step5({ form, services, technicians }) {
   const { selected, basePrice, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services);
   const techName = technicians.find((t) => t._id === form.technician)?.name || 'No preference';
 
@@ -424,6 +538,12 @@ function Step5({ form, services, technicians }) {
           <div className="summary-row"><span>Date &amp; Time</span><span>{form.date ? `${form.date}, ${form.time || ''}` : '—'}</span></div>
           <div className="summary-row"><span>Address</span><span>{form.address || '—'}</span></div>
           <div className="summary-row"><span>Preferred Tech</span><span>{techName}</span></div>
+          {selected?.serviceType === 'Installation' && (
+            <div className="summary-row">
+              <span>Unit Source</span>
+              <span>{form.clientSuppliedUnit ? 'My Own Unit (waiver signed)' : 'CZA-Supplied Unit'}</span>
+            </div>
+          )}
         </div>
         <div>
           <p className="summary-section-title">Payment Details</p>
@@ -449,6 +569,8 @@ function Step5({ form, services, technicians }) {
 function BookService() {
   const { services, loading } = useServices();
   const { technicians } = useTechnicians();
+  const classification = useMyClassification();
+  const isReturnCustomer = classification === 'Return';
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
 
@@ -461,23 +583,35 @@ function BookService() {
     time: '',
     technician: '',
     address: '',
-    downPaymentPercent: 10,
+    downPaymentPercent: 30,
     paymentMode: '',
     paymentMode2: '',
   });
 
 const canNext = () => {
     if (step === 1) return !!form.service;
-    if (step === 2) return (form.unitTypes || []).length > 0;
+    if (step === 2) {
+      if ((form.unitTypes || []).length === 0) return false;
+      const selectedService = services.find((s) => s.id === form.service);
+      const isInstallation = selectedService?.serviceType === 'Installation';
+      if (isInstallation && form.clientSuppliedUnit) {
+        return !!form.unitWaiverAcknowledged && !!(form.unitWaiverName || '').trim();
+      }
+      return true;
+    }
     if (step === 3) {
       if (!form.date || !form.time || !form.address) return false;
       const minDate = new Date();
-      minDate.setDate(minDate.getDate() + 5);
+      minDate.setDate(minDate.getDate() + 3);
       minDate.setHours(0, 0, 0, 0);
       const selected = new Date(form.date);
       return selected >= minDate;
     }
-    if (step === 4) return form.paymentStatus === 'to_verify' || form.paymentStatus === 'fully_paid';
+    if (step === 4) {
+      const { dpPercent } = getCostBreakdown(form, services);
+      if (dpPercent === 0) return true;
+      return form.paymentStatus === 'to_verify' || form.paymentStatus === 'fully_paid';
+    }
     return true;
   };
 
@@ -496,6 +630,11 @@ const canNext = () => {
       formData.append('time', form.time);
       formData.append('technician', form.technician || '');
       formData.append('address', form.address);
+      formData.append('clientSuppliedUnit', form.clientSuppliedUnit || false);
+      if (form.clientSuppliedUnit) {
+        formData.append('unitWaiverAcknowledged', form.unitWaiverAcknowledged || false);
+        formData.append('unitWaiverName', form.unitWaiverName || '');
+      }
       formData.append('downPaymentPercent', form.downPaymentPercent);
       formData.append('paymentMode', form.paymentMode || '');
       formData.append('paymentMode2', form.paymentMode2 || '');
@@ -532,9 +671,9 @@ const canNext = () => {
       ) : (
         <>
           {step === 1 && <Step1 form={form} setForm={setForm} services={services} />}
-          {step === 2 && <Step2 form={form} setForm={setForm} />}
+          {step === 2 && <Step2 form={form} setForm={setForm} services={services} />}
           {step === 3 && <Step3 form={form} setForm={setForm} technicians={technicians} />}
-          {step === 4 && <Step4 form={form} setForm={setForm} services={services} />}
+          {step === 4 && <Step4 form={form} setForm={setForm} services={services} isReturnCustomer={isReturnCustomer} />}
           {step === 5 && <Step5 form={form} services={services} technicians={technicians} />}
         </>
       )}

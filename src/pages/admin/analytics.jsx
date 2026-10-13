@@ -13,6 +13,8 @@ import {
 import { DATE_BASES } from '../../utils/reportBuilders';
 import { customerLabel } from '../../utils/customerLabel';
 
+import { clientGroupOf } from '../../utils/clientGroup';
+import { dayKeyOf } from '../../utils/manilaTime';
 const peso = (n) => `₱${(Math.round(n) || 0).toLocaleString()}`;
 
 
@@ -20,6 +22,7 @@ const CLIENT_TYPE_FILTERS = [
     { key: 'all', label: 'All Clients' },
     { key: 'Residential', label: 'Residential' },
     { key: 'Commercial', label: 'Commercial' },
+    { key: 'Unknown', label: 'Deleted accounts' },
 ];
 
 // How many bookings must have a recorded delay condition before a technician's
@@ -42,9 +45,9 @@ function computeAvgResponseHours(bookings) {
     return totalMs / withResponse.length / (1000 * 60 * 60);
 }
 
+// The Manila month of a timestamp, whatever time zone the browser is in.
 function monthKey(date) {
-    const d = new Date(date);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    return dayKeyOf(date).slice(0, 7);
 }
 
 function monthLabel(key) {
@@ -98,7 +101,7 @@ function Analytics() {
     const filteredReports = useMemo(() => {
         if (activeClientType === 'all') return reports;
         return reports.filter(
-            (r) => (r.bookingDetails?.customer?.clientType || 'Residential') === activeClientType
+            (r) => clientGroupOf(r.bookingDetails?.customer) === activeClientType
         );
     }, [reports, activeClientType]);
 

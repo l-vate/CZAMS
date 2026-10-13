@@ -4,6 +4,7 @@ import { pricingOf } from '../utils/bookingMoney';
 import { DATE_BASES, formatRange, formatGeneratedAt } from '../utils/reportBuilders';
 import { downloadCsv } from '../utils/csvExport';
 
+import { manilaTodayKey } from '../utils/manilaTime';
 const slug = (text) => String(text || 'customer').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'customer';
 
 // The CSV carries the same table: header, rows, totals row, then the outstanding balance.
@@ -19,9 +20,7 @@ function statementCsv(statement) {
 // Admin: pick a customer and a date range, preview the Statement of Account, then print it or save
 // it as a CSV file. Printing uses the same page rules as the reports (the sheet below is a report-sheet).
 function StatementOfAccount({ data }) {
-  const today = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  const todayKey = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+  const todayKey = manilaTodayKey();
   const [form, setForm] = useState({ customerId: '', fromKey: '', toKey: todayKey, dateBasis: 'service' });
   const [error, setError] = useState('');
   const [generated, setGenerated] = useState(null);

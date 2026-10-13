@@ -11,6 +11,7 @@ import { ProofLink, ProofImage } from '../../components/proof_file';
 import { customerLabel } from '../../utils/customerLabel';
 
 
+import { clientGroupOf } from '../../utils/clientGroup';
 // Filter options
 const FILTERS = [
   { key: 'all', label: 'All Reports' },
@@ -402,7 +403,7 @@ function ServiceReports() {
 
       const matchesClientType =
         activeClientType === 'all' ||
-        (report.bookingDetails?.customer?.clientType || 'Residential') === activeClientType;
+        clientGroupOf(report.bookingDetails?.customer) === activeClientType;
 
       const query = search.trim().toLowerCase();
       const matchesSearch =

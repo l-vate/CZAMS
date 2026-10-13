@@ -978,8 +978,12 @@ router.patch('/:bookingId/discount/approve', auth, auditSpecs.discountApprove, a
     if (booking.discount?.status !== 'Pending') {
       return res.status(400).json({ message: 'There is no pending discount request on this booking.' });
     }
+    // A discount changes what is owed, so it cannot be approved once the job is done or the booking is cancelled.
     if (booking.status === BOOKING_STATUS.CANCELLED) {
-      return res.status(400).json({ message: 'This booking is cancelled.' });
+      return res.status(400).json({ message: 'This booking is cancelled, so a discount cannot be approved on it.' });
+    }
+    if (booking.status === BOOKING_STATUS.COMPLETED) {
+      return res.status(400).json({ message: 'This booking is already completed, so a discount can no longer be approved on it.' });
     }
 
     const settings = await getOrCreateSettings();

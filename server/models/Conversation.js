@@ -11,7 +11,10 @@ const conversationSchema = new mongoose.Schema({
   lastMessageText: { type: String, default: '' },
   lastMessageBySenderRole: { type: String, enum: ROLE_VALUES, default: null },
   // Only tracked for the admin side, to power the inbox's unread indicator.
+  // The old single read time, kept so threads read before this existed do not all show as unread.
   adminReadAt: { type: Date, default: null },
+  // When each admin last opened this thread: admin id -> time. One admin opening a thread does not mark it read for the others.
+  adminReadAtBy: { type: Map, of: Date, default: undefined },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Conversation', conversationSchema);

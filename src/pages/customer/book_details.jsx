@@ -7,7 +7,7 @@ import BackJobModal from '../../components/back_job_modal';
 import ServiceReportViewer from '../../components/service_report_viewer';
 import { getBookingLineItems, getPaymentBreakdown, formatPeso } from '../../utils/bookingPricing';
 import { getMemberNames } from '../../utils/assignments';
-import { toLocalDateKey } from '../../utils/date';
+import { earliestBookingKey, formatManilaDay } from '../../utils/manilaTime';
 import { usePaymentSettings, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
 import {
   FiCheck, FiBell, FiPrinter,
@@ -110,11 +110,7 @@ function RescheduleModal({ booking, onClose, onSubmit, submitting }) {
   const [time, setTime] = useState(booking.time || '');
   const needsApproval = [BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status);
 
-  const minDate = (() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 3);
-    return toLocalDateKey(d);
-  })();
+  const minDate = earliestBookingKey(3); // 3 days after today in Manila, YYYY-MM-DD for <input type="date">
 
   const isDateValid = date >= minDate;
 
@@ -133,7 +129,7 @@ function RescheduleModal({ booking, onClose, onSubmit, submitting }) {
           <label className="bs-label">New Date</label>
           <ClosureDateInput min={minDate} value={date} onChange={setDate} />
           <p className="customer-book-details-x1">
-            Earliest available date is {new Date(minDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.
+            Earliest available date is {formatManilaDay(minDate, { month: 'long', day: 'numeric', year: 'numeric' })}.
           </p>
         </div>
 

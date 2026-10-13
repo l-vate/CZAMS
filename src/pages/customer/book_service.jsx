@@ -13,7 +13,7 @@ import { useServices } from '../../hooks/useServices';
 import { useTechnicians } from '../../hooks/useTechnicians';
 import { useMyClassification } from '../../hooks/useMyClassification';
 import { getUnitPrice } from '../../utils/bookingPricing';
-import { toLocalDateKey } from '../../utils/date';
+import { earliestBookingKey, formatManilaDay } from '../../utils/manilaTime';
 import { isValidContactNumber, getAccountPhone } from '../../utils/contact';
 import { usePaymentSettings, getDownPaymentOptions, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
 import { isWithinQuezonCity } from '../../utils/serviceArea';
@@ -389,11 +389,7 @@ export function Step3({ form, setForm, technicians }) {
     return () => { cancelled = true; };
   }, []);
 
-  const minDate = (() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 3);
-    return toLocalDateKey(d); // YYYY-MM-DD for <input type="date">
-  })();
+  const minDate = earliestBookingKey(3); // 3 days after today in Manila, YYYY-MM-DD for <input type="date">
 
   // Hard-Block Technician Double-Booking: this is a UX convenience (hide the
   // obviously-unavailable options) - the real enforcement is server-side on
@@ -429,7 +425,7 @@ export function Step3({ form, setForm, technicians }) {
             onChange={(date) => setForm({ ...form, date })}
           />
           <p className="customer-book-service-x2">
-            Earliest available date is {new Date(minDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.
+            Earliest available date is {formatManilaDay(minDate, { month: 'long', day: 'numeric', year: 'numeric' })}.
           </p>
         </div>
 
@@ -817,11 +813,7 @@ const canNext = () => {
     }
     if (step === 3) {
       if (!form.date || !form.time || !form.address || !isValidContactNumber(form.contactNumber)) return false;
-      const minDate = new Date();
-      minDate.setDate(minDate.getDate() + 3);
-      minDate.setHours(0, 0, 0, 0);
-      const selected = new Date(form.date);
-      return selected >= minDate;
+      return form.date >= earliestBookingKey(3); // both are Manila day keys, so a plain comparison is right
     }
     if (step === 4) {
       const { dpPercent } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages));

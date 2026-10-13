@@ -5,12 +5,12 @@
 //   { title, summary: [{ label, value }], charts: [{ kind, title, ... }],
 //     columns: [...], rows: [[...]], totalRow?: [...], notes: [...] }
 //
-// Dates: all range checks compare LOCAL calendar-day keys (toLocalDateKey), never
-// toISOString(), which converts to UTC and puts a Manila date after 00:00 on the wrong day.
+// Dates: all range checks compare Manila calendar-day keys (utils/manilaTime.js): a range runs from 00:00:00 on the first day to
+// 23:59:59 on the last, both included, in Philippine time whatever the browser's zone is.
 import { getBookingLineItems } from './bookingPricing';
 import { pricingOf } from './bookingMoney';
 import { amountPaid, refundedAmount } from './salesFigures';
-import { toLocalDateKey } from './date';
+import { dayKeyOf, formatManilaDay } from './manilaTime';
 import { getMembers } from './assignments';
 import { getRequestsPerMonth, getBookingsByStatus, getCompletedPerTechnician } from './chartData';
 import { BOOKING_STATUS } from '../constants/bookingStatus';
@@ -18,6 +18,7 @@ import { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } from '../constants/paymentStat
 import { REFUND_STATUS } from '../constants/refundStatus';
 import { BACK_JOB_STATUS } from '../constants/backJobStatus';
 import { customerLabel } from './customerLabel';
+import { clientGroupOf } from './clientGroup';
 
 export const REPORT_TYPES = [
   { key: 'requests', label: 'Service Requests Summary' },
@@ -34,12 +35,11 @@ export function keyToDate(key) {
 }
 
 export function formatDay(dateOrIso) {
-  if (!dateOrIso) return 'N/A';
-  return new Date(dateOrIso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return formatManilaDay(dateOrIso);
 }
 
 function formatKey(key) {
-  return keyToDate(key).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  return formatManilaDay(key, { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
 export function formatRange(fromKey, toKey) {
@@ -59,7 +59,7 @@ export function formatGeneratedAt(date = new Date()) {
 const peso = (n) => `₱${(Math.round(n) || 0).toLocaleString()}`;
 const average = (nums) => (nums.length ? nums.reduce((s, n) => s + n, 0) / nums.length : null);
 const hours = (n) => (n === null ? 'N/A' : `${n.toFixed(1)} hrs`);
-const clientOf = (customer) => customer?.clientType || 'Residential';
+const clientOf = (customer) => clientGroupOf(customer);
 
 // Which date a report counts bookings by: when they were requested, or the day of the service.
 export const DATE_BASES = [
@@ -73,8 +73,8 @@ const claimDate = (bj, filters) => (filters.dateBasis === 'requested' ? bj.repor
 const basisNote = (filters, what = 'Bookings') => `${what} are counted by their ${filters.dateBasis === 'requested' ? 'date requested' : 'service date'}.`;
 
 function inRange(value, { fromKey, toKey }) {
-  if (!value) return false;
-  const key = DATE_KEY.test(value) ? value : toLocalDateKey(new Date(value));
+  const key = dayKeyOf(value);
+  if (!key) return false;
   return key >= fromKey && key <= toKey;
 }
 
@@ -89,7 +89,7 @@ function scopeBookings(bookings, filters) {
   );
 }
 
-const rangeOf = (filters) => ({ from: keyToDate(filters.fromKey), to: keyToDate(filters.toKey), dateOf: (b) => bookingDate(b, filters) });
+const rangeOf = (filters) => ({ fromKey: filters.fromKey, toKey: filters.toKey, dateOf: (b) => bookingDate(b, filters) });
 
 const BACK_JOB_NOTE = 'Free back-job repair visits are not counted as new requests. See the Back Jobs and Warranty Claims report.';
 
@@ -224,7 +224,7 @@ export function buildCustomerReport(data, filters) {
     columns: ['Customer', 'Email', 'Client Type', 'Classification', 'Registered', 'Bookings', 'Completed', 'Cancelled', 'Last Booking'],
     rows: rows.map((r) => [
       r.customer.name || 'N/A', r.customer.email || 'N/A', clientOf(r.customer), r.customer.classification || 'Regular',
-      formatDay(r.customer.createdAt), r.bookings, r.completed, r.cancelled, r.last ? (DATE_KEY.test(r.last) ? formatDay(keyToDate(r.last)) : formatDay(r.last)) : 'None',
+      formatDay(r.customer.createdAt), r.bookings, r.completed, r.cancelled, r.last ? (DATE_KEY.test(r.last) ? formatDay(r.last) : formatDay(r.last)) : 'None',
     ]),
     notes: [
       basisNote(filters),

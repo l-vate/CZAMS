@@ -2,6 +2,8 @@ const dns = require('dns');
 dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 require('dotenv').config({ quiet: true });
+// In production the server stops here, with a message, if JWT_SECRET or MONGO_URI is missing or the secret is too short.
+require('./config/envCheck').enforceEnvironment();
 const express = require('express');
 const connectDB = require('./config/db');
 

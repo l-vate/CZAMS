@@ -4,6 +4,7 @@ import CalendarView from "../../components/calendar_view";
 import { mapBookingStatusToCalendarStatus, getTimeBlockHours } from "../../utils/calendar";
 import { getUnitsSummary } from "../../utils/bookingPricing";
 import { listTechnicianJobs } from '../../services/bookingService';
+import { useRefreshOnFocus } from '../../hooks/useRefreshOnFocus';
 import LoadError from '../../components/load_error';
 
 
@@ -70,6 +71,17 @@ function Calendar() {
   useEffect(() => {
     fetchTechnicianJobs();
   }, []);
+
+  // A quiet refresh when the tab is shown again and every 2 minutes, so a reassignment appears by itself.
+  // If it fails the calendar already on screen stays.
+  useRefreshOnFocus(async () => {
+    try {
+      const data = await listTechnicianJobs();
+      if (Array.isArray(data)) setJobs(data.flatMap(toCalendarJob));
+    } catch (err) {
+      console.error("Could not refresh the schedule:", err);
+    }
+  });
 
   return (
     <StaffLayout title="Calendar">

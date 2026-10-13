@@ -10,9 +10,9 @@ const Report = require('../models/Report');
 const Booking = require('../models/Booking');
 const User = require('../models/User'); // Add this import
 const { sendNotification } = require('../utils/notifications');
-const { getMemberIds, getLeadIds, getPrimaryLeadId, memberFilter } = require('../utils/assignments');
+const { getMemberIds, getLeadIds, getPrimaryLeadId, memberFilter, ASSIGNMENT_POPULATE } = require('../utils/assignments');
 const { toTechnicianView } = require('../utils/technicianView');
-const { toCustomerView } = require('../utils/customerView');
+const { toCustomerView, toCustomerReport } = require('../utils/customerView');
 const BackJob = require('../models/BackJob');
 const { TECHNICIAN_BOOKING_FILTER, isHiddenFromTechnicians } = require('../utils/technicianVisibility');
 const { manilaTodayKey } = require('../utils/timeBlocks');
@@ -354,6 +354,17 @@ router.get('/booking/:bookingId', auth, async (req, res) => {
         // a technician does not see a Pending booking, even one they are proposed for
         if (req.userRole !== ROLE.ADMIN && booking.customer !== req.userId && isHiddenFromTechnicians(booking)) {
             return res.status(404).json({ message: 'Booking not found' });
+        }
+
+        // The owning customer gets the whitelisted report: what the work was and how it ended, the signature, and the
+        // technicians' names. Never a technician id, email or contact, notes, labor hours or anything from the admin.
+        if (req.userRole === ROLE.CUSTOMER) {
+            const forCustomer = await Booking.findById(report.booking)
+                .populate('customer', 'name')
+                .populate('service', 'name serviceType')
+                .populate(ASSIGNMENT_POPULATE);
+            const names = [...new Set((forCustomer?.assignments || []).flatMap((a) => [a.lead && a.lead.name, a.helper && a.helper.name]))];
+            return res.json(toCustomerReport(report, forCustomer, names));
         }
 
         // Manually populate data

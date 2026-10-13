@@ -78,7 +78,7 @@ test('the customer view keeps everything the customer screens use', () => {
   assert.equal(v.bookingId, 'CZ-1');
   assert.equal(v.service.name, 'Cleaning');
   assert.deepEqual(v.units, [{ type: 'Split Type', quantity: 2, brandModel: 'Carrier', _id: 'u1' }]);
-  assert.deepEqual(v.technician, { _id: 'T1', name: 'Tech One' });
+  assert.deepEqual(v.technician, { name: 'Tech One' }); // the name only: a customer never receives a technician id (E4-2)
   assert.equal(v.assignments[0].lead.name, 'Tech One');
   assert.equal(v.assignments[0].helper.name, 'Tech Two');
   assert.equal(v.discount.rejectionReason, 'ID is blurry'); // the customer's screen shows why it was not approved

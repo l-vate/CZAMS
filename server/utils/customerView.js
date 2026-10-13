@@ -18,7 +18,9 @@ const pick = (source, keys) => {
   return out;
 };
 
-const person = (p) => (p && typeof p === 'object' ? { _id: idOf(p), name: p.name } : p ? { _id: idOf(p) } : null);
+// A technician as a customer sees them: the name and nothing else (no id, email or phone). A technician that was not
+// populated (only an id came back) shows as nobody rather than leaking the id.
+const person = (p) => (p && typeof p === 'object' && p.name ? { name: p.name } : null);
 
 // Top-level Booking fields a customer may receive, passed through as they are (they hold nothing internal).
 const PASS_THROUGH = [
@@ -96,4 +98,20 @@ function toCustomerBackJob(backJob) {
   return out;
 }
 
-module.exports = { toCustomerView, toCustomerBackJob, PASS_THROUGH, SHAPED, HIDDEN };
+// A service report as its owning customer sees it. A whitelist: no technician id, email or contact, no internal notes,
+// no labor hours, nothing from the admin. `booking` is the booking behind the report, already populated; `names` are
+// the display names of the technicians on the job.
+function toCustomerReport(report, booking, names = []) {
+  const r = report && typeof report.toObject === 'function' ? report.toObject() : (report || {});
+  const out = pick(r, ['_id', 'bookingId', 'workSummary', 'partsUsed', 'issueResolution', 'recommendations', 'followUpRequired', 'followUpDate', 'submittedAt']);
+  if (r.preExistingIssue) out.preExistingIssue = pick(r.preExistingIssue, ['flagged', 'description']);
+  if (r.clientConsent) out.clientConsent = pick(r.clientConsent, ['signedName', 'signedAt', 'signatureDataUrl']);
+  // a gated file reference (opened through the signed-link route), never a public address
+  if (r.signedFormPhoto) out.signedFormPhoto = r.signedFormPhoto;
+  out.serviceDate = booking && booking.date;
+  out.technicians = names.filter(Boolean);
+  out.bookingDetails = booking ? toCustomerView(booking) : undefined;
+  return out;
+}
+
+module.exports = { toCustomerView, toCustomerBackJob, toCustomerReport, PASS_THROUGH, SHAPED, HIDDEN };

@@ -112,16 +112,21 @@ async function deliverPendingServiceReminders() {
   return { delivered };
 }
 
-// Runs once a day - plenty granular for a months-long interval, no need for anything tighter.
+async function safeRunDaily() {
+  try {
+    await runServiceReminderCheck();
+    await deliverPendingServiceReminders();
+  } catch (err) {
+    console.error('Service reminder check failed:', err);
+  }
+}
+
+// Runs every day at midnight Manila time - plenty granular for a months-long interval - and once right now. The check works from the
+// bookings and the reminders already recorded (one reminder per customer and last cleaning), so it can be run at any time and as often
+// as needed: a server that was asleep or off at midnight catches up as soon as it starts, and a second run creates and sends nothing twice.
 function startServiceReminderSchedule() {
-  cron.schedule('0 0 * * *', async () => {
-    try {
-      await runServiceReminderCheck();
-      await deliverPendingServiceReminders();
-    } catch (err) {
-      console.error('Service reminder check failed:', err);
-    }
-  }, { timezone: TIMEZONE });
+  cron.schedule('0 0 * * *', safeRunDaily, { timezone: TIMEZONE });
+  safeRunDaily();
 }
 
 module.exports = {

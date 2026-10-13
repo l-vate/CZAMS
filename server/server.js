@@ -7,7 +7,7 @@ require('./config/envCheck').enforceEnvironment();
 const express = require('express');
 const connectDB = require('./config/db');
 
-connectDB();
+const databaseReady = connectDB();
 const app = express();
 // Behind a proxy or a host's load balancer the visitor's IP comes from a header. TRUST_PROXY is how many
 // proxies to trust (for example 1); it is needed for the login rate limit to see real IPs.
@@ -18,6 +18,8 @@ if (process.env.TRUST_PROXY) {
 // Only the origins in CORS_ORIGINS (and localhost while not in production) may call the API from a browser.
 const { requestId, apiNotFound, errorHandler } = require('./middleware/errorHandler');
 app.use(requestId);
+// For an uptime monitor: no login, nothing about the database or the environment. Registered before the CORS and body parsing work.
+app.use('/api/health', require('./routes/healthRoutes'));
 app.use(require('./config/cors').buildCors());
 app.use(express.json());
 // Profile photos stay public. Proof files are opened through /api/files after an access check.
@@ -44,11 +46,14 @@ app.use('/api/audit-log', require('./routes/auditRoutes'));
 app.use(apiNotFound);
 app.use(errorHandler);
 
+// The scheduled jobs start once the database is connected, and each one also runs once right away: on a host that sleeps and wakes the
+// process, a job whose time passed while it was asleep is caught up at the next start (see jobs/).
 const { startServiceReminderSchedule } = require('./jobs/serviceReminderJob');
-startServiceReminderSchedule();
-
 const { startBookingStatusSchedule } = require('./jobs/bookingStatusJob');
-startBookingStatusSchedule();
+databaseReady.then(() => {
+  startServiceReminderSchedule();
+  startBookingStatusSchedule();
+});
 
 const PORT = process.env.PORT || 5000;
 // eslint-disable-next-line no-console -- startup message, not debugging

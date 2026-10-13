@@ -59,11 +59,8 @@ for (const [now, manilaDay, label] of INSTANTS) {
   test(`${label}: every time zone gives the same answers, and they are the Manila answers`, () => {
     const results = ZONES.map((tz) => ({ tz, ...run(tz, now) }));
     const expected = results.find((r) => r.tz === 'Asia/Manila');
-    results.forEach((r) => {
-      const { tz, ...rest } = r;
-      const { tz: _ignored, ...base } = expected;
-      assert.deepEqual(rest, base, `${tz} differs from Asia/Manila at ${now}`);
-    });
+    const strip = ({ tz, ...rest }) => rest; // eslint-disable-line no-unused-vars
+    results.forEach((r) => assert.deepEqual(strip(r), strip(expected), `${r.tz} differs from Asia/Manila at ${now}`));
     assert.equal(expected.today, manilaDay);
     assert.equal(expected.createTwoAhead, 400, 'two days ahead is refused');
     assert.equal(expected.createThreeAhead, 201, 'three days ahead is accepted');

@@ -33,7 +33,8 @@ const { addDays } = require('../../utils/extensionDays');
   };
   out.cancelToday = await cancelWith(today);
   out.cancelTomorrow = await cancelWith(addDays(today, 1));
-  console.log(JSON.stringify(out));
+  process.stdout.write(`${JSON.stringify(out)}
+`);
   harness.close();
   // let the closing sockets finish before the process ends (an immediate exit trips a libuv assertion on Windows)
   setTimeout(() => process.exit(0), 100);

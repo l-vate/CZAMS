@@ -43,9 +43,18 @@ async function recordAudit({ actor, action, entityType, entityId, summary, meta 
       meta: cleanMeta(meta),
     });
   } catch (err) {
-    console.error(`Could not write the audit line for ${action}:`, err.message);
+    logAuditProblem(action, err);
     return null;
   }
+}
+
+// A problem writing audit lines is logged, but only once a minute, so a database that is down does not flood the log.
+let lastLoggedAt = 0;
+function logAuditProblem(action, err) {
+  const now = Date.now();
+  if (now - lastLoggedAt < 60000) return;
+  lastLoggedAt = now;
+  console.error(`Could not write the audit line for ${action}:`, err.message);
 }
 
 // Route middleware, placed right after auth. `spec` is { entityType, entityId(req, body), actions(req, body) } where actions

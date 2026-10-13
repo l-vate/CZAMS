@@ -14,7 +14,9 @@ const auditLogSchema = new mongoose.Schema({
   entityId: { type: String },
   summary: { type: String, maxlength: 300 },
   meta: { type: mongoose.Schema.Types.Mixed },
-}, { timestamps: { createdAt: true, updatedAt: false }, collection: 'auditlogs' });
+// bufferCommands is off so a write made while the database is not connected fails at once (and is logged) instead of waiting
+// ten seconds: an audit line must never hold up the request or a test that has no database.
+}, { timestamps: { createdAt: true, updatedAt: false }, collection: 'auditlogs', bufferCommands: false });
 
 auditLogSchema.index({ createdAt: -1 });
 auditLogSchema.index({ action: 1, createdAt: -1 });

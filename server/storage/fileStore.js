@@ -151,8 +151,7 @@ function createDiskStore({ root = path.join(__dirname, '..', 'uploads') } = {}) 
     async list() {
       const out = [];
       for (const folder of [PROOFS_FOLDER, PROFILE_FOLDER]) {
-        let names = [];
-        try { names = await fs.promises.readdir(path.join(root, folder)); } catch { names = []; }
+        const names = await fs.promises.readdir(path.join(root, folder)).catch(() => []);
         for (const name of names) {
           if (!safeProofName(name)) continue;
           const stat = await fs.promises.stat(path.join(root, folder, name));

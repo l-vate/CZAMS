@@ -10,6 +10,15 @@ export function customerNotificationTarget(notification) {
   return null;
 }
 
+// Where an admin goes when they click a notification: Chat for a chat message, the booking it is about (the requests page opens
+// that booking), or nothing for a notification that is about no booking.
+export function adminNotificationTarget(notification) {
+  if (!notification) return null;
+  if (notification.type === 'chat_message') return '/admin/chat';
+  if (notification.relatedBookingId) return `/admin/services/requests?booking=${encodeURIComponent(notification.relatedBookingId)}`;
+  return null;
+}
+
 export function technicianNotificationTarget(notification) {
   if (!notification) return null;
   if (notification.type === 'chat_message') return '/staff/chat';

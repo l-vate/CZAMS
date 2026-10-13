@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AdminLayout from './admin_layout';
 import AdminServiceDetailsModal from '../../components/admin_service_details_modal';
@@ -28,6 +29,16 @@ function ServiceRequests() {
     const [personFilter, setPersonFilter] = useState(location.state?.personFilter || null);
 
     const filters = ['All', ...BOOKING_STATUS_VALUES];
+
+    // A notification links here with ?booking=<id>: open that booking once the list has loaded.
+    const [searchParams, setSearchParams] = useSearchParams();
+    const bookingFromLink = searchParams.get('booking');
+    useEffect(() => {
+        if (!bookingFromLink || loading) return;
+        const found = requests.find((r) => r.bookingId === bookingFromLink);
+        if (found) setSelectedBooking(found);
+        setSearchParams({}, { replace: true });
+    }, [bookingFromLink, loading, requests, setSearchParams]);
 
     useEffect(() => {
         fetchRequests();

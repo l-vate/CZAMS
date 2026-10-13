@@ -2,6 +2,9 @@
 // kind of notification needs no migration; this list is what the code currently sends.
 const NOTIFICATION_TYPE = Object.freeze({
   BOOKING_CREATED: 'booking_created',
+  BOOKING_NEW: 'booking_new',
+  PAYMENT_SUBMITTED: 'payment_submitted',
+  REFUND_FLAGGED: 'refund_flagged',
   BOOKING_APPROVED: 'booking_approved',
   BOOKING_CANCELLED: 'booking_cancelled',
   BOOKING_COMPLETED: 'booking_completed',

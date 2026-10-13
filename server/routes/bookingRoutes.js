@@ -582,6 +582,14 @@ clientSuppliedUnit: isClientSuppliedUnit,
     // The system proposes who will do it: the technician the customer asked for if they are free, otherwise the usual
     // choice. It is only a proposal: hidden from the customer and from the technicians until the admin approves. A
     // failure here never fails the booking, it just stays unassigned for the admin to assign by hand.
+    if (!isAdminWalkIn) {
+      await notifyAdmins(
+        NOTIFICATION_TYPE.BOOKING_NEW,
+        `New booking ${populated.bookingId} for ${populated.service?.name || 'a service'} on ${populated.date}, ${populated.time}${bookingCustomer?.name ? ` from ${bookingCustomer.name}` : ''}.`,
+        { booking: populated }
+      );
+    }
+
     const auto = await autoAssignNewBooking(populated);
 
     // an admin booking for a walk-in sees everything, and the dates when someone is free if nobody was free that day; a
@@ -742,12 +750,16 @@ router.patch('/:bookingId/cancel', auth, auditSpecs.customerCancel, allowRoles(R
     // the technicians on an Approved job are told it will not happen
     await notifyMembersOfChange(booking, statusBeforeCancel, NOTIFICATION_TYPE.BOOKING_CANCELLED, `Booking ${booking.bookingId} (${booking.date}, ${booking.time}) was cancelled. You no longer need to attend.`);
 
+    // Every admin is told once: with a refund waiting, the refund notice already says the booking was cancelled; otherwise a
+    // plain cancellation notice.
     if (booking.refund?.status === REFUND_STATUS.PENDING) {
       await notifyAdmins(
         NOTIFICATION_TYPE.REFUND_REQUESTED,
         `Booking ${booking.bookingId} was cancelled by the customer and a refund request is waiting for review${booking.refund.isSameDay ? ' (same-day cancellation, deduction needed)' : ''}.`,
         { booking }
       );
+    } else {
+      await notifyAdmins(NOTIFICATION_TYPE.BOOKING_CANCELLED, `Booking ${booking.bookingId} was cancelled by the customer.`, { booking });
     }
 
     const populated = await booking.populate([
@@ -798,6 +810,7 @@ router.patch('/:bookingId/pay', auth, allowRoles(ROLE.CUSTOMER), upload.single('
     ).populate('service');
     if (!updated) return refuse(invalid('Your payment could not be saved because the booking just changed. Reload and check its status.', 409));
 
+    await notifyAdmins(NOTIFICATION_TYPE.PAYMENT_SUBMITTED, `Booking ${updated.bookingId}: the customer sent a down payment proof to verify.`, { booking: updated });
     res.json(customerBooking(updated));
   } catch (err) {
     discardUploads(req);
@@ -841,6 +854,7 @@ router.patch('/:bookingId/pay-balance', auth, allowRoles(ROLE.CUSTOMER), upload.
     ).populate('service');
     if (!updated) return refuse(invalid('Your payment could not be saved because the booking just changed. Reload and check its status.', 409));
 
+    await notifyAdmins(NOTIFICATION_TYPE.PAYMENT_SUBMITTED, `Booking ${updated.bookingId}: the customer sent a balance payment proof to verify.`, { booking: updated });
     res.json(customerBooking(updated));
   } catch (err) {
     discardUploads(req);
@@ -2200,6 +2214,8 @@ router.patch('/:bookingId/refund/flag', auth, allowRoles(ROLE.CUSTOMER), async (
     };
 
     await booking.save();
+
+    await notifyAdmins(NOTIFICATION_TYPE.REFUND_FLAGGED, `Booking ${booking.bookingId}: the customer says the refund has not come through: "${message.trim().slice(0, 100)}".`, { booking });
 
     const populated = await booking.populate([
       { path: 'service' },

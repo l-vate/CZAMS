@@ -188,4 +188,6 @@ async function call(method, path, as = 'CUS1', body, { role = 'customer' } = {})
   return { status: res.status, body: await res.json().catch(() => ({})) };
 }
 
-module.exports = { state, install, reset, close, post, call, callPath, addBooking, goodDate, DEFAULT_SETTINGS };
+const getBase = () => base;
+
+module.exports = { base: getBase, state, install, reset, close, post, call, callPath, addBooking, goodDate, DEFAULT_SETTINGS };

@@ -12,6 +12,7 @@ const Booking = require('../models/Booking');
 const Report = require('../models/Report');
 const Notification = require('../models/Notification');
 const { authCache } = require('../utils/authCache');
+const { PNG_DATA_URL } = require('./helpers/signature');
 
 const query = (value) => ({
   select() { return this; },
@@ -57,7 +58,7 @@ const submit = async (body) => {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({
       bookingId: 'CZ-1', workSummary: 'Cleaned the unit', issueResolution: 'Complete', laborHours: 2, followUpRequired: false, clientConsentSignedName: 'Customer One',
-      clientConsentSignatureDataUrl: 'data:image/png;base64,AAAA', ...body,
+      clientConsentSignatureDataUrl: PNG_DATA_URL, ...body,
     }),
   });
   return { status: res.status, body: await res.json() };

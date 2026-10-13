@@ -15,6 +15,7 @@ const Report = require('../models/Report');
 const Notification = require('../models/Notification');
 const { authCache } = require('../utils/authCache');
 const { matches, chain } = require('./helpers/memoryQueries');
+const { PNG_DATA_URL } = require('./helpers/signature');
 
 const accounts = { ADM1: 'admin', CUS1: 'customer', T1: 'staff', T2: 'staff', T7: 'staff', T8: 'staff' };
 const NAMES = { T1: 'Tech One', T2: 'Tech Two', T7: 'Original Lead', T8: 'Original Helper' };
@@ -167,7 +168,7 @@ test('a technician with no back jobs gets zeros, not a missing field', async () 
 
 // ---- the report
 const reportBody = (over = {}) => ({
-  bookingId: 'CZ-5', workSummary: 'Fixed the leak again', issueResolution: 'Complete', laborHours: 2, followUpRequired: false, clientConsentSignedName: 'Customer One', clientConsentSignatureDataUrl: 'data:image/png;base64,AAAA', ...over,
+  bookingId: 'CZ-5', workSummary: 'Fixed the leak again', issueResolution: 'Complete', laborHours: 2, followUpRequired: false, clientConsentSignedName: 'Customer One', clientConsentSignatureDataUrl: PNG_DATA_URL, ...over,
 });
 
 test('a report on a back job visit records the link to the claim, the original booking and the original report', async () => {

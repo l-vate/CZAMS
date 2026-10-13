@@ -16,6 +16,7 @@ const Notification = require('../models/Notification');
 const { authCache } = require('../utils/authCache');
 const { getPrimaryLeadId } = require('../utils/assignments');
 const { matches, chain } = require('./helpers/memoryQueries');
+const { PNG_DATA_URL } = require('./helpers/signature');
 const { manilaTodayKey } = require('../utils/timeBlocks');
 const { addDays } = require('../utils/extensionDays');
 
@@ -67,7 +68,7 @@ const call = async (as, method, path, body) => {
 };
 const REPORT = {
   bookingId: 'CZ-1', workSummary: 'Cleaned both units', issueResolution: 'Complete', laborHours: 2, followUpRequired: false,
-  clientConsentSignedName: 'Customer One', clientConsentSignatureDataUrl: 'data:image/png;base64,AAAA',
+  clientConsentSignedName: 'Customer One', clientConsentSignatureDataUrl: PNG_DATA_URL,
 };
 const file = (as) => call(as, 'POST', '/api/reports', REPORT);
 

@@ -19,6 +19,7 @@ const { authCache } = require('../utils/authCache');
 const scheduling = require('../constants/scheduling');
 const { activeStatuses, findConflictingBooking } = require('../utils/assignments');
 const { matches, chain } = require('./helpers/memoryQueries');
+const { PNG_DATA_URL } = require('./helpers/signature');
 
 const accounts = { ADM1: 'admin', CUS1: 'customer', T1: 'staff', T2: 'staff', T3: 'staff', T4: 'staff' };
 
@@ -112,7 +113,7 @@ test('reporting a disruption or asking for an extension on a Pending booking is 
 
 test('creating a service report for a Pending booking is a 404', async () => {
   const res = await call('POST', '/api/reports', 'T1', {
-    bookingId: 'CZ-P', workSummary: 'x', issueResolution: 'Complete', laborHours: 2, followUpRequired: false, clientConsentSignedName: 'C', clientConsentSignatureDataUrl: 'data:image/png;base64,AAAA',
+    bookingId: 'CZ-P', workSummary: 'x', issueResolution: 'Complete', laborHours: 2, followUpRequired: false, clientConsentSignedName: 'C', clientConsentSignatureDataUrl: PNG_DATA_URL,
   });
   assert.equal(res.status, 404);
   assert.equal(res.body.message, 'Booking not found');

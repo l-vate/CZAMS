@@ -18,7 +18,7 @@ const { TECHNICIAN_BOOKING_FILTER, isHiddenFromTechnicians } = require('../utils
 const { manilaTodayKey } = require('../utils/timeBlocks');
 const { createUploader, PHOTO_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
 const { reportErrorResponse, validateReportInput, validateReportSections } = require('../utils/reportErrors');
-const { PHOTO_MAX_BYTES, consentProblem, readFlag } = require('../utils/reportEvidence');
+const { PHOTO_MAX_BYTES, consentProblem, signatureProblem, readFlag } = require('../utils/reportEvidence');
 
 // The photo of the signed paper form: JPG or PNG only, 5 MB at most, random stored name with an
 // extension from the validated type, first bytes checked (utils/uploadSafety.js).
@@ -102,6 +102,9 @@ router.post('/', auth, receivePhoto, async (req, res) => {
             hasPhoto: !!req.file,
         });
         if (evidenceProblem) return res.status(evidenceProblem.status).json({ message: evidenceProblem.message });
+        // a drawn signature must be a real PNG or JPEG under 500 KB, whether or not a photo came with it
+        const signatureIssue = signatureProblem(clientConsentSignatureDataUrl);
+        if (signatureIssue) return res.status(signatureIssue.status).json({ message: signatureIssue.message });
 
         // Find the booking
         const booking = await Booking.findOne({ bookingId });

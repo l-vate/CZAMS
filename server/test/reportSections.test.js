@@ -19,6 +19,7 @@ const { validateReportSections } = require('../utils/reportErrors');
 const { manilaTodayKey } = require('../utils/timeBlocks');
 const { addDays } = require('../utils/extensionDays');
 const { chain } = require('./helpers/memoryQueries');
+const { PNG_DATA_URL } = require('./helpers/signature');
 
 const TODAY = manilaTodayKey();
 const FUTURE = addDays(TODAY, 5);
@@ -103,7 +104,7 @@ test.beforeEach(() => {
   Booking.findOne = () => chain(booking);
 });
 
-const BASE = { bookingId: 'CZ-1', workSummary: 'Cleaned the unit', clientConsentSignedName: 'Customer One', clientConsentSignatureDataUrl: 'data:image/png;base64,AAAA' };
+const BASE = { bookingId: 'CZ-1', workSummary: 'Cleaned the unit', clientConsentSignedName: 'Customer One', clientConsentSignatureDataUrl: PNG_DATA_URL };
 const submit = async (body) => {
   const token = jwt.sign({ id: 'T1', role: 'staff' }, process.env.JWT_SECRET, { expiresIn: '5m' });
   const res = await fetch(`${base}/api/reports`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });

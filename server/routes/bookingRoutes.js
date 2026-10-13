@@ -42,6 +42,7 @@ const { readFeedback } = require('../utils/feedbackInput');
 const { normalizeContactNumber } = require('../utils/contactNumber');
 const { sendRouteError } = require('../utils/routeErrors');
 const { planPaymentChange, planInPersonPayment, commitPayment } = require('../utils/paymentVerification');
+const { describeChargeChanges } = require('../utils/chargeNotice');
 const { buildPriceSnapshot } = require('../utils/priceSnapshot');
 const { readPaging } = require('../utils/adminInput');
 const { serviceProblem, unitsProblem } = require('../utils/bookingValidation');
@@ -1942,6 +1943,7 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
     // separately from the assignment below so we only notify the customer when the
     // saved amount actually changes, not on every admin-update touching this route.
     let chargeChanged = false;
+    const chargesBefore = { distanceAdjustment: booking.distanceAdjustment || 0, mobilizationFee: booking.mobilizationFee || 0 };
     if (distanceAdjustment !== undefined) {
       const parsed = Number(distanceAdjustment);
       if (isNaN(parsed) || parsed < 0) {
@@ -2085,16 +2087,15 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
       );
     }
 
+    // One message for the charges that changed, saying what happened to each (added, increased, lowered or removed).
     if (chargeChanged) {
-      const isInstallation = booking.service?.serviceType === SERVICE_TYPE.INSTALLATION;
-      const amount = isInstallation ? booking.mobilizationFee : booking.distanceAdjustment;
-      const label = isInstallation ? 'mobilization fee' : 'distance-based charge';
-      await sendNotification(
-        booking.customer,
-        NOTIFICATION_TYPE.CHARGE_UPDATED,
-        `A ${label} of ₱${amount.toLocaleString()} was added to booking ${booking.bookingId} for an address outside Quezon City. This has been reflected in your total.`,
-        { booking }
-      );
+      const message = describeChargeChanges({
+        bookingId: booking.bookingId,
+        before: chargesBefore,
+        after: { distanceAdjustment: booking.distanceAdjustment || 0, mobilizationFee: booking.mobilizationFee || 0 },
+        outsideArea: !isWithinServiceArea(booking.address),
+      });
+      if (message) await sendNotification(booking.customer, NOTIFICATION_TYPE.CHARGE_UPDATED, message, { booking });
     }
 
     const populated = await booking.populate([

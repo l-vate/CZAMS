@@ -88,10 +88,9 @@ const upload = createUploader({
   allowedTypes: PROOF_TYPES,
 });
 
-// Validate date: a real YYYY-MM-DD date at least 3 days after today in Manila (utils/manilaDate.js), whatever
-// time zone the server runs in.
-const MIN_LEAD_DAYS = 3;
-const isDateAllowed = (dateStr) => isAtLeastDaysAhead(dateStr, MIN_LEAD_DAYS);
+// Validate date: a real YYYY-MM-DD date at least MIN_LEAD_DAYS (constants/scheduling.js) after today in Manila (utils/manilaDate.js),
+// whatever time zone the server runs in.
+const isDateAllowed = (dateStr) => isAtLeastDaysAhead(dateStr, scheduling.MIN_LEAD_DAYS);
 
 // The next dates when enough technicians are free, offered with a refusal. It is a help, never the answer: if looking them
 // up fails or takes more than a few seconds, the refusal goes out without them.

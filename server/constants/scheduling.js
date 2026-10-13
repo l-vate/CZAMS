@@ -28,9 +28,17 @@
 //     utils/availability.js     the public calendar
 //     utils/autoAssign.js       suggested dates
 //   The landing page footer line "Sunday: Closed" (src/pages/public/landing_page.jsx) is text and must be edited by hand.
+//
+// MIN_LEAD_DAYS  (default 3)
+//   A booking must be at least this many days ahead of today in Manila. One value, read by:
+//     routes/bookingRoutes.js   isDateAllowed (create and customer reschedule)
+//     utils/availability.js     the first bookable day on the public calendar
+//   The customer pages ask for the same lead through earliestBookingKey(3) in src/utils/manilaTime.js (book_service.jsx and
+//   book_details.jsx); change that number by hand too if this one changes.
 const scheduling = {
   PENDING_HOLDS_SLOT: true,
   SUNDAY_CLOSED: true,
+  MIN_LEAD_DAYS: 3,
 };
 
 module.exports = scheduling;

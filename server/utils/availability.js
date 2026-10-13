@@ -14,8 +14,8 @@ const { slotsOf } = require('./extensionDays');
 const { listFieldTechnicians } = require('./technicians');
 const { TIME_BLOCKS, manilaTodayKey } = require('./timeBlocks');
 
-// Same rule as isDateAllowed in routes/bookingRoutes.js: a booking must be at least this many days ahead.
-const MIN_LEAD_DAYS = 3;
+// Same rule as isDateAllowed in routes/bookingRoutes.js: both read MIN_LEAD_DAYS from constants/scheduling.js.
+const { MIN_LEAD_DAYS } = require('../constants/scheduling');
 const MAX_RANGE_DAYS = 62;
 
 function addDays(key, n) {

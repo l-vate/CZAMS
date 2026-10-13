@@ -13,6 +13,9 @@ const Booking = require('../models/Booking');
 const BackJob = require('../models/BackJob');
 const { summarizeHistory } = require('../utils/customerHistory');
 const { clearAuthCache } = require('../utils/authCache');
+const { userInputProblem } = require('../utils/adminInput');
+const { findUserByEmail, normalizeEmail } = require('../utils/accountInput');
+const { sendRouteError } = require('../utils/routeErrors');
 
 const CLIENT_TYPES = ['Residential', 'Commercial'];
 const clientTypeProblem = (value) => (CLIENT_TYPES.includes(value) ? null : invalid('Client type must be Residential or Commercial.'));
@@ -131,14 +134,14 @@ router.post('/', auth, auditSpecs.userCreate, async (req, res) => {
 
     const { name, email, phone, address, role, password, clientType } = req.body;
 
-    if (!email || !email.trim()) {
-      return res.status(400).json({ message: 'Email is required' });
-    }
+    // Types, a real email, a known role, a password of at least 8 characters when one is typed: a 400 that names the field.
+    const inputProblem = userInputProblem(req.body, { creating: true });
+    if (inputProblem) return sendProblem(res, inputProblem);
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email: email.trim().toLowerCase() });
+    // Found without regard to letter case, so Ana@Mail.com and ana@mail.com are the same account.
+    const existingUser = await findUserByEmail(User, email);
     if (existingUser) {
-      return res.status(400).json({ message: 'Email already exists' });
+      return res.status(409).json({ message: 'Email already exists' });
     }
 
     const accountRole = role || ROLE.CUSTOMER;
@@ -174,8 +177,7 @@ router.post('/', auth, auditSpecs.userCreate, async (req, res) => {
 
     res.status(201).json({ ...newUser.toObject(), ...(typedPassword ? {} : { generatedPassword: plainPassword }) });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -188,8 +190,19 @@ router.put('/:id', auth, auditSpecs.userUpdate, async (req, res) => {
 
     const { name, email, phone, address, role, isActive, clientType } = req.body;
 
+    // Checked before anything else, so a wrong type is a clear 400. isActive must be a real true or false: the text
+    // "false" is refused, not treated as something else, so the last-admin and self-deactivate guards below always see
+    // the true value.
+    const inputProblem = userInputProblem(req.body, { creating: false });
+    if (inputProblem) return sendProblem(res, inputProblem);
+
     const target = await User.findById(req.params.id);
     if (!target) return res.status(404).json({ message: 'User not found' });
+
+    if (email !== undefined && normalizeEmail(email) !== String(target.email).toLowerCase()) {
+      const clash = await findUserByEmail(User, email, req.params.id);
+      if (clash) return res.status(409).json({ message: 'Email already exists' });
+    }
 
     // Checked first so that the last admin gets the clearer "last active admin" message.
     const adminProblem = await validateAdminSafety(target, { role, isActive }, req.userId);
@@ -249,8 +262,7 @@ router.put('/:id', auth, auditSpecs.userUpdate, async (req, res) => {
     }
     res.json(userObj);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 

@@ -3,6 +3,7 @@ const auditSpecs = require('../utils/auditSpecs');
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
+const { sendRouteError } = require('../utils/routeErrors');
 const PaymentSettings = require('../models/PaymentSettings');
 
 const { SETTINGS_ID, getOrCreateSettings } = require('../utils/paymentSettings');
@@ -17,8 +18,7 @@ router.get('/', auth, async (req, res) => {
     const settings = await getOrCreateSettings();
     res.json(settings);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -82,8 +82,7 @@ router.put('/', auth, auditSpecs.settingsUpdate, async (req, res) => {
 
     res.json(settings);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 

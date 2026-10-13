@@ -5,6 +5,9 @@ const router = express.Router();
 const crypto = require('crypto');
 const Announcement = require('../models/Announcement');
 const auth = require('../middleware/auth');
+const { announcementInputProblem } = require('../utils/adminInput');
+const { sendProblem } = require('../utils/validation');
+const { sendRouteError } = require('../utils/routeErrors');
 
 // ============================================
 // PUBLIC ROUTE (no auth - Landing Page announcement board)
@@ -14,8 +17,7 @@ router.get('/public', async (req, res) => {
     const announcements = await Announcement.find({ isActive: true }).sort({ createdAt: -1 });
     res.json(announcements);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -33,8 +35,7 @@ router.get('/', auth, async (req, res) => {
     const announcements = await Announcement.find().sort({ createdAt: -1 });
     res.json(announcements);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -46,12 +47,8 @@ router.post('/', auth, auditSpecs.announcementCreate, async (req, res) => {
 
     const { title, message, category, displayDate, isActive } = req.body;
 
-    if (!title || !title.trim()) {
-      return res.status(400).json({ message: 'Title is required' });
-    }
-    if (!message || !message.trim()) {
-      return res.status(400).json({ message: 'Message is required' });
-    }
+    const inputProblem = announcementInputProblem(req.body, { creating: true });
+    if (inputProblem) return sendProblem(res, inputProblem);
 
     const announcement = await Announcement.create({
       _id: crypto.randomUUID(),
@@ -64,8 +61,7 @@ router.post('/', auth, auditSpecs.announcementCreate, async (req, res) => {
 
     res.status(201).json(announcement);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -77,12 +73,8 @@ router.put('/:id', auth, auditSpecs.announcementUpdate, async (req, res) => {
 
     const { title, message, category, displayDate, isActive } = req.body;
 
-    if (title !== undefined && !title.trim()) {
-      return res.status(400).json({ message: 'Title cannot be empty' });
-    }
-    if (message !== undefined && !message.trim()) {
-      return res.status(400).json({ message: 'Message cannot be empty' });
-    }
+    const inputProblem = announcementInputProblem(req.body, { creating: false });
+    if (inputProblem) return sendProblem(res, inputProblem);
 
     const update = {};
     if (title !== undefined) update.title = title.trim();
@@ -99,8 +91,7 @@ router.put('/:id', auth, auditSpecs.announcementUpdate, async (req, res) => {
     if (!announcement) return res.status(404).json({ message: 'Announcement not found' });
     res.json(announcement);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -114,8 +105,7 @@ router.delete('/:id', auth, auditSpecs.announcementDelete, async (req, res) => {
     if (!announcement) return res.status(404).json({ message: 'Announcement not found' });
     res.json({ message: 'Announcement deleted' });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 

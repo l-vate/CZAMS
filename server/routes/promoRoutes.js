@@ -3,6 +3,7 @@ const auditSpecs = require('../utils/auditSpecs');
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
+const { sendRouteError } = require('../utils/routeErrors');
 const Promo = require('../models/Promo');
 const Service = require('../models/Service');
 const { manilaTodayKey } = require('../utils/timeBlocks');
@@ -67,8 +68,7 @@ router.get('/public', async (req, res) => {
       isActive: p.isActive,
     })));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -81,8 +81,7 @@ router.get('/', auth, adminOnly, async (req, res) => {
   try {
     res.json(await Promo.find().sort({ createdAt: -1 }));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -92,8 +91,7 @@ router.post('/', auth, adminOnly, auditSpecs.promoCreate, async (req, res) => {
     if (problem) return sendProblem(res, problem);
     res.status(201).json(await Promo.create(pick(req.body)));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -110,8 +108,7 @@ router.put('/:id', auth, adminOnly, auditSpecs.promoUpdate, async (req, res) => 
     await promo.save();
     res.json(promo);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -123,8 +120,7 @@ router.delete('/:id', auth, adminOnly, auditSpecs.promoDelete, async (req, res) 
     if (!promo) return res.status(404).json({ message: 'Promo not found' });
     res.json({ message: 'Promo deleted' });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 

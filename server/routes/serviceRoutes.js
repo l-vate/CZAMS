@@ -6,6 +6,9 @@ const router = express.Router();
 const crypto = require('crypto');
 const Service = require('../models/Service');
 const Booking = require('../models/Booking');
+const { serviceInputProblem } = require('../utils/adminInput');
+const { sendProblem } = require('../utils/validation');
+const { sendRouteError } = require('../utils/routeErrors');
 const auth = require('../middleware/auth');
 
 // GET all active services, safe fields only (no auth - Landing Page Module public
@@ -16,8 +19,8 @@ router.get('/public', async (req, res) => {
       .select('name description price durationMinutes category icon serviceType unitTypePricing hiddenFromDirectSelection')
       .sort({ category: 1, name: 1 });
     res.json(services);
-  } catch {
-    res.status(500).json({ message: 'Server error' });
+  } catch (err) {
+    sendRouteError(res, err);
   }
 });
 
@@ -26,8 +29,8 @@ router.get('/', auth, async (req, res) => {
   try {
     const services = await Service.find({ isActive: true, isArchived: { $ne: true } }).sort({ category: 1, name: 1 });
     res.json(services);
-  } catch {
-    res.status(500).json({ message: 'Server error' });
+  } catch (err) {
+    sendRouteError(res, err);
   }
 });
 
@@ -40,8 +43,8 @@ router.get('/admin/all', auth, async (req, res) => {
 
     const services = await Service.find({}).sort({ category: 1, name: 1 });
     res.json(services);
-  } catch {
-    res.status(500).json({ message: 'Server error' });
+  } catch (err) {
+    sendRouteError(res, err);
   }
 });
 
@@ -51,8 +54,8 @@ router.get('/:id', auth, async (req, res) => {
     const service = await Service.findById(req.params.id);
     if (!service) return res.status(404).json({ message: 'Service not found' });
     res.json(service);
-  } catch {
-    res.status(500).json({ message: 'Server error' });
+  } catch (err) {
+    sendRouteError(res, err);
   }
 });
 
@@ -63,70 +66,52 @@ router.post('/', auth, auditSpecs.serviceCreate, async (req, res) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const { name, description, price, durationMinutes, category, icon, isActive, serviceType, unitTypePricing, hiddenFromDirectSelection, minTechnicians } = req.body;
-
+    const { minTechnicians } = req.body;
     if (minTechnicians !== undefined && minTechnicians !== null && minTechnicians !== '' && ![1, 2].includes(Number(minTechnicians))) {
       return res.status(400).json({ message: 'Technicians needed must be 1 or 2.' });
     }
-    if (!name || !name.trim()) {
-      return res.status(400).json({ message: 'Name is required' });
-    }
-    if (price === undefined || price === null || isNaN(price) || price < 0) {
-      return res.status(400).json({ message: 'A valid price is required' });
-    }
+    const input = serviceInputProblem(req.body, { creating: true });
+    if (input.problem) return sendProblem(res, input.problem);
 
     const service = await Service.create({
       _id: crypto.randomUUID(),
-      name: name.trim(),
-      description: description || '',
-      price,
-      durationMinutes: durationMinutes || 0,
-      category: category || '',
-      icon: icon || '',
-      isActive: isActive !== undefined ? isActive : true,
-      serviceType: serviceType || SERVICE_TYPE.OTHER,
-      unitTypePricing: Array.isArray(unitTypePricing) ? unitTypePricing : [],
-      hiddenFromDirectSelection: !!hiddenFromDirectSelection,
+      description: '',
+      durationMinutes: 0,
+      category: '',
+      icon: '',
+      isActive: true,
+      serviceType: SERVICE_TYPE.OTHER,
+      unitTypePricing: [],
+      hiddenFromDirectSelection: false,
+      ...input.values,
       ...(minTechnicians !== undefined && minTechnicians !== null && minTechnicians !== '' ? { minTechnicians: Number(minTechnicians) } : {}),
     });
 
     res.status(201).json(service);
-  } catch {
-    res.status(500).json({ message: 'Server error' });
+  } catch (err) {
+    sendRouteError(res, err);
   }
 });
 
-// PUT update existing service
+// PUT update existing service. Changes apply to bookings made afterwards: a booking keeps the prices it was made at.
 router.put('/:id', auth, auditSpecs.serviceUpdate, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const { name, description, price, durationMinutes, category, icon, isActive, isArchived, serviceType, unitTypePricing, hiddenFromDirectSelection, minTechnicians } = req.body;
-
+    const { minTechnicians } = req.body;
     if (minTechnicians !== undefined && minTechnicians !== null && minTechnicians !== '' && ![1, 2].includes(Number(minTechnicians))) {
       return res.status(400).json({ message: 'Technicians needed must be 1 or 2.' });
     }
-    if (name !== undefined && !name.trim()) {
-      return res.status(400).json({ message: 'Name cannot be empty' });
-    }
-    if (price !== undefined && (isNaN(price) || price < 0)) {
-      return res.status(400).json({ message: 'A valid price is required' });
-    }
 
-    const update = {};
-    if (name !== undefined) update.name = name.trim();
-    if (description !== undefined) update.description = description;
-    if (price !== undefined) update.price = price;
-    if (durationMinutes !== undefined) update.durationMinutes = durationMinutes;
-    if (category !== undefined) update.category = category;
-    if (icon !== undefined) update.icon = icon;
-    if (isActive !== undefined) update.isActive = isActive;
-    if (typeof isArchived === 'boolean') update.isArchived = isArchived;
-    if (serviceType !== undefined) update.serviceType = serviceType;
-    if (unitTypePricing !== undefined) update.unitTypePricing = Array.isArray(unitTypePricing) ? unitTypePricing : [];
-    if (hiddenFromDirectSelection !== undefined) update.hiddenFromDirectSelection = !!hiddenFromDirectSelection;
+    const current = await Service.findById(req.params.id);
+    if (!current) return res.status(404).json({ message: 'Service not found' });
+
+    const input = serviceInputProblem(req.body, { creating: false, current });
+    if (input.problem) return sendProblem(res, input.problem);
+
+    const update = { ...input.values };
     // blank = back to the default (1 for a Check-up, 2 for everything else)
     if (minTechnicians !== undefined) {
       update[minTechnicians === null || minTechnicians === '' ? '$unset' : 'minTechnicians'] =
@@ -140,8 +125,8 @@ router.put('/:id', auth, auditSpecs.serviceUpdate, async (req, res) => {
 
     if (!service) return res.status(404).json({ message: 'Service not found' });
     res.json(service);
-  } catch {
-    res.status(500).json({ message: 'Server error' });
+  } catch (err) {
+    sendRouteError(res, err);
   }
 });
 
@@ -158,8 +143,8 @@ router.patch('/:id/toggle-active', auth, auditSpecs.serviceToggle, async (req, r
     service.isActive = !service.isActive;
     await service.save();
     res.json(service);
-  } catch {
-    res.status(500).json({ message: 'Server error' });
+  } catch (err) {
+    sendRouteError(res, err);
   }
 });
 

@@ -14,6 +14,8 @@ if (process.env.TRUST_PROXY) {
   app.set('trust proxy', Number.isInteger(hops) ? hops : process.env.TRUST_PROXY === 'true');
 }
 // Only the origins in CORS_ORIGINS (and localhost while not in production) may call the API from a browser.
+const { requestId, apiNotFound, errorHandler } = require('./middleware/errorHandler');
+app.use(requestId);
 app.use(require('./config/cors').buildCors());
 app.use(express.json());
 // Profile photos stay public. Proof files are opened through /api/files after an access check.
@@ -35,6 +37,10 @@ app.use('/api/promos', require('./routes/promoRoutes'));
 app.use('/api/availability', require('./routes/availabilityRoutes'));
 app.use('/api/closures', require('./routes/closureRoutes'));
 app.use('/api/audit-log', require('./routes/auditRoutes'));
+
+// Anything not answered above: unknown /api addresses and unexpected errors answer in JSON, with no stack trace.
+app.use(apiNotFound);
+app.use(errorHandler);
 
 const { startServiceReminderSchedule } = require('./jobs/serviceReminderJob');
 startServiceReminderSchedule();

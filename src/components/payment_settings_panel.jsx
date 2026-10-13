@@ -1,28 +1,32 @@
 import { useState, useEffect } from 'react';
 import { FiPlus, FiTrash2 } from 'react-icons/fi';
 import { usePaymentSettings } from '../utils/paymentSettings';
+import { attempt } from '../services/apiClient';
+import { updatePaymentSettings } from '../services/paymentSettingsService';
+import PaymentSettingsUnavailable from './payment_settings_unavailable';
 
-const API_BASE = 'http://localhost:5000';
 
-// Admin editor for the System Configuration Module's payment settings — payment
+// Admin editor for the System Configuration Module's payment settings - payment
 // methods (each with its own free-form account-detail label/value pairs, shown
 // to the customer during checkout) and down payment percentage options. Both
 // used to be hardcoded constants in book_service.jsx; this is what the booking
 // flows now read from instead (see src/utils/paymentSettings.js).
 function PaymentSettingsPanel() {
-  const { paymentMethods, downPaymentPercentages, loading, refetch } = usePaymentSettings();
+  const { paymentMethods, downPaymentPercentages, seniorPwdDiscountPercent, loading, ready, refetch } = usePaymentSettings();
   const [methods, setMethods] = useState([]);
   const [percentages, setPercentages] = useState([]);
+  const [discountPercent, setDiscountPercent] = useState('20');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
-  // Sync the editable draft from the fetched settings once they arrive — not on
+  // Sync the editable draft from the fetched settings once they arrive - not on
   // every render, so the admin's in-progress edits aren't clobbered by a stray refetch.
   useEffect(() => {
     if (!loading) {
       setMethods(paymentMethods.map((m) => ({ ...m, accountDetails: m.accountDetails.map((d) => ({ ...d })) })));
       setPercentages(downPaymentPercentages.slice());
+      if (seniorPwdDiscountPercent !== null) setDiscountPercent(String(seniorPwdDiscountPercent));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading]);
@@ -83,6 +87,10 @@ function PaymentSettingsPanel() {
       setError('Every payment method needs a name.');
       return;
     }
+    if (discountPercent === '' || isNaN(discountPercent) || Number(discountPercent) < 0 || Number(discountPercent) > 100) {
+      setError('The Senior/PWD discount must be a number from 0 to 100.');
+      return;
+    }
     if (percentages.length === 0) {
       setError('At least one down payment percentage is required.');
       return;
@@ -94,14 +102,8 @@ function PaymentSettingsPanel() {
 
     setSaving(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/payment-settings`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
+      const saved = await attempt(
+        updatePaymentSettings({
           paymentMethods: methods.map((m) => ({
             name: m.name.trim(),
             accountDetails: m.accountDetails
@@ -109,18 +111,18 @@ function PaymentSettingsPanel() {
               .filter((d) => d.label && d.value),
           })),
           downPaymentPercentages: percentages.map(Number),
+          seniorPwdDiscountPercent: Number(discountPercent),
         }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.message || 'Failed to save payment settings.');
+        'Failed to save payment settings.'
+      );
+      if (saved.error) {
+        setError(saved.error);
         return;
       }
 
       await refetch();
       setSuccess(true);
-    } catch (err) {
+    } catch {
       setError('Could not connect to the server.');
     } finally {
       setSaving(false);
@@ -129,6 +131,11 @@ function PaymentSettingsPanel() {
 
   if (loading) {
     return <p className="svc-empty">Loading payment settings...</p>;
+  }
+
+  // Never show an editor full of defaults: saving them would overwrite the real settings.
+  if (!ready) {
+    return <PaymentSettingsUnavailable onRetry={refetch} />;
   }
 
   return (
@@ -238,6 +245,30 @@ function PaymentSettingsPanel() {
               </button>
             </div>
           ))}
+        </div>
+      </div>
+
+      <div className="pset-section">
+        <div className="pset-section-header">
+          <h3 className="bs-card-title">Senior Citizen / PWD Discount</h3>
+        </div>
+        <p className="bs-card-sub">
+          Percentage taken off the unit price (not off distance or mobilization charges) once an
+          admin approves a customer's discount request. <strong>Confirm the correct rate with the owner.</strong>
+        </p>
+        <div className="pset-percent-list">
+          <div className="pset-percent-row">
+            <input
+              type="number"
+              className="pset-input pset-percent-input"
+              min="0"
+              max="100"
+              value={discountPercent}
+              onChange={(e) => setDiscountPercent(e.target.value)}
+              aria-label="Senior and PWD discount percentage"
+            />
+            <span>%</span>
+          </div>
         </div>
       </div>
 

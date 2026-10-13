@@ -1,4 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { API_BASE } from '../config/api';
+import { ApiError, attempt } from '../services/apiClient';
+import { updateUser, updateClassification } from '../services/userService';
+import { ROLE } from '../constants/roles';
+import CustomerHistory from './customer_history';
+import { POSITION_MAX, POSITION_SUGGESTIONS, COMPANY_NAME_MAX, REPRESENTATIVE_NAME_MAX } from '../constants/profileFields';
 
 function Icon({ name }) {
   const common = {
@@ -37,10 +43,13 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
     email: '',
     phone: '',
     address: '',
-    role: 'customer',
+    role: ROLE.CUSTOMER,
     isActive: true,
     classificationChoice: '', // '' = auto-computed, else a manual override ('Regular' | 'Return')
     clientType: 'Residential',
+    position: '',
+    companyName: '',
+    representativeName: '',
   });
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -53,10 +62,13 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
         email: user.email || '',
         phone: user.phone || '',
         address: user.address || '',
-        role: user.role || 'customer',
+        role: user.role || ROLE.CUSTOMER,
         isActive: user.isActive !== undefined ? user.isActive : true,
         classificationChoice: user.manualClassification || '',
         clientType: user.clientType || 'Residential',
+        position: user.position || '',
+        companyName: user.companyName || '',
+        representativeName: user.representativeName || '',
       });
       setIsEditing(false);
     }
@@ -68,40 +80,26 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
     setSaving(true);
     setError('');
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/users/${user._id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(formData),
-      });
-
-      let data = await response.json();
-      if (!response.ok) {
-        setError(data.message || 'Failed to update user details.');
+      const saved = await attempt(updateUser(user._id, formData), 'Failed to update user details.');
+      if (saved.error) {
+        setError(saved.error);
         return;
       }
+      let data = saved.data;
 
       // Customer Classification Module: sent separately, and only if it actually
       // changed, since it has its own dedicated endpoint/validation.
       const originalOverride = user.manualClassification || '';
-      if (user.role === 'customer' && formData.classificationChoice !== originalOverride) {
-        const classRes = await fetch(`http://localhost:5000/api/users/${user._id}/classification`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ classification: formData.classificationChoice || null }),
-        });
-        const classData = await classRes.json();
-        if (!classRes.ok) {
-          setError(classData.message || 'Failed to update classification.');
+      if (user.role === ROLE.CUSTOMER && formData.classificationChoice !== originalOverride) {
+        const reclassified = await attempt(
+          updateClassification(user._id, formData.classificationChoice || null),
+          'Failed to update classification.'
+        );
+        if (reclassified.error) {
+          setError(reclassified.error);
           return;
         }
-        data = classData;
+        data = reclassified.data;
       }
 
       setIsEditing(false);
@@ -119,25 +117,15 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
     setError('');
     try {
       const updatedStatus = !formData.isActive;
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/users/${user._id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ isActive: updatedStatus }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        setError(data.message || 'Failed to update status.');
-        return;
-      }
+      const data = await updateUser(user._id, { isActive: updatedStatus });
 
       setFormData((prev) => ({ ...prev, isActive: updatedStatus }));
       onUpdated?.(data);
     } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message || 'Failed to update status.');
+        return;
+      }
       console.error('Error toggling status:', err);
       setError('Network error. Please try again.');
     } finally {
@@ -157,8 +145,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
               <p className="sdm-subtitle">Account ID: {user._id}</p>
             </div>
             <span
-              className="sdm-badge"
-              style={{ background: formData.isActive ? '#22c55e' : '#ef4444' }}
+              className={`sdm-badge ${formData.isActive ? 'sdm-badge-active' : 'sdm-badge-inactive'}`}
             >
               {formData.isActive ? 'Active' : 'Inactive'}
             </span>
@@ -170,20 +157,20 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
           <div className="sdm-customer-line">
             {user.profileImage ? (
               <img
-                src={`http://localhost:5000${user.profileImage}`}
+                src={`${API_BASE}${user.profileImage}`}
                 alt={formData.name}
-                style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }}
+                className="user-details-modal-x1"
               />
             ) : (
               <Icon name="user" />
             )}
-            <span style={{ fontWeight: 600 }}>{formData.name || 'No Name'}</span>
+            <span className="user-details-modal-x2">{formData.name || 'No Name'}</span>
             <span className="sdm-muted">· Role: {formData.role.toUpperCase()}</span>
           </div>
 
           {/* Details / Edit View */}
           <div className="sdm-columns">
-            <div className="sdm-col" style={{ width: '100%' }}>
+            <div className="sdm-col user-details-modal-x3">
               <div className="sdm-row">
                 <div className="sdm-row-icon"><Icon name="user" /></div>
                 <div>
@@ -196,7 +183,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     />
                   ) : (
-                    <p className="sdm-row-value">{formData.name || '—'}</p>
+                    <p className="sdm-row-value">{formData.name || '-'}</p>
                   )}
                 </div>
               </div>
@@ -213,7 +200,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     />
                   ) : (
-                    <p className="sdm-row-value">{formData.email || '—'}</p>
+                    <p className="sdm-row-value">{formData.email || '-'}</p>
                   )}
                 </div>
               </div>
@@ -230,7 +217,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     />
                   ) : (
-                    <p className="sdm-row-value">{formData.phone || '—'}</p>
+                    <p className="sdm-row-value">{formData.phone || '-'}</p>
                   )}
                 </div>
               </div>
@@ -247,7 +234,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                     />
                   ) : (
-                    <p className="sdm-row-value">{formData.address || '—'}</p>
+                    <p className="sdm-row-value">{formData.address || '-'}</p>
                   )}
                 </div>
               </div>
@@ -267,14 +254,14 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
                       <option value="admin">Admin</option>
                     </select>
                   ) : (
-                    <p className="sdm-row-value" style={{ textTransform: 'capitalize' }}>
+                    <p className="sdm-row-value user-details-modal-x4">
                       {formData.role}
                     </p>
                   )}
                 </div>
               </div>
 
-              {user.role === 'customer' && (
+              {user.role === ROLE.CUSTOMER && (
                 <div className="sdm-row">
                   <div className="sdm-row-icon"><Icon name="pin" /></div>
                   <div>
@@ -295,7 +282,72 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
                 </div>
               )}
 
-              {user.role === 'customer' && (
+              {user.role === ROLE.STAFF && (
+                <div className="sdm-row">
+                  <div className="sdm-row-icon"><Icon name="pin" /></div>
+                  <div>
+                    <span className="sdm-row-label">POSITION</span>
+                    {isEditing ? (
+                      <>
+                        <input
+                          type="text"
+                          list="sdm-position-options"
+                          className="sdm-tech-select"
+                          maxLength={POSITION_MAX}
+                          value={formData.position}
+                          onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                        />
+                        <datalist id="sdm-position-options">
+                          {POSITION_SUGGESTIONS.map((p) => <option key={p} value={p} />)}
+                        </datalist>
+                      </>
+                    ) : (
+                      <p className="sdm-row-value">{formData.position || 'Not set'}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {user.role === ROLE.CUSTOMER && formData.clientType === 'Commercial' && (
+                <>
+                  <div className="sdm-row">
+                    <div className="sdm-row-icon"><Icon name="pin" /></div>
+                    <div>
+                      <span className="sdm-row-label">COMPANY NAME</span>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          className="sdm-tech-select"
+                          maxLength={COMPANY_NAME_MAX}
+                          value={formData.companyName}
+                          onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                        />
+                      ) : (
+                        <p className="sdm-row-value">{formData.companyName || 'Not recorded'}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="sdm-row">
+                    <div className="sdm-row-icon"><Icon name="pin" /></div>
+                    <div>
+                      <span className="sdm-row-label">REPRESENTATIVE</span>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          className="sdm-tech-select"
+                          maxLength={REPRESENTATIVE_NAME_MAX}
+                          value={formData.representativeName}
+                          onChange={(e) => setFormData({ ...formData, representativeName: e.target.value })}
+                        />
+                      ) : (
+                        <p className="sdm-row-value">{formData.representativeName || 'Not recorded'}</p>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {user.role === ROLE.CUSTOMER && (
                 <div className="sdm-row">
                   <div className="sdm-row-icon"><Icon name="star" /></div>
                   <div>
@@ -328,6 +380,15 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
                     <p className="sdm-row-value">
                       {new Date(user.createdAt).toLocaleDateString()}
                     </p>
+                  </div>
+                </div>
+              )}
+
+              {user.role === ROLE.CUSTOMER && (
+                <div className="sdm-row">
+                  <div>
+                    <span className="sdm-row-label">HISTORY</span>
+                    <CustomerHistory userId={user._id} />
                   </div>
                 </div>
               )}

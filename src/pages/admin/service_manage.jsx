@@ -1,15 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import AdminLayout from './admin_layout';
-import { FiPlus, FiSearch, FiSettings, FiTool, FiWind, FiThermometer } from 'react-icons/fi';
-import { UNIT_TYPES } from '../customer/book_service';
-import PaymentSettingsPanel from '../../components/payment_settings_panel';
+import { FiPlus, FiSettings, FiTool, FiWind, FiThermometer } from 'react-icons/fi';
+import { UNIT_TYPES } from '../../constants/unitTypes';
+import { withMessage, withFallback } from '../../services/apiClient';
+import { listServices, createService, updateService, deleteService } from '../../services/serviceCatalogService';
+import { SERVICE_TYPE, SERVICE_TYPE_VALUES } from '../../constants/serviceTypes';
 
-const TABS = [
-  { key: 'services', label: 'Services' },
-  { key: 'payment', label: 'Payment Settings' },
-];
-
-const API_BASE = 'http://localhost:5000';
 
 const ICON_MAP = {
   FiWind: <FiWind />,
@@ -20,7 +16,7 @@ const ICON_MAP = {
 
 // Multi-Unit Booking Redesign: unitTypePricing is edited here as a plain
 // { [unitType]: priceString } map (one input per UNIT_TYPES entry) since that's
-// far easier to bind form inputs to than an array — converted to the array shape
+// far easier to bind form inputs to than an array - converted to the array shape
 // the Service model actually stores on submit.
 const EMPTY_FORM = {
   name: '',
@@ -30,16 +26,16 @@ const EMPTY_FORM = {
   category: '',
   icon: 'FiSettings',
   isActive: true,
-  serviceType: 'Other',
+  serviceType: SERVICE_TYPE.OTHER,
+  minTechnicians: '',
   unitTypePricing: {},
   // Three-Tier Cleaning Structure: true for Deep Cleaning / Pull-down Deep
-  // Cleaning — resolved automatically by Step1's tier questions, never picked
+  // Cleaning - resolved automatically by Step1's tier questions, never picked
   // directly by the customer, but still fully editable here like any service.
   hiddenFromDirectSelection: false,
 };
 
 function ServiceManage() {
-  const [activeTab, setActiveTab] = useState('services');
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -56,21 +52,18 @@ function ServiceManage() {
     fetchServices();
   }, []);
 
+  const filteredServices = services.filter((s) =>
+    s.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    s.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   async function fetchServices() {
     setLoading(true);
     setError('');
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/services`, {
-        headers: {
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
-
-      if (!res.ok) throw new Error('Failed to load services.');
-      const data = await res.json();
+      const data = await listServices();
       setServices(Array.isArray(data) ? data : []);
-    } catch (err) {
+    } catch {
       setError('Could not connect to the server or load services.');
     } finally {
       setLoading(false);
@@ -98,7 +91,8 @@ function ServiceManage() {
       category: service.category || '',
       icon: service.icon || 'FiSettings',
       isActive: service.isActive !== undefined ? service.isActive : true,
-      serviceType: service.serviceType || 'Other',
+      serviceType: service.serviceType || SERVICE_TYPE.OTHER,
+      minTechnicians: service.minTechnicians ? String(service.minTechnicians) : '',
       unitTypePricing,
       hiddenFromDirectSelection: !!service.hiddenFromDirectSelection,
     });
@@ -141,7 +135,7 @@ function ServiceManage() {
       return;
     }
 
-    // Empty inputs mean "use the base price" — only entries the admin actually
+    // Empty inputs mean "use the base price" - only entries the admin actually
     // typed a value into get sent as an override.
     const unitTypePricing = Object.entries(form.unitTypePricing || {})
       .filter(([, value]) => value !== '' && value !== null && value !== undefined)
@@ -161,31 +155,18 @@ function ServiceManage() {
       icon: form.icon,
       isActive: form.isActive,
       serviceType: form.serviceType,
+      // blank = the default (1 for a Check-up, 2 for everything else)
+      minTechnicians: form.minTechnicians === '' ? null : Number(form.minTechnicians),
       unitTypePricing,
       hiddenFromDirectSelection: form.hiddenFromDirectSelection,
     };
 
     setSaving(true);
     try {
-      const token = localStorage.getItem('token');
-      const url = editingService
-        ? `${API_BASE}/api/services/${editingService._id}`
-        : `${API_BASE}/api/services`;
-      const method = editingService ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || 'Failed to save service.');
-      }
+      const pendingSave = editingService
+        ? updateService(editingService._id, payload)
+        : createService(payload);
+      await pendingSave.catch(withFallback('Failed to save service.'));
 
       await fetchServices();
       closeModal();
@@ -202,15 +183,7 @@ function ServiceManage() {
     if (!confirmed) return;
 
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/services/${editingService._id}`, {
-        method: 'DELETE',
-        headers: {
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
-
-      if (!res.ok) throw new Error('Failed to delete service.');
+      await deleteService(editingService._id).catch(withMessage('Failed to delete service.'));
       
       setServices((prev) => prev.filter((s) => s._id !== editingService._id));
       closeModal();
@@ -219,60 +192,27 @@ function ServiceManage() {
     }
   }
 
-  const filteredServices = services.filter((s) =>
-    s.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   return (
-    <AdminLayout title="Manage Services">
+    <AdminLayout
+      title="Manage Services"
+      searchValue={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder="Search services..."
+    >
       <div className="svc-view">
-        
+
         {/* Header & Actions */}
         <div className="svc-manage-header">
           <h1 className="dashboard-welcome">Manage Services</h1>
-          {activeTab === 'services' && (
-            <button className="svc-add-btn" onClick={openAddModal}>
-              <FiPlus style={{ marginRight: '6px', verticalAlign: 'middle' }} /> Add Service
-            </button>
-          )}
+          <button className="svc-add-btn" onClick={openAddModal}>
+            <FiPlus className="admin-service-manage-x1" /> Add Service
+          </button>
         </div>
 
-        {/* System Configuration Module: Services (per-service pricing) vs Payment
-            Settings (methods + account details + down payment percentages) —
-            both admin-managed config for the booking flow, kept as tabs on the
-            same existing page rather than a separate nav item. */}
-        <div className="req-filters">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              className={`filter-pill ${activeTab === tab.key ? 'filter-pill--active' : ''}`}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {activeTab === 'payment' ? (
-          <PaymentSettingsPanel />
-        ) : (
-          <>
-            {/* Toolbar & Search */}
-            <div className="svc-toolbar">
-              <input
-                type="text"
-                className="svc-search svc-search-inline"
-                placeholder="Search services..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-
+        <>
             {/* Error Banner */}
             {error && (
-              <div className="ma-form-error" style={{ marginBottom: '16px' }}>
+              <div className="ma-form-error admin-service-manage-x2">
                 {error}
               </div>
             )}
@@ -284,7 +224,7 @@ function ServiceManage() {
               ) : filteredServices.length === 0 ? (
                 <div className="svc-empty">
                   <p>No services found.</p>
-                  <button className="svc-btn svc-btn-ghost" onClick={openAddModal} style={{ marginTop: '10px' }}>
+                  <button className="svc-btn svc-btn-ghost admin-service-manage-x3" onClick={openAddModal}>
                     Create your first service
                   </button>
                 </div>
@@ -303,7 +243,7 @@ function ServiceManage() {
                         <span className="svc-service-name">
                           {s.name}
                           {s.hiddenFromDirectSelection && (
-                            <span className="svc-service-price-note" style={{ display: 'inline-block', marginLeft: '8px' }}>hidden from customers</span>
+                            <span className="svc-service-price-note admin-service-manage-x4">hidden from customers</span>
                           )}
                         </span>
                         <span className="svc-service-desc">
@@ -321,8 +261,7 @@ function ServiceManage() {
                 </div>
               )}
             </div>
-          </>
-        )}
+        </>
 
       </div>
 
@@ -336,7 +275,7 @@ function ServiceManage() {
             </div>
 
             <form onSubmit={handleSubmit}>
-              {formError && <p className="ma-form-error" style={{ marginBottom: '12px' }}>{formError}</p>}
+              {formError && <p className="ma-form-error admin-service-manage-x5">{formError}</p>}
 
               <div className="svc-field">
                 <label>Service Name</label>
@@ -376,7 +315,7 @@ function ServiceManage() {
               </div>
 
               <div className="svc-field">
-                <label>Per-Unit-Type Pricing <span className="svc-field-hint">(optional — overrides base price for that unit type)</span></label>
+                <label>Per-Unit-Type Pricing <span className="svc-field-hint">(optional - overrides base price for that unit type)</span></label>
                 <div className="svc-unit-pricing-grid">
                   {UNIT_TYPES.map((unitType) => (
                     <div key={unitType} className="svc-unit-pricing-row">
@@ -400,12 +339,7 @@ function ServiceManage() {
                   name="icon"
                   value={form.icon}
                   onChange={handleChange}
-                  style={{
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    padding: '9px 12px',
-                    fontSize: '14px',
-                  }}
+                  className="admin-service-manage-x6"
                 >
                   <option value="FiSettings">FiSettings (Default)</option>
                   <option value="FiWind">FiWind (Cleaning/Air)</option>
@@ -420,27 +354,37 @@ function ServiceManage() {
                   name="serviceType"
                   value={form.serviceType}
                   onChange={handleChange}
-                  style={{
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    padding: '9px 12px',
-                    fontSize: '14px',
-                  }}
+                  className="admin-service-manage-x6"
                 >
-                  <option value="Cleaning">Cleaning</option>
-                  <option value="Installation">Installation</option>
-                  <option value="Repair">Repair</option>
-                  <option value="Leak Repair">Leak Repair</option>
-                  <option value="Maintenance">Maintenance</option>
-                  <option value="Other">Other</option>
+                  {SERVICE_TYPE_VALUES.map((type) => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
                 </select>
-                <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
+                <p className="admin-service-manage-x7">
                   Determines which Warranty Tracking rule applies to bookings of this service.
                 </p>
               </div>
 
               <div className="svc-field">
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <label>Technicians needed</label>
+                <select
+                  name="minTechnicians"
+                  value={form.minTechnicians}
+                  onChange={handleChange}
+                  className="admin-service-manage-x6"
+                >
+                  <option value="">Default (1 for a Check-up, 2 for everything else)</option>
+                  <option value="1">1 (a single technician is enough)</option>
+                  <option value="2">2 (a lead and a helper)</option>
+                </select>
+                <p className="admin-service-manage-x7">
+                  A booking cannot be approved until at least this many technicians are assigned. Cleaning
+                  needs a pair; a single technician is for check-up or survey visits only.
+                </p>
+              </div>
+
+              <div className="svc-field">
+                <label className="admin-service-manage-x8">
                   <input
                     type="checkbox"
                     name="hiddenFromDirectSelection"
@@ -449,8 +393,8 @@ function ServiceManage() {
                   />
                   Hide from customer's direct service selection
                 </label>
-                <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
-                  For the two upgraded cleaning tiers (Deep Cleaning, Pull-down Deep Cleaning) — resolved
+                <p className="admin-service-manage-x7">
+                  For the two upgraded cleaning tiers (Deep Cleaning, Pull-down Deep Cleaning) - resolved
                   automatically by the tier questions when a customer picks "Cleaning," never shown as
                   its own card. Leave unchecked for every other service.
                 </p>

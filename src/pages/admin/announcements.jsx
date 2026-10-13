@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import AdminLayout from './admin_layout';
 import { FiPlus } from 'react-icons/fi';
+import { withMessage, withFallback } from '../../services/apiClient';
+import { listAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement } from '../../services/announcementService';
 
-const API_BASE = 'http://localhost:5000';
 
 const CATEGORIES = ['Holiday', 'Closure', 'Maintenance', 'General'];
 
@@ -30,19 +31,18 @@ function AnnouncementManage() {
     fetchAnnouncements();
   }, []);
 
+  const filteredAnnouncements = announcements.filter((a) =>
+    a.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    a.message?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   async function fetchAnnouncements() {
     setLoading(true);
     setError('');
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/announcements`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!res.ok) throw new Error('Failed to load announcements.');
-      const data = await res.json();
+      const data = await listAnnouncements();
       setAnnouncements(Array.isArray(data) ? data : []);
-    } catch (err) {
+    } catch {
       setError('Could not connect to the server or load announcements.');
     } finally {
       setLoading(false);
@@ -107,25 +107,10 @@ function AnnouncementManage() {
 
     setSaving(true);
     try {
-      const token = localStorage.getItem('token');
-      const url = editingAnnouncement
-        ? `${API_BASE}/api/announcements/${editingAnnouncement._id}`
-        : `${API_BASE}/api/announcements`;
-      const method = editingAnnouncement ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || 'Failed to save announcement.');
-      }
+      const pendingSave = editingAnnouncement
+        ? updateAnnouncement(editingAnnouncement._id, payload)
+        : createAnnouncement(payload);
+      await pendingSave.catch(withFallback('Failed to save announcement.'));
 
       await fetchAnnouncements();
       closeModal();
@@ -142,13 +127,7 @@ function AnnouncementManage() {
     if (!confirmed) return;
 
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/announcements/${editingAnnouncement._id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!res.ok) throw new Error('Failed to delete announcement.');
+      await deleteAnnouncement(editingAnnouncement._id).catch(withMessage('Failed to delete announcement.'));
 
       setAnnouncements((prev) => prev.filter((a) => a._id !== editingAnnouncement._id));
       closeModal();
@@ -157,37 +136,26 @@ function AnnouncementManage() {
     }
   }
 
-  const filteredAnnouncements = announcements.filter((a) =>
-    a.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    a.message?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   return (
-    <AdminLayout title="Announcements">
+    <AdminLayout
+      title="Announcements"
+      searchValue={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder="Search announcements..."
+    >
       <div className="ann-view">
 
         {/* Header & Actions */}
         <div className="ann-manage-header">
           <h1 className="dashboard-welcome">Announcements</h1>
           <button className="ann-add-btn" onClick={openAddModal}>
-            <FiPlus style={{ marginRight: '6px', verticalAlign: 'middle' }} /> Add Announcement
+            <FiPlus className="admin-announcements-x1" /> Add Announcement
           </button>
-        </div>
-
-        {/* Toolbar & Search */}
-        <div className="ann-toolbar">
-          <input
-            type="text"
-            className="ann-search ann-search-inline"
-            placeholder="Search announcements..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
         </div>
 
         {/* Error Banner */}
         {error && (
-          <div className="ma-form-error" style={{ marginBottom: '16px' }}>
+          <div className="ma-form-error admin-announcements-x2">
             {error}
           </div>
         )}
@@ -199,7 +167,7 @@ function AnnouncementManage() {
           ) : filteredAnnouncements.length === 0 ? (
             <div className="ann-empty">
               <p>No announcements found.</p>
-              <button className="ann-btn ann-btn-ghost" onClick={openAddModal} style={{ marginTop: '10px' }}>
+              <button className="ann-btn ann-btn-ghost admin-announcements-x3" onClick={openAddModal}>
                 Create your first announcement
               </button>
             </div>
@@ -238,7 +206,7 @@ function AnnouncementManage() {
             </div>
 
             <form onSubmit={handleSubmit}>
-              {formError && <p className="ma-form-error" style={{ marginBottom: '12px' }}>{formError}</p>}
+              {formError && <p className="ma-form-error admin-announcements-x4">{formError}</p>}
 
               <div className="ann-field">
                 <label>Title</label>

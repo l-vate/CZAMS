@@ -1,3 +1,4 @@
+/* Classes named *-xN were extracted from inline styles. Rename when the page is next edited. */
 /* ============ ADMIN DASHBOARD ============ */
 .dashboard {
   padding: 0;
@@ -11,7 +12,7 @@
 }
 
 /* Title styling now comes from the shared .dashboard-welcome (index.css, Pass E)
-   — was its own 32px rule, one of three competing page-title sizes. */
+   - was its own 32px rule, one of three competing page-title sizes. */
 
 .dashboard-header p {
   font-size: 14px;
@@ -28,9 +29,16 @@
 }
 
 .stat-icon {
-  font-size: 24px;
-  margin-bottom: 12px;
-  display: inline-block;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  font-size: 20px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--primary);
 }
 
 .stat-card h3 {
@@ -49,6 +57,97 @@
   margin: 0;
 }
 
+/* Fixed card order (Total Bookings, Pending Requests, Completed Services,
+   Active Staff, see dashboard.jsx's `stats` array) - accent each one instead
+   of leaving every card an identical flat blue-tinted icon. Scoped under
+   .stats-container since .stat-card/.stat-icon are also the customer
+   dashboard's classes (customer.css) and admin.css loads before it. */
+.stats-container .stat-card {
+  border-top: 3px solid var(--primary);
+}
+.stats-container .stat-card:nth-child(2) {
+  border-top-color: var(--warning);
+}
+.stats-container .stat-card:nth-child(2) .stat-icon {
+  background: rgba(245, 158, 11, 0.14);
+  color: var(--warning-hover);
+}
+.stats-container .stat-card:nth-child(3) {
+  border-top-color: var(--success);
+}
+.stats-container .stat-card:nth-child(3) .stat-icon {
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--success-hover);
+}
+.stats-container .stat-card:nth-child(4) {
+  border-top-color: var(--navy-soft);
+}
+.stats-container .stat-card:nth-child(4) .stat-icon {
+  background: rgba(20, 58, 99, 0.1);
+  color: var(--navy-soft);
+}
+
+/* ============ LIVELIER ADMIN UI ============
+   Small, consistent motion cues across the admin portal - cards lift and their
+   icon accents grow slightly on hover, and lists/cards ease in on first paint
+   instead of just appearing, so the dashboard feels less static. */
+@keyframes admin-fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.stats-container .stat-card,
+.stats-container .stat-card:hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.stats-container .stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--card-hover-shadow);
+}
+.stats-container .stat-icon { transition: transform 0.2s ease; }
+.stats-container .stat-card:hover .stat-icon { transform: scale(1.08); }
+
+.stats-container .stat-card,
+.tech-job-list > *,
+.req-grid > *,
+.payments-list > *,
+.refunds-list > *,
+.backjobs-list > *,
+.svc-manage-grid > *,
+.ann-manage-panel > * {
+  animation: admin-fade-in-up 0.35s ease both;
+}
+
+/* Stagger the first several items so a list doesn't blink in as one flat block -
+   entries past this fall back to the base (no-delay) animation above. */
+.stats-container .stat-card:nth-child(1) { animation-delay: 0.02s; }
+.stats-container .stat-card:nth-child(2) { animation-delay: 0.06s; }
+.stats-container .stat-card:nth-child(3) { animation-delay: 0.1s; }
+.stats-container .stat-card:nth-child(4) { animation-delay: 0.14s; }
+
+.tech-job-list > *:nth-child(1), .req-grid > *:nth-child(1), .payments-list > *:nth-child(1),
+.refunds-list > *:nth-child(1), .backjobs-list > *:nth-child(1) { animation-delay: 0.02s; }
+.tech-job-list > *:nth-child(2), .req-grid > *:nth-child(2), .payments-list > *:nth-child(2),
+.refunds-list > *:nth-child(2), .backjobs-list > *:nth-child(2) { animation-delay: 0.06s; }
+.tech-job-list > *:nth-child(3), .req-grid > *:nth-child(3), .payments-list > *:nth-child(3),
+.refunds-list > *:nth-child(3), .backjobs-list > *:nth-child(3) { animation-delay: 0.1s; }
+.tech-job-list > *:nth-child(4), .req-grid > *:nth-child(4), .payments-list > *:nth-child(4),
+.refunds-list > *:nth-child(4), .backjobs-list > *:nth-child(4) { animation-delay: 0.14s; }
+.tech-job-list > *:nth-child(5), .req-grid > *:nth-child(5), .payments-list > *:nth-child(5),
+.refunds-list > *:nth-child(5), .backjobs-list > *:nth-child(5) { animation-delay: 0.18s; }
+
+/* Respect reduced-motion preferences instead of forcing this on everyone. */
+@media (prefers-reduced-motion: reduce) {
+  .stats-container .stat-card,
+  .tech-job-list > *,
+  .req-grid > *,
+  .payments-list > *,
+  .refunds-list > *,
+  .backjobs-list > *,
+  .svc-manage-grid > *,
+  .ann-manage-panel > * {
+    animation: none;
+  }
+}
+
 .recent-bookings {
   background: var(--white);
   border-radius: 12px;
@@ -65,33 +164,12 @@
   border-bottom: 1px solid #f0f4f8;
 }
 
-.recent-bookings table {
-  width: 100%;
-  border-collapse: collapse;
+.recent-bookings-body {
+  padding: 16px 22px 22px;
+  margin: 0;
 }
 
-.recent-bookings th,
-.recent-bookings td {
-  padding: 14px 22px;
-  text-align: left;
-  font-size: 14px;
-}
-
-.recent-bookings th {
-  background-color: #f8fafc;
-  color: var(--navy);
-  font-weight: 600;
-  border-bottom: 1px solid #e2eaf1;
-}
-
-.recent-bookings td {
-  color: var(--ink-soft);
-  border-bottom: 1px solid #f0f4f8;
-  font-weight: 500;
-}
-
-.recent-bookings tr:last-child td { border-bottom: none; }
-.recent-bookings tbody tr:hover td { background-color: #fcfdfe; }
+.recent-bookings-body.tech-job-list { gap: 12px; }
 
 /* ============ ANALYTICS ============ */
 .analytics-page { padding: 20px; }
@@ -184,7 +262,7 @@
 /* ============ MANAGE ACCOUNTS ============ */
 .ma-overview { padding: 8px 4px; }
 
-/* Performance Review modal (technician_performance_modal.jsx) — compact 3-up
+/* Performance Review modal (technician_performance_modal.jsx) - compact 3-up
    version of .analytics-card, sized for a modal rather than a full dashboard row. */
 .tpm-stat-grid {
   display: grid;
@@ -216,7 +294,57 @@
   color: #64748b;
 }
 
-/* "Filtered by <person>" banner — Manage Accounts links into Bookings/Payments/
+.tpm-reviews-section { margin-top: 20px; }
+
+.tpm-reviews-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 10px;
+}
+
+.tpm-reviews-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.tpm-review-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+
+.tpm-review-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.tpm-review-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.tpm-review-text {
+  font-size: 0.82rem;
+  color: #334155;
+  margin: 6px 0 0;
+}
+
+.tpm-review-date {
+  display: block;
+  font-size: 0.7rem;
+  color: #94a3b8;
+  margin-top: 6px;
+}
+
+/* "Filtered by <person>" banner - Manage Accounts links into Bookings/Payments/
    Reports with a person filter pre-applied; this is the dismissible banner each
    of those pages shows while that filter is active. */
 .person-filter-banner {
@@ -245,7 +373,7 @@
   text-decoration: underline;
 }
 
-/* .ma-page-title was dead CSS — manage_accounts.jsx had no in-page title at all;
+/* .ma-page-title was dead CSS - manage_accounts.jsx had no in-page title at all;
    it now uses the shared .dashboard-welcome (index.css, Pass E). */
 
 .ma-list-view { padding: 8px 4px; }
@@ -306,7 +434,7 @@
 
 .ma-list { display: flex; flex-direction: column; gap: 12px; }
 
-/* Had no background/border/shadow at all before — not something the UI
+/* Had no background/border/shadow at all before - not something the UI
    consistency pass touched or broke, it was just never fully styled. Matched
    here to the .payment-card/.refund-card/.backjob-card convention exactly
    (same white bg, same #e2e8f0 border, same --card-hover-shadow on hover). */
@@ -325,6 +453,10 @@
 
 .ma-list-row:hover {
   box-shadow: var(--card-hover-shadow);
+}
+
+.ma-list-row--alt {
+  background: var(--bg-main);
 }
 
 .ma-row-info { min-width: 180px; }
@@ -577,7 +709,7 @@
 
 /* Approved/Pending/In-Progress/Completed/Cancelled colors for .svc-badge-* come
    from the shared mapping in index.css (which also backs .status-badge/.status-pill)
-   — no duplicate color rules here, that duplication is what let this admin.css copy
+   - no duplicate color rules here, that duplication is what let this admin.css copy
    drift out of sync (Approved/In-Progress swapped) in the first place. */
 
 .svc-request-service { font-weight: 600; font-size: 14.5px; color: #1a1a1a; margin: 0 0 2px; }
@@ -672,7 +804,7 @@
 }
 
 /* max-height/overflow-y added alongside the same fix on the shared .modal-card
-   (modals/payment_modal.css) — this is a separate class (not .modal-card) so it
+   (modals/payment_modal.css) - this is a separate class (not .modal-card) so it
    needed the same fix applied here too. */
 .svc-modal {
   background: #fff;
@@ -685,7 +817,7 @@
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
 }
 
-/* Header row for the shared .modal-title + .modal-close-btn — this modal used to
+/* Header row for the shared .modal-title + .modal-close-btn - this modal used to
    have only a plain <h2> and a text "Cancel" button, unlike every other modal in
    the app, which all have an icon close button in the corner. */
 .svc-modal-header {
@@ -783,7 +915,7 @@
 }
 
 /* Converged button treatments (Pass D): primary = solid var(--primary) (was a
-   gradient — the gradient look is now reserved for the decorative menu-card
+   gradient - the gradient look is now reserved for the decorative menu-card
    pattern, not action buttons); ghost = the .bs-back-btn treatment used
    everywhere else; danger = solid var(--danger) fill, matching
    .cancel-booking-btn/.sdm-btn-danger, not the previous light-pink-bg look. */
@@ -806,24 +938,24 @@
 }
 
 .pset-input {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--card-border);
   border-radius: 8px;
   padding: 9px 12px;
   font-size: 13.5px;
-  color: #1a1a1a;
+  color: var(--navy);
   flex: 1;
   min-width: 0;
 }
 
 .pset-input:focus {
   outline: none;
-  border-color: #4fc3f7;
-  box-shadow: 0 0 0 3px rgba(79, 195, 247, 0.2);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
 .pset-method-card {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-main);
+  border: 1px solid var(--card-border);
   border-radius: 12px;
   padding: 14px 16px;
   margin-top: 12px;
@@ -861,7 +993,7 @@
 .pset-remove-detail-btn {
   background: none;
   border: none;
-  color: #94a3b8;
+  color: var(--ink-soft);
   cursor: pointer;
   padding: 6px;
   display: flex;
@@ -1017,7 +1149,7 @@
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
 }
 
-/* Header row for the shared .modal-title + .modal-close-btn — see the matching
+/* Header row for the shared .modal-title + .modal-close-btn - see the matching
    comment on .svc-modal-header. */
 .ann-modal-header {
   display: flex;
@@ -1091,7 +1223,7 @@
 .ann-btn-danger { background: var(--danger); color: #fff; }
 .ann-btn-danger:hover { background: var(--danger-hover); }
 
-/* ============ PAYMENTS PAGE — TOP TABS (Payments | Refunds) ============ */
+/* ============ PAYMENTS PAGE - TOP TABS (Payments | Refunds) ============ */
 .payments-top-tabs {
   display: flex;
   gap: 8px;
@@ -1120,23 +1252,32 @@
   gap: 8px;
 }
 
+/* The single official pill-filter style, used app-wide (customer, staff, admin) -
+   matched to what was previously staff/reports.jsx's own one-off .report-tab
+   class, now the reference pattern everywhere instead of a page-specific style. */
 .filter-pill {
-  padding: 8px 16px;
+  border: 1.5px solid var(--mist);
+  background: var(--white);
+  color: var(--ink-soft);
+  padding: 9px 18px;
   border-radius: 999px;
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
-  color: #475569;
-  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: 0.2s ease;
 }
 
-.filter-pill--active,
 .filter-pill:hover {
-  background: var(--primary);
-  color: #ffffff;
   border-color: var(--primary);
+  color: var(--primary);
+}
+
+.filter-pill--active {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: var(--white);
+  transform: scale(1.04);
 }
 
 .payments-search {
@@ -1171,16 +1312,17 @@
   border-radius: 12px;
   padding: 18px 22px;
   display: grid;
-  /* Fixed-width last column (rather than auto) so cards without a Review button —
-     fully paid / cancelled — keep the same column positions as the ones with it. */
+  /* Fixed-width last column (rather than auto) so cards without a Review button -
+     fully paid / cancelled - keep the same column positions as the ones with it. */
   grid-template-columns: 2fr 0.8fr 1fr 1fr 130px;
   align-items: center;
   gap: 16px;
-  transition: box-shadow 0.2s ease;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .payment-card:hover {
   box-shadow: var(--card-hover-shadow);
+  transform: translateY(-2px);
 }
 
 .payment-card__header {
@@ -1366,26 +1508,6 @@
   padding-top: 12px;
   border-top: 1px solid #f0f4f8;
 }
-
-.req-view-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-  background: #fff;
-  border: 1px solid #d7dbe0;
-  color: #1f2430;
-  padding: 9px 16px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s ease;
-}
-
-.req-view-btn:hover { background: #f3f4f6; }
 
 .req-empty { text-align: center; color: #9aa1ac; padding: 40px 0; font-size: 14px; }
 
@@ -1935,11 +2057,12 @@
   grid-template-columns: 2fr 1fr auto;
   align-items: center;
   gap: 16px;
-  transition: box-shadow 0.2s ease;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .refund-card:hover {
   box-shadow: var(--card-hover-shadow);
+  transform: translateY(-2px);
 }
 
 .refund-card__header {
@@ -1971,7 +2094,7 @@
   color: var(--danger);
 }
 
-/* Solid fill so a flagged refund outranks the lighter same-day tag visually —
+/* Solid fill so a flagged refund outranks the lighter same-day tag visually -
    it needs admin's attention more than a routine same-day case. */
 .refund-card__flag-tag {
   font-size: 11px;
@@ -2312,3 +2435,363 @@
     flex-wrap: wrap;
   }
 }
+
+/* Extracted from inline styles in pages/admin/announcements.jsx.
+   The class is doubled so it keeps the priority the inline style had over other rules. */
+.admin-announcements-x1.admin-announcements-x1 {
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.admin-announcements-x2.admin-announcements-x2 {
+  margin-bottom: 16px;
+}
+.admin-announcements-x3.admin-announcements-x3 {
+  margin-top: 10px;
+}
+.admin-announcements-x4.admin-announcements-x4 {
+  margin-bottom: 12px;
+}
+
+
+/* Extracted from inline styles in pages/admin/back_jobs.jsx.
+   The class is doubled so it keeps the priority the inline style had over other rules. */
+.admin-back-jobs-x1.admin-back-jobs-x1 {
+  margin-bottom: 4px;
+}
+.admin-back-jobs-x2.admin-back-jobs-x2 {
+  color: #ef4444;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.admin-back-jobs-x3.admin-back-jobs-x3 {
+  margin-bottom: 16px;
+}
+.admin-back-jobs-x4.admin-back-jobs-x4 {
+  font-weight: 500;
+}
+.admin-back-jobs-x5.admin-back-jobs-x5 {
+  margin-top: 4px;
+}
+.admin-back-jobs-x6.admin-back-jobs-x6 {
+  margin-bottom: 20px;
+}
+.admin-back-jobs-x7.admin-back-jobs-x7 {
+  width: 100%;
+}
+
+
+/* Extracted from inline styles in pages/admin/calendar.jsx.
+   The class is doubled so it keeps the priority the inline style had over other rules. */
+.admin-calendar-x1.admin-calendar-x1 {
+  height: calc(100vh - 8rem);
+}
+
+
+/* Extracted from inline styles in pages/admin/dashboard.jsx.
+   The class is doubled so it keeps the priority the inline style had over other rules. */
+.admin-dashboard-x1.admin-dashboard-x1 {
+  color: #666;
+  margin: 0 0 8px;
+}
+.admin-dashboard-x2.admin-dashboard-x2 {
+  color: #666;
+}
+
+
+/* Extracted from inline styles in pages/admin/manage_accounts.jsx.
+   The class is doubled so it keeps the priority the inline style had over other rules. */
+.admin-manage-accounts-x1.admin-manage-accounts-x1 {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.admin-manage-accounts-x2.admin-manage-accounts-x2 {
+  margin-left: auto;
+}
+.admin-manage-accounts-x3.admin-manage-accounts-x3 {
+  margin: 16px 0;
+}
+.admin-manage-accounts-x4.admin-manage-accounts-x4 {
+  margin-top: 16px;
+}
+.admin-manage-accounts-x5.admin-manage-accounts-x5 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.admin-manage-accounts-x6.admin-manage-accounts-x6 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+.admin-manage-accounts-x7.admin-manage-accounts-x7 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.admin-manage-accounts-x8.admin-manage-accounts-x8 {
+  justify-self: auto;
+}
+.admin-manage-accounts-x9.admin-manage-accounts-x9 {
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+
+/* Extracted from inline styles in pages/admin/payments.jsx.
+   The class is doubled so it keeps the priority the inline style had over other rules. */
+.admin-payments-x1.admin-payments-x1 {
+  margin-bottom: 4px;
+}
+.admin-payments-x2.admin-payments-x2 {
+  color: var(--danger);
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.admin-payments-x3.admin-payments-x3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 20px;
+  margin-bottom: 20px;
+}
+.admin-payments-x4.admin-payments-x4 {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.admin-payments-x5.admin-payments-x5 {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.admin-payments-x6.admin-payments-x6 {
+  text-align: center;
+  padding: 16px;
+  border: 1px dashed #d1d5db;
+  border-radius: 8px;
+}
+.admin-payments-x7.admin-payments-x7 {
+  font-size: 13px;
+  color: #374151;
+  margin-bottom: 10px;
+}
+.admin-payments-x8.admin-payments-x8 {
+  display: inline-block;
+  padding: 8px 16px;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+}
+.admin-payments-x9.admin-payments-x9 {
+  width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+.admin-payments-x10.admin-payments-x10 {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 24px 16px;
+  border: 1px dashed #d1d5db;
+  border-radius: 8px;
+  color: #6b7280;
+  text-align: center;
+}
+.admin-payments-x11.admin-payments-x11 {
+  font-weight: 600;
+  font-size: 13px;
+}
+.admin-payments-x12.admin-payments-x12 {
+  padding: 16px;
+  border: 1px dashed #d1d5db;
+  border-radius: 8px;
+  color: #9ca3af;
+  font-size: 13px;
+  text-align: center;
+}
+.admin-payments-x13.admin-payments-x13 {
+  margin-top: 4px;
+}
+.admin-payments-x14.admin-payments-x14 {
+  margin-bottom: 16px;
+}
+.admin-payments-x15.admin-payments-x15 {
+  margin-bottom: 20px;
+}
+.admin-payments-x16.admin-payments-x16 {
+  display: none;
+}
+.admin-payments-x17.admin-payments-x17 {
+  font-size: 11px;
+  color: var(--danger);
+  margin-top: 2px;
+}
+.admin-payments-x18.admin-payments-x18 {
+  width: 100%;
+}
+
+
+/* Extracted from inline styles in pages/admin/promotions.jsx.
+   The class is doubled so it keeps the priority the inline style had over other rules. */
+.admin-promotions-x1.admin-promotions-x1 {
+  margin-bottom: 8px;
+}
+.admin-promotions-x2.admin-promotions-x2 {
+  display: flex;
+  gap: 8px;
+}
+.admin-promotions-x3.admin-promotions-x3 {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+
+/* Extracted from inline styles in pages/admin/service_manage.jsx.
+   The class is doubled so it keeps the priority the inline style had over other rules. */
+.admin-service-manage-x1.admin-service-manage-x1 {
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.admin-service-manage-x2.admin-service-manage-x2 {
+  margin-bottom: 16px;
+}
+.admin-service-manage-x3.admin-service-manage-x3 {
+  margin-top: 10px;
+}
+.admin-service-manage-x4.admin-service-manage-x4 {
+  display: inline-block;
+  margin-left: 8px;
+}
+.admin-service-manage-x5.admin-service-manage-x5 {
+  margin-bottom: 12px;
+}
+.admin-service-manage-x6.admin-service-manage-x6 {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 14px;
+}
+.admin-service-manage-x7.admin-service-manage-x7 {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 4px;
+}
+.admin-service-manage-x8.admin-service-manage-x8 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+
+/* Extracted from inline styles in pages/admin/service_reports.jsx.
+   The class is doubled so it keeps the priority the inline style had over other rules. */
+.admin-service-reports-x1.admin-service-reports-x1 {
+  display: flex;
+  gap: 10px;
+}
+.admin-service-reports-x2.admin-service-reports-x2 {
+  flex: 1;
+}
+.admin-service-reports-x3.admin-service-reports-x3 {
+  flex: 1;
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}
+
+
+/* Extracted from inline styles in pages/admin/service_requests.jsx.
+   The class is doubled so it keeps the priority the inline style had over other rules. */
+.admin-service-requests-x1.admin-service-requests-x1 {
+  margin-bottom: 10px;
+}
+
+
+/* Extracted from inline styles in pages/admin/teams.jsx.
+   The class is doubled so it keeps the priority the inline style had over other rules. */
+.admin-teams-x1.admin-teams-x1 {
+  display: flex;
+  gap: 8px;
+}
+
+
+/* Extracted from inline styles in pages/admin/walk_in_booking.jsx.
+   The class is doubled so it keeps the priority the inline style had over other rules. */
+.admin-walk-in-booking-x1.admin-walk-in-booking-x1 {
+  margin-left: 8px;
+}
+.admin-walk-in-booking-x2.admin-walk-in-booking-x2 {
+  font-size: 12px;
+  color: #e05a5a;
+  margin-bottom: 12px;
+}
+.admin-walk-in-booking-x3.admin-walk-in-booking-x3 {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.admin-walk-in-booking-x4.admin-walk-in-booking-x4 {
+  display: none;
+}
+.admin-walk-in-booking-x5.admin-walk-in-booking-x5 {
+  margin-top: 16px;
+}
+
+/* ============ GENERATED PASSWORD NOTICE (new accounts made without a typed password) ============ */
+.generated-password-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px dashed var(--navy-soft);
+  border-radius: 10px;
+  background: var(--frost);
+}
+
+.generated-password-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--navy-soft);
+}
+
+.generated-password-value {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--navy);
+  user-select: all;
+}
+
+.generated-password-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+}
+
+.generated-password-note {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.analytics-range { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin: 12px 0; }
+.analytics-range input, .analytics-range select { padding: 6px 8px; border: 1px solid var(--mist); border-radius: 8px; }
+.analytics-callout { font-weight: 700; margin: 12px 0 4px; }

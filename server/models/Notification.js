@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 // In-app notification store (Notification Sender). `type` is a free label rather
-// than a strict enum — new callers (Service Disruption & Extension, etc.) can send
+// than a strict enum - new callers (Service Disruption & Extension, etc.) can send
 // a new kind of notification without a schema change.
 const notificationSchema = new mongoose.Schema({
     user: { type: String, ref: 'User', required: true }, // recipient

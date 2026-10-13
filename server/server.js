@@ -22,9 +22,18 @@ app.use('/api/service-reminders', require('./routes/serviceReminderRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/announcements', require('./routes/announcementRoutes'));
 app.use('/api/payment-settings', require('./routes/paymentSettingsRoutes'));
+app.use('/api/chat', require('./routes/chatRoutes'));
+app.use('/api/teams', require('./routes/teamRoutes'));
+app.use('/api/promos', require('./routes/promoRoutes'));
+app.use('/api/availability', require('./routes/availabilityRoutes'));
+app.use('/api/closures', require('./routes/closureRoutes'));
 
 const { startServiceReminderSchedule } = require('./jobs/serviceReminderJob');
 startServiceReminderSchedule();
 
+const { startBookingStatusSchedule } = require('./jobs/bookingStatusJob');
+startBookingStatusSchedule();
+
 const PORT = process.env.PORT || 5000;
+// eslint-disable-next-line no-console -- startup message, not debugging
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

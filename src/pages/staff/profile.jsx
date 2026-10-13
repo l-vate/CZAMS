@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import StaffLayout from './staff_layout';
 import {
   FiUser,
@@ -6,13 +6,14 @@ import {
   FiStar,
   FiAlertTriangle,
   FiFileText,
-  FiClock,
-  FiMapPin,
-  FiX,
+  FiMail,
+  FiPhone,
   FiCamera,
 } from 'react-icons/fi';
+import { API_BASE } from '../../config/api';
+import { withFallback } from '../../services/apiClient';
+import { uploadProfilePhoto, updateProfile } from '../../services/authService';
 
-const API_BASE = 'http://localhost:5000';
 
 function buildProfileFromUser(user) {
   return {
@@ -24,58 +25,7 @@ function buildProfileFromUser(user) {
   };
 }
 
-function ScheduledJobModal({ job, onClose }) {
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card tech-job-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h4 className="modal-title">Scheduled Job</h4>
-          <button className="modal-close-btn" onClick={onClose}>
-            <FiX />
-          </button>
-        </div>
-
-        <p className="tech-job-detail-booking">
-          {job.service} · {job.bookingId}
-        </p>
-
-        <div className="tech-job-detail-grid">
-          <div className="tech-job-detail-cell">
-            <span className="confirmation-detail-icon"><FiClock /></span>
-            <div>
-              <p className="confirmation-detail-label">Date &amp; Time</p>
-              <p className="confirmation-detail-value">{job.date}, {job.time}</p>
-            </div>
-          </div>
-
-          <div className="tech-job-detail-cell">
-            <span className="confirmation-detail-icon"><FiMapPin /></span>
-            <div>
-              <p className="confirmation-detail-label">Address</p>
-              <p className="confirmation-detail-value">{job.address}</p>
-            </div>
-          </div>
-
-          <div className="tech-job-detail-cell tech-job-detail-full">
-            <span className="confirmation-detail-icon"><FiUser /></span>
-            <div>
-              <p className="confirmation-detail-label">Customer</p>
-              <p className="confirmation-detail-value">{job.customerName}</p>
-            </div>
-          </div>
-        </div>
-
-        <button className="bs-back-btn" style={{ width: '100%', marginTop: '4px' }} onClick={onClose}>
-          Close
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function Profile() {
-  const [selectedJob, setSelectedJob] = useState(null);
-
   const storedUser = JSON.parse(localStorage.getItem('user'));
 
   const [profile, setProfile] = useState(buildProfileFromUser(storedUser));
@@ -84,34 +34,6 @@ function Profile() {
   const [photoFile, setPhotoFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
-
-  const [scheduledJobs, setScheduledJobs] = useState([]);
-  const [jobsLoading, setJobsLoading] = useState(true);
-
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    fetch(`${API_BASE}/api/bookings/technician/mine`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        const upcoming = Array.isArray(data)
-          ? data
-              .filter((b) => ['Pending', 'Approved', 'In Progress'].includes(b.status))
-              .map((b) => ({
-                date: b.date,
-                time: b.time,
-                bookingId: b.bookingId,
-                service: b.service?.name || 'Service',
-                address: b.address,
-                customerName: b.customer?.name || 'Customer',
-              }))
-          : [];
-        setScheduledJobs(upcoming);
-      })
-      .catch((err) => console.error('Failed to load scheduled jobs', err))
-      .finally(() => setJobsLoading(false));
-  }, []);
 
   const handleEditClick = () => {
     setEditForm(profile);
@@ -138,43 +60,23 @@ function Profile() {
   const handleSave = async () => {
     setSaving(true);
     setSaveError('');
-    const token = localStorage.getItem('token');
-
     try {
       let latestUser = JSON.parse(localStorage.getItem('user'));
 
       if (photoFile) {
-        const formData = new FormData();
-        formData.append('photo', photoFile);
-
-        const photoRes = await fetch(`${API_BASE}/api/auth/profile/photo`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          body: formData,
-        });
-        const photoData = await photoRes.json();
-        if (!photoRes.ok) throw new Error(photoData.message || 'Photo upload failed');
+        const photoData = await uploadProfilePhoto(photoFile).catch(withFallback('Photo upload failed'));
         latestUser = photoData.user;
       }
 
       const [firstName, ...rest] = editForm.name.trim().split(' ');
       const lastName = rest.join(' ');
 
-      const infoRes = await fetch(`${API_BASE}/api/auth/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          firstName,
-          lastName,
-          email: editForm.email,
-          phone: editForm.phone,
-        }),
-      });
-      const infoData = await infoRes.json();
-      if (!infoRes.ok) throw new Error(infoData.message || 'Update failed');
+      const infoData = await updateProfile({
+        firstName,
+        lastName,
+        email: editForm.email,
+        phone: editForm.phone,
+      }).catch(withFallback('Update failed'));
 
       latestUser = infoData.user;
 
@@ -197,32 +99,20 @@ function Profile() {
     <StaffLayout title="Profile">
       <div className="profile-card">
         {isEditing ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+          <div className="staff-profile-x1">
             <div className="profile-avatar-lg">
               {editForm.photo ? (
                 <img
                   src={editForm.photo}
                   alt="Profile preview"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                  className="staff-profile-x2"
                 />
               ) : (
                 <FiUser />
               )}
             </div>
             <label
-              className="profile-photo-upload-btn"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                cursor: 'pointer',
-                fontSize: '0.85rem',
-                fontWeight: 600,
-                color: 'var(--cz-primary, #2563eb)',
-                border: '1px solid var(--cz-primary, #2563eb)',
-                borderRadius: '999px',
-                padding: '6px 14px',
-              }}
+              className="profile-photo-upload-btn staff-profile-x3"
             >
               <FiCamera size={14} />
               {editForm.photo ? 'Change Photo' : 'Upload Photo'}
@@ -230,7 +120,7 @@ function Profile() {
                 type="file"
                 accept="image/*"
                 onChange={handlePhotoChange}
-                style={{ display: 'none' }}
+                className="staff-profile-x4"
               />
             </label>
           </div>
@@ -240,7 +130,7 @@ function Profile() {
               <img
                 src={profile.photo}
                 alt="Profile"
-                style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                className="staff-profile-x2"
               />
             ) : (
               <FiUser />
@@ -287,7 +177,7 @@ function Profile() {
             </div>
 
             {saveError && (
-              <p className="auth-error" style={{ color: 'red', fontSize: '0.9rem' }}>
+              <p className="auth-error staff-profile-x5">
                 {saveError}
               </p>
             )}
@@ -306,8 +196,8 @@ function Profile() {
             <h2 className="profile-name">{profile.name}</h2>
             <p className="profile-id">{profile.companyId}</p>
             <div className="profile-contact">
-              {profile.email}<br />
-              {profile.phone}
+              <span className="profile-contact-line"><FiMail size={13} /> {profile.email}</span>
+              <span className="profile-contact-line"><FiPhone size={13} /> {profile.phone}</span>
             </div>
           </div>
         )}
@@ -323,74 +213,27 @@ function Profile() {
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-label">
-            <FiStar style={{ marginRight: '6px' }} />
+            <FiStar className="staff-profile-x6" />
             Average Client Rating
           </div>
           <div className="stat-value">4.8</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">
-            <FiAlertTriangle style={{ marginRight: '6px' }} />
+            <FiAlertTriangle className="staff-profile-x6" />
             Job Delays
           </div>
           <div className="stat-value">0</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">
-            <FiFileText style={{ marginRight: '6px' }} />
+            <FiFileText className="staff-profile-x6" />
             Pending Reports
           </div>
           <div className="stat-value">1</div>
         </div>
       </div>
 
-      <h2 className="section-title">Scheduled Jobs</h2>
-      <div className="tech-job-list">
-        {jobsLoading ? (
-          <p className="tech-job-empty">Loading...</p>
-        ) : scheduledJobs.length === 0 ? (
-          <p className="tech-job-empty">No upcoming jobs.</p>
-        ) : (
-          scheduledJobs.map((job, i) => (
-            <div className="tech-job-card tech-scheduled-card" key={i}>
-              <div className="tech-job-info">
-                <small className="tech-job-date-label">{job.date}</small>
-                <div className="tech-job-service">
-                  {job.service}{' '}
-                  <span
-                    className="tech-job-detail-link"
-                    onClick={() => setSelectedJob(job)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    · Detail
-                  </span>
-                </div>
-                <small className="tech-job-booking">{job.bookingId}</small>
-              </div>
-
-              <div className="tech-job-meta">
-                <FiClock /> {job.time}
-              </div>
-
-              <div className="tech-job-meta">
-                <FiMapPin /> {job.address}
-              </div>
-
-              <button
-                className="tech-job-view-link"
-                onClick={() => setSelectedJob(job)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-              >
-                <FiClock /> View Details
-              </button>
-            </div>
-          ))
-        )}
-      </div>
-
-      {selectedJob && (
-        <ScheduledJobModal job={selectedJob} onClose={() => setSelectedJob(null)} />
-      )}
     </StaffLayout>
   );
 }

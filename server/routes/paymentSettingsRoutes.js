@@ -1,31 +1,12 @@
+const { ROLE } = require('../constants/roles');
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const PaymentSettings = require('../models/PaymentSettings');
 
-const SETTINGS_ID = 'default';
+const { SETTINGS_ID, getOrCreateSettings } = require('../utils/paymentSettings');
 
-// Seeded only if nothing exists yet (first deploy / fresh DB) — matches today's
-// hardcoded constants exactly, so switching over changes nothing until an admin
-// actually edits something.
-const DEFAULT_SETTINGS = {
-  _id: SETTINGS_ID,
-  paymentMethods: [
-    { name: 'Cash', accountDetails: [] },
-    { name: 'GCash', accountDetails: [] },
-    { name: 'Cheque', accountDetails: [] },
-    { name: 'Bank Transfer', accountDetails: [] },
-  ],
-  downPaymentPercentages: [30, 50, 100],
-};
-
-async function getOrCreateSettings() {
-  let settings = await PaymentSettings.findById(SETTINGS_ID);
-  if (!settings) settings = await PaymentSettings.create(DEFAULT_SETTINGS);
-  return settings;
-}
-
-// Any logged-in role — customer/walk-in booking flows need this to render
+// Any logged-in role - customer/walk-in booking flows need this to render
 // payment mode options and down payment choices, not just the admin editor.
 router.get('/', auth, async (req, res) => {
   try {
@@ -37,17 +18,17 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// Replaces the whole document — same pattern as Service's PUT. Rejects a save
+// Replaces the whole document - same pattern as Service's PUT. Rejects a save
 // that would leave zero payment methods or zero down payment percentages, since
 // that would silently lock the entire booking flow (no selectable options) for
 // every customer and walk-in booking until someone noticed and fixed it back.
 router.put('/', auth, async (req, res) => {
   try {
-    if (req.userRole !== 'admin') {
+    if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const { paymentMethods, downPaymentPercentages } = req.body;
+    const { paymentMethods, downPaymentPercentages, seniorPwdDiscountPercent } = req.body;
 
     if (!Array.isArray(paymentMethods) || paymentMethods.length === 0) {
       return res.status(400).json({ message: 'At least one payment method is required.' });
@@ -80,9 +61,18 @@ router.put('/', auth, async (req, res) => {
       return res.status(400).json({ message: 'Down payment percentages must be unique.' });
     }
 
+    const update = { paymentMethods: cleanedMethods, downPaymentPercentages: cleanedPercentages };
+    if (seniorPwdDiscountPercent !== undefined) {
+      const rate = Number(seniorPwdDiscountPercent);
+      if (seniorPwdDiscountPercent === '' || seniorPwdDiscountPercent === null || !Number.isFinite(rate) || rate < 0 || rate > 100) {
+        return res.status(400).json({ message: 'The Senior/PWD discount must be a number from 0 to 100.' });
+      }
+      update.seniorPwdDiscountPercent = rate;
+    }
+
     const settings = await PaymentSettings.findByIdAndUpdate(
       SETTINGS_ID,
-      { paymentMethods: cleanedMethods, downPaymentPercentages: cleanedPercentages },
+      update,
       { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
     );
 

@@ -1,25 +1,36 @@
 import { useState } from 'react';
 
+import { formatPeso } from '../utils/bookingPricing';
+import { needsReference, normalizeReference, referenceError, REFERENCE_MAX } from '../utils/paymentReference';
+
 function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], onClose, onSubmit }) {
   const basePrice = form.basePrice || 0;
-  const dpPercent = form.downPaymentPercent ?? 10;
-  const toPayNow = form.toPayNow ?? Math.round(basePrice * (dpPercent / 100));
+  // The booking's stored down payment percent. No invented default: when it is missing the
+  // percent shows as "Not set" and the amount comes from the stored figures only.
+  const dpPercent = form.downPaymentPercent ?? null;
+  const toPayNow = form.toPayNow ?? (dpPercent === null ? 0 : Math.round(basePrice * (dpPercent / 100)));
   const remaining = form.remaining ?? (basePrice - toPayNow);
 
   const isBalance = paymentType === 'balance';
   const amountDue = isBalance ? remaining : toPayNow;
-  const amountLabel = isBalance ? 'Remaining Balance Due' : 'Amount to Pay Now';
 
   // A balance payment uses whatever mode was picked for the *second* payment when
-  // the booking was made (paymentMode2) — form.paymentMode is the down payment's
+  // the booking was made (paymentMode2) - form.paymentMode is the down payment's
   // mode and would be wrong here for e.g. a booking paid down via GCash but
   // settling its balance via Bank Transfer.
   const selectedModeName = isBalance ? form.paymentMode2 : form.paymentMode;
   const accountDetails = paymentMethods.find((m) => m.name === selectedModeName)?.accountDetails || [];
 
   const [proof, setProof] = useState(null);
-  const [senior, setSenior] = useState(null);
   const [fileError, setFileError] = useState('');
+  const [referenceNumber, setReferenceNumber] = useState('');
+
+  // GCash and Bank Transfer need the proof file and the reference number together. Cash needs
+  // neither. A booking with no mode on record keeps the old rule (proof required, no reference).
+  const requiresReference = needsReference(selectedModeName);
+  const proofRequired = requiresReference || !selectedModeName;
+  const referenceProblem = requiresReference ? referenceError(referenceNumber) : '';
+  const canSubmit = (!proofRequired || !!proof) && !referenceProblem;
 
   const MAX_SIZE = 5 * 1024 * 1024; // 5MB
   const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
@@ -56,12 +67,15 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
         <div className="modal-cost-rows">
           {form.lineItems?.map((li, i) => (
             <div className="modal-cost-row" key={i}>
-              <span>{li.type || '—'} × {li.quantity}</span>
-              <span>₱{li.subtotal.toLocaleString()}.00</span>
+              <span>{li.isDiscount ? li.type : `${li.type || '-'} × ${li.quantity}`}</span>
+              <span>{formatPeso(li.subtotal)}.00</span>
             </div>
           ))}
+          {form.discountAmount > 0 && !form.lineItems?.some((li) => li.isDiscount) && (
+            <div className="modal-cost-row"><span>{form.discountLabel || 'Discount'}</span><span>{formatPeso(-form.discountAmount)}.00</span></div>
+          )}
           <div className="modal-cost-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}.00</span></div>
-          <div className="modal-cost-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
+          <div className="modal-cost-row"><span>Down Payment</span><span>{dpPercent === null ? 'Not set' : `${dpPercent}%`}</span></div>
 
           {isBalance ? (
             <div className="modal-cost-row"><span>Remaining Balance Due</span><span>₱{amountDue.toLocaleString()}.00</span></div>
@@ -72,7 +86,7 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
             </>
           )}
 
-          <div className="modal-cost-row"><span>Payment Mode</span><span>{form.paymentMode || '—'}</span></div>
+          <div className="modal-cost-row"><span>Payment Mode</span><span>{form.paymentMode || '-'}</span></div>
         </div>
 
         <div className="modal-divider" />
@@ -96,44 +110,51 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
             {proof ? proof.name : '[Choose a file]'}
             <input
               type="file"
-              accept="image/*,.pdf"
-              style={{ display: 'none' }}
+              accept="image/jpeg,image/png,image/webp,.pdf"
+              className="payment-modal-x1"
               onChange={handleProofChange}
             />
           </label>
           {fileError && (
-            <p style={{ fontSize: '11px', color: '#e05a5a', marginTop: '2px' }}>
+            <p className="payment-modal-x2">
               {fileError}
             </p>
           )}
-          {!proof && !fileError && (
-            <p style={{ fontSize: '11px', color: '#e05a5a', marginTop: '2px' }}>
+          {proofRequired && !proof && !fileError && (
+            <p className="payment-modal-x2">
               Proof of payment is required to submit.
             </p>
           )}
         </div>
 
-        {!isBalance && (
+        {requiresReference && (
           <div className="modal-upload-group">
-            <label className="modal-upload-label">
-              PWD/Senior Citizen <span className="modal-optional">(If Applicable):</span>
+            <label className="modal-upload-label" htmlFor="payment-reference">
+              Reference number of your {selectedModeName} payment:
             </label>
-            <label className="modal-file-btn">
-              {senior ? senior.name : '[Choose a file]'}
-              <input
-                type="file"
-                accept="image/*,.pdf"
-                style={{ display: 'none' }}
-                onChange={(e) => setSenior(e.target.files[0] || null)}
-              />
-            </label>
+            <input
+              id="payment-reference"
+              type="text"
+              className="bs-input"
+              maxLength={REFERENCE_MAX}
+              autoComplete="off"
+              value={referenceNumber}
+              onChange={(e) => setReferenceNumber(e.target.value)}
+              placeholder="e.g. 1234567890"
+            />
+            {referenceProblem && referenceNumber !== '' && (
+              <p className="payment-modal-x2">{referenceProblem}</p>
+            )}
+            {referenceNumber === '' && (
+              <p className="payment-modal-x2">The reference number is required to submit.</p>
+            )}
           </div>
         )}
 
         <button
           className="modal-submit-btn"
-          onClick={() => onSubmit({ proof, senior })}
-          disabled={!proof}
+          onClick={() => onSubmit({ proof, referenceNumber: requiresReference ? normalizeReference(referenceNumber) : undefined })}
+          disabled={!canSubmit}
         >
           SUBMIT
         </button>

@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
-import { FiUser, FiX, FiCamera } from 'react-icons/fi';
+import { FiUser, FiX, FiCamera, FiEdit2, FiMail, FiCalendar, FiPhone, FiMapPin, FiLock, FiTrash2 } from 'react-icons/fi';
+import { API_BASE } from '../../config/api';
+import { ApiError } from '../../services/apiClient';
+import CustomerHistory from '../../components/customer_history';
+import { uploadProfilePhoto, updateProfile, changePassword, deleteAccount } from '../../services/authService';
 
 /* ── Change Password Modal ─────────────────────────────── */
 function ChangePasswordModal({ onClose, onSubmit, submitting, serverError }) {
@@ -82,7 +86,7 @@ function ChangePasswordModal({ onClose, onSubmit, submitting, serverError }) {
           </div>
 
           {(error || serverError) && (
-            <p style={{ color: '#ef4444', fontSize: '13px', margin: '4px 0' }}>{error || serverError}</p>
+            <p className="customer-profile-x1">{error || serverError}</p>
           )}
 
           <div className="cancel-confirm-actions">
@@ -181,55 +185,25 @@ const [user, setUser] = useState(loadUserFromStorage);
 
   // upload to backend
   try {
-    const token = localStorage.getItem('token');
-    const formData = new FormData();
-    formData.append('photo', file);
-
-    const res = await fetch('http://localhost:5000/api/auth/profile/photo', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      alert(data.message || 'Failed to upload photo');
-      return;
-    }
+    const data = await uploadProfilePhoto(file);
 
     localStorage.setItem('user', JSON.stringify(data.user));
-    setEditForm((prev) => ({ ...prev, photo: `http://localhost:5000${data.user.profileImage}` }));
+    setEditForm((prev) => ({ ...prev, photo: `${API_BASE}${data.user.profileImage}` }));
   } catch (err) {
-    alert('Could not connect to server for photo upload.');
+    alert(err instanceof ApiError ? err.message || 'Failed to upload photo' : 'Could not connect to server for photo upload.');
   }
 };
 
 
   const handleSaveProfile = async () => {
   try {
-    const token = localStorage.getItem('token');
-    const res = await fetch('http://localhost:5000/api/auth/profile', {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        firstName: editForm.firstName,
-        lastName: editForm.lastName,
-        email: editForm.email,
-        phone: editForm.phone,
-        address: editForm.address,
-      }),
+    const data = await updateProfile({
+      firstName: editForm.firstName,
+      lastName: editForm.lastName,
+      email: editForm.email,
+      phone: editForm.phone,
+      address: editForm.address,
     });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      alert(data.message || 'Failed to update profile');
-      return;
-    }
 
     localStorage.setItem('user', JSON.stringify(data.user));
 
@@ -248,7 +222,7 @@ const [user, setUser] = useState(loadUserFromStorage);
 
     setIsEditing(false);
   } catch (err) {
-    alert('Could not connect to server. Is the backend running?');
+    alert(err instanceof ApiError ? err.message || 'Failed to update profile' : 'Could not connect to server. Is the backend running?');
   }
 };
 
@@ -260,29 +234,14 @@ const [user, setUser] = useState(loadUserFromStorage);
     setPasswordSubmitting(true);
     setPasswordError('');
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/auth/change-password', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          currentPassword: form.currentPassword,
-          newPassword: form.newPassword,
-        }),
+      await changePassword({
+        currentPassword: form.currentPassword,
+        newPassword: form.newPassword,
       });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setPasswordError(data.message || 'Failed to update password');
-        setPasswordSubmitting(false);
-        return;
-      }
 
       setShowChangePassword(false);
     } catch (err) {
-      setPasswordError('Could not connect to server.');
+      setPasswordError(err instanceof ApiError ? err.message || 'Failed to update password' : 'Could not connect to server.');
     } finally {
       setPasswordSubmitting(false);
     }
@@ -291,25 +250,14 @@ const [user, setUser] = useState(loadUserFromStorage);
   const handleConfirmDelete = async () => {
     setDeleting(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/auth/account', {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        alert(data.message || 'Failed to delete account');
-        setDeleting(false);
-        return;
-      }
+      await deleteAccount();
 
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       setShowDeleteConfirm(false);
       navigate('/register');
     } catch (err) {
-      alert('Could not connect to server.');
+      alert(err instanceof ApiError ? err.message || 'Failed to delete account' : 'Could not connect to server.');
       setDeleting(false);
     }
   };
@@ -318,76 +266,63 @@ const [user, setUser] = useState(loadUserFromStorage);
     <CustomerLayout title="My Profile">
       <div className="profile-page">
 
-        {/* Profile Header */}
+        {/* Profile Header - same layout/classes as the technician portal's
+            profile card (staff/profile.jsx): avatar-lg + name/contact stacked,
+            small icon edit button in the corner, instead of this page's old
+            separate row layout with a full-width text edit button. Same info
+            as before (name, email, member-since), just restyled to match. */}
         <div className="profile-card">
-          <div className="profile-header">
-            {isEditing ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                <div className="profile-avatar">
-                  {editForm.photo ? (
-                    <img
-                      src={editForm.photo}
-                      alt="Profile preview"
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
-                    />
-                  ) : (
-                    <FiUser />
-                  )}
-                </div>
-                <label
-                  className="profile-photo-upload-btn"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.85rem',
-                    fontWeight: 600,
-                    color: 'var(--cz-primary, #2563eb)',
-                    border: '1px solid var(--cz-primary, #2563eb)',
-                    borderRadius: '999px',
-                    padding: '6px 14px',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  <FiCamera size={14} />
-                  {editForm.photo ? 'Change Photo' : 'Upload Photo'}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePhotoChange}
-                    style={{ display: 'none' }}
-                  />
-                </label>
-              </div>
-            ) : (
-              <div className="profile-avatar">
-                {user.photo ? (
+          {isEditing ? (
+            <div className="customer-profile-x2">
+              <div className="profile-avatar-lg">
+                {editForm.photo ? (
                   <img
-                    src={user.photo.startsWith('data:') ? user.photo : `http://localhost:5000${user.photo}`}
-                    alt="Profile"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                    src={editForm.photo}
+                    alt="Profile preview"
                   />
                 ) : (
                   <FiUser />
                 )}
               </div>
-            )}
-
-            <div className="profile-info">
-              <h2>
-                {user.firstName} {user.lastName}
-              </h2>
-              <p>{user.email}</p>
-              <span>Member since {user.memberSince}</span>
+              <label
+                className="profile-photo-upload-btn customer-profile-x3"
+              >
+                <FiCamera size={14} />
+                {editForm.photo ? 'Change Photo' : 'Upload Photo'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoChange}
+                  className="customer-profile-x4"
+                />
+              </label>
             </div>
+          ) : (
+            <div className="profile-avatar-lg">
+              {user.photo ? (
+                <img
+                  src={user.photo.startsWith('data:') ? user.photo : `${API_BASE}${user.photo}`}
+                  alt="Profile"
+                />
+              ) : (
+                <FiUser />
+              )}
+            </div>
+          )}
 
-            {!isEditing && (
-              <button className="edit-profile-btn" onClick={handleEditClick}>
-                Edit Profile
-              </button>
-            )}
+          <div>
+            <h2 className="profile-name">{user.firstName} {user.lastName}</h2>
+            <div className="profile-contact">
+              <span className="profile-contact-line"><FiMail size={13} /> {user.email}</span>
+              <span className="profile-contact-line"><FiCalendar size={13} /> Member since {user.memberSince}</span>
+            </div>
           </div>
+
+          {!isEditing && (
+            <button className="profile-edit-btn" type="button" onClick={handleEditClick}>
+              <FiEdit2 />
+            </button>
+          )}
         </div>
 
         {/* Personal Information */}
@@ -458,7 +393,7 @@ const [user, setUser] = useState(loadUserFromStorage);
                 </div>
               </div>
 
-              <div className="account-actions" style={{ marginTop: '16px' }}>
+              <div className="account-actions customer-profile-x5">
                 <button className="bs-back-btn" onClick={handleCancelEdit}>
                   Cancel
                 </button>
@@ -470,31 +405,37 @@ const [user, setUser] = useState(loadUserFromStorage);
           ) : (
             <div className="profile-grid">
               <div className="profile-field">
-                <label>First Name</label>
+                <label><FiUser size={12} /> First Name</label>
                 <div>{user.firstName}</div>
               </div>
 
               <div className="profile-field">
-                <label>Last Name</label>
+                <label><FiUser size={12} /> Last Name</label>
                 <div>{user.lastName}</div>
               </div>
 
               <div className="profile-field">
-                <label>Email Address</label>
+                <label><FiMail size={12} /> Email Address</label>
                 <div>{user.email}</div>
               </div>
 
               <div className="profile-field">
-                <label>Phone Number</label>
+                <label><FiPhone size={12} /> Phone Number</label>
                 <div>{user.phone}</div>
               </div>
 
               <div className="profile-field full-width">
-                <label>Address</label>
+                <label><FiMapPin size={12} /> Address</label>
                 <div>{user.address}</div>
               </div>
             </div>
           )}
+        </div>
+
+        {/* Booking history summary */}
+        <div className="profile-card">
+          <h3 className="section-title">My Booking History</h3>
+          <CustomerHistory />
         </div>
 
         {/* Account Settings */}
@@ -506,14 +447,14 @@ const [user, setUser] = useState(loadUserFromStorage);
               className="change-password-btn"
               onClick={() => setShowChangePassword(true)}
             >
-              Change Password
+              <FiLock size={14} /> Change Password
             </button>
 
             <button
               className="delete-account-btn"
               onClick={() => setShowDeleteConfirm(true)}
             >
-              Delete Account
+              <FiTrash2 size={14} /> Delete Account
             </button>
           </div>
         </div>

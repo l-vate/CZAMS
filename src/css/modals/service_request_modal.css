@@ -9,7 +9,7 @@
     padding: 20px;
 }
 
-/* .sdm-modal itself no longer scrolls (overflow: hidden) — it used to, which
+/* .sdm-modal itself no longer scrolls (overflow: hidden) - it used to, which
    meant .sdm-close-position (a direct sibling, added in the earlier UI
    consistency pass) would scroll away with the rest of the content on a tall
    record, the same class of problem as a modal being cut off with no way back
@@ -29,7 +29,7 @@
     flex-direction: column;
 }
 
-/* .sdm-close was dead CSS — never actually used in either sdm-* modal's JSX, so
+/* .sdm-close was dead CSS - never actually used in either sdm-* modal's JSX, so
    these modals had no icon close button at all (only a text "Close" button in
    the footer), the same gap .svc-modal/.ann-modal had. Both now use the shared
    .modal-close-btn for the icon itself; this just supplies the positioning this
@@ -55,7 +55,7 @@
     justify-content: space-between;
     margin-bottom: 18px;
     /* Room for .sdm-close-position, which sits at right:20px relative to the
-       whole modal (outside sdm-body's own 32px padding) — without this the
+       whole modal (outside sdm-body's own 32px padding) - without this the
        status badge on the right edge of this row would sit under the close
        button. */
     padding-right: 40px;
@@ -172,7 +172,11 @@
     padding: 8px 12px;
     border-radius: 8px;
     font-size: 0.85rem;
-    margin-top: 4px;
+    margin: 4px 0 0;
+}
+
+.sdm-notice + .sdm-customer-line {
+    margin-top: 16px;
 }
 
 .sdm-col-heading {
@@ -301,7 +305,7 @@
 }
 
 /* Radius converged (Pass D) from a full pill to the app-wide 10px action-button
-   standard — this modal being larger (720px) isn't a real reason for its buttons
+   standard - this modal being larger (720px) isn't a real reason for its buttons
    to be a different shape from every other modal's. */
 .sdm-btn {
     border: none;
@@ -358,7 +362,7 @@
     background: var(--primary-hover);
 }
 
-/* No longer needs position: sticky — it's a flex sibling of .sdm-body outside
+/* No longer needs position: sticky - it's a flex sibling of .sdm-body outside
    that element's own scroll region now, so it naturally stays put at the
    bottom without relying on sticky positioning inside a scrolling ancestor. */
 .sdm-footer {

@@ -1,0 +1,10 @@
+/* Classes named *-xN were extracted from inline styles. Rename when the page is next edited. */
+
+/* Extracted from inline styles in components/back_job_modal.jsx.
+   The class is doubled so it keeps the priority the inline style had over other rules. */
+.back-job-modal-x1.back-job-modal-x1 {
+  font-size: 12px;
+  color: #e05a5a;
+  margin-top: -8px;
+  margin-bottom: 12px;
+}

@@ -1,8 +1,20 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import AdminLayout from './admin_layout';
-import { FiSearch, FiX } from 'react-icons/fi';
+import { FiX, FiInfo, FiShield, FiEye } from 'react-icons/fi';
+import { getFilterPillStyle } from '../../utils/statusColors';
+import { withFallback } from '../../services/apiClient';
+import { listBackJobs, markBackJobReviewed } from '../../services/backJobService';
+import { BACK_JOB_STATUS } from '../../constants/backJobStatus';
 
-const API_BASE = 'http://localhost:5000';
+// Same badge/left-accent classes as the customer's My Bookings and technician's
+// My Jobs cards (staff.css) - .tech-job-card colors its left border automatically
+// off whichever of these badge classes it contains.
+const STATUS_BADGE_CLASS = {
+  Scheduled: 'tech-status-completed',
+  'Not Covered': 'tech-status-cancelled',
+  Reviewed: 'tech-status-confirmed',
+};
+
 
 const FILTERS = [
   { key: 'all', label: 'All' },
@@ -25,16 +37,12 @@ function StatusBadge({ status }) {
   return <span className={meta.className}>{meta.label}</span>;
 }
 
-function SearchIcon() {
-  return <FiSearch className="icon-search" aria-hidden="true" />;
-}
-
 function CloseIcon() {
   return <FiX aria-hidden="true" />;
 }
 
 function formatDate(dateStr) {
-  if (!dateStr) return '—';
+  if (!dateStr) return '-';
   const d = new Date(dateStr);
   if (isNaN(d)) return dateStr;
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -47,21 +55,13 @@ function BackJobDetailModal({ backJob, onClose, onSuccess }) {
 
   if (!backJob) return null;
 
-  const isNotCovered = backJob.status === 'Not Covered';
+  const isNotCovered = backJob.status === BACK_JOB_STATUS.NOT_COVERED;
 
   const handleMarkReviewed = async () => {
     setSubmitting(true);
     setError('');
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/backjobs/${backJob.backJobId}/review`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Failed to update back job report.');
-      }
+      await markBackJobReviewed(backJob.backJobId).catch(withFallback('Failed to update back job report.'));
       onSuccess?.();
       onClose();
     } catch (err) {
@@ -75,7 +75,7 @@ function BackJobDetailModal({ backJob, onClose, onSuccess }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card payment-review-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header" style={{ marginBottom: '4px' }}>
+        <div className="modal-header admin-back-jobs-x1">
           <h4 className="modal-title">Back Job Report</h4>
           <button className="modal-close-btn" onClick={onClose} disabled={submitting}>
             <CloseIcon />
@@ -85,7 +85,7 @@ function BackJobDetailModal({ backJob, onClose, onSuccess }) {
         <p className="payment-review-booking">{backJob.serviceType} · {backJob.originalBookingId}</p>
 
         {error && (
-          <p style={{ color: '#ef4444', fontSize: '13px', marginBottom: '12px' }}>{error}</p>
+          <p className="admin-back-jobs-x2">{error}</p>
         )}
 
         <div className="payment-review-grid">
@@ -110,23 +110,23 @@ function BackJobDetailModal({ backJob, onClose, onSuccess }) {
           </div>
         </div>
 
-        <div className="payment-review-cell" style={{ marginBottom: '16px' }}>
+        <div className="payment-review-cell admin-back-jobs-x3">
           <span className="confirmation-detail-label">Issue Described</span>
-          <p className="confirmation-detail-value" style={{ fontWeight: 500 }}>{backJob.issueDescription}</p>
+          <p className="confirmation-detail-value admin-back-jobs-x4">{backJob.issueDescription}</p>
         </div>
 
         {backJob.originalReportPreExistingIssue?.flagged && (
-          <div className="refund-flag-notice" style={{ marginBottom: '16px' }}>
+          <div className="refund-flag-notice admin-back-jobs-x3">
             <strong>Technician flagged a pre-existing issue at time of original service:</strong>
-            <div style={{ marginTop: '4px' }}>"{backJob.originalReportPreExistingIssue.description}"</div>
+            <div className="admin-back-jobs-x5">"{backJob.originalReportPreExistingIssue.description}"</div>
           </div>
         )}
 
-        {backJob.status === 'Scheduled' && (
-          <div className="payment-review-cell" style={{ marginBottom: '20px' }}>
+        {backJob.status === BACK_JOB_STATUS.SCHEDULED && (
+          <div className="payment-review-cell admin-back-jobs-x6">
             <span className="confirmation-detail-label">Free Repair Visit Scheduled</span>
             <span className="confirmation-detail-value">
-              {backJob.resultingBookingId} — {formatDate(backJob.resultingBookingDate)}
+              {backJob.resultingBookingId} - {formatDate(backJob.resultingBookingDate)}
             </span>
           </div>
         )}
@@ -141,7 +141,7 @@ function BackJobDetailModal({ backJob, onClose, onSuccess }) {
             </button>
           </div>
         ) : (
-          <button type="button" className="bs-next-btn" style={{ width: '100%' }} onClick={onClose}>
+          <button type="button" className="bs-next-btn admin-back-jobs-x7" onClick={onClose}>
             Close
           </button>
         )}
@@ -152,31 +152,32 @@ function BackJobDetailModal({ backJob, onClose, onSuccess }) {
 
 function BackJobCard({ backJob, onReview }) {
   return (
-    <div className="backjob-card">
-      <div className="backjob-card__main">
-        <div className="backjob-card__header">
-          <span className="backjob-card__client">{backJob.clientName}</span>
-          <span className="backjob-card__dot">·</span>
-          <StatusBadge status={backJob.status} />
+    <div className="tech-job-card">
+      <div className="tech-job-info">
+        <div className="tech-job-top-row">
+          <small className="tech-job-date-label">{formatDate(backJob.reportedAt)}</small>
+          <span className={`tech-job-status-badge ${STATUS_BADGE_CLASS[backJob.status] || ''}`}>
+            {backJob.status}
+          </span>
         </div>
-        <div className="backjob-card__service">
-          <span className="backjob-card__service-type">{backJob.serviceType}</span>
-          <span className="backjob-card__dot">·</span>
-          <span className="backjob-card__detail">{backJob.originalBookingId}</span>
-        </div>
-        <p className="backjob-card__issue">{backJob.issueDescription}</p>
+        <div className="tech-job-service">{backJob.serviceType}</div>
+        <small className="tech-job-booking">{backJob.originalBookingId} · {backJob.clientName}</small>
       </div>
 
-      <div className="backjob-card__meta">
-        <span className="backjob-card__meta-label">Reported</span>
-        <span className="backjob-card__meta-value">{formatDate(backJob.reportedAt)}</span>
+      <div className="tech-job-meta">
+        <FiInfo /> {backJob.issueDescription}
       </div>
 
-      <div className="backjob-card__action">
-        <button type="button" className="backjob-card__review-btn" onClick={() => onReview(backJob)}>
-          {backJob.status === 'Not Covered' ? 'Review' : 'View'}
-        </button>
+      <div className="tech-job-meta">
+        <FiShield /> {backJob.coverageType || 'N/A'}
       </div>
+
+      <button
+        className="view-details-btn"
+        onClick={() => onReview(backJob)}
+      >
+        <FiEye size={14} /> {backJob.status === BACK_JOB_STATUS.NOT_COVERED ? 'Review' : 'View'}
+      </button>
     </div>
   );
 }
@@ -191,12 +192,7 @@ function BackJobs() {
   const fetchBackJobs = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/backjobs`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Failed to fetch back job reports');
-      const data = await res.json();
+      const data = await listBackJobs();
       setRawBackJobs(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error fetching back jobs:', err);
@@ -245,7 +241,12 @@ function BackJobs() {
   };
 
   return (
-    <AdminLayout title="Back Jobs">
+    <AdminLayout
+      title="Back Jobs"
+      searchValue={search}
+      onSearchChange={setSearch}
+      searchPlaceholder="Search by name, booking id..."
+    >
       <h1 className="dashboard-welcome">Back Jobs</h1>
       <div className="backjobs-toolbar">
         <div className="backjobs-filters">
@@ -254,28 +255,19 @@ function BackJobs() {
               key={filter.key}
               type="button"
               className={`filter-pill ${activeFilter === filter.key ? 'filter-pill--active' : ''}`}
+              style={getFilterPillStyle(filter.key, activeFilter === filter.key)}
               onClick={() => setActiveFilter(filter.key)}
             >
               {filter.label}
             </button>
           ))}
         </div>
-
-        <div className="backjobs-search">
-          <SearchIcon />
-          <input
-            type="text"
-            placeholder="Search by name, booking id..."
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-        </div>
       </div>
 
       {loading ? (
         <div className="backjobs-empty">Loading back job reports...</div>
       ) : (
-        <div className="backjobs-list">
+        <div className="tech-job-list">
           {filteredBackJobs.length === 0 ? (
             <div className="backjobs-empty">No back job reports match your search.</div>
           ) : (

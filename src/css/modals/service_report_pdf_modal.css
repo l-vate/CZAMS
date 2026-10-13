@@ -116,7 +116,7 @@
   background: #ffffff;
 }
 
-/* Background/hover converged (Pass D) to var(--primary)/var(--primary-hover) —
+/* Background/hover converged (Pass D) to var(--primary)/var(--primary-hover) -
    inherited from .modal-submit-btn now that this no longer overrides it to a
    near-black color. */
 .report-pdf-print-btn {
@@ -149,4 +149,14 @@
   .report-pdf-print-btn {
     display: none !important;
   }
+}
+
+/* Photo of the signed paper form on a service report. */
+.report-signed-photo {
+  display: block;
+  max-width: 100%;
+  max-height: 320px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  margin-top: 6px;
 }

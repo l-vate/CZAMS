@@ -73,7 +73,7 @@ const reportSchema = new mongoose.Schema({
     },
 
     // Service Report hardening: technician must flag a pre-existing issue at time of
-    // service, not after — this is what lets Back Job Handling's admin review tell a
+    // service, not after - this is what lets Back Job Handling's admin review tell a
     // legitimate (workmanship-caused) claim apart from a pre-existing condition.
     preExistingIssue: {
         flagged: { type: Boolean, default: false },
@@ -88,6 +88,10 @@ const reportSchema = new mongoose.Schema({
         signatureDataUrl: String,
         signedAt: Date,
     },
+
+    // Photo of the signed paper form (/uploads/proofs/<unguessable name>). Optional; with it, the
+    // drawn signature and typed name become optional. Reports filed before this existed have none.
+    signedFormPhoto: String,
 }, {
     timestamps: true
 });

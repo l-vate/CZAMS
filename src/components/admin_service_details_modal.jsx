@@ -1,10 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { getBookingLineItems } from '../utils/bookingPricing';
+import { useState, useEffect } from 'react';
+import { getBookingLineItems, getPaymentBreakdown, formatPeso } from '../utils/bookingPricing';
+import AssignmentPanel from './assignment_panel';
+import PaymentReference from './payment_reference';
+import ClosureDateInput from './closure_date_input';
+import ReceiptModal from './receipt_modal';
+import AssignmentHistory from './assignment_history';
+import { buildReceiptForm } from '../utils/receiptData';
+import { getMemberIds } from '../utils/assignments';
+import { isWithinQuezonCity } from '../utils/serviceArea';
+import { API_BASE } from '../config/api';
+import { attempt, orFallback } from '../services/apiClient';
+import { getReportForBooking } from '../services/reportService';
+import {
+    adminUpdateBooking, uploadUnitPurchaseProof, rescheduleAfterDisruption, decideDiscount, decideReschedule, decideExtension,
+} from '../services/bookingService';
+import { BOOKING_STATUS } from '../constants/bookingStatus';
+import { TIME_BLOCK } from '../constants/timeBlocks';
+import { SERVICE_TYPE } from '../constants/serviceTypes';
 
+// Admin only approves (and cancels). A booking becomes In Progress by itself when its
+// time block starts and Completed when the technician submits the service report.
 const NEXT_STATUS = {
     Pending: [{ label: 'Approve', value: 'Approved' }],
-    Approved: [{ label: 'Mark In Progress', value: 'In Progress' }],
-    'In Progress': [{ label: 'Mark Completed', value: 'Completed' }],
 };
 
 const STATUS_COLORS = {
@@ -42,11 +59,7 @@ function Icon({ name }) {
 }
 
 function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
-    const [technicians, setTechnicians] = useState([]);
-    const [busyTechIds, setBusyTechIds] = useState([]);
-    const [selectedTechnician, setSelectedTechnician] = useState(booking?.technician?._id || '');
     
-    const [isReassigning, setIsReassigning] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
     const [disruptionDate, setDisruptionDate] = useState('');
@@ -57,43 +70,44 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
     const [distanceDraft, setDistanceDraft] = useState(booking?.distanceAdjustment || 0);
     const [mobilizationDraft, setMobilizationDraft] = useState(booking?.mobilizationFee || 0);
     const [uploadingProof, setUploadingProof] = useState(false);
+    const [showReceipt, setShowReceipt] = useState(false);
+const [report, setReport] = useState(null);
+    const [rejectingDiscount, setRejectingDiscount] = useState(false);
+    const [discountRejectReason, setDiscountRejectReason] = useState('');
 
     useEffect(() => {
-        fetchTechnicians();
-    }, []);
-
-    useEffect(() => {
-        setSelectedTechnician(booking?.technician?._id || '');
-        setIsReassigning(false); // Reset reassignment state when booking changes
         setInstructionsDraft(booking?.technicianInstructions || '');
         setEditingInstructions(false);
         setDistanceDraft(booking?.distanceAdjustment || 0);
         setMobilizationDraft(booking?.mobilizationFee || 0);
         setEditingCharges(false);
-        fetchBusyTechs();
+        fetchReport();
     }, [booking]);
 
-    const fetchTechnicians = async () => {
-        try {
-            const response = await fetch('http://localhost:5000/api/auth/technicians');
-            const data = await response.json();
-            setTechnicians(Array.isArray(data) ? data : []);
-        } catch (err) {
-            console.error('Error fetching technicians:', err);
-        }
-    };
+    if (!booking) return null;
 
-    const fetchBusyTechs = async () => {
-        if (!booking?.date) return;
+    const canCancel = ![BOOKING_STATUS.COMPLETED, BOOKING_STATUS.CANCELLED].includes(booking.status);
+    const nextSteps = NEXT_STATUS[booking.status] || [];
+    const hasAssignment = getMemberIds(booking).length > 0;
+
+    const { lineItems, basePrice } = getBookingLineItems(booking);
+    const paymentBreakdown = getPaymentBreakdown({ ...booking, downPaymentPercent: booking.downPaymentPercent ?? 0 });
+    const downPaymentAmount = paymentBreakdown.downPayment;
+    const discountIdIsPdf = /\.pdf$/i.test(booking.discount?.idFile || '');
+
+    // Reports live in the separate Report collection, not the deprecated embedded
+    // booking.report field (never populated by the current report-submission flow).
+    const fetchReport = async () => {
+        if (!booking?.reportSubmitted && !booking?.reportId) {
+            setReport(null);
+            return;
+        }
         try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(`http://localhost:5000/api/bookings/busy-technicians?date=${booking.date}&time=${encodeURIComponent(booking.time || '')}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            const data = await response.json();
-            setBusyTechIds(data.busyTechIds || []);
+            const data = await orFallback(getReportForBooking(booking.bookingId), null);
+            setReport(data);
         } catch (err) {
-            console.error('Error fetching busy technicians:', err);
+            console.error('Error fetching report:', err);
+            setReport(null);
         }
     };
 
@@ -101,24 +115,12 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
         setSaving(true);
         setError('');
         try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(
-                `http://localhost:5000/api/bookings/${booking.bookingId}/admin-update`,
-                {
-                    method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify(body),
-                }
-            );
-            const data = await response.json();
-            if (!response.ok) {
-                setError(data.message || 'Something went wrong.');
+            const updated = await attempt(adminUpdateBooking(booking.bookingId, body), 'Something went wrong.');
+            if (updated.error) {
+                setError(updated.error);
                 return false;
             }
-            onUpdated?.(data);
+            onUpdated?.(updated.data);
             return true;
         } catch (err) {
             console.error('Error updating booking:', err);
@@ -129,20 +131,8 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
         }
     };
 
-    const handleAssign = async () => {
-        if (!selectedTechnician) return;
-        const success = await patchBooking({ technician: selectedTechnician });
-        if (success) {
-            setIsReassigning(false);
-        }
-    };
-
     const handleStatusChange = (status) => {
-        const body = { status };
-        if (status === 'Approved' && selectedTechnician && selectedTechnician !== booking?.technician?._id) {
-            body.technician = selectedTechnician;
-        }
-        patchBooking(body);
+        patchBooking({ status });
     };
 
     const handleSaveInstructions = async () => {
@@ -160,7 +150,7 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
         }
     };
 
-    // Proof of purchase for a CZA-supplied unit — backs a future Unit Warranty
+    // Proof of purchase for a CZA-supplied unit - backs a future Unit Warranty
     // claim. Admin-side upload (mirrors the customer-facing pay/pay-balance proof
     // uploads, same multer/proofs storage), not a JSON PATCH like the others.
     const handleUnitPurchaseProofUpload = async (e) => {
@@ -169,19 +159,12 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
         setUploadingProof(true);
         setError('');
         try {
-            const token = localStorage.getItem('token');
-            const formData = new FormData();
-            formData.append('proof', file);
-            const response = await fetch(
-                `http://localhost:5000/api/bookings/${booking.bookingId}/unit-purchase-proof`,
-                { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: formData }
-            );
-            const data = await response.json();
-            if (!response.ok) {
-                setError(data.message || 'Failed to upload proof of purchase.');
+            const uploaded = await attempt(uploadUnitPurchaseProof(booking.bookingId, file), 'Failed to upload proof of purchase.');
+            if (uploaded.error) {
+                setError(uploaded.error);
                 return;
             }
-            onUpdated?.(data);
+            onUpdated?.(uploaded.data);
         } catch (err) {
             console.error('Error uploading unit purchase proof:', err);
             setError('Network error. Please try again.');
@@ -201,26 +184,66 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
         setSaving(true);
         setError('');
         try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(
-                `http://localhost:5000/api/bookings/${booking.bookingId}/disruption/reschedule`,
-                {
-                    method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({ date: disruptionDate, time: disruptionTime }),
-                }
+            const moved = await attempt(
+                rescheduleAfterDisruption(booking.bookingId, { date: disruptionDate, time: disruptionTime }),
+                'Failed to reschedule.'
             );
-            const data = await response.json();
-            if (!response.ok) {
-                setError(data.message || 'Failed to reschedule.');
+            if (moved.error) {
+                setError(moved.error);
                 return;
             }
-            onUpdated?.(data);
+            onUpdated?.(moved.data);
         } catch (err) {
             console.error('Error rescheduling after disruption:', err);
+            setError('Network error. Please try again.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // Approve or reject the customer's Senior Citizen / PWD discount request. Nothing
+    // changes in the booking's totals until the server accepts an approval.
+    const handleDiscountDecision = async (decision) => {
+        if (decision === 'reject' && !discountRejectReason.trim()) {
+            setError('Please give a short reason for rejecting the discount.');
+            return;
+        }
+        setSaving(true);
+        setError('');
+        try {
+            const decided = await attempt(
+                decideDiscount(booking.bookingId, decision, discountRejectReason.trim()),
+                'Failed to update the discount request.'
+            );
+            if (decided.error) {
+                setError(decided.error);
+                return;
+            }
+            setRejectingDiscount(false);
+            setDiscountRejectReason('');
+            onUpdated?.(decided.data);
+        } catch (err) {
+            console.error('Error updating discount request:', err);
+            setError('Network error. Please try again.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // Approve or deny the customer's reschedule request. The server re-checks the
+    // technician's availability for the requested slot and answers 409 on a clash.
+    const handleRescheduleDecision = async (decision) => {
+        setSaving(true);
+        setError('');
+        try {
+            const decided = await attempt(decideReschedule(booking.bookingId, decision), 'Failed to update the reschedule request.');
+            if (decided.error) {
+                setError(decided.error);
+                return;
+            }
+            onUpdated?.(decided.data);
+        } catch (err) {
+            console.error('Error updating reschedule request:', err);
             setError('Network error. Please try again.');
         } finally {
             setSaving(false);
@@ -231,20 +254,12 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
         setSaving(true);
         setError('');
         try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(
-                `http://localhost:5000/api/bookings/${booking.bookingId}/extension/${decision}`,
-                {
-                    method: 'PATCH',
-                    headers: { Authorization: `Bearer ${token}` },
-                }
-            );
-            const data = await response.json();
-            if (!response.ok) {
-                setError(data.message || 'Failed to update extension request.');
+            const decided = await attempt(decideExtension(booking.bookingId, decision), 'Failed to update extension request.');
+            if (decided.error) {
+                setError(decided.error);
                 return;
             }
-            onUpdated?.(data);
+            onUpdated?.(decided.data);
         } catch (err) {
             console.error('Error updating extension request:', err);
             setError('Network error. Please try again.');
@@ -253,31 +268,8 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
         }
     };
 
-    if (!booking) return null;
-
-    const canCancel = !['Completed', 'Cancelled'].includes(booking.status);
-    const nextSteps = NEXT_STATUS[booking.status] || [];
-    const technicianDirty = selectedTechnician && selectedTechnician !== (booking.technician?._id || '');
-
-    // Rule checks for technician assignment dropdown
-    const isPending = booking.status === 'Pending';
-    const isActive = ['Approved', 'In Progress'].includes(booking.status);
-    const isCompletedOrCancelled = ['Completed', 'Cancelled'].includes(booking.status);
-
-    const isEditable = isPending || (isActive && isReassigning);
-    const isDisabled = !isEditable || saving || isCompletedOrCancelled;
-
-    const { lineItems, basePrice } = getBookingLineItems(booking);
-    const downPaymentAmount = Math.round(basePrice * ((booking.downPaymentPercent ?? 0) / 100));
-
-    // Filter available technicians
-    const availableTechnicians = technicians.filter(tech => {
-        // Always show the currently assigned technician in the list so it doesn't blank out
-        if (tech._id === booking?.technician?._id) return true;
-        return !busyTechIds.includes(tech._id);
-    });
-
     return (
+        <>
         <div className="sdm-overlay" onClick={onClose}>
             <div className="sdm-modal" onClick={(e) => e.stopPropagation()}>
                 <button type="button" className="modal-close-btn sdm-close-position" onClick={onClose}>✕</button>
@@ -297,13 +289,22 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
 
                     {booking.isBackJob && (
                         <div className="sdm-notice">
-                            Back Job — free of charge (warranty repair visit for booking {booking.backJobId ? `linked to ${booking.backJobId}` : ''}). No payment is expected on this booking.
+                            Back Job - free of charge (warranty repair visit for booking {booking.backJobId ? `linked to ${booking.backJobId}` : ''}). No payment is expected on this booking.
+                        </div>
+                    )}
+
+                    {!booking.isBackJob
+                        && booking.status === BOOKING_STATUS.PENDING
+                        && !isWithinQuezonCity(booking.address)
+                        && !booking.distanceAdjustment && !booking.mobilizationFee && (
+                        <div className="sdm-notice">
+                            ⚠ This address is outside Quezon City - add a {booking.service?.serviceType === SERVICE_TYPE.INSTALLATION ? 'mobilization fee' : 'distance based charge'} below before approving, if one applies.
                         </div>
                     )}
 
                     {booking.serviceAreaCheck && !booking.serviceAreaCheck.withinArea && (
                         <div className="sdm-notice">
-                            ⚠ This address didn't match any of CZA's confirmed service areas at booking time — flagged for review.
+                            ⚠ This address didn't match any of CZA's confirmed service areas at booking time - flagged for review.
                         </div>
                     )}
 
@@ -313,6 +314,9 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                         <Icon name="user" />
                         <span>{booking.customer?.name || 'N/A'}</span>
                         {booking.customer?.email && <span className="sdm-muted">· {booking.customer.email}</span>}
+                        <span className="sdm-muted">· Contact: {booking.contactNumber || booking.customer?.phone || 'N/A'}</span>
+                        {booking.customer?.companyName && <span className="sdm-muted">· Company: {booking.customer.companyName}</span>}
+                        {booking.customer?.representativeName && <span className="sdm-muted">· Representative: {booking.customer.representativeName}</span>}
                     </div>
 
                     <div className="sdm-columns">
@@ -353,25 +357,24 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                 <div className="sdm-row-icon"><Icon name="info" /></div>
                                 <div>
                                     <span className="sdm-row-label">PROBLEM DESCRIPTION</span>
-                                    <p className="sdm-row-value">{booking.problemDescription || '—'}</p>
+                                    <p className="sdm-row-value">{booking.problemDescription || '-'}</p>
                                 </div>
                             </div>
 
                             <div className="sdm-row">
                                 <div className="sdm-row-icon"><Icon name="file" /></div>
-                                <div style={{ flex: 1 }}>
+                                <div className="admin-service-details-modal-x1">
                                     <span className="sdm-row-label">TECHNICIAN INSTRUCTIONS</span>
                                     {editingInstructions ? (
                                         <>
                                             <textarea
-                                                className="ma-textarea"
+                                                className="ma-textarea admin-service-details-modal-x2"
                                                 rows={3}
                                                 placeholder="Care requirements, access instructions, client-specific handling..."
                                                 value={instructionsDraft}
                                                 onChange={(e) => setInstructionsDraft(e.target.value)}
-                                                style={{ width: '100%', marginTop: '4px' }}
                                             />
-                                            <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                                            <div className="admin-service-details-modal-x3">
                                                 <button
                                                     className="sdm-btn sdm-btn-outline"
                                                     onClick={() => {
@@ -392,10 +395,9 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                         </>
                                     ) : (
                                         <>
-                                            <p className="sdm-row-value">{booking.technicianInstructions || '—'}</p>
+                                            <p className="sdm-row-value">{booking.technicianInstructions || '-'}</p>
                                             <button
-                                                className="sdm-btn sdm-btn-outline"
-                                                style={{ marginTop: '4px' }}
+                                                className="sdm-btn sdm-btn-outline admin-service-details-modal-x4"
                                                 onClick={() => setEditingInstructions(true)}
                                             >
                                                 {booking.technicianInstructions ? 'Edit' : 'Add'} Instructions
@@ -407,35 +409,55 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
 
                             {booking.rescheduleRequest?.status === 'Pending' && (
                                 <div className="sdm-notice">
-                                    Reschedule requested: {booking.rescheduleRequest.requestedDate} at{' '}
-                                    {booking.rescheduleRequest.requestedTime}
+                                    <p className="admin-service-details-modal-x5">Reschedule requested by the customer</p>
+                                    <p className="admin-service-details-modal-x6">
+                                        Current: {booking.date || 'N/A'}, {booking.time || 'N/A'}
+                                    </p>
+                                    <p className="admin-service-details-modal-x7">
+                                        Requested: <strong>{booking.rescheduleRequest.requestedDate}, {booking.rescheduleRequest.requestedTime}</strong>
+                                    </p>
+                                    <div className="admin-service-details-modal-x8">
+                                        <button
+                                            className="sdm-btn sdm-btn-danger"
+                                            onClick={() => handleRescheduleDecision('deny')}
+                                            disabled={saving}
+                                        >
+                                            Deny
+                                        </button>
+                                        <button
+                                            className="sdm-btn sdm-btn-primary"
+                                            onClick={() => handleRescheduleDecision('approve')}
+                                            disabled={saving}
+                                        >
+                                            Approve
+                                        </button>
+                                    </div>
                                 </div>
                             )}
 
                             {booking.disruption?.status === 'Reported' && (
                                 <div className="sdm-notice">
-                                    <p style={{ margin: '0 0 8px', fontWeight: 600 }}>Disruption reported by technician:</p>
-                                    <p style={{ margin: '0 0 10px' }}>"{booking.disruption.reason}"</p>
-                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                                    <p className="admin-service-details-modal-x5">Disruption reported by technician:</p>
+                                    <p className="admin-service-details-modal-x7">"{booking.disruption.reason}"</p>
+                                    <div className="admin-service-details-modal-x9">
                                         <div>
-                                            <label className="sdm-row-label" style={{ display: 'block', marginBottom: '4px' }}>New Date</label>
-                                            <input
-                                                type="date"
+                                            <label className="sdm-row-label admin-service-details-modal-x10">New Date</label>
+                                            <ClosureDateInput
                                                 className="ma-input"
                                                 value={disruptionDate}
-                                                onChange={(e) => setDisruptionDate(e.target.value)}
+                                                onChange={setDisruptionDate}
                                             />
                                         </div>
                                         <div>
-                                            <label className="sdm-row-label" style={{ display: 'block', marginBottom: '4px' }}>New Time</label>
+                                            <label className="sdm-row-label admin-service-details-modal-x10">New Time</label>
                                             <select
                                                 className="sdm-tech-select"
                                                 value={disruptionTime}
                                                 onChange={(e) => setDisruptionTime(e.target.value)}
                                             >
                                                 <option value="">Select</option>
-                                                <option value="Morning">Morning</option>
-                                                <option value="Afternoon">Afternoon</option>
+                                                <option value={TIME_BLOCK.MORNING}>{TIME_BLOCK.MORNING}</option>
+                                                <option value={TIME_BLOCK.AFTERNOON}>{TIME_BLOCK.AFTERNOON}</option>
                                             </select>
                                         </div>
                                         <button
@@ -451,13 +473,117 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
 
                             {booking.disruption?.status === 'Rescheduled' && (
                                 <div className="sdm-notice">
-                                    Disruption resolved — rescheduled on{' '}
+                                    Disruption resolved - rescheduled on{' '}
                                     {new Date(booking.disruption.rescheduledAt).toLocaleDateString()}.
                                 </div>
                             )}
                         </div>
 
                         <div className="sdm-col">
+                            {booking.discount?.status && booking.discount.status !== 'None' && (
+                                <>
+                                    <h5 className="sdm-col-heading">
+                                        <Icon name="card" /> SENIOR / PWD DISCOUNT
+                                    </h5>
+                                    <div className="sdm-list admin-service-details-modal-x11">
+                                        <div className="sdm-list-row">
+                                            <span>Type</span>
+                                            <span className="sdm-list-value">{booking.discount.type === 'PWD' ? 'PWD' : 'Senior Citizen'}</span>
+                                        </div>
+                                        <div className="sdm-list-row">
+                                            <span>Status</span>
+                                            <span className="sdm-list-value">
+                                                {booking.discount.status}
+                                                {booking.discount.reviewedBy?.name && ['Approved', 'Rejected'].includes(booking.discount.status)
+                                                    ? ` by ${booking.discount.reviewedBy.name}`
+                                                    : ''}
+                                            </span>
+                                        </div>
+                                        {booking.discount.status === 'Approved' && (
+                                            <div className="sdm-list-row">
+                                                <span>Discount</span>
+                                                <span className="sdm-list-value">{booking.discount.percent}% ({formatPeso(-paymentBreakdown.discountAmount)})</span>
+                                            </div>
+                                        )}
+                                        {booking.discount.status === 'Rejected' && booking.discount.rejectionReason && (
+                                            <div className="sdm-list-row sdm-list-row-block">
+                                                <span>Reason given to the customer</span>
+                                                <p className="sdm-list-value">{booking.discount.rejectionReason}</p>
+                                            </div>
+                                        )}
+                                        <div className="sdm-list-row sdm-list-row-block">
+                                            <span>Valid ID</span>
+                                            {booking.discount.idFile ? (
+                                                discountIdIsPdf ? (
+                                                    <a className="sdm-link" href={`${API_BASE}${booking.discount.idFile}`} target="_blank" rel="noreferrer">Open ID (PDF)</a>
+                                                ) : (
+                                                    <a href={`${API_BASE}${booking.discount.idFile}`} target="_blank" rel="noreferrer">
+                                                        <img
+                                                            src={`${API_BASE}${booking.discount.idFile}`}
+                                                            alt="Uploaded valid ID"
+                                                            className="admin-service-details-modal-x12"
+                                                        />
+                                                    </a>
+                                                )
+                                            ) : (
+                                                <p className="sdm-list-value">None uploaded (checked in person)</p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {paymentBreakdown.overpaid > 0 && (
+                                        <div className="sdm-notice">
+                                            Overpayment: the customer already paid ₱{paymentBreakdown.downPayment.toLocaleString()}, which is
+                                            ₱{paymentBreakdown.overpaid.toLocaleString()} more than the discounted total. The balance is shown as ₱0
+                                            and nothing was refunded automatically. Settle the difference with the customer.
+                                        </div>
+                                    )}
+
+                                    {booking.discount.status === 'Pending' && (
+                                        rejectingDiscount ? (
+                                            <div className="sdm-notice">
+                                                <label className="sdm-row-label admin-service-details-modal-x10">
+                                                    Reason (shown to the customer)
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    className="ma-input"
+                                                    maxLength={200}
+                                                    value={discountRejectReason}
+                                                    onChange={(e) => setDiscountRejectReason(e.target.value)}
+                                                    placeholder="e.g. The ID photo is not readable"
+                                                />
+                                                <div className="admin-service-details-modal-x13">
+                                                    <button
+                                                        className="sdm-btn sdm-btn-outline"
+                                                        onClick={() => { setRejectingDiscount(false); setDiscountRejectReason(''); }}
+                                                        disabled={saving}
+                                                    >
+                                                        Back
+                                                    </button>
+                                                    <button
+                                                        className="sdm-btn sdm-btn-danger"
+                                                        onClick={() => handleDiscountDecision('reject')}
+                                                        disabled={saving}
+                                                    >
+                                                        Confirm Reject
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="admin-service-details-modal-x14">
+                                                <button className="sdm-btn sdm-btn-danger" onClick={() => setRejectingDiscount(true)} disabled={saving}>
+                                                    Reject
+                                                </button>
+                                                <button className="sdm-btn sdm-btn-primary" onClick={() => handleDiscountDecision('approve')} disabled={saving}>
+                                                    Approve Discount
+                                                </button>
+                                            </div>
+                                        )
+                                    )}
+                                </>
+                            )}
+
                             <h5 className="sdm-col-heading">
                                 <Icon name="card" /> PAYMENT DETAILS
                             </h5>
@@ -467,8 +593,8 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                     <>
                                         {lineItems.map((li, i) => (
                                             <div className="sdm-list-row" key={i}>
-                                                <span>{li.quantity}× {li.type} @ ₱{li.unitPrice.toLocaleString()}</span>
-                                                <span className="sdm-list-value">₱{li.subtotal.toLocaleString()}</span>
+                                                <span>{li.isDiscount ? li.type : `${li.quantity}× ${li.type} @ ${formatPeso(li.unitPrice)}`}</span>
+                                                <span className="sdm-list-value">{formatPeso(li.subtotal)}</span>
                                             </div>
                                         ))}
                                         <div className="sdm-list-row">
@@ -477,37 +603,36 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                         </div>
                                     </>
                                 )}
-                                {/* Distance/Mobilization Charges: admin-entered, not system-computed —
+                                {/* Distance/Mobilization Charges: admin-entered, not system-computed -
                                     CZA has no full price-by-zone table to auto-derive this from. Distance
                                     adjustment applies to Cleaning jobs; mobilization/demobilization is the
                                     (typically ~₱2,500 but admin-adjustable) vehicle charge for a far
                                     Installation. Shown as an editable row only for the relevant service type. */}
-                                {!booking.isBackJob && (booking.service?.serviceType === 'Cleaning' || booking.service?.serviceType === 'Installation') && (
+                                {!booking.isBackJob && (
                                     editingCharges ? (
                                         <div className="sdm-list-row sdm-list-row-block">
                                             <span>Admin Pricing Adjustments</span>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
-                                                {booking.service?.serviceType === 'Cleaning' && (
-                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
-                                                        Distance Adjustment (₱)
+                                            <div className="admin-service-details-modal-x15">
+                                                {booking.service?.serviceType === SERVICE_TYPE.INSTALLATION ? (
+                                                    <label className="admin-service-details-modal-x16">
+                                                        Mobilization/Demobilization Fee (₱)
                                                         <input
-                                                            type="number" min="0" className="ma-input" style={{ width: '110px' }}
+                                                            type="number" min="0" className="ma-input admin-service-details-modal-x17"
+                                                            value={mobilizationDraft}
+                                                            onChange={(e) => setMobilizationDraft(Number(e.target.value) || 0)}
+                                                        />
+                                                    </label>
+                                                ) : (
+                                                    <label className="admin-service-details-modal-x16">
+                                                        Distance Based Charge (₱)
+                                                        <input
+                                                            type="number" min="0" className="ma-input admin-service-details-modal-x17"
                                                             value={distanceDraft}
                                                             onChange={(e) => setDistanceDraft(Number(e.target.value) || 0)}
                                                         />
                                                     </label>
                                                 )}
-                                                {booking.service?.serviceType === 'Installation' && (
-                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
-                                                        Mobilization/Demobilization Fee (₱)
-                                                        <input
-                                                            type="number" min="0" className="ma-input" style={{ width: '110px' }}
-                                                            value={mobilizationDraft}
-                                                            onChange={(e) => setMobilizationDraft(Number(e.target.value) || 0)}
-                                                        />
-                                                    </label>
-                                                )}
-                                                <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
+                                                <div className="admin-service-details-modal-x18">
                                                     <button className="sdm-btn sdm-btn-outline" onClick={() => {
                                                         setEditingCharges(false);
                                                         setDistanceDraft(booking.distanceAdjustment || 0);
@@ -518,16 +643,44 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="sdm-list-row">
-                                            <span>
-                                                {booking.service?.serviceType === 'Cleaning' ? 'Distance Adjustment' : 'Mobilization Fee'}
-                                            </span>
-                                            <span className="sdm-list-value" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                ₱{(booking.service?.serviceType === 'Cleaning' ? (booking.distanceAdjustment || 0) : (booking.mobilizationFee || 0)).toLocaleString()}
-                                                <button className="sdm-btn sdm-btn-outline" style={{ padding: '2px 8px', fontSize: '0.75rem' }} onClick={() => setEditingCharges(true)}>Edit</button>
-                                            </span>
-                                        </div>
+                                        (!isWithinQuezonCity(booking.address) || booking.distanceAdjustment > 0 || booking.mobilizationFee > 0) && (
+                                            <div
+                                                className="sdm-list-row admin-service-details-modal-x19"
+                                            >
+                                                <span className="admin-service-details-modal-x20">
+                                                    {booking.service?.serviceType === SERVICE_TYPE.INSTALLATION ? 'Mobilization Fee' : 'Distance Based Charge'}
+                                                </span>
+                                                <span className="sdm-list-value admin-service-details-modal-x21">
+                                                    ₱{(booking.service?.serviceType === SERVICE_TYPE.INSTALLATION ? (booking.mobilizationFee || 0) : (booking.distanceAdjustment || 0)).toLocaleString()}
+                                                    <button className="sdm-btn sdm-btn-outline admin-service-details-modal-x22" onClick={() => setEditingCharges(true)}>Edit</button>
+                                                </span>
+                                            </div>
+                                        )
                                     )
+                                )}
+                                {booking.isCommercial && (
+                                    <>
+                                        <div className="sdm-list-row">
+                                            <span>VAT (12%)</span>
+                                            <span className="sdm-list-value">₱{(booking.vatAmount || 0).toLocaleString()}</span>
+                                        </div>
+                                        {booking.poNumber && (
+                                            <div className="sdm-list-row">
+                                                <span>PO Number</span>
+                                                <span className="sdm-list-value">{booking.poNumber}</span>
+                                            </div>
+                                        )}
+                                        {booking.paymentTermsDays > 0 && (
+                                            <div className="sdm-list-row">
+                                                <span>Payment Terms</span>
+                                                <span className="sdm-list-value">
+                                                    {booking.paymentDueAt
+                                                        ? `Due ${new Date(booking.paymentDueAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                                                        : `${booking.paymentTermsDays} days after completion`}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                                 <div className="sdm-list-row">
                                     <span>Down Payment</span>
@@ -539,7 +692,7 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                 {!booking.isBackJob && booking.downPaymentPercent != null && (
                                     <div className="sdm-list-row">
                                         <span>Remaining Balance</span>
-                                        <span className="sdm-list-value">₱{(basePrice - downPaymentAmount).toLocaleString()}</span>
+                                        <span className="sdm-list-value">₱{paymentBreakdown.balance.toLocaleString()}</span>
                                     </div>
                                 )}
                                 <div className="sdm-list-row">
@@ -573,7 +726,7 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                     <span className="sdm-list-value">
                                         {booking.proofFile ? (
                                             <a
-                                                href={`http://localhost:5000${booking.proofFile}`}
+                                                href={`${API_BASE}${booking.proofFile}`}
                                                 target="_blank"
                                                 rel="noreferrer"
                                                 className="sdm-link"
@@ -586,6 +739,20 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                     </span>
                                 </div>
                                 <div className="sdm-list-row">
+                                    <span>Reference Number</span>
+                                    <span className="sdm-list-value">
+                                        <PaymentReference booking={booking} />
+                                    </span>
+                                </div>
+                                <div className="sdm-list-row">
+                                    <span>Invoice / Receipt</span>
+                                    <span className="sdm-list-value">
+                                        <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setShowReceipt(true)}>
+                                            View and print
+                                        </button>
+                                    </span>
+                                </div>
+                                <div className="sdm-list-row">
                                     <span>Balance Paid</span>
                                     <span className="sdm-list-value">{booking.balancePaid ? 'Yes' : 'No'}</span>
                                 </div>
@@ -594,7 +761,7 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                         <span>Balance Proof</span>
                                         <span className="sdm-list-value">
                                             <a
-                                                href={`http://localhost:5000${booking.balanceProofFile}`}
+                                                href={`${API_BASE}${booking.balanceProofFile}`}
                                                 target="_blank"
                                                 rel="noreferrer"
                                                 className="sdm-link"
@@ -606,11 +773,11 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                 )}
                             </div>
 
-                            {/* Proof of purchase for a CZA-supplied unit — mirrors the client-supplied-
+                            {/* Proof of purchase for a CZA-supplied unit - mirrors the client-supplied-
                                 unit waiver's role but for the opposite case, backing a future 5yr/1yr
                                 Unit Warranty claim. Not gated on completion, unlike Warranty Status below
                                 (admin should be able to attach this as soon as the unit is sourced). */}
-                            {booking.service?.serviceType === 'Installation' && !booking.clientSuppliedUnit && (
+                            {booking.service?.serviceType === SERVICE_TYPE.INSTALLATION && !booking.clientSuppliedUnit && (
                                 <>
                                     <h5 className="sdm-col-heading sdm-col-heading-spaced">
                                         <Icon name="file" /> UNIT PURCHASE PROOF
@@ -618,19 +785,19 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                     <div className="sdm-list">
                                         <div className="sdm-list-row">
                                             <span>Proof of Purchase</span>
-                                            <span className="sdm-list-value" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span className="sdm-list-value admin-service-details-modal-x23">
                                                 {booking.unitPurchaseProof ? (
                                                     <a
-                                                        href={`http://localhost:5000${booking.unitPurchaseProof}`}
+                                                        href={`${API_BASE}${booking.unitPurchaseProof}`}
                                                         target="_blank" rel="noreferrer" className="sdm-link"
                                                     >
                                                         View File
                                                     </a>
                                                 ) : 'Not uploaded'}
-                                                <label className="sdm-btn sdm-btn-outline" style={{ padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer' }}>
+                                                <label className="sdm-btn sdm-btn-outline admin-service-details-modal-x24">
                                                     {uploadingProof ? 'Uploading...' : booking.unitPurchaseProof ? 'Replace' : 'Upload'}
                                                     <input
-                                                        type="file" accept="image/*,.pdf" style={{ display: 'none' }}
+                                                        type="file" accept="image/*,.pdf" className="admin-service-details-modal-x25"
                                                         onChange={handleUnitPurchaseProofUpload}
                                                         disabled={uploadingProof}
                                                     />
@@ -641,7 +808,7 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                 </>
                             )}
 
-                            {booking.report?.submittedAt && (
+                            {report?.submittedAt && (
                                 <>
                                     <h5 className="sdm-col-heading sdm-col-heading-spaced">
                                         <Icon name="file" /> JOB REPORT
@@ -649,16 +816,30 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                     <div className="sdm-list">
                                         <div className="sdm-list-row sdm-list-row-block">
                                             <span>Work Summary</span>
-                                            <p className="sdm-list-value">{booking.report.workSummary || 'N/A'}</p>
+                                            <p className="sdm-list-value">{report.workSummary || 'N/A'}</p>
                                         </div>
                                         <div className="sdm-list-row sdm-list-row-block">
                                             <span>Parts Used</span>
-                                            <p className="sdm-list-value">{booking.report.partsUsed || 'N/A'}</p>
+                                            <p className="sdm-list-value">{report.partsUsed || 'N/A'}</p>
                                         </div>
                                         <div className="sdm-list-row sdm-list-row-block">
                                             <span>Recommendations</span>
-                                            <p className="sdm-list-value">{booking.report.recommendations || 'N/A'}</p>
+                                            <p className="sdm-list-value">{report.recommendations || 'N/A'}</p>
                                         </div>
+                                        {report.followUpRequired && (
+                                            <div className="sdm-list-row sdm-list-row-block">
+                                                <span>Follow-up Required</span>
+                                                <p className="sdm-list-value">
+                                                    Yes{report.followUpDate ? ` - by ${new Date(report.followUpDate).toLocaleDateString()}` : ''}
+                                                </p>
+                                            </div>
+                                        )}
+                                        {report.preExistingIssue?.flagged && (
+                                            <div className="sdm-list-row sdm-list-row-block">
+                                                <span>Pre-existing Issue Flagged</span>
+                                                <p className="sdm-list-value">{report.preExistingIssue.description || 'N/A'}</p>
+                                            </div>
+                                        )}
                                     </div>
                                 </>
                             )}
@@ -675,22 +856,22 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                         </div>
                                         <div className="sdm-list-row">
                                             <span>Workmanship</span>
-                                            <span className="sdm-list-value" style={{ color: booking.warranty.workmanship.active ? '#22c55e' : '#ef4444' }}>
-                                                {booking.warranty.workmanship.active ? 'Active' : 'Expired'} — until {new Date(booking.warranty.workmanship.expiresAt).toLocaleDateString()}
+                                            <span className={`sdm-list-value ${booking.warranty.workmanship.active ? 'sdm-state-ok' : 'sdm-state-bad'}`}>
+                                                {booking.warranty.workmanship.active ? 'Active' : 'Expired'} - until {new Date(booking.warranty.workmanship.expiresAt).toLocaleDateString()}
                                             </span>
                                         </div>
                                         {booking.warranty.unit && (
                                             <>
                                                 <div className="sdm-list-row">
                                                     <span>Compressor</span>
-                                                    <span className="sdm-list-value" style={{ color: booking.warranty.unit.compressorActive ? '#22c55e' : '#ef4444' }}>
-                                                        {booking.warranty.unit.compressorActive ? 'Active' : 'Expired'} — until {new Date(booking.warranty.unit.compressorExpiresAt).toLocaleDateString()}
+                                                    <span className={`sdm-list-value ${booking.warranty.unit.compressorActive ? 'sdm-state-ok' : 'sdm-state-bad'}`}>
+                                                        {booking.warranty.unit.compressorActive ? 'Active' : 'Expired'} - until {new Date(booking.warranty.unit.compressorExpiresAt).toLocaleDateString()}
                                                     </span>
                                                 </div>
                                                 <div className="sdm-list-row">
                                                     <span>Minor Parts</span>
-                                                    <span className="sdm-list-value" style={{ color: booking.warranty.unit.minorPartsActive ? '#22c55e' : '#ef4444' }}>
-                                                        {booking.warranty.unit.minorPartsActive ? 'Active' : 'Expired'} — until {new Date(booking.warranty.unit.minorPartsExpiresAt).toLocaleDateString()}
+                                                    <span className={`sdm-list-value ${booking.warranty.unit.minorPartsActive ? 'sdm-state-ok' : 'sdm-state-bad'}`}>
+                                                        {booking.warranty.unit.minorPartsActive ? 'Active' : 'Expired'} - until {new Date(booking.warranty.unit.minorPartsExpiresAt).toLocaleDateString()}
                                                     </span>
                                                 </div>
                                             </>
@@ -713,8 +894,8 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                         <Icon name="clock" /> EXTENSION REQUEST
                                     </h5>
                                     <div className="sdm-notice">
-                                        <p style={{ margin: '0 0 10px' }}>"{booking.extensionRequest.reason}"</p>
-                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                        <p className="admin-service-details-modal-x7">"{booking.extensionRequest.reason}"</p>
+                                        <div className="admin-service-details-modal-x8">
                                             <button
                                                 className="sdm-btn sdm-btn-danger"
                                                 onClick={() => handleExtensionDecision('deny')}
@@ -750,60 +931,9 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                         </div>
                     </div>
 
-                    <div className="sdm-tech-strip">
-                        <div className="sdm-tech-avatar">
-                            <Icon name="user" />
-                        </div>
-                        <div className="sdm-tech-info">
-                            <span className="sdm-row-label">ASSIGNED TECHNICIAN</span>
-                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                <select
-                                    className="sdm-tech-select"
-                                    value={selectedTechnician}
-                                    onChange={(e) => setSelectedTechnician(e.target.value)}
-                                    disabled={isDisabled}
-                                >
-                                    <option value="">Unassigned</option>
-                                    {availableTechnicians.map((tech) => (
-                                        <option key={tech._id} value={tech._id}>
-                                            {tech.name}
-                                        </option>
-                                    ))}
-                                </select>
-                                
-                                {isActive && !isReassigning && (
-                                    <button 
-                                        className="sdm-btn sdm-btn-outline" 
-                                        onClick={() => setIsReassigning(true)}
-                                    >
-                                        Reassign
-                                    </button>
-                                )}
-                                
-                                {isReassigning && technicianDirty && (
-                                    <button 
-                                        className="sdm-btn sdm-btn-primary" 
-                                        onClick={handleAssign} 
-                                        disabled={saving}
-                                    >
-                                        Save Reassignment
-                                    </button>
-                                )}
-                                {isReassigning && (
-                                    <button 
-                                        className="sdm-btn sdm-btn-outline" 
-                                        onClick={() => {
-                                            setIsReassigning(false);
-                                            setSelectedTechnician(booking?.technician?._id || '');
-                                        }}
-                                    >
-                                        Cancel
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                    <AssignmentPanel booking={booking} onUpdated={onUpdated} />
+                    <AssignmentHistory bookingId={booking.bookingId} admin refreshKey={JSON.stringify(booking.assignments || [])} />
+</div>
 
                 <div className="sdm-footer">
                     {canCancel && (
@@ -812,6 +942,12 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                         </button>
                     )}
                     <div className="sdm-footer-actions">
+                        {booking.status === BOOKING_STATUS.APPROVED && (
+                            <span className="sdm-muted">Starts automatically when its time block begins.</span>
+                        )}
+                        {booking.status === BOOKING_STATUS.IN_PROGRESS && (
+                            <span className="sdm-muted">Completes when the technician submits the service report.</span>
+                        )}
                         {nextSteps.map((step) => (
                             <button
                                 key={step.value}
@@ -819,7 +955,7 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                                 onClick={() => handleStatusChange(step.value)}
                                 disabled={
                                     saving ||
-                                    (step.value === 'Approved' && !selectedTechnician && !booking.technician)
+                                    (step.value === 'Approved' && !hasAssignment)
                                 }
                             >
                                 {step.label}
@@ -829,6 +965,18 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
                 </div>
             </div>
         </div>
+        {showReceipt && (
+            <ReceiptModal
+                form={buildReceiptForm(booking, {
+                    customerName: booking.customer?.name,
+                    contactNumber: booking.contactNumber || booking.customer?.phone,
+                })}
+                booking={booking}
+                billTo={{ companyName: booking.customer?.companyName, representativeName: booking.customer?.representativeName }}
+                onClose={() => setShowReceipt(false)}
+            />
+        )}
+        </>
     );
 }
 

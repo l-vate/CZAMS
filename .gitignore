@@ -26,7 +26,6 @@ dist-ssr
 # Environment variables
 .env
 server/.env
-client/.env
 
 # Ignore specific docs
 CZAMS_Build_Order.md
@@ -34,3 +33,6 @@ CZAMS_Feature_Requirements.md
 CZAMS_SystemChanges_Order.md
 CZAMS_UI_Consistency_Order.md
 CZAMS_Gaps_Build_Order.md
+CZAMS_Batch_Tracking.md
+# Uploaded payment proofs, refund proofs and profile photos
+server/uploads/

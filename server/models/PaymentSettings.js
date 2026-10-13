@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-// Singleton document (one row, fixed _id) — admin-managed payment methods and
+// Singleton document (one row, fixed _id) - admin-managed payment methods and
 // down payment percentage options, both previously hardcoded constants in
 // book_service.jsx. Account details are a free-form label/value list rather than
 // fixed fields (accountName/accountNumber/bankName...) since different methods
@@ -17,6 +17,10 @@ const paymentSettingsSchema = new mongoose.Schema({
   }],
 
   downPaymentPercentages: [{ type: Number, min: 0, max: 100 }],
+
+  // Senior Citizen / PWD discount rate. The default is a placeholder: confirm the
+  // correct rate with the owner.
+  seniorPwdDiscountPercent: { type: Number, min: 0, max: 100, default: 20 },
 }, { timestamps: true, collection: 'paymentsettings' });
 
 module.exports = mongoose.model('PaymentSettings', paymentSettingsSchema);

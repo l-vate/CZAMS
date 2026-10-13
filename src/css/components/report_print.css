@@ -1,0 +1,292 @@
+/* Admin Reports page: on-screen builder and preview, and the print (PDF) layout.
+
+   PRINT RULES, READ BEFORE EDITING
+   receipt_modal.css and service_report_pdf_modal.css each contain a GLOBAL
+   `@media print { body * { visibility: hidden; } ... }`. Every stylesheet is loaded on every
+   page, so those rules are active for any window.print(), including this page: on their own
+   they would print this page blank. The rules below win on specificity
+   (`body.printing-admin-report *` beats `body *`), not on load order, so they keep working
+   whatever order main.jsx imports the stylesheets in. The two older files are left alone.
+   `@page` is a named page ("report") so A4 margins and page numbers apply to this report
+   only and never change how a receipt or service report prints. */
+
+/* ---------- screen: controls ---------- */
+.report-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 16px;
+  align-items: flex-end;
+  background: var(--white);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+
+.report-control {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 150px;
+}
+
+.report-control label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.report-control select,
+.report-control input {
+  padding: 8px 10px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  background: var(--white);
+  color: var(--navy);
+}
+
+.report-control--actions {
+  flex-direction: row;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.report-hint {
+  color: var(--ink-soft);
+  font-size: 14px;
+  margin: 0;
+}
+
+/* ---------- screen: the report sheet (also what gets printed) ---------- */
+.report-sheet {
+  background: var(--white);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  padding: 28px;
+  max-width: 980px;
+  width: 100%;
+  box-sizing: border-box;
+  color: var(--navy);
+}
+
+.report-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 2px solid var(--navy);
+}
+
+.report-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.report-logo {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+}
+
+.report-company {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.report-title {
+  margin: 2px 0 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.report-meta {
+  margin: 0;
+  display: grid;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.report-meta div { display: flex; gap: 8px; }
+.report-meta dt { color: var(--ink-soft); min-width: 78px; }
+.report-meta dd { margin: 0; font-weight: 600; }
+
+/* index.css has a global `section { padding: 90px 40px }` (landing page layout) that
+   applies to every <section> element in the app, so the padding is reset explicitly. */
+.report-section {
+  margin-top: 20px;
+  padding: 0;
+}
+
+.report-section-title {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  break-after: avoid;
+}
+
+.report-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.report-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  background: var(--frost);
+}
+
+.report-summary-value { font-size: 20px; font-weight: 700; }
+.report-summary-label { font-size: 11px; color: var(--ink-soft); }
+
+.report-charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.report-table-wrap { overflow-x: auto; }
+
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.report-table th,
+.report-table td {
+  padding: 6px 8px;
+  border: 1px solid var(--card-border);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: break-word;
+}
+
+.report-table th {
+  background: var(--mist);
+  font-weight: 700;
+}
+
+.report-table tfoot td {
+  font-weight: 700;
+  background: var(--frost);
+}
+
+.report-empty,
+.report-record-count {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.report-notes {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 760px) {
+  .report-sheet { padding: 16px; }
+  .report-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .report-charts { grid-template-columns: minmax(0, 1fr); }
+  .report-control--actions { margin-left: 0; width: 100%; }
+}
+
+/* ---------- print ---------- */
+@page report {
+  size: A4;
+  margin: 14mm 12mm 18mm 12mm;
+  @bottom-center {
+    content: "Page " counter(page) " of " counter(pages);
+    font-size: 9pt;
+    color: #555;
+  }
+}
+
+@media print {
+  body.printing-admin-report {
+    page: report;
+    background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Beat the global `body * { visibility: hidden }` in the receipt and service report
+     print rules (see the note at the top of this file). */
+  body.printing-admin-report * {
+    visibility: visible;
+  }
+
+  /* Take the app chrome out of the flow completely (hidden is not enough: it would
+     still leave blank pages behind). */
+  body.printing-admin-report .sidebar,
+  body.printing-admin-report .sidebar-backdrop,
+  body.printing-admin-report .dashboard-topbar,
+  body.printing-admin-report .report-no-print {
+    display: none !important;
+  }
+
+  body.printing-admin-report .dashboard-shell {
+    display: block;
+    min-height: 0;
+    background: #fff;
+  }
+
+  body.printing-admin-report .dashboard-main {
+    display: block;
+    overflow: visible;
+  }
+
+  body.printing-admin-report .dashboard-body {
+    display: block;
+    padding: 0;
+  }
+
+  body.printing-admin-report .report-sheet {
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    max-width: none;
+    width: 100%;
+  }
+
+  body.printing-admin-report .report-header,
+  body.printing-admin-report .report-summary-grid,
+  body.printing-admin-report .chart-card,
+  body.printing-admin-report .report-notes {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  body.printing-admin-report .report-summary-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  body.printing-admin-report .report-charts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  body.printing-admin-report .chart-card { padding: 8px; }
+
+  body.printing-admin-report .report-table-wrap { overflow: visible; }
+
+  body.printing-admin-report .report-table { font-size: 8.5pt; }
+  body.printing-admin-report .report-table th,
+  body.printing-admin-report .report-table td { padding: 3px 5px; }
+
+  /* Rows are never cut in half, and the header row repeats at the top of every page. */
+  body.printing-admin-report .report-table thead { display: table-header-group; }
+  body.printing-admin-report .report-table tfoot { display: table-row-group; }
+  body.printing-admin-report .report-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
+
+.statement-outstanding { margin: 12px 0 4px; font-size: 1rem; }

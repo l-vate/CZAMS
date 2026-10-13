@@ -1,0 +1,8 @@
+{
+  "timezone": "Asia/Manila",
+  "utcOffsetHours": 8,
+  "blocks": {
+    "Morning": { "startHour": 8, "endHour": 12 },
+    "Afternoon": { "startHour": 13, "endHour": 18 }
+  }
+}

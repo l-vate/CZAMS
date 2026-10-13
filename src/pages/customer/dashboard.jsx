@@ -1,7 +1,36 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
-import { FiThermometer, FiArrowRight, FiEye, FiCalendar, FiClock } from 'react-icons/fi';
+import { FiThermometer, FiArrowRight, FiEye, FiCalendar, FiClock, FiMapPin } from 'react-icons/fi';
+import { orFallback } from '../../services/apiClient';
+import { listMyBookings } from '../../services/bookingService';
+import { BOOKING_STATUS } from '../../constants/bookingStatus';
+
+// Same badge/accent classes as the technician dashboard's "Upcoming jobs" card
+// (staff.css) - this section is styled to match that one directly.
+const NEXT_SERVICE_BADGE_CLASS = {
+  Pending: 'tech-status-pending',
+  Approved: 'tech-status-confirmed',
+  'In Progress': 'tech-status-in-progress',
+};
+const NEXT_SERVICE_ACCENT_CLASS = {
+  Pending: 'upcoming-job-card--pending',
+  Approved: 'upcoming-job-card--approved',
+  'In Progress': 'upcoming-job-card--in-progress',
+};
+
+// Recent Activity reuses the same card treatment as Next Service, so it needs
+// the full status set (Next Service only ever shows non-terminal bookings).
+const ACTIVITY_BADGE_CLASS = {
+  ...NEXT_SERVICE_BADGE_CLASS,
+  Completed: 'tech-status-completed',
+  Cancelled: 'tech-status-cancelled',
+};
+const ACTIVITY_ACCENT_CLASS = {
+  ...NEXT_SERVICE_ACCENT_CLASS,
+  Completed: 'upcoming-job-card--completed',
+  Cancelled: 'upcoming-job-card--cancelled',
+};
 
 function Dashboard() {
   const [bookings, setBookings] = useState([]);
@@ -15,11 +44,7 @@ function Dashboard() {
   useEffect(() => {
     const fetchBookings = async () => {
       try {
-        const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:5000/api/bookings/mine', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
+        const data = await orFallback(listMyBookings(), []);
         setBookings(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error('Failed to load bookings:', err);
@@ -32,28 +57,35 @@ function Dashboard() {
 
   // ---- Derived stats ----
   const stats = {
-    pending: bookings.filter((b) => b.status === 'Pending').length,
+    pending: bookings.filter((b) => b.status === BOOKING_STATUS.PENDING).length,
     ongoing: bookings.filter((b) =>
-      ['Approved', 'In Progress'].includes(b.status)
+      [BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(b.status)
     ).length,
-    completed: bookings.filter((b) => b.status === 'Completed').length,
+    completed: bookings.filter((b) => b.status === BOOKING_STATUS.COMPLETED).length,
   };
 
-  // Combine date + time strings into a real Date for comparison/sorting
+  // booking.time is a slot label ("Morning"/"Afternoon"), not a clock time, so it
+  // can't be combined into a parseable Date string - compare by date only and use
+  // the slot as a same-day tiebreaker.
+  const TIME_SLOT_RANK = { Morning: 0, Afternoon: 1 };
   const toDateTime = (b) => {
     if (!b.date) return null;
-    const t = b.time ? b.time : '00:00';
-    const parsed = new Date(`${b.date} ${t}`);
+    const parsed = new Date(b.date);
     return isNaN(parsed) ? null : parsed;
   };
 
   // Next upcoming service: soonest future date among non-terminal bookings
   const now = new Date();
+  now.setHours(0, 0, 0, 0);
   const upcoming = bookings
-    .filter((b) => !['Completed', 'Cancelled'].includes(b.status))
+    .filter((b) => ![BOOKING_STATUS.COMPLETED, BOOKING_STATUS.CANCELLED].includes(b.status))
     .map((b) => ({ booking: b, dt: toDateTime(b) }))
     .filter((x) => x.dt && x.dt >= now)
-    .sort((a, b) => a.dt - b.dt);
+    .sort((a, b) => {
+      const diff = a.dt - b.dt;
+      if (diff !== 0) return diff;
+      return (TIME_SLOT_RANK[a.booking.time] ?? 0) - (TIME_SLOT_RANK[b.booking.time] ?? 0);
+    });
 
   const nextService = upcoming[0]?.booking;
 
@@ -113,14 +145,23 @@ function Dashboard() {
         </div>
         <div className="info-card-body">
           {nextService ? (
-            <div className="next-service-item">
-              <p className="next-service-name">
-                {nextService.service?.name || 'Service'}
-              </p>
-              <p className="next-service-datetime">
-                {nextService.date} — {nextService.time}
-              </p>
-              <p className="next-service-status">{nextService.status}</p>
+            <div className={`upcoming-job-card ${NEXT_SERVICE_ACCENT_CLASS[nextService.status] || ''}`}>
+              <div className="upcoming-job-main">
+                <p className="upcoming-job-name">{nextService.service?.name || 'Service'}</p>
+                <div className="upcoming-job-meta">
+                  <span className="upcoming-job-meta-item">
+                    <FiClock /> {nextService.date} - {nextService.time}
+                  </span>
+                  {nextService.address && (
+                    <span className="upcoming-job-meta-item">
+                      <FiMapPin /> {nextService.address}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <span className={`tech-job-status-badge ${NEXT_SERVICE_BADGE_CLASS[nextService.status] || ''}`}>
+                {nextService.status}
+              </span>
             </div>
           ) : (
             <div className="info-card-empty">
@@ -140,28 +181,25 @@ function Dashboard() {
           <h4>Recent activity</h4>
         </div>
 
-        <div className="info-card-body">
+        <div className="info-card-body customer-dashboard-x1">
           {recentActivity.length > 0 ? (
-            <ul className="recent-activity-list" style={{ maxHeight: '340px', overflowY: 'auto' }}>
-              {recentActivity.map((b) => (
-                <li key={b.bookingId} className="recent-activity-item">
-                  <span className="recent-activity-icon">
-                    <FiClock />
-                  </span>
-                  <div className="recent-activity-text">
-                    <p className="recent-activity-title">
-                      {activityLabel(b)} — {b.service?.name || 'Service'}
-                    </p>
-                    <p className="recent-activity-time">
-                      {new Date(b.updatedAt).toLocaleString()}
-                    </p>
+            recentActivity.map((b) => (
+              <div className={`upcoming-job-card ${ACTIVITY_ACCENT_CLASS[b.status] || ''}`} key={b.bookingId}>
+                <div className="upcoming-job-main">
+                  <p className="upcoming-job-name">
+                    {activityLabel(b)} - {b.service?.name || 'Service'}
+                  </p>
+                  <div className="upcoming-job-meta">
+                    <span className="upcoming-job-meta-item">
+                      <FiClock /> {new Date(b.updatedAt).toLocaleString()}
+                    </span>
                   </div>
-                  <span className={`recent-activity-status status-${b.status.toLowerCase().replace(' ', '-')}`}>
-                    {b.status}
-                  </span>
-                </li>
-              ))}
-            </ul>
+                </div>
+                <span className={`tech-job-status-badge ${ACTIVITY_BADGE_CLASS[b.status] || ''}`}>
+                  {b.status}
+                </span>
+              </div>
+            ))
           ) : (
             <div className="info-card-empty">
               <span className="empty-icon"><FiClock /></span>

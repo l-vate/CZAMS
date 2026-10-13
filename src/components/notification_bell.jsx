@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { FiBell } from 'react-icons/fi';
+import { orFallback } from '../services/apiClient';
+import { listNotifications, markNotificationRead, markAllNotificationsRead } from '../services/notificationService';
 
-const API_BASE = 'http://localhost:5000';
 
 function timeAgo(dateStr) {
   const diffMs = Date.now() - new Date(dateStr).getTime();
@@ -16,7 +17,7 @@ function timeAgo(dateStr) {
 }
 
 // onNotificationClick, when provided, is called with the full notification
-// object after it's marked read — the caller decides where a notification with
+// object after it's marked read - the caller decides where a notification with
 // a relatedBookingId should navigate to (this component doesn't know its own
 // portal's routes). Passed by customer_layout.jsx for the "open that booking's
 // details" behavior; staff_layout.jsx doesn't pass it, so staff notifications
@@ -31,10 +32,7 @@ function NotificationBell({ onNotificationClick }) {
     const token = localStorage.getItem('token');
     if (!token) return;
     setLoading(true);
-    fetch(`${API_BASE}/api/notifications`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
+    orFallback(listNotifications(), [])
       .then((data) => setNotifications(Array.isArray(data) ? data : []))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -51,6 +49,7 @@ function NotificationBell({ onNotificationClick }) {
         setOpen(false);
       }
     };
+    // eslint-disable-next-line no-restricted-syntax -- outside click: removed in this effect's cleanup
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [open]);
@@ -65,22 +64,16 @@ function NotificationBell({ onNotificationClick }) {
   };
 
   const handleItemClick = async (notification) => {
-    // Previously bailed out entirely for an already-read notification — meaning
+    // Previously bailed out entirely for an already-read notification - meaning
     // clicking one a second time did nothing at all, not even navigate.
     if (!notification.read) {
-      const token = localStorage.getItem('token');
       try {
-        const res = await fetch(`${API_BASE}/api/notifications/${notification._id}/read`, {
-          method: 'PATCH',
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          setNotifications((prev) =>
-            prev.map((n) => (n._id === notification._id ? { ...n, read: true } : n))
-          );
-        }
-      } catch (err) {
-        // no-op — non-critical
+        await markNotificationRead(notification._id);
+        setNotifications((prev) =>
+          prev.map((n) => (n._id === notification._id ? { ...n, read: true } : n))
+        );
+      } catch {
+        // no-op - non-critical
       }
     }
 
@@ -89,17 +82,11 @@ function NotificationBell({ onNotificationClick }) {
   };
 
   const handleMarkAllRead = async () => {
-    const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`${API_BASE}/api/notifications/read-all`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-      }
-    } catch (err) {
-      // no-op — non-critical
+      await markAllNotificationsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    } catch {
+      // no-op - non-critical
     }
   };
 

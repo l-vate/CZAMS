@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiClipboard, FiMapPin, FiCreditCard, FiEye, FiEyeOff } from 'react-icons/fi';
 import '../../css/public.css'
+import { ApiError } from '../../services/apiClient';
+import { COMPANY_NAME_MAX, REPRESENTATIVE_NAME_MAX } from '../../constants/profileFields';
+import { register } from '../../services/authService';
 
 /* ── Static Content ─────────────────────────────────────── */
 const FEATURES = [
@@ -16,8 +19,9 @@ function RegisterPage() {
     lastName: '',
     email: '',
     phone: '',
-    role: 'client',
     clientType: 'Residential',
+    companyName: '',
+    representativeName: '',
     password: '',
     confirmPassword: '',
   });
@@ -37,27 +41,15 @@ const handleSubmit = async (e) => {
   }
 
   try {
-    const res = await fetch('http://localhost:5000/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      alert(data.message || 'Registration failed');
-      return;
-    }
+    const data = await register(formData);
 
     localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(data.user));
 
-    if (data.user.role === 'staff') navigate('/staff/dashboard');
-    else navigate('/customer/dashboard');
+    navigate('/customer/dashboard');
 
   } catch (err) {
-    alert('Could not connect to server. Is the backend running?');
+    alert(err instanceof ApiError ? err.message || 'Registration failed' : 'Could not connect to server. Is the backend running?');
   }
 };
 
@@ -157,33 +149,44 @@ const handleSubmit = async (e) => {
             </div>
 
             <div className="form-group">
-              <label htmlFor="role">Register as</label>
+              <label htmlFor="clientType">Client type</label>
               <select
-                id="role"
-                name="role"
-                value={formData.role}
+                id="clientType"
+                name="clientType"
+                value={formData.clientType}
                 onChange={handleChange}
                 className="form-select"
               >
-                <option value="client">Client</option>
-                <option value="technician">Technician</option>
+                <option value="Residential">Residential</option>
+                <option value="Commercial">Commercial</option>
               </select>
             </div>
 
-            {formData.role === 'client' && (
-              <div className="form-group">
-                <label htmlFor="clientType">Client type</label>
-                <select
-                  id="clientType"
-                  name="clientType"
-                  value={formData.clientType}
-                  onChange={handleChange}
-                  className="form-select"
-                >
-                  <option value="Residential">Residential</option>
-                  <option value="Commercial">Commercial</option>
-                </select>
-              </div>
+            {formData.clientType === 'Commercial' && (
+              <>
+                <div className="form-group">
+                  <label htmlFor="companyName">Company name</label>
+                  <input
+                    type="text"
+                    id="companyName"
+                    name="companyName"
+                    maxLength={COMPANY_NAME_MAX}
+                    value={formData.companyName}
+                    onChange={handleChange}
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="representativeName">Representative name</label>
+                  <input
+                    type="text"
+                    id="representativeName"
+                    name="representativeName"
+                    maxLength={REPRESENTATIVE_NAME_MAX}
+                    value={formData.representativeName}
+                    onChange={handleChange}
+                  />
+                </div>
+              </>
             )}
 
             <div className="form-group">

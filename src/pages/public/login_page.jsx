@@ -6,22 +6,17 @@ import {
   FiTool,
   FiEye,
   FiEyeOff,
-  FiUser,
-  FiShield,
 } from 'react-icons/fi';
 import '../../css/public.css'
+import { ApiError } from '../../services/apiClient';
+import { login } from '../../services/authService';
+import { ROLE } from '../../constants/roles';
 
 /* ── Static Content ─────────────────────────────────────── */
 const FEATURES = [
   { icon: <FiThermometer />, text: 'Cleaning, repair & installation' },
   { icon: <FiCalendar />, text: 'Easy online scheduling' },
   { icon: <FiTool />, text: 'Trusted technicians since 2009' },
-];
-
-const ROLE_BUTTONS = [
-  { icon: <FiUser />, label: 'Client', path: '/customer/dashboard' },
-  { icon: <FiTool />, label: 'Technician', path: '/staff/dashboard' },
-  { icon: <FiShield />, label: 'Admin', path: '/admin/dashboard' },
 ];
 
 function LoginPage() {
@@ -41,29 +36,17 @@ function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:5000/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.message || 'Login failed');
-        setLoading(false);
-        return;
-      }
+      const data = await login(formData);
 
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
 
-      if (data.user.role === 'admin') navigate('/admin/dashboard');
-      else if (data.user.role === 'staff') navigate('/staff/dashboard');
+      if (data.user.role === ROLE.ADMIN) navigate('/admin/dashboard');
+      else if (data.user.role === ROLE.STAFF) navigate('/staff/dashboard');
       else navigate('/customer/dashboard');
 
     } catch (err) {
-      setError('Could not connect to server. Is the backend running?');
+      setError(err instanceof ApiError ? err.message || 'Login failed' : 'Could not connect to server. Is the backend running?');
     } finally {
       setLoading(false);
     }
@@ -84,7 +67,7 @@ function LoginPage() {
 
         <div className="auth-split-tagline">
           <h1>Cool comfort,<br />at your service.</h1>
-          <p>Book, manage, and track your aircon maintenance — all in one place.</p>
+          <p>Book, manage, and track your aircon maintenance - all in one place.</p>
         </div>
 
         <div className="auth-split-features">
@@ -147,7 +130,7 @@ function LoginPage() {
               </div>
             </div>
 
-            {error && <p className="auth-error" style={{ color: 'red', fontSize: '0.9rem' }}>{error}</p>}
+            {error && <p className="auth-error public-login-page-x1">{error}</p>}
 
             <button
               type="submit"

@@ -1,5 +1,9 @@
+/* Classes named *-xN were extracted from inline styles. Rename when the page is next edited. */
 /* ============ CLIENT DASHBOARD ============ */
+/* The one page-title standard (Pass E), used by all three portals (admin/customer/staff)
+   so every page-title-sized heading shares one size instead of competing ones. */
 .dashboard-welcome {
+  margin: 0 0 8px;
   font-family: 'Outfit', sans-serif;
   font-size: 32px;
   font-weight: 700;
@@ -85,6 +89,25 @@
   line-height: 1;
 }
 
+/* Fixed card order (Pending Requests, Ongoing Service, Completed - see
+   dashboard.jsx). Scoped under .stats-row since .stat-card is shared with the
+   admin dashboard (admin.css) - an unscoped rule here would also recolor
+   admin's cards, which already have their own accent set. */
+.stats-row .stat-card {
+  border-top: 3px solid var(--warning);
+}
+.stats-row .stat-card:nth-child(1) .stat-card-label { color: var(--warning-hover); }
+
+.stats-row .stat-card:nth-child(2) {
+  border-top-color: var(--status-progress-solid);
+}
+.stats-row .stat-card:nth-child(2) .stat-card-label { color: var(--status-progress-solid); }
+
+.stats-row .stat-card:nth-child(3) {
+  border-top-color: var(--success);
+}
+.stats-row .stat-card:nth-child(3) .stat-card-label { color: var(--success-hover); }
+
 .info-card {
   background: var(--white);
   border-radius: 12px;
@@ -125,6 +148,9 @@
   padding: 28px 22px;
   min-height: 80px;
   display: flex;
+  flex-direction: column;    /* staff "Upcoming jobs" lists several .next-service-item
+                                 children here - row (the old default) laid them out
+                                 side by side instead of stacked */
   align-items: stretch;      /* was: center */
   justify-content: flex-start; /* was: center */
 }
@@ -136,34 +162,6 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-}
-
-.recent-activity-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.recent-activity-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 14px 4px;
-  border-bottom: 1px solid #f1f5f9;
-}
-
-.recent-activity-item:last-child {
-  border-bottom: none;
-}
-
-.recent-activity-text {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
 }
 
 .recent-activity-status {
@@ -281,6 +279,16 @@
   margin-bottom: 22px;
 }
 
+.bs-tier-preview {
+  font-size: 13px;
+  color: var(--navy);
+  background: var(--frost);
+  border: 1px solid var(--mist);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-top: 4px;
+}
+
 .service-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -365,11 +373,17 @@
   flex-shrink: 0;
 }
 
+.bs-field-error {
+  font-size: 12px;
+  color: var(--danger);
+  margin: 6px 0 0;
+}
+
 .bs-label { font-size: 14px; font-weight: 600; color: var(--navy); }
 
 .bs-label-hint { font-size: 12px; font-weight: 400; color: var(--ink-soft); }
 
-/* Explicit Service Area Boundary — soft, non-blocking warning under the address
+/* Explicit Service Area Boundary - soft, non-blocking warning under the address
    field (Step3). Amber, not red: this doesn't stop submission, it just flags the
    booking for admin review. */
 .bs-area-warning {
@@ -433,7 +447,7 @@
 
 .bs-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 
-/* Multi-Unit Booking Redesign — replaces the old .unit-type-grid/.unit-type-btn
+/* Multi-Unit Booking Redesign - replaces the old .unit-type-grid/.unit-type-btn
    "select all that apply" checklist (no quantity, one bulk brand/model field)
    with a per-row add/remove list: type + quantity + brand/model + live subtotal
    per unit entry. */
@@ -445,28 +459,9 @@
 
 .unit-entry-row {
   display: grid;
-  grid-template-columns: 40px 1.2fr 70px 1.4fr auto auto;
+  grid-template-columns: 1.2fr 70px 1.4fr auto auto;
   gap: 10px;
   align-items: center;
-}
-
-/* Small inset photo per unit type (same treatment/images as the landing page's
-   navbar search popup — src/utils/unitTypeImages.js) so the customer sees what
-   they're picking while actually building the booking, not just on the
-   marketing page. Empty state before a type is chosen is a blank placeholder
-   box, not a broken image. */
-.unit-entry-photo {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  object-fit: cover;
-  flex-shrink: 0;
-}
-
-.unit-entry-photo-empty {
-  display: block;
-  background: var(--frost);
-  border: 1px dashed var(--mist);
 }
 
 .unit-entry-row .bs-select,
@@ -524,9 +519,8 @@
 @media (max-width: 620px) {
   .unit-entry-row {
     grid-template-columns: 1fr 1fr;
-    grid-template-areas: "photo photo" "type type" "qty brand" "subtotal remove";
+    grid-template-areas: "type type" "qty brand" "subtotal remove";
   }
-  .unit-entry-photo { grid-area: photo; }
   .unit-entry-type { grid-area: type; }
   .unit-entry-qty { grid-area: qty; }
   .unit-entry-brand { grid-area: brand; }
@@ -771,12 +765,12 @@
 
 .bs-back-btn:hover { border-color: var(--navy); color: var(--navy); }
 
-/* This is the app's single shared "primary submit/next/confirm" button — reused
+/* This is the app's single shared "primary submit/next/confirm" button - reused
    well beyond the customer booking wizard it was first built for (admin walk-in
    booking, admin payments/back-jobs modals, staff profile), so it now takes the
    consolidated --primary token rather than the customer portal's own navy brand
    color. Previously duplicated (differently, as green) in modals/payment_modal.css,
-   which silently won the cascade there since it loaded after this file — that
+   which silently won the cascade there since it loaded after this file - that
    duplicate has been removed so this is the one intentional definition. */
 .bs-next-btn {
   padding: 11px 28px;
@@ -795,7 +789,7 @@
 .bs-next-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ============ MY BOOKINGS =============*/
-/* .booking-filters/.new-booking-btn removed (Pass D) — my_bookings.jsx now uses
+/* .booking-filters/.new-booking-btn removed (Pass D) - my_bookings.jsx now uses
    the shared .filter-pill/.bs-next-btn classes instead of these (which were
    already unused; the page had switched to inline styles at some point). */
 
@@ -836,7 +830,7 @@
 }
 
 /* .status-badge and its .pending/.approved/.completed/etc. color modifiers come
-   from the shared mapping in index.css — this used to redefine them locally with
+   from the shared mapping in index.css - this used to redefine them locally with
    a different (solid, white-text) look that silently won the cascade over the
    intended shared pastel style wherever "status-badge" was used bare, e.g.
    book_details.jsx's className="status-badge pending". */
@@ -937,9 +931,17 @@
 .profile-field.full-width { grid-column: 1 / -1; }
 
 .profile-field label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   font-size: 13px;
   font-weight: 600;
   color: var(--ink-soft);
+}
+
+.profile-field label svg {
+  color: var(--primary);
+  flex-shrink: 0;
 }
 
 .profile-field div {
@@ -978,6 +980,9 @@
 }
 
 .change-password-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   padding: 11px 22px;
   background: var(--navy-soft);
   color: var(--white);
@@ -996,9 +1001,12 @@
 }
 
 /* Converged (Pass D) to the same solid danger-fill treatment as
-   .cancel-booking-btn/.sdm-btn-danger — was a lighter outline-style button
+   .cancel-booking-btn/.sdm-btn-danger - was a lighter outline-style button
    before, a third shape/shade for the same "danger" concept. */
 .delete-account-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   padding: 11px 22px;
   background: var(--danger);
   border: none;
@@ -1018,13 +1026,13 @@
 
 /* ============ PAYMENT MODAL & CONFIRMATION ============ */
 /* .modal-overlay/.modal-card/.modal-header/.modal-title/.modal-close-btn are now
-   defined once, in modals/payment_modal.css — this used to redefine all five with
+   defined once, in modals/payment_modal.css - this used to redefine all five with
    different overlay darkness/blur, card radius/max-width, and a text-only close
    button instead of the shared circular icon one. That file's version already
    won the cascade everywhere (it loads after this one), so nothing here actually
    changes visually; this just removes the dead competing copy. The one exception
    ported over: .modal-card's flex column + 14px gap, which this file's simpler
-   modals (payment_modal.jsx) depend on for spacing between stacked rows — that's
+   modals (payment_modal.jsx) depend on for spacing between stacked rows - that's
    now part of the canonical definition in payment_modal.css instead of being lost. */
 
 .modal-cost-rows {
@@ -1072,35 +1080,7 @@
 .modal-account-row span:first-child { color: var(--ink-soft); }
 .modal-account-row span:last-child  { font-weight: 600; color: var(--navy); }
 
-.modal-upload-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.modal-upload-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--navy);
-}
-
-.modal-optional {
-  font-weight: 400;
-  color: var(--ink-soft);
-}
-
-.modal-file-btn {
-  display: inline-block;
-  font-size: 13px;
-  color: var(--navy-soft);
-  font-weight: 600;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.modal-file-btn:hover { color: var(--navy); }
-
-/* Same shared "primary submit" role/token as .bs-next-btn above — also used well
+/* Same shared "primary submit" role/token as .bs-next-btn above - also used well
    beyond this file (feedback/back-job/payment/receipt/service-report-pdf modals).
    Was separately duplicated (as flat #2563eb, coincidentally close to --primary
    but not referencing it) in modals/payment_modal.css; that duplicate is removed. */
@@ -1220,7 +1200,7 @@
   padding: 14px 16px;
 }
 
-/* Email/SMS aren't actually wired up to any sender — visually distinct from the
+/* Email/SMS aren't actually wired up to any sender - visually distinct from the
    real in-app notification card so it's obvious which one actually works. */
 .confirmation-notif-card--disabled {
   background: #f8fafc;
@@ -1307,21 +1287,6 @@
   flex-shrink: 0;
 }
 
-.confirmation-detail-label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #a0b4c4;
-  margin-bottom: 2px;
-}
-
-.confirmation-detail-value {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--navy);
-}
-
 .confirmation-technician-row {
   display: flex;
   align-items: center;
@@ -1357,7 +1322,7 @@
   gap: 12px;
 }
 
-/* Single shared "danger/cancel" button definition — also duplicated (with a
+/* Single shared "danger/cancel" button definition - also duplicated (with a
    different hover shade) in modals/payment_modal.css, removed from there. */
 .cancel-booking-btn {
   padding: 11px 22px;
@@ -1392,13 +1357,6 @@
   line-height: 1.6;
 }
 
-.cancel-confirm-actions {
-  display: flex;
-  gap: 10px;
-  width: 100%;
-  margin-top: 6px;
-}
-
 .cancel-confirm-actions .bs-back-btn,
 .cancel-confirm-actions .bs-next-btn,
 .cancel-confirm-actions .cancel-booking-btn {
@@ -1423,7 +1381,7 @@
 .cancelled-actions { display: flex; gap: 12px; }
 
 /* .receipt-modal-card now defined once, in modals/receipt_modal.css (480px/16px
-   radius) — that was already the version actually rendering, since that file
+   radius) - that was already the version actually rendering, since that file
    loads after this one. Its max-height/overflow-y (needed so a long receipt with
    several balance/proof rows can scroll instead of overflowing the viewport) was
    ported over from this copy, which had it and the winning one didn't. */
@@ -1449,18 +1407,13 @@
 }
 
 .receipt-brand-icon { font-size: 22px; }
+.receipt-logo { height: 44px; width: auto; flex: none; }
 
-.receipt-brand-name {
-  font-size: 16px;
-  font-weight: 700;
-  color: #0B2545;
-  margin: 0;
-}
-
-.receipt-brand-sub {
-  margin-top: 3px;
-  font-size: 12px;
-  color: #6B7280;
+/* On a phone the title block drops under the brand instead of squeezing the company name. */
+@media (max-width: 480px) {
+  .receipt-top-row { flex-direction: column; gap: 10px; }
+  .receipt-invoice-meta,
+  .receipt-invoice-meta p { text-align: left; }
 }
 
 .receipt-invoice-meta { text-align: right; }
@@ -1488,18 +1441,6 @@
   color: #0E8C8C;
   margin-bottom: 6px;
 }
-
-.receipt-info-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 3px 0;
-  border-bottom: 1px solid #EEF2F7;
-  font-size: 12px;
-}
-
-.receipt-info-row span:first-child { color: #64748B; font-weight: 500; }
-.receipt-info-row span:last-child  { color: #0F172A; font-weight: 600; text-align: right; }
 
 .receipt-table {
   width: 100%;
@@ -1534,40 +1475,6 @@
 .receipt-footer-info {
   border-top: 2px solid #E6EEF5;
   padding-top: 10px;
-}
-
-.receipt-status-paid {
-  background: #DCFCE7;
-  color: #15803D;
-  padding: 6px 14px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.receipt-thanks {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px dashed #CBD5E1;
-  text-align: center;
-  font-size: 11px;
-  color: #64748B;
-  line-height: 1.4;
-}
-
-.receipt-print-btn {
-  width: 160px;
-  margin: 8px auto;
-  display: block;
-  background: #0B2545;
-  color: white;
-  border: none;
-  border-radius: 12px;
-  padding: 9px;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: .25s;
 }
 
 .receipt-print-btn:hover { background: #143A63; }
@@ -1616,14 +1523,8 @@
   .cancelled-actions { flex-direction: column; width: 100%; }
 }
 
-@media print {
-  body * { visibility: hidden; }
-  .receipt-print-area, .receipt-print-area * { visibility: visible; }
-  .receipt-print-area { position: absolute; inset: 0; width: 100%; padding: 30px; }
-  .receipt-print-btn, .modal-close-btn { display: none; }
-}
-
 .recent-activity-list {
+  width: 100%;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -1658,6 +1559,7 @@
 }
 
 .recent-activity-text {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -1693,15 +1595,223 @@
   background: #94a3b8;
 }
 
-@media print {
-  body * { visibility: hidden; }
-  .receipt-print-area, .receipt-print-area * { visibility: visible; }
-  .receipt-print-area { position: absolute; inset: 0; width: 100%; padding: 30px; }
-  .receipt-print-btn, .modal-close-btn { display: none; }
 
-  .receipt-print-area a {
-    color: inherit;
-    text-decoration: none;
-    pointer-events: none;
-  }
+/* Extracted from inline styles in pages/customer/billings.jsx.
+   The class is doubled so it keeps the priority the inline style had over other rules. */
+.customer-billings-x1.customer-billings-x1 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.customer-billings-x2.customer-billings-x2 {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.customer-billings-x3.customer-billings-x3 {
+  color: #666;
+}
+.customer-billings-x4.customer-billings-x4 {
+  flex-wrap: wrap;
+}
+.customer-billings-x5.customer-billings-x5 {
+  font-size: 11px;
+  font-weight: 600;
+}
+.customer-billings-x6.customer-billings-x6 {
+  margin: 4px 0 0;
+  color: #ef4444;
+  font-size: 13px;
+}
+.customer-billings-x7.customer-billings-x7 {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+}
+.customer-billings-x8.customer-billings-x8 {
+  background: transparent;
+  border: 1px solid #d0dde8;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  color: #333;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.customer-billings-x9.customer-billings-x9 {
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+
+/* Extracted from inline styles in pages/customer/book_details.jsx.
+   The class is doubled so it keeps the priority the inline style had over other rules. */
+.customer-book-details-x1.customer-book-details-x1 {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-top: 4px;
+}
+.customer-book-details-x2.customer-book-details-x2 {
+  font-size: 13px;
+  margin-top: 10px;
+}
+.customer-book-details-x3.customer-book-details-x3 {
+  margin-top: 10px;
+}
+.customer-book-details-x4.customer-book-details-x4 {
+  font-size: 12px;
+  color: #e05a5a;
+}
+.customer-book-details-x5.customer-book-details-x5 {
+  color: #666;
+}
+.customer-book-details-x6.customer-book-details-x6 {
+  font-size: 12px;
+  margin: 4px 0;
+}
+.customer-book-details-x7.customer-book-details-x7 {
+  margin-top: 12px;
+}
+.customer-book-details-x8.customer-book-details-x8 {
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+.customer-book-details-x9.customer-book-details-x9 {
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-top: 6px;
+}
+.customer-book-details-x10.customer-book-details-x10 {
+  margin: 12px 0;
+  color: #b91c1c;
+}
+.customer-book-details-x11.customer-book-details-x11 {
+  font-size: 13px;
+  margin: 0;
+}
+
+
+/* Extracted from inline styles in pages/customer/book_service.jsx.
+   The class is doubled so it keeps the priority the inline style had over other rules. */
+.customer-book-service-x1.customer-book-service-x1 {
+  margin-bottom: 12px;
+}
+.customer-book-service-x2.customer-book-service-x2 {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-top: 4px;
+}
+.customer-book-service-x3.customer-book-service-x3 {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin: 4px 0 8px;
+}
+.customer-book-service-x4.customer-book-service-x4 {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-top: 10px;
+  text-align: center;
+}
+.customer-book-service-x5.customer-book-service-x5 {
+  font-size: 12px;
+  color: #e05a5a;
+  margin-top: 10px;
+  text-align: center;
+}
+
+
+/* Extracted from inline styles in pages/customer/dashboard.jsx.
+   The class is doubled so it keeps the priority the inline style had over other rules. */
+.customer-dashboard-x1.customer-dashboard-x1 {
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+
+/* Extracted from inline styles in pages/customer/my_bookings.jsx.
+   The class is doubled so it keeps the priority the inline style had over other rules. */
+.customer-my-bookings-x1.customer-my-bookings-x1 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.customer-my-bookings-x2.customer-my-bookings-x2 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.customer-my-bookings-x3.customer-my-bookings-x3 {
+  color: #666;
+}
+.customer-my-bookings-x4.customer-my-bookings-x4 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 4px;
+  color: #999;
+  font-size: 12px;
+  font-weight: 600;
+}
+.customer-my-bookings-x5.customer-my-bookings-x5 {
+  flex: 1;
+  height: 1px;
+  background: #e5e5e5;
+}
+.customer-my-bookings-x6.customer-my-bookings-x6 {
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+
+/* Extracted from inline styles in pages/customer/profile.jsx.
+   The class is doubled so it keeps the priority the inline style had over other rules. */
+.customer-profile-x1.customer-profile-x1 {
+  color: #ef4444;
+  font-size: 13px;
+  margin: 4px 0;
+}
+.customer-profile-x2.customer-profile-x2 {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.customer-profile-x3.customer-profile-x3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--cz-primary, #2563eb);
+  border: 1px solid var(--cz-primary, #2563eb);
+  border-radius: 999px;
+  padding: 6px 14px;
+  white-space: nowrap;
+}
+.customer-profile-x4.customer-profile-x4 {
+  display: none;
+}
+.customer-profile-x5.customer-profile-x5 {
+  margin-top: 16px;
+}
+
+.customer-billings-x5.balance-note--danger {
+  color: var(--danger);
+}
+.customer-billings-x5.balance-note--warning {
+  color: var(--warning);
 }

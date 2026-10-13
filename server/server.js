@@ -34,6 +34,7 @@ app.use('/api/teams', require('./routes/teamRoutes'));
 app.use('/api/promos', require('./routes/promoRoutes'));
 app.use('/api/availability', require('./routes/availabilityRoutes'));
 app.use('/api/closures', require('./routes/closureRoutes'));
+app.use('/api/audit-log', require('./routes/auditRoutes'));
 
 const { startServiceReminderSchedule } = require('./jobs/serviceReminderJob');
 startServiceReminderSchedule();

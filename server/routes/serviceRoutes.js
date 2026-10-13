@@ -1,5 +1,6 @@
 const { SERVICE_TYPE } = require('../constants/serviceTypes');
 const { ROLE } = require('../constants/roles');
+const auditSpecs = require('../utils/auditSpecs');
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
@@ -56,7 +57,7 @@ router.get('/:id', auth, async (req, res) => {
 });
 
 // POST create new service
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, auditSpecs.serviceCreate, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -96,7 +97,7 @@ router.post('/', auth, async (req, res) => {
 });
 
 // PUT update existing service
-router.put('/:id', auth, async (req, res) => {
+router.put('/:id', auth, auditSpecs.serviceUpdate, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -145,7 +146,7 @@ router.put('/:id', auth, async (req, res) => {
 });
 
 // PATCH toggle active status
-router.patch('/:id/toggle-active', auth, async (req, res) => {
+router.patch('/:id/toggle-active', auth, auditSpecs.serviceToggle, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -165,7 +166,7 @@ router.patch('/:id/toggle-active', auth, async (req, res) => {
 // "Delete" a service: it is archived, not removed. An archived service is hidden from customers and cannot be booked, and
 // every old booking still resolves it (name, type, warranty). Only with ?hard=true, and only when no booking uses the
 // service at all, is it removed for good; otherwise a 409 says why.
-router.delete('/:id', auth, async (req, res) => {
+router.delete('/:id', auth, auditSpecs.serviceRemove, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });

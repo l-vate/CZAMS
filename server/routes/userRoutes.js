@@ -1,4 +1,5 @@
 const { ROLE } = require('../constants/roles');
+const auditSpecs = require('../utils/auditSpecs');
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
@@ -122,7 +123,7 @@ router.get('/:id/history', auth, async (req, res) => {
 });
 
 // POST create user (Technician or Client)
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, auditSpecs.userCreate, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -179,7 +180,7 @@ router.post('/', auth, async (req, res) => {
 });
 
 // PUT update user profile or status
-router.put('/:id', auth, async (req, res) => {
+router.put('/:id', auth, auditSpecs.userUpdate, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -255,7 +256,7 @@ router.put('/:id', auth, async (req, res) => {
 
 // Admin: manually set a customer's classification, or pass null to clear the
 // override and go back to the auto-computed value.
-router.patch('/:id/classification', auth, async (req, res) => {
+router.patch('/:id/classification', auth, auditSpecs.userClassification, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });

@@ -6,6 +6,7 @@ const { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } = require('../constants/payment
 const { PAYMENT_MODE } = require('../constants/paymentModes');
 const { BOOKING_STATUS, BOOKING_STATUS_VALUES } = require('../constants/bookingStatus');
 const multer = require('multer');
+const auditSpecs = require('../utils/auditSpecs');
 const express = require('express');
 const router = express.Router();
 const path = require('path');
@@ -699,7 +700,7 @@ router.get('/:bookingId', auth, async (req, res) => {
 // refund request (Cancellation, Rescheduling, and Refund Module) - same-day
 // cancellations get flagged so the dispatch/transportation cost can be deducted
 // before an admin processes it; pre-service cancellations refund in full.
-router.patch('/:bookingId/cancel', auth, allowRoles(ROLE.CUSTOMER), async (req, res) => {
+router.patch('/:bookingId/cancel', auth, auditSpecs.customerCancel, allowRoles(ROLE.CUSTOMER), async (req, res) => {
   try {
     const booking = await Booking.findOne({
       bookingId: req.params.bookingId,
@@ -837,7 +838,7 @@ router.patch('/:bookingId/pay-balance', auth, allowRoles(ROLE.CUSTOMER), upload.
 // verified until the admin says so here: the method, the amount and an optional reference or cheque number are stored with
 // who received it and when (paymentEvents), and the payment becomes Verified because the admin is the one verifying it.
 // Same state rules and the same one-step conditional update as verifying a customer's proof (utils/paymentVerification.js).
-router.patch('/:bookingId/record-payment', auth, allowRoles(ROLE.ADMIN), async (req, res) => {
+router.patch('/:bookingId/record-payment', auth, auditSpecs.recordPayment, allowRoles(ROLE.ADMIN), async (req, res) => {
   try {
     const booking = await Booking.findOne({ bookingId: req.params.bookingId }).populate('service');
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
@@ -936,7 +937,7 @@ router.patch('/:bookingId/discount/request', auth, allowRoles(ROLE.CUSTOMER), up
 // Settings at this moment and is frozen on the booking. Nothing is refunded
 // automatically: if a down payment was already verified, it is recorded so the balance
 // is simply lower (see getPaymentBreakdown in utils/pricing.js).
-router.patch('/:bookingId/discount/approve', auth, async (req, res) => {
+router.patch('/:bookingId/discount/approve', auth, auditSpecs.discountApprove, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -1002,7 +1003,7 @@ router.patch('/:bookingId/discount/approve', auth, async (req, res) => {
 
 // Admin: reject a pending discount request. A short reason is required and is shown to
 // the customer. The booking total stays exactly as it was.
-router.patch('/:bookingId/discount/reject', auth, async (req, res) => {
+router.patch('/:bookingId/discount/reject', auth, auditSpecs.discountReject, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -1051,7 +1052,7 @@ router.patch('/:bookingId/discount/reject', auth, async (req, res) => {
 
 // Admin: move a Pending booking in the queue. Body: { action: 'up' | 'down' | 'top' }.
 // Answers with the whole queue so the screen can replace its list in one step.
-router.patch('/:bookingId/queue', auth, async (req, res) => {
+router.patch('/:bookingId/queue', auth, auditSpecs.queueMove, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -1071,7 +1072,7 @@ router.patch('/:bookingId/queue', auth, async (req, res) => {
 // backs a future 5yr/1yr Unit Warranty claim, mirrors the client-supplied-unit
 // waiver's role but for the opposite case. Admin-side (not the customer's), since
 // CZA is the one that made the sale and holds the record of it.
-router.patch('/:bookingId/unit-purchase-proof', auth, allowRoles(ROLE.ADMIN), upload.single('proof'), async (req, res) => {
+router.patch('/:bookingId/unit-purchase-proof', auth, auditSpecs.unitPurchaseProof, allowRoles(ROLE.ADMIN), upload.single('proof'), async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -1459,7 +1460,7 @@ router.get('/', auth, async (req, res) => {
 });
 
 // Admin: approve a pending reschedule request
-router.patch('/:bookingId/reschedule/approve', auth, async (req, res) => {
+router.patch('/:bookingId/reschedule/approve', auth, auditSpecs.rescheduleApprove, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -1523,7 +1524,7 @@ router.patch('/:bookingId/reschedule/approve', auth, async (req, res) => {
 });
 
 // Admin: deny a pending reschedule request
-router.patch('/:bookingId/reschedule/deny', auth, async (req, res) => {
+router.patch('/:bookingId/reschedule/deny', auth, auditSpecs.rescheduleDeny, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -1708,7 +1709,7 @@ const ASSIGN_RESPONSE_POPULATE = [
 ];
 
 // Admin: assign who does the job. Body: { assignments: [{ technicianId, helperId? }] }.
-router.patch('/:bookingId/assign', auth, async (req, res) => {
+router.patch('/:bookingId/assign', auth, auditSpecs.assign, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -1762,7 +1763,7 @@ router.get('/:bookingId/assignment-history', auth, async (req, res) => {
 });
 
 // Admin: assign technician and/or review payment verification
-router.patch('/:bookingId/admin-update', auth, async (req, res) => {
+router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -1991,7 +1992,7 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
 // Processed. Same-day cancellations also require a dispatch/transportation
 // deduction before the refundable amount is finalized; pre-service cancellations
 // refund the down payment in full.
-router.patch('/:bookingId/refund', auth, allowRoles(ROLE.ADMIN), upload.single('proof'), async (req, res) => {
+router.patch('/:bookingId/refund', auth, auditSpecs.refundProcess, allowRoles(ROLE.ADMIN), upload.single('proof'), async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -2139,7 +2140,7 @@ router.patch('/:bookingId/refund/flag', auth, allowRoles(ROLE.CUSTOMER), async (
 
 // Admin: mark a customer's refund flag as addressed (followed up outside the
 // system - a phone call, etc.) so it stops showing as needing attention.
-router.patch('/:bookingId/refund/flag/resolve', auth, async (req, res) => {
+router.patch('/:bookingId/refund/flag/resolve', auth, auditSpecs.refundFlagResolve, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -2175,7 +2176,7 @@ router.patch('/:bookingId/refund/flag/resolve', auth, async (req, res) => {
 // Admin: reschedule a booking that had a disruption reported on it. This is the
 // exact hook point Notification Sender was built for - both the client and the
 // assigned technician are notified right away as part of this action.
-router.patch('/:bookingId/disruption/reschedule', auth, async (req, res) => {
+router.patch('/:bookingId/disruption/reschedule', auth, auditSpecs.disruptionReschedule, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -2255,7 +2256,7 @@ router.patch('/:bookingId/disruption/reschedule', auth, async (req, res) => {
 
 // Admin: approve a pending extension request - grants the extra day. Notifies the
 // requesting technician and the client, whose completion timeline just changed.
-router.patch('/:bookingId/extension/approve', auth, async (req, res) => {
+router.patch('/:bookingId/extension/approve', auth, auditSpecs.extensionApprove, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -2320,7 +2321,7 @@ router.patch('/:bookingId/extension/approve', auth, async (req, res) => {
 });
 
 // Admin: deny a pending extension request. Notifies the requesting technician and the client.
-router.patch('/:bookingId/extension/deny', auth, async (req, res) => {
+router.patch('/:bookingId/extension/deny', auth, auditSpecs.extensionDeny, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });

@@ -1,4 +1,5 @@
 const { ROLE } = require('../constants/roles');
+const auditSpecs = require('../utils/auditSpecs');
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
@@ -85,7 +86,7 @@ router.get('/', auth, adminOnly, async (req, res) => {
   }
 });
 
-router.post('/', auth, adminOnly, async (req, res) => {
+router.post('/', auth, adminOnly, auditSpecs.promoCreate, async (req, res) => {
   try {
     const problem = await validate(req.body);
     if (problem) return sendProblem(res, problem);
@@ -96,7 +97,7 @@ router.post('/', auth, adminOnly, async (req, res) => {
   }
 });
 
-router.put('/:id', auth, adminOnly, async (req, res) => {
+router.put('/:id', auth, adminOnly, auditSpecs.promoUpdate, async (req, res) => {
   try {
     const promo = await Promo.findById(req.params.id);
     if (!promo) return res.status(404).json({ message: 'Promo not found' });
@@ -116,7 +117,7 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
 
 // Bookings keep their own copy of the promo they got (name, type, value), so deleting or
 // editing a promo never changes a booking that already used it.
-router.delete('/:id', auth, adminOnly, async (req, res) => {
+router.delete('/:id', auth, adminOnly, auditSpecs.promoDelete, async (req, res) => {
   try {
     const promo = await Promo.findByIdAndDelete(req.params.id);
     if (!promo) return res.status(404).json({ message: 'Promo not found' });

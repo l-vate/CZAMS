@@ -127,6 +127,9 @@ function AdminSidebar({ onNavigate }) {
           <NavLink to="/admin/reports" className={linkClass} onClick={onNavigate}>
             Reports
           </NavLink>
+          <NavLink to="/admin/audit-log" className={linkClass} onClick={onNavigate}>
+            Audit Log
+          </NavLink>
         </nav>
       </div>
 

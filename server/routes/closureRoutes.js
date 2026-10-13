@@ -1,3 +1,4 @@
+const auditSpecs = require('../utils/auditSpecs');
 const express = require('express');
 const router = express.Router();
 const Closure = require('../models/Closure');
@@ -49,7 +50,7 @@ router.get('/', auth, async (req, res) => {
 });
 
 // Admin: close a date.
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, auditSpecs.closureCreate, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) return res.status(403).json({ message: 'Forbidden' });
 
@@ -75,7 +76,7 @@ router.post('/', auth, async (req, res) => {
 });
 
 // Admin: open a date again.
-router.delete('/:date', auth, async (req, res) => {
+router.delete('/:date', auth, auditSpecs.closureDelete, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) return res.status(403).json({ message: 'Forbidden' });
     if (!isRealDateKey(req.params.date)) return res.status(400).json({ message: 'Choose a valid date (YYYY-MM-DD).' });

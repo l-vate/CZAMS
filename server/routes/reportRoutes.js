@@ -1,6 +1,7 @@
 const { NOTIFICATION_TYPE } = require('../constants/notificationTypes');
 const { ROLE } = require('../constants/roles');
 const { BOOKING_STATUS } = require('../constants/bookingStatus');
+const auditSpecs = require('../utils/auditSpecs');
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -389,7 +390,7 @@ router.get('/booking/:bookingId', auth, async (req, res) => {
 // ============================================
 
 // Update a report (only if not final)
-router.patch('/:id', auth, async (req, res) => {
+router.patch('/:id', auth, auditSpecs.reportEdit, async (req, res) => {
     try {
         const report = await Report.findById(req.params.id);
         if (!report) {
@@ -453,7 +454,7 @@ async function notifyLeadsReportRemoved(booking) {
 // 4. DELETE REPORT (Admin only)
 // ============================================
 
-router.delete('/:id', auth, async (req, res) => {
+router.delete('/:id', auth, auditSpecs.reportDelete, async (req, res) => {
     try {
         if (req.userRole !== ROLE.ADMIN) {
             return res.status(403).json({ message: 'Forbidden' });

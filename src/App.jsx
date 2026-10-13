@@ -33,6 +33,7 @@ import AdminPayments from './pages/admin/payments';
 import AdminBackJobs from './pages/admin/back_jobs';
 import AdminAnalytics from './pages/admin/analytics';
 import AdminReports from './pages/admin/reports';
+import AdminAuditLog from './pages/admin/audit_log';
 import AdminPromotions from './pages/admin/promotions';
 import AdminAnnouncements from './pages/admin/announcements';
 import AdminChat from './pages/admin/chat';
@@ -95,6 +96,7 @@ function App() {
           <Route path="/admin/back-jobs" element={<AdminBackJobs />} />
           <Route path="/admin/analytics" element={<AdminAnalytics />} />
           <Route path="/admin/reports" element={<AdminReports />} />
+          <Route path="/admin/audit-log" element={<AdminAuditLog />} />
           <Route path="/admin/promotions" element={<AdminPromotions />} />
           <Route path="/admin/announcements" element={<AdminAnnouncements />} />
           <Route path="/admin/chat" element={<AdminChat />} />

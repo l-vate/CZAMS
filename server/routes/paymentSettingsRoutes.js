@@ -1,4 +1,5 @@
 const { ROLE } = require('../constants/roles');
+const auditSpecs = require('../utils/auditSpecs');
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
@@ -25,7 +26,7 @@ router.get('/', auth, async (req, res) => {
 // that would leave zero payment methods or zero down payment percentages, since
 // that would silently lock the entire booking flow (no selectable options) for
 // every customer and walk-in booking until someone noticed and fixed it back.
-router.put('/', auth, async (req, res) => {
+router.put('/', auth, auditSpecs.settingsUpdate, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });

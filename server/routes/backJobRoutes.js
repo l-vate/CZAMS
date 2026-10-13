@@ -4,6 +4,7 @@ const { ROLE } = require('../constants/roles');
 const { BACK_JOB_STATUS, OPEN_BACK_JOB_STATUSES } = require('../constants/backJobStatus');
 const { PAYMENT_STATUS } = require('../constants/paymentStatus');
 const { BOOKING_STATUS } = require('../constants/bookingStatus');
+const auditSpecs = require('../utils/auditSpecs');
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
@@ -221,7 +222,7 @@ router.get('/booking/:bookingId', auth, async (req, res) => {
 // (the paper doesn't specify what "handled" means here - outside warranty could
 // become a new paid booking, or something else entirely; this route only records
 // that admin has looked at it, it doesn't automate any outcome).
-router.patch('/:backJobId/review', auth, async (req, res) => {
+router.patch('/:backJobId/review', auth, auditSpecs.backJobReview, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });

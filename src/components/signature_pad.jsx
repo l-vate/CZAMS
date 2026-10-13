@@ -5,6 +5,10 @@ import { useRef, useEffect, useState } from 'react';
 // image) is small enough not to warrant a new dependency for it.
 function SignaturePad({ onChange }) {
   const canvasRef = useRef(null);
+  const onChangeRef = useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  });
   const drawingRef = useRef(false);
   const hasDrawnRef = useRef(false);
   const [isEmpty, setIsEmpty] = useState(true);
@@ -53,9 +57,27 @@ function SignaturePad({ onChange }) {
     drawingRef.current = false;
     if (hasDrawnRef.current) {
       setIsEmpty(false);
-      onChange(canvasRef.current.toDataURL('image/png'));
+      onChangeRef.current(canvasRef.current.toDataURL('image/png'));
     }
   };
+
+  // React attaches touch handlers as passive, so preventDefault inside them does nothing and the browser warns.
+  // The touch listeners are added here instead, as non-passive, so drawing does not scroll the page.
+  // The canvas also has touch-action: none in CSS.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const options = { passive: false };
+    canvas.addEventListener('touchstart', startDraw, options);
+    canvas.addEventListener('touchmove', draw, options);
+    canvas.addEventListener('touchend', stopDraw);
+    canvas.addEventListener('touchcancel', stopDraw);
+    return () => {
+      canvas.removeEventListener('touchstart', startDraw, options);
+      canvas.removeEventListener('touchmove', draw, options);
+      canvas.removeEventListener('touchend', stopDraw);
+      canvas.removeEventListener('touchcancel', stopDraw);
+    };
+  });
 
   const clear = () => {
     const canvas = canvasRef.current;
@@ -64,7 +86,7 @@ function SignaturePad({ onChange }) {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     hasDrawnRef.current = false;
     setIsEmpty(true);
-    onChange(null);
+    onChangeRef.current(null);
   };
 
   return (
@@ -78,9 +100,6 @@ function SignaturePad({ onChange }) {
         onMouseMove={draw}
         onMouseUp={stopDraw}
         onMouseLeave={stopDraw}
-        onTouchStart={startDraw}
-        onTouchMove={draw}
-        onTouchEnd={stopDraw}
       />
       <div className="signature-pad-controls">
         <span className="signature-pad-hint">{isEmpty ? 'Sign above' : 'Signed'}</span>

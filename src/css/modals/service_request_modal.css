@@ -9,6 +9,13 @@
     padding: 20px;
 }
 
+/* .sdm-modal itself no longer scrolls (overflow: hidden) — it used to, which
+   meant .sdm-close-position (a direct sibling, added in the earlier UI
+   consistency pass) would scroll away with the rest of the content on a tall
+   record, the same class of problem as a modal being cut off with no way back
+   to its own close button. .sdm-body now owns its own scroll region instead
+   (flex: 1 + overflow-y: auto below), so the close button and the sticky footer
+   both stay outside the scrolled area and always stay visible. */
 .sdm-modal {
     position: relative;
     background: #fff;
@@ -16,33 +23,30 @@
     max-width: 720px;
     max-height: 90vh;
     border-radius: 20px;
-    overflow-y: auto;
+    overflow: hidden;
     box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+    display: flex;
+    flex-direction: column;
 }
 
-.sdm-close {
+/* .sdm-close was dead CSS — never actually used in either sdm-* modal's JSX, so
+   these modals had no icon close button at all (only a text "Close" button in
+   the footer), the same gap .svc-modal/.ann-modal had. Both now use the shared
+   .modal-close-btn for the icon itself; this just supplies the positioning this
+   modal's layout needs (its title lives in .sdm-titlebar, not a .modal-header
+   flex row, so the close button is absolutely positioned in the corner instead
+   of being a third flex item). */
+.sdm-close-position {
     position: absolute;
     top: 18px;
     right: 20px;
-    background: #f1f5f9;
-    border: none;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    font-size: 1.3rem;
-    line-height: 1;
-    color: #64748b;
-    cursor: pointer;
     z-index: 2;
-}
-
-.sdm-close:hover {
-    background: #e2e8f0;
-    color: #334155;
 }
 
 .sdm-body {
     padding: 28px 32px 8px;
+    flex: 1;
+    overflow-y: auto;
 }
 
 .sdm-titlebar {
@@ -50,6 +54,11 @@
     align-items: flex-start;
     justify-content: space-between;
     margin-bottom: 18px;
+    /* Room for .sdm-close-position, which sits at right:20px relative to the
+       whole modal (outside sdm-body's own 32px padding) — without this the
+       status badge on the right edge of this row would sit under the close
+       button. */
+    padding-right: 40px;
 }
 
 .sdm-title {
@@ -76,7 +85,7 @@
 
 .sdm-error {
     background: #fef2f2;
-    color: #b91c1c;
+    color: var(--danger-hover);
     border: 1px solid #fecaca;
     padding: 10px 12px;
     border-radius: 8px;
@@ -225,7 +234,7 @@
 }
 
 .sdm-link {
-    color: #2563eb;
+    color: var(--primary);
     font-weight: 700;
     text-decoration: underline;
 }
@@ -291,9 +300,12 @@
     opacity: 0.8;
 }
 
+/* Radius converged (Pass D) from a full pill to the app-wide 10px action-button
+   standard — this modal being larger (720px) isn't a real reason for its buttons
+   to be a different shape from every other modal's. */
 .sdm-btn {
     border: none;
-    border-radius: 999px;
+    border-radius: 10px;
     padding: 10px 20px;
     font-size: 0.85rem;
     font-weight: 700;
@@ -313,39 +325,44 @@
     cursor: not-allowed;
 }
 
+/* Converged to the same ghost treatment as .bs-back-btn/.ma-cancel-btn/
+   .svc-btn-ghost/.ann-btn-ghost. */
 .sdm-btn-outline {
     background: #fff;
-    color: #475569;
-    border: 1px solid #e2e8f0;
+    border: 1.5px solid var(--mist);
+    color: var(--ink-soft);
 }
 
 .sdm-btn-outline:hover:not(:disabled) {
-    background: #f8fafc;
+    border-color: var(--navy);
+    color: var(--navy);
 }
 
 .sdm-btn-danger {
-    background: #ef4444;
+    background: var(--danger);
     color: #fff;
-    border: 1px solid #ef4444;
+    border: 1px solid var(--danger);
 }
 
 .sdm-btn-danger:hover:not(:disabled) {
-    background: #dc2626;
-    border-color: #dc2626;
+    background: var(--danger-hover);
+    border-color: var(--danger-hover);
 }
 
 .sdm-btn-primary {
-    background: #0f172a;
+    background: var(--primary);
     color: #fff;
 }
 
 .sdm-btn-primary:hover:not(:disabled) {
-    background: #1e293b;
+    background: var(--primary-hover);
 }
 
+/* No longer needs position: sticky — it's a flex sibling of .sdm-body outside
+   that element's own scroll region now, so it naturally stays put at the
+   bottom without relying on sticky positioning inside a scrolling ancestor. */
 .sdm-footer {
-    position: sticky;
-    bottom: 0;
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: flex-end;

@@ -148,6 +148,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
   return (
     <div className="sdm-overlay" onClick={onClose}>
       <div className="sdm-modal" onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="modal-close-btn sdm-close-position" onClick={onClose}>✕</button>
         <div className="sdm-body">
           {/* Title Bar */}
           <div className="sdm-titlebar">

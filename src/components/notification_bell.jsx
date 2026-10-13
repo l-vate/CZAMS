@@ -15,7 +15,13 @@ function timeAgo(dateStr) {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function NotificationBell() {
+// onNotificationClick, when provided, is called with the full notification
+// object after it's marked read — the caller decides where a notification with
+// a relatedBookingId should navigate to (this component doesn't know its own
+// portal's routes). Passed by customer_layout.jsx for the "open that booking's
+// details" behavior; staff_layout.jsx doesn't pass it, so staff notifications
+// keep their previous mark-as-read-only behavior.
+function NotificationBell({ onNotificationClick }) {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -59,21 +65,27 @@ function NotificationBell() {
   };
 
   const handleItemClick = async (notification) => {
-    if (notification.read) return;
-    const token = localStorage.getItem('token');
-    try {
-      const res = await fetch(`${API_BASE}/api/notifications/${notification._id}/read`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        setNotifications((prev) =>
-          prev.map((n) => (n._id === notification._id ? { ...n, read: true } : n))
-        );
+    // Previously bailed out entirely for an already-read notification — meaning
+    // clicking one a second time did nothing at all, not even navigate.
+    if (!notification.read) {
+      const token = localStorage.getItem('token');
+      try {
+        const res = await fetch(`${API_BASE}/api/notifications/${notification._id}/read`, {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          setNotifications((prev) =>
+            prev.map((n) => (n._id === notification._id ? { ...n, read: true } : n))
+          );
+        }
+      } catch (err) {
+        // no-op — non-critical
       }
-    } catch (err) {
-      // no-op — non-critical
     }
+
+    setOpen(false);
+    onNotificationClick?.(notification);
   };
 
   const handleMarkAllRead = async () => {

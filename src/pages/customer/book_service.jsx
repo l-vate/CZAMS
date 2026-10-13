@@ -2,6 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
 import PaymentModal from '../../components/payment_modal';
+import { getUnitPrice } from '../../utils/bookingPricing';
+import { toLocalDateKey } from '../../utils/date';
+import { usePaymentSettings, getDownPaymentOptions } from '../../utils/paymentSettings';
+import { UNIT_TYPE_IMAGES } from '../../utils/unitTypeImages';
+import { isWithinServiceArea, SERVICE_AREA_DISPLAY_NAMES } from '../../utils/serviceArea';
 import {
   FiWind,
   FiTool,
@@ -13,6 +18,8 @@ import {
   FiClock,
   FiArrowLeft,
   FiArrowRight,
+  FiPlus,
+  FiX,
 } from 'react-icons/fi';
 
 const ICON_MAP = {
@@ -40,6 +47,8 @@ export function useServices() {
           price: s.price,
           icon: ICON_MAP[s.icon] || <FiSettings />,
           serviceType: s.serviceType,
+          unitTypePricing: s.unitTypePricing || [],
+          hiddenFromDirectSelection: !!s.hiddenFromDirectSelection,
         }));
         setServices(mapped);
         setLoading(false);
@@ -69,23 +78,10 @@ export function useTechnicians() {
 
 export const UNIT_TYPES = ['Window Type', 'Split Type', 'Floor Mounted', 'Cassette Type', 'Portable'];
 
-export const DOWN_PAYMENT_OPTIONS = [
-  { label: 'Full Payment (100%)', value: 100 },
-  { label: '30% Down Payment', value: 30 },
-  { label: '50% Down Payment', value: 50 },
-];
-const FIRST_PAYMENT_MODES = ['E-Wallet (GCash, Maya...)', 'Bank Transfer'];
-export const PAYMENT_MODES = ['Cash', 'E-Wallet (GCash, Maya...)', 'Bank Transfer'];
-
-// Customer Classification Module perk: a "Return" customer (4+ completed bookings
-// in the trailing 12 months) sees an extra no-down-payment option up front.
-export function getDownPaymentOptions(isReturnCustomer) {
-  if (!isReturnCustomer) return DOWN_PAYMENT_OPTIONS;
-  return [
-    { label: 'No Down Payment (Return Customer)', value: 0 },
-    ...DOWN_PAYMENT_OPTIONS,
-  ];
-}
+// System Configuration Module: payment methods and down payment percentages used
+// to be hardcoded here (DOWN_PAYMENT_OPTIONS / PAYMENT_MODES / getDownPaymentOptions).
+// Both are now admin-managed — see src/utils/paymentSettings.js (usePaymentSettings,
+// getDownPaymentOptions) and the Payment Settings tab in admin's Manage Services page.
 
 // Fetches the logged-in customer's own classification (Customer Classification Module)
 export function useMyClassification() {
@@ -113,15 +109,24 @@ function generateBookingId() {
   return `CZ-${year}-${rand}`;
 }
 
-// Shared cost breakdown math — used by Step4 and Step5
+// Shared cost breakdown math — used by Step2 (per-row price preview), Step4,
+// and Step5. Itemizes each unit entry (type × quantity, at that type's price)
+// instead of assuming one flat price for the whole booking.
 export function getCostBreakdown(form, services) {
   const selected = services.find((s) => s.id === form.service);
-  const basePrice = selected?.price || 0;
+  const units = form.units || [];
+
+  const lineItems = units.map((u) => {
+    const unitPrice = getUnitPrice(selected, u.type);
+    return { ...u, unitPrice, subtotal: unitPrice * (u.quantity || 0) };
+  });
+
+  const basePrice = lineItems.reduce((sum, li) => sum + li.subtotal, 0);
   const dpPercent = form.downPaymentPercent ?? 10;
   const toPayNow = Math.round(basePrice * (dpPercent / 100));
   const remaining = basePrice - toPayNow;
   const isFullPay = dpPercent === 100;
-  return { selected, basePrice, dpPercent, toPayNow, remaining, isFullPay };
+  return { selected, lineItems, basePrice, dpPercent, toPayNow, remaining, isFullPay };
 }
 
 /* ── Step Indicator ───────────────────────────────────────── */
@@ -148,53 +153,154 @@ export function StepIndicator({ current, total = TOTAL_STEPS }) {
 }
 
 /* ── Step 1: Choose a Service ─────────────────────────────── */
+// Three-Tier Cleaning Structure: Deep Cleaning and Pull-down Deep Cleaning are
+// real Services (own price, own unitTypePricing, admin-managed in Manage
+// Services) but hiddenFromDirectSelection — the customer never picks them
+// directly, only the one visible "Cleaning" card. Resolved by price order
+// (lowest = regular, highest = pull-down) rather than by name, so renaming a
+// tier in Manage Services doesn't break this — the higher price for the more
+// involved job is the actual defining trait the client described.
+function resolveCleaningTierService(services, lastCleanedOver6MonthsAgo, isActivelyLeaking) {
+  const tiers = services
+    .filter((s) => s.serviceType === 'Cleaning')
+    .sort((a, b) => a.price - b.price);
+  if (tiers.length === 0) return null;
+
+  if (isActivelyLeaking) return tiers[tiers.length - 1];
+  if (lastCleanedOver6MonthsAgo) return tiers[1] || tiers[0];
+  return tiers[0];
+}
+
+function CleaningTierQuestions({ onResolve, onCancel, initialAnswers }) {
+  const [lastCleanedOver6MonthsAgo, setLastCleaned] = useState(initialAnswers?.lastCleanedOver6MonthsAgo ?? null);
+  const [isActivelyLeaking, setLeaking] = useState(initialAnswers?.isActivelyLeaking ?? null);
+  const answered = lastCleanedOver6MonthsAgo !== null && isActivelyLeaking !== null;
+
+  return (
+    <div className="bs-card">
+      <button type="button" className="ma-back-link" onClick={onCancel} style={{ marginBottom: '12px' }}>
+        &larr; Back to services
+      </button>
+      <h3 className="bs-card-title">A Couple Quick Questions</h3>
+      <p className="bs-card-sub">This determines which cleaning tier applies — same trigger CZA already uses for a verbal quote.</p>
+
+      <div className="bs-field-group">
+        <label className="bs-label">Is the unit currently leaking?</label>
+        <div className="time-toggle">
+          <button type="button" className={`time-btn ${isActivelyLeaking === true ? 'selected' : ''}`} onClick={() => setLeaking(true)}>Yes</button>
+          <button type="button" className={`time-btn ${isActivelyLeaking === false ? 'selected' : ''}`} onClick={() => setLeaking(false)}>No</button>
+        </div>
+      </div>
+
+      <div className="bs-field-group">
+        <label className="bs-label">When was this unit last professionally cleaned?</label>
+        <div className="time-toggle">
+          <button type="button" className={`time-btn ${lastCleanedOver6MonthsAgo === false ? 'selected' : ''}`} onClick={() => setLastCleaned(false)}>Within the last 6 months</button>
+          <button type="button" className={`time-btn ${lastCleanedOver6MonthsAgo === true ? 'selected' : ''}`} onClick={() => setLastCleaned(true)}>6+ months ago / not sure</button>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        className="bs-next-btn"
+        disabled={!answered}
+        onClick={() => onResolve({ lastCleanedOver6MonthsAgo, isActivelyLeaking })}
+      >
+        Continue <FiArrowRight />
+      </button>
+    </div>
+  );
+}
+
 export function Step1({ form, setForm, services }) {
+  const [askingCleaningTier, setAskingCleaningTier] = useState(false);
+  const visibleServices = services.filter((s) => !s.hiddenFromDirectSelection);
+  const cleaningTierServiceIds = services.filter((s) => s.serviceType === 'Cleaning').map((s) => s.id);
+  const isCleaningTierSelected = cleaningTierServiceIds.includes(form.service);
+
+  const selectService = (s) => setForm({
+    ...form,
+    service: s.id,
+    // A different service may not be Installation at all, or may need
+    // the unit-source question re-asked — don't carry stale answers over.
+    clientSuppliedUnit: false,
+    unitWaiverAcknowledged: false,
+    unitWaiverName: '',
+  });
+
+  if (askingCleaningTier) {
+    return (
+      <CleaningTierQuestions
+        initialAnswers={{ lastCleanedOver6MonthsAgo: form.lastCleanedOver6MonthsAgo, isActivelyLeaking: form.isActivelyLeaking }}
+        onCancel={() => setAskingCleaningTier(false)}
+        onResolve={({ lastCleanedOver6MonthsAgo, isActivelyLeaking }) => {
+          const resolved = resolveCleaningTierService(services, lastCleanedOver6MonthsAgo, isActivelyLeaking);
+          if (resolved) selectService(resolved);
+          setForm((prev) => ({ ...prev, lastCleanedOver6MonthsAgo, isActivelyLeaking }));
+          setAskingCleaningTier(false);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="bs-card">
       <h3 className="bs-card-title">Choose a Service</h3>
       <p className="bs-card-sub">Base price only. Final cost may vary depending on the scope of work and materials needed.</p>
       <div className="service-grid">
-        {services.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            className={`service-option ${form.service === s.id ? 'selected' : ''}`}
-            onClick={() => setForm({
-              ...form,
-              service: s.id,
-              // A different service may not be Installation at all, or may need
-              // the unit-source question re-asked — don't carry stale answers over.
-              clientSuppliedUnit: false,
-              unitWaiverAcknowledged: false,
-              unitWaiverName: '',
-            })}
-          >
-            <div className="service-option-left">
-              <span className="service-icon">{s.icon}</span>
-              <div>
-                <p className="service-name">{s.label}</p>
-                <p className="service-desc">{s.desc}</p>
+        {visibleServices.map((s) => {
+          const isCleaningEntryPoint = s.serviceType === 'Cleaning';
+          const selected = isCleaningEntryPoint ? isCleaningTierSelected : form.service === s.id;
+          return (
+            <button
+              key={s.id}
+              type="button"
+              className={`service-option ${selected ? 'selected' : ''}`}
+              onClick={() => (isCleaningEntryPoint ? setAskingCleaningTier(true) : selectService(s))}
+            >
+              <div className="service-option-left">
+                <span className="service-icon">{s.icon}</span>
+                <div>
+                  <p className="service-name">{s.label}</p>
+                  <p className="service-desc">{s.desc}</p>
+                </div>
               </div>
-            </div>
-            <span className="service-price">₱{s.price.toLocaleString()}</span>
-          </button>
-        ))}
+              <span className="service-price">
+                {isCleaningEntryPoint ? 'From ' : ''}₱{s.price.toLocaleString()}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
 }
 
 /* ── Step 2: Unit Details ─────────────────────────────────── */
+const EMPTY_UNIT_ENTRY = { type: '', quantity: 1, brandModel: '' };
+
 export function Step2({ form, setForm, services = [] }) {
-  const toggleUnit = (type) => {
-    const current = form.unitTypes || [];
-    const updated = current.includes(type)
-      ? current.filter((t) => t !== type)
-      : [...current, type];
-    setForm({ ...form, unitTypes: updated });
+  // Multi-Unit Booking Redesign: a booking now lists one or more unit entries
+  // (type + quantity + its own brand/model), replacing the old flat
+  // "select all that apply" type checklist with no quantity and one bulk
+  // brand/model text field for the whole booking.
+  const units = form.units && form.units.length > 0 ? form.units : [EMPTY_UNIT_ENTRY];
+  const selectedService = services.find((s) => s.id === form.service);
+
+  const updateUnit = (index, patch) => {
+    const updated = units.map((u, i) => (i === index ? { ...u, ...patch } : u));
+    setForm({ ...form, units: updated });
   };
 
-  const selectedService = services.find((s) => s.id === form.service);
+  const addUnit = () => {
+    setForm({ ...form, units: [...units, { ...EMPTY_UNIT_ENTRY }] });
+  };
+
+  const removeUnit = (index) => {
+    const updated = units.filter((_, i) => i !== index);
+    setForm({ ...form, units: updated.length > 0 ? updated : [{ ...EMPTY_UNIT_ENTRY }] });
+  };
+
   const isInstallation = selectedService?.serviceType === 'Installation';
 
   const setClientSuppliedUnit = (clientSupplied) => {
@@ -209,33 +315,68 @@ export function Step2({ form, setForm, services = [] }) {
   return (
     <div className="bs-card">
       <h3 className="bs-card-title">Unit Details</h3>
-      <p className="bs-card-sub">Provide details about your aircon unit(s).</p>
+      <p className="bs-card-sub">Add each aircon unit this booking covers, with its type and quantity.</p>
 
       <div className="bs-field-group">
-        <label className="bs-label">Unit Type <span className="bs-label-hint">(Select all that apply)</span></label>
-        <div className="unit-type-grid">
-          {UNIT_TYPES.map((type) => (
-            <button
-              key={type}
-              type="button"
-              className={`unit-type-btn ${(form.unitTypes || []).includes(type) ? 'selected' : ''}`}
-              onClick={() => toggleUnit(type)}
-            >
-              {type}
-            </button>
+        <label className="bs-label">Units</label>
+        <div className="unit-entry-list">
+          {units.map((unit, index) => (
+            <div className="unit-entry-row" key={index}>
+              {unit.type ? (
+                <img src={UNIT_TYPE_IMAGES[unit.type]} alt={unit.type} className="unit-entry-photo" />
+              ) : (
+                <span className="unit-entry-photo unit-entry-photo-empty" aria-hidden="true" />
+              )}
+
+              <select
+                className="bs-select unit-entry-type"
+                value={unit.type}
+                onChange={(e) => updateUnit(index, { type: e.target.value })}
+              >
+                <option value="">Select type</option>
+                {UNIT_TYPES.map((type) => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+
+              <input
+                type="number"
+                className="bs-input unit-entry-qty"
+                min="1"
+                value={unit.quantity}
+                onChange={(e) => updateUnit(index, { quantity: Number(e.target.value) || 1 })}
+              />
+
+              <input
+                type="text"
+                className="bs-input unit-entry-brand"
+                placeholder="Brand & model (e.g. Carrier 1HP)"
+                value={unit.brandModel}
+                onChange={(e) => updateUnit(index, { brandModel: e.target.value })}
+              />
+
+              {selectedService && unit.type && (
+                <span className="unit-entry-subtotal">
+                  ₱{(getUnitPrice(selectedService, unit.type) * (unit.quantity || 0)).toLocaleString()}
+                </span>
+              )}
+
+              <button
+                type="button"
+                className="unit-entry-remove"
+                onClick={() => removeUnit(index)}
+                disabled={units.length === 1}
+                aria-label="Remove unit"
+              >
+                <FiX />
+              </button>
+            </div>
           ))}
         </div>
-      </div>
 
-      <div className="bs-field-group">
-        <label className="bs-label">Brand &amp; Model <span className="bs-label-hint">(Enter the brands and models of your units)</span></label>
-        <textarea
-          className="bs-textarea"
-          rows={3}
-          placeholder="e.g. Carrier 1HP Split Type, Panasonic 1.5HP Window Type"
-          value={form.brandModel || ''}
-          onChange={(e) => setForm({ ...form, brandModel: e.target.value })}
-        />
+        <button type="button" className="unit-entry-add-btn" onClick={addUnit}>
+          <FiPlus /> Add Another Unit
+        </button>
       </div>
 
       {isInstallation && (
@@ -306,8 +447,31 @@ export function Step3({ form, setForm, technicians }) {
   const minDate = (() => {
     const d = new Date();
     d.setDate(d.getDate() + 3);
-    return d.toISOString().split('T')[0]; // YYYY-MM-DD for <input type="date">
+    return toLocalDateKey(d); // YYYY-MM-DD for <input type="date">
   })();
+
+  // Hard-Block Technician Double-Booking: this is a UX convenience (hide the
+  // obviously-unavailable options) — the real enforcement is server-side on
+  // booking creation, since a customer could bypass client-side filtering entirely.
+  const [busyTechIds, setBusyTechIds] = useState([]);
+  useEffect(() => {
+    if (!form.date || !form.time) { setBusyTechIds([]); return; }
+    const token = localStorage.getItem('token');
+    fetch(`http://localhost:5000/api/bookings/busy-technicians?date=${form.date}&time=${form.time}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => (res.ok ? res.json() : { busyTechIds: [] }))
+      .then((data) => setBusyTechIds(data.busyTechIds || []))
+      .catch(() => setBusyTechIds([]));
+  }, [form.date, form.time]);
+
+  const availableTechnicians = technicians.filter((t) => !busyTechIds.includes(t._id));
+
+  // Explicit Service Area Boundary — soft check: doesn't block submission (free-
+  // text address matching is too unreliable for that), just warns the customer
+  // and flags the booking for admin review server-side.
+  const addressEntered = (form.address || '').trim().length > 0;
+  const withinArea = !addressEntered || isWithinServiceArea(form.address);
 
    return (
     <div className="bs-card">
@@ -355,10 +519,15 @@ export function Step3({ form, setForm, technicians }) {
           onChange={(e) => setForm({ ...form, technician: e.target.value })}
         >
           <option value="">No preference</option>
-          {technicians.map((t) => (
+          {availableTechnicians.map((t) => (
             <option key={t._id} value={t._id}>{t.name}</option>
           ))}
         </select>
+        {form.date && form.time && busyTechIds.length > 0 && (
+          <p style={{ fontSize: '12px', color: 'var(--ink-soft)', marginTop: '4px' }}>
+            {busyTechIds.length} technician{busyTechIds.length === 1 ? '' : 's'} already booked for this date/time {busyTechIds.length === 1 ? 'is' : 'are'} not shown.
+          </p>
+        )}
       </div>
 
       <div className="bs-field-group">
@@ -370,16 +539,26 @@ export function Step3({ form, setForm, technicians }) {
           value={form.address || ''}
           onChange={(e) => setForm({ ...form, address: e.target.value })}
         />
+        {addressEntered && !withinArea && (
+          <p className="bs-area-warning">
+            This address doesn't mention any of CZA's confirmed service areas ({SERVICE_AREA_DISPLAY_NAMES.join(', ')}).
+            You can still submit — it'll be flagged for admin review before confirming.
+          </p>
+        )}
       </div>
     </div>
   );
 }
 
 /* ── Step 4: Payment ──────────────────────────────────────── */
-function Step4({ form, setForm, services, isReturnCustomer }) {
+function Step4({ form, setForm, services, isReturnCustomer, paymentMethods, downPaymentPercentages }) {
   const [showModal, setShowModal] = useState(false);
-  const { basePrice, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services);
+  const { lineItems, basePrice, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services);
   const isNoDownPayment = dpPercent === 0;
+  // The very first, remote payment can't reasonably be Cash or Cheque — both need
+  // a physical handoff that hasn't happened yet at this point in the flow.
+  // Everything else the admin has configured (GCash, Bank Transfer, ...) is fair game.
+  const firstPaymentMethods = paymentMethods.filter((m) => !['Cash', 'Cheque'].includes(m.name));
 
 const handleSubmitPayment = ({ proof }) => {
     setForm({ ...form, paymentStatus: 'to_verify', proofFile: proof?.name || null, proofFileObj: proof || null });
@@ -393,10 +572,12 @@ const handleSubmitPayment = ({ proof }) => {
           form={{
             ...form,
             basePrice,
+            lineItems,
             downPaymentPercent: dpPercent,
             toPayNow,
             remaining,
           }}
+          paymentMethods={paymentMethods}
           onClose={() => setShowModal(false)}
           onSubmit={handleSubmitPayment}
         />
@@ -413,7 +594,7 @@ const handleSubmitPayment = ({ proof }) => {
           <div className="bs-field-group">
             <label className="bs-label">Down Payment</label>
             <div className="dp-radio-grid">
-              {getDownPaymentOptions(isReturnCustomer).map((opt) => (
+              {getDownPaymentOptions(isReturnCustomer, downPaymentPercentages).map((opt) => (
                 <label key={opt.value} className="dp-radio-label">
                   <input
                     type="radio"
@@ -444,8 +625,8 @@ const handleSubmitPayment = ({ proof }) => {
                   onChange={(e) => setForm({ ...form, paymentMode: e.target.value })}
                 >
                   <option value="">Select mode</option>
-                  {FIRST_PAYMENT_MODES.map((m) => (
-                    <option key={m} value={m}>{m}</option>
+                  {firstPaymentMethods.map((m) => (
+                    <option key={m.name} value={m.name}>{m.name}</option>
                   ))}
                 </select>
               </div>
@@ -460,8 +641,8 @@ const handleSubmitPayment = ({ proof }) => {
                     onChange={(e) => setForm({ ...form, paymentMode2: e.target.value })}
                   >
                     <option value="">Select mode</option>
-                    {PAYMENT_MODES.map((m) => (
-                      <option key={m} value={m}>{m}</option>
+                    {paymentMethods.map((m) => (
+                      <option key={m.name} value={m.name}>{m.name}</option>
                     ))}
                   </select>
                 </div>
@@ -473,6 +654,14 @@ const handleSubmitPayment = ({ proof }) => {
         {/* ── Right: Cost Breakdown ── */}
         <div className="cost-breakdown-card">
           <h4 className="cost-breakdown-title">Cost Breakdown</h4>
+
+          {lineItems.map((li, i) => (
+            <div className="cost-row cost-row-item" key={i}>
+              <span>{li.type || '—'} × {li.quantity}</span>
+              <span>₱{li.subtotal.toLocaleString()}.00</span>
+            </div>
+          ))}
+          <div className="cost-divider" />
 
           <div className="cost-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}.00</span></div>
           <div className="cost-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
@@ -523,7 +712,7 @@ const handleSubmitPayment = ({ proof }) => {
 
 /* ── Step 5: Booking Summary ──────────────────────────────── */
 export function Step5({ form, services, technicians }) {
-  const { selected, basePrice, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services);
+  const { selected, lineItems, basePrice, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services);
   const techName = technicians.find((t) => t._id === form.technician)?.name || 'No preference';
 
   return (
@@ -533,8 +722,12 @@ export function Step5({ form, services, technicians }) {
         <div>
           <p className="summary-section-title">Service Details</p>
           <div className="summary-row"><span>Service</span><span>{selected?.label || '—'}</span></div>
-          <div className="summary-row"><span>Unit Type</span><span>{(form.unitTypes || []).join(', ') || '—'}</span></div>
-          <div className="summary-row"><span>Brand &amp; Model</span><span>{form.brandModel || '—'}</span></div>
+          {lineItems.map((li, i) => (
+            <div className="summary-row" key={i}>
+              <span>Unit {i + 1}</span>
+              <span>{li.quantity}× {li.type || '—'}{li.brandModel ? ` — ${li.brandModel}` : ''}</span>
+            </div>
+          ))}
           <div className="summary-row"><span>Date &amp; Time</span><span>{form.date ? `${form.date}, ${form.time || ''}` : '—'}</span></div>
           <div className="summary-row"><span>Address</span><span>{form.address || '—'}</span></div>
           <div className="summary-row"><span>Preferred Tech</span><span>{techName}</span></div>
@@ -571,13 +764,13 @@ function BookService() {
   const { technicians } = useTechnicians();
   const classification = useMyClassification();
   const isReturnCustomer = classification === 'Return';
+  const { paymentMethods, downPaymentPercentages } = usePaymentSettings();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
 
   const [form, setForm] = useState({
     service: '',
-    unitTypes: [],
-    brandModel: '',
+    units: [],
     problemDescription: '',
     date: '',
     time: '',
@@ -591,7 +784,9 @@ function BookService() {
 const canNext = () => {
     if (step === 1) return !!form.service;
     if (step === 2) {
-      if ((form.unitTypes || []).length === 0) return false;
+      const units = form.units || [];
+      if (units.length === 0) return false;
+      if (units.some((u) => !u.type || !u.quantity || u.quantity < 1)) return false;
       const selectedService = services.find((s) => s.id === form.service);
       const isInstallation = selectedService?.serviceType === 'Installation';
       if (isInstallation && form.clientSuppliedUnit) {
@@ -623,8 +818,9 @@ const canNext = () => {
 
       const formData = new FormData();
       formData.append('service', form.service);
-      (form.unitTypes || []).forEach((u) => formData.append('unitTypes', u));
-      formData.append('brandModel', form.brandModel || '');
+      // Sent as a JSON string, not repeated fields, since this is multipart/form-data
+      // (there's a proof file too) and units are now structured objects, not flat strings.
+      formData.append('units', JSON.stringify(form.units || []));
       formData.append('problemDescription', form.problemDescription || '');
       formData.append('date', form.date);
       formData.append('time', form.time);
@@ -639,6 +835,10 @@ const canNext = () => {
       formData.append('paymentMode', form.paymentMode || '');
       formData.append('paymentMode2', form.paymentMode2 || '');
       formData.append('paymentStatus', form.paymentStatus || 'Unpaid');
+      if (form.lastCleanedOver6MonthsAgo !== undefined) {
+        formData.append('lastCleanedOver6MonthsAgo', form.lastCleanedOver6MonthsAgo);
+        formData.append('isActivelyLeaking', form.isActivelyLeaking);
+      }
       if (form.proofFileObj) formData.append('proof', form.proofFileObj);
 
       const res = await fetch('http://localhost:5000/api/bookings', {
@@ -673,7 +873,16 @@ const canNext = () => {
           {step === 1 && <Step1 form={form} setForm={setForm} services={services} />}
           {step === 2 && <Step2 form={form} setForm={setForm} services={services} />}
           {step === 3 && <Step3 form={form} setForm={setForm} technicians={technicians} />}
-          {step === 4 && <Step4 form={form} setForm={setForm} services={services} isReturnCustomer={isReturnCustomer} />}
+          {step === 4 && (
+            <Step4
+              form={form}
+              setForm={setForm}
+              services={services}
+              isReturnCustomer={isReturnCustomer}
+              paymentMethods={paymentMethods}
+              downPaymentPercentages={downPaymentPercentages}
+            />
+          )}
           {step === 5 && <Step5 form={form} services={services} technicians={technicians} />}
         </>
       )}

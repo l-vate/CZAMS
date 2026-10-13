@@ -246,6 +246,7 @@ function BackJobs() {
 
   return (
     <AdminLayout title="Back Jobs">
+      <h1 className="dashboard-welcome">Back Jobs</h1>
       <div className="backjobs-toolbar">
         <div className="backjobs-filters">
           {FILTERS.map((filter) => (

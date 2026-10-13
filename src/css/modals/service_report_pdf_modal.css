@@ -66,7 +66,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #2563eb;
+  color: var(--primary);
   margin: 0 0 8px;
 }
 
@@ -116,17 +116,15 @@
   background: #ffffff;
 }
 
+/* Background/hover converged (Pass D) to var(--primary)/var(--primary-hover) —
+   inherited from .modal-submit-btn now that this no longer overrides it to a
+   near-black color. */
 .report-pdf-print-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: #0f172a;
   margin-top: 16px;
-}
-
-.report-pdf-print-btn:hover {
-  background: #1e293b;
 }
 
 /* ============ PRINT MEDIA RULES ============ */

@@ -7,6 +7,8 @@ const Booking = require('../models/Booking');
 const User = require('../models/User');
 const { getWarrantyStatus } = require('../utils/warranty');
 const { sendNotification } = require('../utils/notifications');
+const { getBookingBasePrice } = require('../utils/pricing');
+const { isWithinServiceArea } = require('../utils/serviceArea');
 
 // Every route that returns a booking should include its computed warranty status,
 // otherwise the admin/customer detail views lose that section the moment any other
@@ -15,6 +17,24 @@ function withWarranty(booking) {
   const obj = booking.toObject();
   obj.warranty = getWarrantyStatus(booking);
   return obj;
+}
+
+// Hard-block Technician Double-Booking: a technician already on a
+// Pending/Approved/In Progress booking for the same date and the same time
+// block (Morning/Afternoon) cannot be assigned a second one — matches the
+// existing Morning/Afternoon scheduling model (a tech's day is block-based, a
+// large job can occupy their whole day) rather than treating any second booking
+// that day as a conflict. Used by both booking creation and admin reassignment,
+// not just the busy-technicians dropdown filter, so this is an actual block.
+async function findConflictingBooking(technicianId, date, time, excludeBookingId) {
+  if (!technicianId || !date || !time) return null;
+  return Booking.findOne({
+    technician: technicianId,
+    date,
+    time,
+    status: { $in: ['Pending', 'Approved', 'In Progress'] },
+    ...(excludeBookingId ? { bookingId: { $ne: excludeBookingId } } : {}),
+  });
 }
 
 // ============================================
@@ -88,7 +108,7 @@ function openRefundIfEligible(booking) {
 
   if (!hasDownPaymentOnFile) return;
 
-  const basePrice = booking.service?.price || 0;
+  const basePrice = getBookingBasePrice(booking);
   const downPaymentAmount = Math.round(basePrice * (booking.downPaymentPercent / 100));
   const isSameDay = booking.date === todayDateString();
 
@@ -105,6 +125,34 @@ function openRefundIfEligible(booking) {
 }
 
 // ============================================
+// 1b. PUBLIC ROUTES (no auth — Landing Page Module search)
+// ============================================
+
+// Company-wide feedback aggregate for the navbar search popup — when a visitor's
+// search matches a technician, we deliberately show this instead of that
+// individual's own rating/reviews (small 4-person field team; no public
+// per-technician profile). All-time, across every completed booking with
+// feedback on file, regardless of which technician was assigned. Registered as
+// a two-segment path (not just "/:bookingId") so it can never be shadowed by the
+// single-segment booking-detail route below, regardless of route registration order.
+router.get('/public/feedback-summary', async (req, res) => {
+  try {
+    const [result] = await Booking.aggregate([
+      { $match: { 'feedback.rating': { $exists: true, $ne: null } } },
+      { $group: { _id: null, averageRating: { $avg: '$feedback.rating' }, totalReviews: { $sum: 1 } } },
+    ]);
+
+    res.json({
+      averageRating: result ? Math.round(result.averageRating * 10) / 10 : null,
+      totalReviews: result ? result.totalReviews : 0,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ============================================
 // 2. CUSTOMER ROUTES (Booking Management)
 // ============================================
 
@@ -118,10 +166,11 @@ router.post('/', auth, (req, res, next) => {
 }, upload.single('proof'), async (req, res) => {
   try {
     const {
-      service, unitTypes, brandModel, problemDescription,
+      service, units: unitsRaw, problemDescription,
       date, time, technician, address,
       downPaymentPercent, paymentMode, paymentMode2,
       customer, clientSuppliedUnit, unitWaiverAcknowledged, unitWaiverName,
+      lastCleanedOver6MonthsAgo, isActivelyLeaking,
     } = req.body;
 
     if (!isDateAllowed(date)) {
@@ -129,6 +178,36 @@ router.post('/', auth, (req, res, next) => {
         message: 'Selected date must be at least 3 days from today.'
       });
     }
+
+    if (technician) {
+      const conflict = await findConflictingBooking(technician, date, time);
+      if (conflict) {
+        return res.status(400).json({
+          message: `This technician is already booked ${date} (${time}). Choose a different technician or time.`
+        });
+      }
+    }
+
+    // Multi-Unit Booking Redesign: `units` arrives as a JSON string, same reason
+    // `proof` is a file rather than JSON — this is a multipart/form-data request,
+    // which can't carry a nested array as a plain field the way a JSON body could.
+    let units;
+    try {
+      units = JSON.parse(unitsRaw || '[]');
+    } catch (err) {
+      return res.status(400).json({ message: 'Invalid unit list.' });
+    }
+    if (!Array.isArray(units) || units.length === 0) {
+      return res.status(400).json({ message: 'At least one unit is required.' });
+    }
+    if (units.some((u) => !u.type || !Number.isFinite(Number(u.quantity)) || Number(u.quantity) < 1)) {
+      return res.status(400).json({ message: 'Each unit needs a type and a quantity of at least 1.' });
+    }
+    units = units.map((u) => ({
+      type: u.type,
+      quantity: Number(u.quantity),
+      brandModel: u.brandModel || '',
+    }));
 
     // Warranty Tracking Module: a client-supplied unit on an installation booking
     // has no Unit Warranty, so a signed waiver acknowledging that is required.
@@ -169,10 +248,12 @@ router.post('/', auth, (req, res, next) => {
       paymentStatus = 'Unpaid';
     }
 
+    const withinServiceArea = isWithinServiceArea(address);
+
     const booking = await Booking.create({
       bookingId: req.generatedBookingId,
       customer: bookingCustomerId,
-      service, unitTypes, brandModel, problemDescription,
+      service, units, problemDescription,
       date, time, technician, address,
       downPaymentPercent, paymentMode, paymentMode2,
       paymentStatus, proofFile,
@@ -181,6 +262,11 @@ router.post('/', auth, (req, res, next) => {
         acknowledged: true,
         customerName: unitWaiverName.trim(),
         acknowledgedAt: new Date(),
+      } : undefined,
+      serviceAreaCheck: { withinArea: withinServiceArea, checkedAt: new Date() },
+      cleaningTierAnswers: (lastCleanedOver6MonthsAgo !== undefined || isActivelyLeaking !== undefined) ? {
+        lastCleanedOver6MonthsAgo: lastCleanedOver6MonthsAgo === 'true' || lastCleanedOver6MonthsAgo === true,
+        isActivelyLeaking: isActivelyLeaking === 'true' || isActivelyLeaking === true,
       } : undefined,
     });
 
@@ -214,6 +300,36 @@ router.get('/mine', auth, async (req, res) => {
       return obj;
     });
     res.json(enriched);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get busy technicians for a specific date. Must stay registered before
+// GET /:bookingId below — Express matches in registration order, so any
+// single-segment GET path declared after it is swallowed as a bookingId lookup
+// (this route used to sit after it and always 404'd "Booking not found").
+router.get('/busy-technicians', auth, async (req, res) => {
+  try {
+    const { date, time } = req.query;
+    if (!date) return res.status(400).json({ message: 'Date is required' });
+
+    // Optional `time` narrows to that Morning/Afternoon block specifically,
+    // matching the same date+time granularity findConflictingBooking enforces —
+    // without it, this falls back to the coarser whole-day check (still useful
+    // for the admin reassignment view, which doesn't always have a time to filter by).
+    const busyBookings = await Booking.find({
+      date,
+      ...(time ? { time } : {}),
+      status: { $in: ['Pending', 'Approved', 'In Progress'] }
+    });
+
+    const busyTechIds = busyBookings
+      .map(b => b.technician?.toString())
+      .filter(Boolean);
+
+    res.json({ busyTechIds });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -305,6 +421,33 @@ router.patch('/:bookingId/pay-balance', auth, upload.single('proof'), async (req
     const booking = await Booking.findOneAndUpdate(
       { bookingId: req.params.bookingId, customer: req.userId },
       updateData,
+      { new: true }
+    ).populate('service');
+
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    res.json(withWarranty(booking));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: upload proof a CZA-supplied unit was actually purchased through CZA —
+// backs a future 5yr/1yr Unit Warranty claim, mirrors the client-supplied-unit
+// waiver's role but for the opposite case. Admin-side (not the customer's), since
+// CZA is the one that made the sale and holds the record of it.
+router.patch('/:bookingId/unit-purchase-proof', auth, upload.single('proof'), async (req, res) => {
+  try {
+    if (req.userRole !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ message: 'A proof-of-purchase file is required.' });
+    }
+
+    const booking = await Booking.findOneAndUpdate(
+      { bookingId: req.params.bookingId },
+      { unitPurchaseProof: `/uploads/proofs/${req.file.filename}` },
       { new: true }
     ).populate('service');
 
@@ -448,28 +591,6 @@ router.get('/technician/mine/stats', auth, async (req, res) => {
       }));
 
     res.json({ ongoing, completed, pendingReports, feedbacks });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Get busy technicians for a specific date
-router.get('/busy-technicians', auth, async (req, res) => {
-  try {
-    const { date } = req.query;
-    if (!date) return res.status(400).json({ message: 'Date is required' });
-
-    const busyBookings = await Booking.find({
-      date,
-      status: { $in: ['Pending', 'Approved', 'In Progress'] }
-    });
-
-    const busyTechIds = busyBookings
-      .map(b => b.technician?.toString())
-      .filter(Boolean);
-
-    res.json({ busyTechIds });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -705,7 +826,10 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const { technician, status, paymentStatus, balancePaymentStatus, balancePaid, technicianInstructions } = req.body;
+    const {
+      technician, status, paymentStatus, balancePaymentStatus, balancePaid, technicianInstructions,
+      distanceAdjustment, mobilizationFee,
+    } = req.body;
     const allowedStatuses = ['Pending', 'Approved', 'In Progress', 'Completed', 'Cancelled'];
 
     if (status && !allowedStatuses.includes(status)) {
@@ -724,9 +848,34 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
       });
     }
 
-    // Assign technician
+    // Assign technician — hard-blocked (not just filtered client-side) if already
+    // on another Pending/Approved/In Progress booking for this same date+time.
+    if (technician !== undefined && technician && technician !== booking.technician) {
+      const conflict = await findConflictingBooking(technician, booking.date, booking.time, booking.bookingId);
+      if (conflict) {
+        return res.status(400).json({
+          message: `This technician is already booked ${booking.date} (${booking.time}) on ${conflict.bookingId}. Choose a different technician.`
+        });
+      }
+    }
     if (technician !== undefined) {
       booking.technician = technician || undefined;
+    }
+
+    // Distance/Mobilization Charges — admin-entered, not system-computed.
+    if (distanceAdjustment !== undefined) {
+      const parsed = Number(distanceAdjustment);
+      if (isNaN(parsed) || parsed < 0) {
+        return res.status(400).json({ message: 'Distance adjustment must be a valid non-negative amount.' });
+      }
+      booking.distanceAdjustment = parsed;
+    }
+    if (mobilizationFee !== undefined) {
+      const parsed = Number(mobilizationFee);
+      if (isNaN(parsed) || parsed < 0) {
+        return res.status(400).json({ message: 'Mobilization fee must be a valid non-negative amount.' });
+      }
+      booking.mobilizationFee = parsed;
     }
 
     // Pre-service technician instructions (Service Report Module)

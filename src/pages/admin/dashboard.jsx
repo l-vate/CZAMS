@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import AdminLayout from './admin_layout';
+import { getStatusColor } from '../../utils/statusColors';
 
 import {
   FiClipboard,
@@ -17,17 +18,6 @@ const CLIENT_TYPE_FILTERS = [
 ];
 
 const RECENT_BOOKINGS_LIMIT = 5;
-
-function getStatusColor(status) {
-  switch (status) {
-    case 'Completed': return '#22c55e';
-    case 'Approved': return '#3b82f6';
-    case 'In Progress': return '#8b5cf6';
-    case 'Cancelled': return '#ef4444';
-    case 'Pending': return '#f97316';
-    default: return '#64748b';
-  }
-}
 
 function Dashboard() {
   const [bookings, setBookings] = useState([]);
@@ -100,7 +90,7 @@ function Dashboard() {
     <AdminLayout title="Dashboard">
       <div className="dashboard">
         <div className="dashboard-header">
-          <h1>Welcome, Admin</h1>
+          <h1 className="dashboard-welcome">Welcome, Admin</h1>
           <p>Manage bookings, staff, and services from one place.</p>
         </div>
 

@@ -4,6 +4,8 @@ import CustomerLayout from './customer_layout';
 import ReceiptModal from '../../components/receipt_modal';
 import FeedbackModal from '../../components/feedback_modal';
 import BackJobModal from '../../components/back_job_modal';
+import { getBookingLineItems } from '../../utils/bookingPricing';
+import { toLocalDateKey } from '../../utils/date';
 import {
   FiCheck, FiMail, FiMessageSquare, FiBell, FiPrinter,
   FiCalendar, FiClock, FiMapPin, FiInfo, FiCreditCard,
@@ -44,7 +46,7 @@ function RescheduleModal({ booking, onClose, onSubmit, submitting }) {
   const minDate = (() => {
     const d = new Date();
     d.setDate(d.getDate() + 3);
-    return d.toISOString().split('T')[0];
+    return toLocalDateKey(d);
   })();
 
   const isDateValid = date >= minDate;
@@ -351,7 +353,7 @@ function BookDetails() {
 
   const cancelled = booking.status === 'Cancelled';
 
-  const basePrice = booking.service?.price || 0;
+  const { lineItems, basePrice } = getBookingLineItems(booking);
   const dpPercent = booking.downPaymentPercent ?? 10;
   const toPayNow = Math.round(basePrice * (dpPercent / 100));
   const remaining = basePrice - toPayNow;
@@ -365,6 +367,7 @@ function BookDetails() {
     address: booking.address,
     contactNumber: storedUser.phone || '—',
     service: booking.service?.name || '—',
+    lineItems,
     basePrice,
     toPayNow,
     downPaymentPercent: dpPercent,
@@ -575,9 +578,15 @@ function BookDetails() {
           <div className="confirmation-details-grid">
             <div>
               <p className="summary-section-title">{booking.service?.name || '—'}</p>
-              <p className="confirmation-detail-line">
-                Unit: {(booking.unitTypes || []).join(', ') || '—'}
-              </p>
+              {lineItems.length === 0 ? (
+                <p className="confirmation-detail-line">Unit: —</p>
+              ) : (
+                lineItems.map((li, i) => (
+                  <p className="confirmation-detail-line" key={i}>
+                    Unit: {li.quantity}× {li.type}{li.brandModel ? ` — ${li.brandModel}` : ''}
+                  </p>
+                ))
+              )}
 
               <div className="confirmation-detail-item">
                 <span className="confirmation-detail-icon"><FiCalendar /></span>

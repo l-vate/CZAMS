@@ -19,7 +19,19 @@
   --border-subtle: #e2eaf1;
   --white:         #ffffff;
 
-  /* Status Colors */
+  /* Card conventions (Pass E) — the "1px hairline border" and "elevate on hover"
+     affordances had drifted into 3 near-identical grays and 6 different shadow
+     color families across the app. Both values below are what the majority of
+     existing cards already agreed on (--card-border matches --border-subtle,
+     which existed but was never actually referenced by anything; the shadow tint
+     is derived from --navy's own RGB, already the most-used family). */
+  --card-border:       #e2eaf1;
+  --card-hover-shadow: 0 4px 16px rgba(11, 37, 69, 0.08);
+
+  /* Status Colors — pastel pill scheme (badges/pills with a tinted background).
+     This is the one definitive Pending/Approved/In Progress/Completed/Cancelled
+     mapping for the whole app; every page's status pill should point at these
+     instead of hardcoding its own competing pastel pair. */
   --status-pending-bg:   #fef3c7;
   --status-pending-txt:  #b45309;
   --status-approved-bg:  #dbeafe;
@@ -30,6 +42,43 @@
   --status-complete-txt: #15803d;
   --status-cancel-bg:    #fee2e2;
   --status-cancel-txt:   #b91c1c;
+
+  /* Unified Action & Semantic Colors — solid-fill colors for buttons, icons, and
+     solid (non-pastel) badges. Consolidates what had drifted into 7 competing
+     "primary blue" hex values and several competing greens/reds/ambers across
+     admin.css/customer.css/staff.css into one definitive value each. Scoped to
+     the admin/customer/staff dashboard portals — the public marketing site
+     (public.css) intentionally keeps its own --navy/--navy-soft brand identity
+     and isn't part of this consolidation. */
+  --primary:        #2563eb;
+  --primary-hover:  #1d4ed8;
+  --success:        #22c55e;
+  --success-hover:  #16a34a;
+  --danger:         #dc2626;
+  --danger-hover:   #b91c1c;
+  --warning:        #f59e0b;
+  --warning-hover:  #d97706;
+
+  /* "In Progress" solid accent — used on solid (white-text) badges, e.g. booking
+     status badges and technician job-status badges. Kept separate from the
+     --status-progress-bg/-txt pastel pair above (a different indigo, meant for
+     tinted pills, not solid fills) and from --primary/--success/--danger/--warning
+     since "in progress" isn't a stand-in for any of those four concepts. */
+  --status-progress-solid: #8b5cf6;
+
+  /* Payment-status vocabulary (Unpaid/To Verify/Partially Paid/Fully Paid/
+     Rejected/Cancelled/Refunded) reuses --danger/--warning/--primary/--success
+     above wherever the concept genuinely overlaps with a booking-status concept.
+     "Cancelled" and "Refunded" don't map onto any of those four, so they get
+     their own tokens — and Cancelled is deliberately NOT red here. A cancelled
+     bill has nothing left to act on (it's settled bookkeeping), unlike booking-
+     status "Cancelled" which is a "this didn't happen" signal worth flagging; a
+     rejected proof-of-payment (still red, still needs the customer to resubmit)
+     covers the "something's wrong here" case in this vocabulary instead. */
+  --payment-cancelled-bg:  #e2e8f0;
+  --payment-cancelled-txt: #475569;
+  --payment-refunded-bg:   #cffafe;
+  --payment-refunded-txt:  #0e7490;
 
   /* Global Metrics & Animation */
   --radius-sm:        8px;
@@ -75,6 +124,21 @@ section {
 /* ==========================================================================
    3. SHARED UTILITIES & COMPONENTS
    ========================================================================== */
+
+/* The one page-title standard (Pass E) — was already the most-used class name
+   for this across all three dashboard portals (admin/customer/staff), just
+   never actually had CSS written for it, so it rendered at whatever size the
+   browser's default <h1> happened to be. Every page-title-sized heading now
+   converges here instead of three competing sizes (32px, 1.9rem/800, 22px) plus
+   several pages having no in-page title at all. */
+.dashboard-welcome {
+  font-family: 'Outfit', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--navy);
+  margin: 0 0 8px;
+}
+
 .vent-divider {
   height: 1px;
   border: none;

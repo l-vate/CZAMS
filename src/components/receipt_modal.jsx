@@ -32,10 +32,10 @@ function ReceiptModal({ form, booking, onClose }) {
   const handlePrint = () => window.print();
 
   return (
-    <div className="modal-overlay receipt-modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={onClose}>
       <div className="receipt-modal-card" onClick={(e) => e.stopPropagation()}>
 
-        <div className="modal-header receipt-modal-header">
+        <div className="modal-header">
           <span />
           <button className="modal-close-btn" onClick={onClose}>✕</button>
         </div>
@@ -74,11 +74,21 @@ function ReceiptModal({ form, booking, onClose }) {
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td>{form.service || '—'}</td>
-                  <td>1</td>
-                  <td>₱{basePrice.toLocaleString()}</td>
-                </tr>
+                {form.lineItems?.length > 0 ? (
+                  form.lineItems.map((li, i) => (
+                    <tr key={i}>
+                      <td>{form.service || '—'} — {li.type || '—'}{li.brandModel ? ` (${li.brandModel})` : ''}</td>
+                      <td>{li.quantity}</td>
+                      <td>₱{li.subtotal.toLocaleString()}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td>{form.service || '—'}</td>
+                    <td>1</td>
+                    <td>₱{basePrice.toLocaleString()}</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

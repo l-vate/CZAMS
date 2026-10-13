@@ -130,9 +130,11 @@
 }
 
 .slide-1 {
+  /* Temporary placeholder (free Unsplash stock, aircon-themed) — /images/hero-aircon.jpg
+     never existed on disk. Swap for real CZA photography when available. */
   background:
     linear-gradient(155deg, var(--navy) 0%, var(--navy-soft) 55%, var(--navy) 100%),
-    url('/images/hero-aircon.jpg') center/cover no-repeat;
+    url('https://images.unsplash.com/photo-1718203862467-c33159fdc504?auto=format&fit=crop&w=1600&q=80') center/cover no-repeat;
 }
 
 .slide-2 {
@@ -231,6 +233,248 @@
 }
 
 .next-btn:hover { background: rgba(255,255,255,0.32); }
+
+/* Announcements now render as hero slides (.slide-2, above) instead of their own
+   section — the .announcement-board/.announcement-card rules that used to style
+   that section have been removed. Same for the old dedicated "Search Before You
+   Book" section (.public-search*) — replaced by .nav-search-* below, a single
+   input in the navbar itself. */
+
+/* Base overlay/header/close-button classes for the search popup — landing_page.jsx
+   only imports this stylesheet (not the shared modals/*.css used by the
+   authenticated app), so these are defined locally rather than pulling in an
+   otherwise-unrelated bundle just for three class names. */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-close-btn {
+  background: #f1f5f9;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.modal-close-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+/* ============ NAVBAR SEARCH ============ */
+.nav-search-wrapper {
+  position: relative;
+}
+
+.nav-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.nav-search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--ink-soft);
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.nav-search-box .search {
+  width: 220px;
+  padding-left: 34px;
+}
+
+/* Results open in a larger popup (.nav-search-modal) rather than a small
+   inline dropdown under the input — a service match needs room for its
+   description and per-unit-type price breakdown, and a technician match needs
+   room for the company-wide review aggregate shown in its place (see
+   NavSearch in landing_page.jsx for why no per-technician profile is shown). */
+.nav-search-modal-overlay {
+  z-index: 300;
+}
+
+.nav-search-modal {
+  background: var(--white);
+  border-radius: 16px;
+  width: min(560px, 92vw);
+  max-height: 82vh;
+  overflow-y: auto;
+  padding: 20px 22px 24px;
+  box-shadow: 0 24px 60px rgba(11,37,69,0.28);
+  font-family: 'Inter', sans-serif;
+}
+
+.nav-search-modal-title {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  color: var(--navy);
+  font-size: 16px;
+}
+
+.nav-search-modal-body {
+  margin-top: 14px;
+}
+
+.nav-search-empty {
+  color: var(--ink-soft);
+  font-size: 13px;
+  text-align: center;
+  padding: 24px 8px;
+}
+
+.nav-search-result-group + .nav-search-result-group {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--mist);
+}
+
+.nav-search-group-title {
+  font-family: 'Outfit', sans-serif;
+  color: var(--navy);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 10px;
+}
+
+.nav-search-service-card {
+  background: var(--frost);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.nav-search-service-card + .nav-search-service-card {
+  margin-top: 12px;
+}
+
+.nav-search-service-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.nav-search-service-name {
+  font-weight: 700;
+  color: var(--navy);
+  font-size: 15px;
+}
+
+.nav-search-service-base-price {
+  flex-shrink: 0;
+  color: var(--navy-soft);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.nav-search-service-desc {
+  color: var(--ink-soft);
+  font-size: 13px;
+  margin: 6px 0 0;
+}
+
+.nav-search-unit-heading {
+  color: var(--ink-soft);
+  font-size: 12px;
+  margin: 12px 0 6px;
+}
+
+.nav-search-unit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 10px;
+}
+
+.nav-search-unit-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+}
+
+.nav-search-unit-photo {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.nav-search-unit-label { font-size: 11px; color: var(--ink-soft); line-height: 1.2; }
+.nav-search-unit-price { font-size: 12.5px; font-weight: 700; color: var(--navy); }
+
+.nav-search-tech-names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.nav-search-tech-chip {
+  background: var(--frost);
+  color: var(--navy);
+  font-weight: 600;
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 999px;
+}
+
+.nav-search-reviews-card {
+  margin-top: 14px;
+  background: var(--frost);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.nav-search-reviews-title {
+  font-weight: 700;
+  color: var(--navy);
+  font-size: 14px;
+  margin: 0 0 6px;
+}
+
+.nav-search-reviews-stat {
+  color: var(--navy-soft);
+  font-weight: 600;
+  font-size: 14px;
+  margin: 0;
+}
+
+.nav-search-reviews-empty { color: var(--ink-soft); font-weight: 500; }
+
+.nav-search-reviews-note {
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  margin: 6px 0 0;
+}
+
+.nav-search-cta {
+  display: block;
+  width: 100%;
+  margin-top: 20px;
+}
 
 /* ============ LANDING — ABOUT ============ */
 .about {
@@ -835,6 +1079,8 @@
 @media (max-width: 860px) {
   .navbar { flex-wrap: wrap; padding: 14px 22px; gap: 12px; }
   .nav-links { order: 3; width: 100%; display: flex; justify-content: center; }
+  .nav-search-wrapper { order: 4; width: 100%; }
+  .nav-search-box .search { width: 100%; }
   .slide-content h1, .slide-content h2 { font-size: 32px; }
   .footer { padding: 40px 22px 20px; }
   .auth-split-page { flex-direction: column; }

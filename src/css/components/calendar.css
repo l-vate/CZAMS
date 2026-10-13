@@ -114,8 +114,8 @@
 }
 
 .cal-mini-day:hover { background: #f3f4f6; }
-.cal-mini-day-today { color: #2563eb; font-weight: 600; }
-.cal-mini-day-selected { background: #2563eb; color: #fff; }
+.cal-mini-day-today { color: var(--primary); font-weight: 600; }
+.cal-mini-day-selected { background: var(--primary); color: #fff; }
 
 .cal-legend { margin-top: 24px; }
 
@@ -250,7 +250,7 @@
   color: #1f2937;
 }
 
-.cal-day-number-today { background: #2563eb; color: #fff; }
+.cal-day-number-today { background: var(--primary); color: #fff; }
 
 /* Grid Timeline Layout */
 .cal-grid-scroll {
@@ -312,16 +312,112 @@
   text-overflow: ellipsis;
 }
 
-/* Event Status Highlights */
-.cal-job-confirmed { background: #dbeafe; border-color: #3b82f6; color: #1e3a8a; }
-.cal-job-pending   { background: #fef3c7; border-color: #f59e0b; color: #78350f; }
-.cal-job-completed { background: #d1fae5; border-color: #10b981; color: #064e3b; }
-.cal-job-cancelled { background: #f3f4f6; border-color: #9ca3af; color: #6b7280; }
+/* Month View Grid — the "Month" toolbar toggle previously had no grid of its own
+   and silently fell back to the week view. */
+.cal-month-grid-scroll {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
 
-.cal-dot-confirmed { background: #3b82f6; }
-.cal-dot-pending   { background: #f59e0b; }
-.cal-dot-completed { background: #10b981; }
-.cal-dot-cancelled { background: #9ca3af; }
+.cal-month-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-bottom: 1px solid #e5e7eb;
+  text-align: center;
+}
+
+.cal-month-weekday {
+  padding: 8px 0;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  color: #6b7280;
+}
+
+.cal-month-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  /* min-content (not a fixed 96px minimum) so a row grows to fit wrapped job chips;
+     the 96px floor now lives on .cal-month-day-cell's min-height instead. */
+  grid-auto-rows: minmax(min-content, 1fr);
+}
+
+.cal-month-day-cell {
+  min-height: 96px;
+  border-left: 1px solid #f3f4f6;
+  border-bottom: 1px solid #f3f4f6;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cal-month-day-cell-outside { background: #fafafa; color: #d1d5db; }
+.cal-month-day-cell-outside .cal-month-day-number { color: #d1d5db; }
+
+.cal-month-day-number {
+  height: 24px;
+  width: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.cal-month-day-jobs {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cal-month-job-chip {
+  border: none;
+  border-left: 3px solid;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: left;
+  /* Wraps instead of truncating: the title carries the booking's unit list
+     ("Cleaning - 2× Split Type, 1× Floor Mounted"), which was unreadable cut off. */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+  cursor: pointer;
+}
+
+.cal-month-more {
+  font-size: 10.5px;
+  color: #6b7280;
+  padding: 0 2px;
+}
+
+/* Event Status Highlights */
+/* Converged (Pass E, deferred from Pass B) to the shared status tokens — this
+   legend previously had its own blue/green palette not tied to any token.
+   "Cancelled" uses --payment-cancelled-* (neutral gray) rather than the red
+   --status-cancel-*: a cancelled slot on a schedule reads as "not happening,"
+   informational, not a warning — same reasoning as the payment-status Cancelled
+   decision in Pass B. */
+.cal-job-confirmed { background: var(--status-approved-bg); border-color: var(--primary); color: var(--status-approved-txt); }
+.cal-job-pending   { background: var(--status-pending-bg); border-color: var(--warning); color: var(--status-pending-txt); }
+.cal-job-in-progress { background: var(--status-progress-bg); border-color: var(--status-progress-solid); color: var(--status-progress-txt); }
+.cal-job-completed { background: var(--status-complete-bg); border-color: var(--success); color: var(--status-complete-txt); }
+.cal-job-cancelled { background: var(--payment-cancelled-bg); border-color: var(--payment-cancelled-txt); color: var(--payment-cancelled-txt); }
+
+.cal-dot-confirmed { background: var(--primary); }
+.cal-dot-in-progress { background: var(--status-progress-solid); }
+.cal-dot-pending   { background: var(--warning); }
+.cal-dot-completed { background: var(--success); }
+.cal-dot-cancelled { background: var(--payment-cancelled-txt); }
 
 .cal-status-pill {
   border-radius: 999px;

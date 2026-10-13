@@ -20,6 +20,8 @@ app.use('/api/reports', require('./routes/reportRoutes'));
 app.use('/api/backjobs', require('./routes/backJobRoutes'));
 app.use('/api/service-reminders', require('./routes/serviceReminderRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
+app.use('/api/announcements', require('./routes/announcementRoutes'));
+app.use('/api/payment-settings', require('./routes/paymentSettingsRoutes'));
 
 const { startServiceReminderSchedule } = require('./jobs/serviceReminderJob');
 startServiceReminderSchedule();

@@ -27,3 +27,8 @@ test('the script only reads: it has no delete, unlink, move or write call', () =
   const source = ['../scripts/listOrphanUploads.js', '../utils/orphanUploads.js'].map((f) => fs.readFileSync(path.join(__dirname, f), 'utf8')).join('\n');
   assert.equal(/unlink|rmSync|rename|writeFile|deleteOne|deleteMany|updateOne|updateMany|insert|--apply/.test(source.replace(/\/\/.*$/gm, '')), false);
 });
+
+test('a profile image that a user points at is not an orphan', () => {
+  const users = [{ profileImage: '/uploads/profile-images/face.png' }, { profileImage: '/uploads/proofs/not-a-profile.png' }];
+  assert.deepEqual(findOrphans({ filesOnDisk: ['face.png', 'lost.png', 'not-a-profile.png'], bookings: [], reports: [], users }), ['lost.png', 'not-a-profile.png']);
+});

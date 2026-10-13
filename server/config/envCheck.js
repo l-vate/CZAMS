@@ -20,6 +20,10 @@ function checkEnvironment(env = process.env) {
     if (!secret) errors.push('JWT_SECRET is missing. Set it to a long random string (at least 32 characters).');
     else if (secret.length < PRODUCTION_MIN_SECRET) errors.push(`JWT_SECRET is shorter than ${PRODUCTION_MIN_SECRET} characters. Use a longer random string.`);
     if (!env.MONGO_URI) errors.push('MONGO_URI is missing. Set it to the database connection string.');
+    // Uploaded files kept on the host's disk are lost whenever the host restarts or redeploys.
+    if (String(env.FILE_STORE || '').trim().toLowerCase() === 'disk') {
+      warnings.push('FILE_STORE is disk in production, so uploaded files will be lost when the host restarts or redeploys. Use gridfs.');
+    }
   } else if (secret) {
     if (secret.length < DEVELOPMENT_MIN_SECRET) warnings.push(`JWT_SECRET is shorter than ${DEVELOPMENT_MIN_SECRET} characters.`);
     if (looksLikePlaceholder(secret)) warnings.push('JWT_SECRET looks like a placeholder. Replace it before this runs anywhere real.');

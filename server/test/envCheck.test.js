@@ -61,3 +61,14 @@ test('enforceEnvironment exits with 1 on an error and logs, and does not exit on
   assert.deepEqual(calls.exit, []);
   assert.equal(calls.warn.length, 1);
 });
+
+test('production warns once when files are kept on disk, and not for gridfs or unset', () => {
+  const warned = checkEnvironment(prod({ FILE_STORE: 'disk' }));
+  assert.deepEqual(warned.errors, []);
+  assert.equal(warned.warnings.length, 1);
+  assert.match(warned.warnings[0], /FILE_STORE is disk/);
+  assert.match(warned.warnings[0], /lost/);
+  assert.deepEqual(checkEnvironment(prod({ FILE_STORE: 'gridfs' })).warnings, []);
+  assert.deepEqual(checkEnvironment(prod()).warnings, []);
+  assert.deepEqual(checkEnvironment({ NODE_ENV: 'development', FILE_STORE: 'disk' }).warnings, []);
+});

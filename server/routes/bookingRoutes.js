@@ -43,6 +43,7 @@ const { normalizeContactNumber } = require('../utils/contactNumber');
 const { sendRouteError } = require('../utils/routeErrors');
 const { planPaymentChange, planInPersonPayment, commitPayment } = require('../utils/paymentVerification');
 const { buildPriceSnapshot } = require('../utils/priceSnapshot');
+const { readPaging } = require('../utils/adminInput');
 const { serviceProblem, unitsProblem } = require('../utils/bookingValidation');
 const { downPaymentProblem, balanceProblem, firstPaymentModeProblem, DOWN_PAYMENT_BOOKING_STATUSES, DOWN_PAYMENT_OPEN, BALANCE_BOOKING_STATUSES, BALANCE_OPEN } = require('../utils/paymentGuards');
 const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/queue');
@@ -1457,11 +1458,20 @@ router.get('/', auth, async (req, res) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const bookings = await Booking.find()
+    // Optional paging: ?limit=&page= (at most 1000 a page). With neither, the whole list comes back as before.
+    const read = readPaging(req.query);
+    if (read.problem) return sendProblem(res, read.problem);
+
+    let query = Booking.find()
       .populate('service')
       .populate('customer', 'name email phone clientType companyName representativeName')
       .populate('technician', 'name').populate(ASSIGNMENT_POPULATE)
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1, _id: -1 });
+    if (read.paging) {
+      query = query.skip((read.paging.page - 1) * read.paging.limit).limit(read.paging.limit);
+      res.set({ 'X-Total-Count': String(await Booking.countDocuments({})), 'X-Page': String(read.paging.page), 'X-Limit': String(read.paging.limit) });
+    }
+    const bookings = await query;
 
     const enriched = bookings.map((b) => {
       const obj = b.toObject();

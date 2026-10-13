@@ -120,4 +120,22 @@ function announcementInputProblem(body, { creating }) {
   return null;
 }
 
-module.exports = { userInputProblem, serviceInputProblem, announcementInputProblem, ANNOUNCEMENT_CATEGORIES, PRICE_MAX };
+// The most bookings one admin list request may ask for. A request with no limit still gets everything, as before; one that asks for a
+// page (limit and page) gets just that page, and never more than this.
+const BOOKINGS_PAGE_MAX = 1000;
+
+// Reads the optional paging of a list. Returns { problem } or { paging } where paging is null (no paging asked) or { limit, page }.
+function readPaging(query) {
+  const hasLimit = query.limit !== undefined && query.limit !== '';
+  const hasPage = query.page !== undefined && query.page !== '';
+  if (!hasLimit && !hasPage) return { paging: null };
+  const limit = hasLimit ? Number(query.limit) : 100;
+  const page = hasPage ? Number(query.page) : 1;
+  if (typeof query.limit === 'object' || typeof query.page === 'object') return { problem: invalid('limit and page must be plain numbers.') };
+  if (!Number.isInteger(limit) || limit < 1) return { problem: invalid('limit must be a whole number, 1 or more.') };
+  if (limit > BOOKINGS_PAGE_MAX) return { problem: invalid(`limit cannot be more than ${BOOKINGS_PAGE_MAX}. Ask for a page at a time.`) };
+  if (!Number.isInteger(page) || page < 1) return { problem: invalid('page must be a whole number, 1 or more.') };
+  return { paging: { limit, page } };
+}
+
+module.exports = { readPaging, BOOKINGS_PAGE_MAX, userInputProblem, serviceInputProblem, announcementInputProblem, ANNOUNCEMENT_CATEGORIES, PRICE_MAX };

@@ -49,4 +49,7 @@ const stripPassword = (doc, ret) => {
 userSchema.set('toJSON', { transform: stripPassword });
 userSchema.set('toObject', { transform: stripPassword });
 
+// Listing technicians and counting active admins filter on role and active.
+userSchema.index({ role: 1, isActive: 1 });
+
 module.exports = mongoose.model('User', userSchema);

@@ -391,6 +391,13 @@ const bookingSchema = new mongoose.Schema({
 bookingSchema.index({ technician: 1, status: 1 });
 bookingSchema.index({ status: 1, queueRank: 1 });
 bookingSchema.index({ customer: 1 });
+// The main filters: by service date (calendar, reports, the lead-time and conflict checks), by status within a date range,
+// by the people on a job (a technician's own list and the "is this technician busy" check read lead and helper), and the queue.
+bookingSchema.index({ date: 1 });
+bookingSchema.index({ status: 1, date: 1 });
+bookingSchema.index({ 'assignments.lead': 1 });
+bookingSchema.index({ 'assignments.helper': 1 });
+bookingSchema.index({ queueRank: 1 });
 bookingSchema.index({ referenceNumber: 1 });
 bookingSchema.index({ balanceReferenceNumber: 1 });
 

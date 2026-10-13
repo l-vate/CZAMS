@@ -46,6 +46,8 @@ function buildCors({ env = process.env, warn = console.warn } = {}) {
 
   return cors({
     origin: (origin, callback) => callback(null, isOriginAllowed(origin, { origins, production })),
+    // a page may read the paging figures of a list and the id of a request to quote
+    exposedHeaders: ['X-Total-Count', 'X-Page', 'X-Limit', 'X-Request-Id'],
   });
 }
 

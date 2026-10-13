@@ -58,7 +58,8 @@ const chain = (value) => ({
   sort(spec) { return chain(sorted(value, spec)); },
   populate() { return this; },
   lean() { return this; },
-  limit() { return this; },
+  skip(n) { return chain(Array.isArray(value) ? value.slice(n) : value); },
+  limit(n) { return chain(Array.isArray(value) && Number.isFinite(n) ? value.slice(0, n) : value); },
   distinct(field) { return chain(Array.isArray(value) ? [...new Set(value.map((v) => v[field]))] : []); },
   then(resolve, reject) { return Promise.resolve(value).then(resolve, reject); },
 });

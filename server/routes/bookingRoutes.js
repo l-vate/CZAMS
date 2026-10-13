@@ -274,6 +274,9 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
   next();
 }, upload.fields([{ name: 'proof', maxCount: 1 }, { name: 'discountId', maxCount: 1 }]), async (req, res) => {
   try {
+    // A refused request must not leave its uploaded file behind.
+    res.on('finish', () => { if (res.statusCode >= 400) discardUploads(req); });
+
     const {
       service, units: unitsRaw, problemDescription,
       date, time, technician, address,
@@ -1097,6 +1100,9 @@ router.patch('/:bookingId/queue', auth, auditSpecs.queueMove, async (req, res) =
 // CZA is the one that made the sale and holds the record of it.
 router.patch('/:bookingId/unit-purchase-proof', auth, auditSpecs.unitPurchaseProof, allowRoles(ROLE.ADMIN), upload.single('proof'), async (req, res) => {
   try {
+    // A refused request must not leave its uploaded file behind.
+    res.on('finish', () => { if (res.statusCode >= 400) discardUploads(req); });
+
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
     }
@@ -2118,6 +2124,9 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
 // refund the down payment in full.
 router.patch('/:bookingId/refund', auth, auditSpecs.refundProcess, allowRoles(ROLE.ADMIN), upload.single('proof'), async (req, res) => {
   try {
+    // A refused request must not leave its uploaded file behind.
+    res.on('finish', () => { if (res.statusCode >= 400) discardUploads(req); });
+
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
     }

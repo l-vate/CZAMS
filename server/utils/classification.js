@@ -1,5 +1,6 @@
 const Booking = require('../models/Booking');
 const { findCompletedSince } = require('./completion');
+const { monthsAgoManila } = require('./manilaDate');
 
 // Customer Classification Module thresholds. Client-confirmed: commercial clients
 // clean quarterly (4x/year), residential clean 3x/year - a flat 3 catches both
@@ -14,8 +15,8 @@ const RETURN_CUSTOMER_WINDOW_MONTHS = 12;
 // than cached, so it naturally drops back to "Regular" if a Return customer goes
 // quiet for a year with no new completion.
 async function computeAutoClassification(customerId) {
-  const windowStart = new Date();
-  windowStart.setMonth(windowStart.getMonth() - RETURN_CUSTOMER_WINDOW_MONTHS);
+  // the start of the Manila day twelve months ago, so the window is the same on a server in any time zone
+  const windowStart = monthsAgoManila(RETURN_CUSTOMER_WINDOW_MONTHS);
 
   const completed = await findCompletedSince(Booking, {
     customer: customerId,

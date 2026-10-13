@@ -7,6 +7,9 @@ const Service = require('../models/Service');
 const ServiceReminder = require('../models/ServiceReminder');
 const { sendNotification } = require('../utils/notifications');
 const { effectiveCompletedAt } = require('../utils/completion');
+const { manilaDateKey, monthsAgoManilaKey } = require('../utils/manilaDate');
+const { addMonths } = require('../utils/warranty');
+const { TIMEZONE } = require('../utils/timeBlocks');
 
 // "3-4 months since the last cleaning" - a range, not an exact number. This uses
 // the sooner end as the trigger point (a customer becomes due once 3 months have
@@ -48,13 +51,14 @@ async function runServiceReminderCheck() {
     }
   }
 
-  const dueCutoff = new Date();
-  dueCutoff.setMonth(dueCutoff.getMonth() - SERVICE_REMINDER_TRIGGER_MONTHS);
+  // Due once the Manila day of the cleaning is three calendar months back or more, so the answer does not depend on
+  // the server's time zone.
+  const dueCutoffKey = monthsAgoManilaKey(SERVICE_REMINDER_TRIGGER_MONTHS);
 
   let remindersCreated = 0;
   for (const [customerId, booking] of latestByCustomer) {
     const completedAt = effectiveCompletedAt(booking);
-    if (completedAt > dueCutoff) continue; // not due yet
+    if (manilaDateKey(completedAt) > dueCutoffKey) continue; // not due yet
 
     // One reminder per (customer, last cleaning) - skip if this cycle already flagged.
     const alreadyFlagged = await ServiceReminder.findOne({
@@ -63,8 +67,7 @@ async function runServiceReminderCheck() {
     });
     if (alreadyFlagged) continue;
 
-    const dueAt = new Date(completedAt);
-    dueAt.setMonth(dueAt.getMonth() + SERVICE_REMINDER_TRIGGER_MONTHS);
+    const dueAt = addMonths(completedAt, SERVICE_REMINDER_TRIGGER_MONTHS);
 
     await ServiceReminder.create({
       customer: customerId,
@@ -90,7 +93,7 @@ async function deliverPendingServiceReminders() {
   let delivered = 0;
   for (const reminder of pending) {
     const lastCleaningDate = new Date(reminder.lastCleaningDate).toLocaleDateString('en-US', {
-      month: 'long', day: 'numeric', year: 'numeric',
+      month: 'long', day: 'numeric', year: 'numeric', timeZone: TIMEZONE,
     });
 
     await sendNotification(
@@ -118,7 +121,7 @@ function startServiceReminderSchedule() {
     } catch (err) {
       console.error('Service reminder check failed:', err);
     }
-  });
+  }, { timezone: TIMEZONE });
 }
 
 module.exports = {

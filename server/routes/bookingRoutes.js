@@ -35,6 +35,7 @@ const BackJob = require('../models/BackJob');
 const { TECHNICIAN_BOOKING_FILTER, isHiddenFromTechnicians } = require('../utils/technicianVisibility');
 const scheduling = require('../constants/scheduling');
 const { createUploader, discardUploads, PROOF_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
+const { manilaToday, isAtLeastDaysAhead } = require('../utils/manilaDate');
 const { normalizeContactNumber } = require('../utils/contactNumber');
 const { sendRouteError } = require('../utils/routeErrors');
 const { serviceProblem, unitsProblem } = require('../utils/bookingValidation');
@@ -79,20 +80,10 @@ const upload = createUploader({
   allowedTypes: PROOF_TYPES,
 });
 
-// Validate date (must be at least 3 days from today)
-function isDateAllowed(dateStr) {
-  if (!dateStr) return false;
-
-  const minDate = new Date();
-  minDate.setDate(minDate.getDate() + 3);
-  minDate.setHours(0, 0, 0, 0);
-
-  const selected = new Date(dateStr);
-  if (isNaN(selected)) return false;
-  selected.setHours(0, 0, 0, 0);
-
-  return selected >= minDate;
-}
+// Validate date: a real YYYY-MM-DD date at least 3 days after today in Manila (utils/manilaDate.js), whatever
+// time zone the server runs in.
+const MIN_LEAD_DAYS = 3;
+const isDateAllowed = (dateStr) => isAtLeastDaysAhead(dateStr, MIN_LEAD_DAYS);
 
 // What an admin may do to a booking's status: null when allowed, otherwise { status, message }.
 // Cancelling is allowed here and handled (with its refund) further down.
@@ -125,14 +116,8 @@ async function notifyMembersOfChange(booking, wasStatus, type, message) {
   }
 }
 
-// Local YYYY-MM-DD for today, for same-day-cancellation comparisons against booking.date
-function todayDateString() {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
+// Today's date in Manila as YYYY-MM-DD, for same-day-cancellation comparisons against booking.date.
+const todayDateString = () => manilaToday();
 
 // Opens a refund request on a booking that's about to be cancelled, but only if a
 // down payment was actually on file (cleaning bookings with no down payment simply

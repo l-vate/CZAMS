@@ -12,6 +12,7 @@ const User = require('../models/User'); // Add this import
 const { sendNotification } = require('../utils/notifications');
 const { getMemberIds, getLeadIds, getPrimaryLeadId, memberFilter, ASSIGNMENT_POPULATE } = require('../utils/assignments');
 const { toTechnicianView } = require('../utils/technicianView');
+const { addDays: addDaysFromInstant } = require('../utils/warranty');
 const { toCustomerView, toCustomerReport } = require('../utils/customerView');
 const BackJob = require('../models/BackJob');
 const { TECHNICIAN_BOOKING_FILTER, isHiddenFromTechnicians } = require('../utils/technicianVisibility');
@@ -195,9 +196,8 @@ router.post('/', auth, receivePhoto, async (req, res) => {
 
         // Commercial payment terms count from completion, so the due date is only known now.
         if (booking.paymentTermsDays && !booking.paymentDueAt) {
-            const dueAt = new Date(booking.completedAt);
-            dueAt.setDate(dueAt.getDate() + booking.paymentTermsDays);
-            booking.paymentDueAt = dueAt;
+            // the end of the Manila day that many days after completion
+            booking.paymentDueAt = addDaysFromInstant(booking.completedAt, booking.paymentTermsDays);
         }
         try {
             await booking.save();

@@ -13,7 +13,8 @@
 //   utils/autoAssign.js     proposeAssignment (the load and busy figures it ranks by)
 //   utils/availability.js   getAvailability (public calendar)
 //   utils/queue.js          getQueue (free technicians and pairs shown in the Pending queue)
-//   routes/bookingRoutes.js the approval check, which only runs when this is false
+//   routes/bookingRoutes.js the approval check, which only runs when this is false, and reproposeBlock (moving a request in the
+//                           Pending queue makes the proposals for its block again only when this is true)
 //
 // SUNDAY_CLOSED  (an OWNER DECISION, default true)
 //   true:  the shop is closed on Sundays. No booking, reschedule, reschedule approval, disruption reschedule, extra day

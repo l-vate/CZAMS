@@ -22,6 +22,7 @@ function matches(doc, filter) {
         const list = doc && doc[key];
         return Array.isArray(list) && list.some((item) => matches(item, cond.$elemMatch));
       }
+      if ('$exists' in cond) return cond.$exists ? values.some((v) => v !== undefined) : values.every((v) => v === undefined);
       if ('$in' in cond) return values.some((v) => cond.$in.includes(v));
       if ('$ne' in cond) return !values.includes(cond.$ne);
       if ('$gte' in cond || '$lte' in cond) {
@@ -33,9 +34,28 @@ function matches(doc, filter) {
 }
 
 // What a Mongoose query gives back: awaitable and chainable the way the routes chain it.
+// Sorts the way a query's sort({ field: 1 | -1 }) does, for arrays whose items have those fields. A field no item has leaves the
+// order alone, so fixtures that never set it keep their order.
+const sorted = (value, spec) => {
+  if (!Array.isArray(value) || !spec || typeof spec !== 'object') return value;
+  const keys = Object.entries(spec).filter(([key]) => value.some((v) => v && v[key] !== undefined));
+  if (keys.length === 0) return value;
+  return [...value].sort((a, b) => {
+    for (const [key, dir] of keys) {
+      const x = a && a[key];
+      const y = b && b[key];
+      if (x === y || (x === undefined && y === undefined)) continue;
+      if (x === undefined) return 1;
+      if (y === undefined) return -1;
+      return (x < y ? -1 : 1) * (dir < 0 ? -1 : 1);
+    }
+    return 0;
+  });
+};
+
 const chain = (value) => ({
   select() { return this; },
-  sort() { return this; },
+  sort(spec) { return chain(sorted(value, spec)); },
   populate() { return this; },
   lean() { return this; },
   limit() { return this; },

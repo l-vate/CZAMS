@@ -101,6 +101,14 @@ async function install() {
     if (u) Object.assign(u, update);
     return chain(u ? { ...u, toObject() { return { ...u }; } } : null);
   };
+  Booking.bulkWrite = async (ops) => {
+    ops.forEach((op) => {
+      const target = state.bookings.find((b) => matches(b, op.updateOne.filter));
+      if (target && op.updateOne.update.$set) Object.assign(target, op.updateOne.update.$set);
+    });
+    return { modifiedCount: ops.length };
+  };
+  Counter.updateOne = async () => ({});
   Booking.deleteOne = async (f) => {
     const index = state.bookings.findIndex((b) => matches(b, f));
     if (index >= 0) state.bookings.splice(index, 1);
@@ -109,6 +117,7 @@ async function install() {
   Booking.updateOne = async (f, update) => {
     const found = state.bookings.find((b) => matches(b, f));
     if (found && update.$set) Object.assign(found, update.$set);
+    if (found && update.$push) Object.entries(update.$push).forEach(([k, v]) => { found[k] = [...(found[k] || []), JSON.parse(JSON.stringify(v))]; });
     return { acknowledged: true };
   };
   BackJob.findOne = (f) => {

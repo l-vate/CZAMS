@@ -1092,6 +1092,8 @@ router.patch('/:bookingId/queue', auth, auditSpecs.queueMove, async (req, res) =
     }
     const result = await reorderQueue(req.params.bookingId, req.body.action);
     if (result.error) return res.status(400).json({ message: result.error });
+    // the proposals for that date and time block follow the new order
+    await reproposeBlock(req.params.bookingId, req.userId);
 
     const queue = await getQueue();
     res.json(queue.map((item) => ({ ...item, booking: withWarranty(item.booking) })));
@@ -1787,6 +1789,48 @@ async function repropose(booking, changedBy) {
   } catch (err) {
     console.error('Could not propose technicians again after a reschedule:', err);
   }
+}
+
+// Whether a Pending booking's technicians were chosen by the system (so the system may choose again) rather than by an admin by
+// hand. The last line of the assignment history says which. A Pending booking with nobody is also the system's to propose for.
+function isSystemProposal(booking) {
+  if (getMemberIds(booking).length === 0) return true;
+  const history = booking.assignmentHistory || [];
+  const last = history[history.length - 1];
+  return !!last && /^(Assigned automatically|Proposed again)/.test(last.reason || '');
+}
+
+// After the admin moves a request in the Pending queue, the proposals for the requests that share its date and time block are made
+// again in queue order: a request higher in the queue keeps (or gets) its pair, a lower one is proposed whoever is left. Only the
+// system's own proposals on Pending bookings are touched: an Approved booking, and a Pending one an admin assigned by hand, never
+// change. When Pending bookings do not hold technicians (PENDING_HOLDS_SLOT off) the order has no effect on who is proposed, so
+// nothing is redone. Returns the booking ids whose proposal was made again.
+async function reproposeBlock(movedBookingId, changedBy) {
+  if (!scheduling.PENDING_HOLDS_SLOT) return [];
+  const moved = await Booking.findOne({ bookingId: movedBookingId }).select('date time');
+  if (!moved) return [];
+  const block = (await Booking.find({ status: BOOKING_STATUS.PENDING, date: moved.date, time: moved.time })
+    .select('+queueRank +assignmentHistory')
+    .populate('service'))
+    .sort((a, b) => (a.queueRank || 0) - (b.queueRank || 0));
+  const mine = block.filter(isSystemProposal);
+
+  // Everyone's old proposal goes first, so that the order decides who gets whom.
+  for (const booking of mine) {
+    const previous = getAssignments(booking);
+    if (previous.length === 0) continue;
+    booking.assignments = [];
+    booking.technician = undefined;
+    await booking.save();
+    await Booking.updateOne(
+      { _id: booking._id },
+      { $push: { assignmentHistory: buildHistoryEntry({ before: previous, after: [], changedBy, reason: 'The queue order changed, so the proposal was made again' }) } }
+    );
+  }
+  for (const booking of mine) {
+    await autoAssignNewBooking(booking, 'Proposed again after the queue order changed');
+  }
+  return mine.map((b) => b.bookingId);
 }
 
 const ASSIGN_RESPONSE_POPULATE = [

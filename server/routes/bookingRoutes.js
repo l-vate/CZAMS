@@ -36,7 +36,7 @@ const { TECHNICIAN_BOOKING_FILTER, isHiddenFromTechnicians } = require('../utils
 const scheduling = require('../constants/scheduling');
 const { createUploader, discardUploads, PROOF_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
 const { serviceProblem, unitsProblem } = require('../utils/bookingValidation');
-const { downPaymentProblem, balanceProblem, DOWN_PAYMENT_BOOKING_STATUSES, DOWN_PAYMENT_OPEN, BALANCE_BOOKING_STATUSES, BALANCE_OPEN } = require('../utils/paymentGuards');
+const { downPaymentProblem, balanceProblem, firstPaymentModeProblem, DOWN_PAYMENT_BOOKING_STATUSES, DOWN_PAYMENT_OPEN, BALANCE_BOOKING_STATUSES, BALANCE_OPEN } = require('../utils/paymentGuards');
 const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/queue');
 const { generateBookingId, createWithUniqueBookingId, BookingIdExhaustedError } = require('../utils/bookingId');
 const { invalid, sendProblem } = require('../utils/validation');
@@ -411,6 +411,11 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
             : `Down payment must be one of: ${allowedPercents.join('%, ')}%.`
         });
       }
+    }
+    // A customer's first payment cannot be cash or cheque, whatever the form offers. An admin walk-in may record them.
+    if (req.userRole !== ROLE.ADMIN) {
+      const firstModeProblem = firstPaymentModeProblem(paymentMode);
+      if (firstModeProblem) return sendProblem(res, firstModeProblem);
     }
     if (dpPercent > 0 && !allowedModes.includes(paymentMode)) {
       return res.status(400).json({ message: 'Choose a valid payment mode.' });

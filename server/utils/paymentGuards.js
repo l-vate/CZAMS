@@ -3,6 +3,7 @@
 const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } = require('../constants/paymentStatus');
 const { invalid } = require('./validation');
+const { FIRST_PAYMENT_BLOCKED_MODES } = require('../constants/paymentModes');
 
 const DOWN_PAYMENT_BOOKING_STATUSES = Object.freeze([BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED]);
 const BALANCE_BOOKING_STATUSES = Object.freeze([BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS, BOOKING_STATUS.COMPLETED]);
@@ -11,8 +12,20 @@ const DOWN_PAYMENT_OPEN = Object.freeze([PAYMENT_STATUS.UNPAID, PAYMENT_STATUS.R
 // The same for the balance. A booking made before this field existed has none, which counts as None.
 const BALANCE_OPEN = Object.freeze([BALANCE_PAYMENT_STATUS.NONE, BALANCE_PAYMENT_STATUS.REJECTED, null]);
 
+// null when `mode` may be used for the first payment a customer makes through the system, otherwise { status, message }.
+// The comparison ignores case and spaces, so "cash " cannot slip past.
+function firstPaymentModeProblem(mode) {
+  const name = String(mode || '').trim().toLowerCase();
+  if (FIRST_PAYMENT_BLOCKED_MODES.some((m) => m.toLowerCase() === name)) {
+    return invalid('Cash and cheque cannot be used for the first payment online. Choose GCash or Bank Transfer.');
+  }
+  return null;
+}
+
 // null when the customer may send a down payment proof for this booking, otherwise { status, message }.
 function downPaymentProblem(booking) {
+  const modeProblem = firstPaymentModeProblem(booking.paymentMode);
+  if (modeProblem) return modeProblem;
   if (!DOWN_PAYMENT_BOOKING_STATUSES.includes(booking.status)) {
     return invalid(`A down payment cannot be sent for a booking that is ${booking.status}. It can be sent while the booking is Pending or Approved.`);
   }
@@ -46,5 +59,5 @@ function balanceProblem(booking, balance) {
 
 module.exports = {
   DOWN_PAYMENT_BOOKING_STATUSES, BALANCE_BOOKING_STATUSES, DOWN_PAYMENT_OPEN, BALANCE_OPEN,
-  downPaymentProblem, balanceProblem,
+  downPaymentProblem, balanceProblem, firstPaymentModeProblem,
 };

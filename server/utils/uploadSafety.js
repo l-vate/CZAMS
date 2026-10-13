@@ -4,12 +4,14 @@
 //  - Only the types listed for that upload are accepted. SVG, HTML and anything else is refused.
 //  - The stored extension comes from the validated type, never from the name the client sent, and
 //    the name is random, so a file called "x.html" can never be stored or served as HTML.
-//  - The browser's Content-Type can be forged, so after saving the first bytes of the file are
-//    checked against the type it claims. A file that does not match is deleted and refused.
-const fs = require('fs');
+//  - The browser's Content-Type can be forged, so the first bytes of the file are checked against the
+//    type it claims. A file that does not match is refused.
+//  - Files are held in memory and written to the file store (storage/fileStore.js) by storeUploads, only after the route has checked
+//    everything else. A refused request stores nothing; one that fails after storing removes what it stored (discardUploads).
 const path = require('path');
 const crypto = require('crypto');
 const multer = require('multer');
+const { getStore } = require('../storage/fileStore');
 
 const MB = 1024 * 1024;
 
@@ -39,69 +41,75 @@ function bytesMatch(mimetype, head) {
   return !!type && Buffer.isBuffer(head) && type.matches(head);
 }
 
-function readHead(filePath, length = 16) {
-  const fd = fs.openSync(filePath, 'r');
-  try {
-    const buffer = Buffer.alloc(length);
-    const read = fs.readSync(fd, buffer, 0, length, 0);
-    return buffer.subarray(0, read);
-  } finally {
-    fs.closeSync(fd);
-  }
-}
-
-// Checks a saved file. When it does not match its claimed type it is deleted and false is returned.
-function verifySavedFile(file) {
-  const ok = (() => {
-    try {
-      return bytesMatch(file.mimetype, readHead(file.path));
-    } catch {
-      return false;
-    }
-  })();
-  if (!ok) fs.unlink(file.path, () => {});
-  return ok;
-}
-
 const filesOf = (req) => {
   if (req.file) return [req.file];
   if (Array.isArray(req.files)) return req.files;
   return Object.values(req.files || {}).flat();
 };
 
-// Deletes every file this request saved. A route calls it when it refuses a request after the upload step,
-// so a refused upload leaves nothing behind on disk.
-function discardUploads(req) {
-  filesOf(req).forEach((f) => fs.unlink(f.path, () => {}));
+const HEAD_BYTES = 16;
+
+// A file kept in memory by multer matches its claimed type when its first bytes do.
+const verifyBuffer = (file) => bytesMatch(file.mimetype, Buffer.isBuffer(file.buffer) ? file.buffer.subarray(0, HEAD_BYTES) : null);
+
+// Writes this request's files to the file store (storage/fileStore.js). A route calls it once everything else has been checked, right
+// before it saves its own record, so a refused request never stores anything. `kind` is one of KINDS, or a function of the multer file
+// (for a route with several fields). If one file cannot be stored, the ones already stored by this call are removed and the error is thrown.
+async function storeUploads(req, { kind, bookingId } = {}) {
+  const store = getStore();
+  const done = [];
+  try {
+    for (const file of filesOf(req)) {
+      if (!file.stored) {
+        await store.save({
+          name: file.filename,
+          buffer: file.buffer,
+          contentType: file.mimetype,
+          metadata: { kind: typeof kind === 'function' ? kind(file) : kind, uploadedBy: req.userId, bookingId },
+        });
+        file.stored = true;
+        done.push(file);
+      }
+    }
+  } catch (err) {
+    await Promise.all(done.map(removeStored));
+    throw err;
+  }
 }
 
-// Express middleware for the step right after multer: every saved file must pass the byte check.
-// If any fails, all of this request's files are removed and the request ends with a 400.
+async function removeStored(file) {
+  file.stored = false;
+  try {
+    await getStore().remove(file.filename);
+  } catch (err) {
+    console.error('Could not remove a stored file:', err.message);
+  }
+}
+
+// Removes every file this request stored. A route calls it when it fails or refuses a request after storing; a request that never reached
+// the store has nothing to remove. Returns a promise, but callers may ignore it.
+function discardUploads(req) {
+  return Promise.all(filesOf(req).filter((f) => f.stored).map(removeStored));
+}
+
+// Express middleware for the step right after multer: every file in memory must pass the byte check, and then gets its random stored name
+// (from the validated type, never from the client's name). If any fails the request ends with a 400; nothing was stored yet.
 function verifyUploads(allowedTypes) {
   return (req, res, next) => {
     const files = filesOf(req);
-    if (files.every(verifySavedFile)) return next();
-    files.forEach((f) => fs.unlink(f.path, () => {}));
-    return res.status(400).json({ message: `The file is not a real ${describeTypes(allowedTypes)} file.` });
+    if (!files.every(verifyBuffer)) {
+      return res.status(400).json({ message: `The file is not a real ${describeTypes(allowedTypes)} file.` });
+    }
+    files.forEach((file) => { file.filename = `${crypto.randomBytes(16).toString('hex')}${extensionFor(file.mimetype)}`; });
+    return next();
   };
 }
 
-// Builds the upload helpers for one folder. `upload.single(name)` and `upload.fields(list)` return
-// the middleware to put in a route, so a route reads the same as it did with plain multer.
-function createUploader({ dir, allowedTypes, maxBytes = 5 * MB }) {
-  const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-      fs.mkdirSync(dir, { recursive: true });
-      cb(null, dir);
-    },
-    // Random name, extension from the validated type. The client's file name is never used.
-    filename: (req, file, cb) => {
-      cb(null, `${crypto.randomBytes(16).toString('hex')}${extensionFor(file.mimetype) || ''}`);
-    },
-  });
-
+// Builds the upload helpers. `upload.single(name)` and `upload.fields(list)` return the middleware to put in a route. Files are held in
+// memory (at most maxBytes each) until the route stores them.
+function createUploader({ allowedTypes, maxBytes = 5 * MB }) {
   const instance = multer({
-    storage,
+    storage: multer.memoryStorage(),
     limits: { fileSize: maxBytes },
     fileFilter: (req, file, cb) => {
       if (allowedTypes.includes(file.mimetype)) cb(null, true);
@@ -134,5 +142,5 @@ const UPLOADS_ROOT = path.join(__dirname, '..', 'uploads');
 
 module.exports = {
   FILE_TYPES, IMAGE_TYPES, PHOTO_TYPES, PROOF_TYPES, UPLOADS_ROOT,
-  extensionFor, bytesMatch, verifySavedFile, verifyUploads, discardUploads, createUploader, describeTypes,
+  extensionFor, bytesMatch, verifyUploads, storeUploads, discardUploads, createUploader, describeTypes,
 };

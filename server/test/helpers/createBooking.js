@@ -19,8 +19,9 @@ const { authCache } = require('../../utils/authCache');
 const { manilaTodayKey } = require('../../utils/timeBlocks');
 const { addDays } = require('../../utils/extensionDays');
 const { matches, chain } = require('./memoryQueries');
+const { createMemoryStore, setStore } = require('../../storage/fileStore');
 
-const state = { versioned: false, backJobDelay: 0, users: [], services: [], bookings: [], notes: [], closures: [], promos: [], backJobs: [], settings: null };
+const state = { store: null, versioned: false, backJobDelay: 0, users: [], services: [], bookings: [], notes: [], closures: [], promos: [], backJobs: [], settings: null };
 let seq = 0;
 let server;
 let base;
@@ -67,6 +68,9 @@ function versionedCopy(canon) {
 
 function reset({ users = [], services = [], settings = DEFAULT_SETTINGS } = {}) {
   authCache.clear();
+  // Uploaded files go to an in-memory store, never to disk or a database: state.store shows what was kept.
+  state.store = createMemoryStore();
+  setStore(state.store);
   state.users = users;
   state.services = services;
   state.settings = settings;

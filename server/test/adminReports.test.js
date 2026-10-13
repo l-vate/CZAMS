@@ -3,8 +3,6 @@
 // back job claim depends on it or the booking is already fully paid. The real routes run; only the database is replaced.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
@@ -17,7 +15,7 @@ const BackJob = require('../models/BackJob');
 const Notification = require('../models/Notification');
 const AuditLog = require('../models/AuditLog');
 const { authCache } = require('../utils/authCache');
-const { UPLOADS_ROOT } = require('../utils/uploadSafety');
+const { createMemoryStore, setStore } = require('../storage/fileStore');
 const { chain } = require('./helpers/memoryQueries');
 
 let reports;
@@ -26,7 +24,8 @@ let claim;
 let notes;
 let server;
 let base;
-const PROOFS = path.join(UPLOADS_ROOT, 'proofs');
+let store;
+const PNG_BYTES = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 const makeReport = (over = {}) => {
   const r = {
@@ -57,6 +56,8 @@ test.before(async () => {
 });
 test.after(() => server && server.close());
 test.beforeEach(() => {
+  store = createMemoryStore();
+  setStore(store);
   authCache.clear();
   notes = [];
   claim = null;
@@ -120,14 +121,13 @@ test('delete needs a reason', async () => {
 });
 
 test('a good delete removes the report and its photo file, reopens the job, and tells the lead', async () => {
-  const photo = `e6test-${Date.now()}.png`;
-  fs.mkdirSync(PROOFS, { recursive: true });
-  fs.writeFileSync(path.join(PROOFS, photo), 'x');
+  const photo = '0123456789abcdef0123456789abcdef.png';
+  await store.save({ name: photo, buffer: PNG_BYTES, contentType: 'image/png', metadata: { kind: 'signed_form' } });
   reports[0].signedFormPhoto = `/uploads/proofs/${photo}`;
   const res = await send('DELETE', { reason: 'Filed on the wrong job' });
   assert.equal(res.status, 200, JSON.stringify(res.body));
   assert.equal(reports.length, 0);
-  assert.equal(fs.existsSync(path.join(PROOFS, photo)), false, 'the photo is gone from disk');
+  assert.equal(await store.exists(photo), false, 'the photo is gone from the file store');
   assert.equal(booking.status, 'In Progress');
   assert.equal(booking.reportSubmitted, false);
   assert.equal(booking.completedAt, undefined);
@@ -141,13 +141,13 @@ test('a report with no photo deletes fine, and a missing photo file is not an er
   assert.equal((await send('DELETE', { reason: 'Duplicate' })).status, 200);
 });
 
-test('a photo path that points outside the proofs folder is never touched', async () => {
-  const outside = path.join(UPLOADS_ROOT, `e6outside-${Date.now()}.txt`);
-  fs.writeFileSync(outside, 'keep me');
-  reports[0].signedFormPhoto = `/uploads/proofs/../${path.basename(outside)}`;
-  assert.equal((await send('DELETE', { reason: 'Duplicate' })).status, 200);
-  assert.equal(fs.existsSync(outside), true);
-  fs.unlinkSync(outside);
+test('a photo path that is not a plain stored proof path never removes anything', async () => {
+  await store.save({ name: 'keepme.png', buffer: PNG_BYTES, contentType: 'image/png', metadata: { kind: 'proof' } });
+  for (const stored of ['/uploads/proofs/../keepme.png', '/elsewhere/keepme.png', 'keepme.png', '/uploads/profile-images/keepme.png']) {
+    reports = [makeReport({ signedFormPhoto: stored })];
+    assert.equal((await send('DELETE', { reason: 'Duplicate' })).status, 200, stored);
+    assert.equal(await store.exists('keepme.png'), true, stored);
+  }
 });
 
 test('delete is refused (409) while a back job claim depends on the report, or a later report links to it', async () => {

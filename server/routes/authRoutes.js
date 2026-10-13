@@ -7,8 +7,8 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { readProfileFields } = require('../utils/profileFields');
 const auth = require('../middleware/auth');
-const path = require('path');
-const { createUploader, IMAGE_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
+const { createUploader, discardUploads, storeUploads, IMAGE_TYPES } = require('../utils/uploadSafety');
+const { KINDS } = require('../storage/fileStore');
 const { clearAuthCache } = require('../utils/authCache');
 const { validateNewPassword } = require('../utils/passwordRules');
 const { listFieldTechnicians } = require('../utils/technicians');
@@ -31,7 +31,6 @@ function generateUserId(role) {
 // Profile photos: JPG, PNG or WEBP only, stored under a random name with an extension taken from
 // the validated type, and the first bytes of the saved file are checked (utils/uploadSafety.js).
 const upload = createUploader({
-  dir: path.join(UPLOADS_ROOT, 'profile-images'),
   allowedTypes: IMAGE_TYPES,
 });
 
@@ -193,6 +192,9 @@ router.put('/profile', auth, async (req, res) => {
 
 router.post('/profile/photo', auth, upload.single('photo'), async (req, res) => {
   try {
+    // A refused or failed request must not leave its uploaded file behind.
+    res.on('finish', () => { if (res.statusCode >= 400) discardUploads(req); });
+
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded' });
     }
@@ -202,6 +204,7 @@ router.post('/profile/photo', auth, upload.single('photo'), async (req, res) => 
       return res.status(404).json({ message: 'User not found' });
     }
 
+    await storeUploads(req, { kind: KINDS.PROFILE_IMAGE });
     const imageUrl = `/uploads/profile-images/${req.file.filename}`;
     user.profileImage = imageUrl;
     await user.save();

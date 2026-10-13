@@ -1,14 +1,12 @@
-// Run with: npm test (inside server/). Real multipart uploads against a tiny local Express app, saved to a
-// temporary folder. No database and no real uploads folder are touched.
+// Run with: npm test (inside server/). Real multipart uploads against a tiny local Express app, stored in an in-memory file store.
+// No database and no real uploads folder are touched.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
 const express = require('express');
 const {
-  createUploader, extensionFor, bytesMatch, IMAGE_TYPES, PHOTO_TYPES, PROOF_TYPES,
+  createUploader, storeUploads, discardUploads, extensionFor, bytesMatch, IMAGE_TYPES, PHOTO_TYPES, PROOF_TYPES,
 } = require('../utils/uploadSafety');
+const { createMemoryStore, setStore, KINDS } = require('../storage/fileStore');
 
 // ---- bytes of real (tiny) files, and of things pretending to be them
 const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(32)]);
@@ -44,11 +42,14 @@ test('magic numbers: each type matches only its own first bytes', () => {
 
 // ---- real uploads
 async function withApp(options, run) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cza-upload-test-'));
-  const uploader = createUploader({ dir, ...options });
+  const store = createMemoryStore();
+  setStore(store);
+  const uploader = createUploader(options);
   const app = express();
-  app.post('/one', uploader.single('file'), (req, res) => res.json({ saved: req.file.filename }));
-  app.post('/two', uploader.fields([{ name: 'a', maxCount: 1 }, { name: 'b', maxCount: 1 }]), (req, res) => res.json({ ok: true }));
+  // like a route: the file is stored once the request has passed, so a refused upload never reaches the store
+  app.post('/one', uploader.single('file'), async (req, res) => { await storeUploads(req, { kind: KINDS.PROOF }); res.json({ saved: req.file.filename }); });
+  app.post('/two', uploader.fields([{ name: 'a', maxCount: 1 }, { name: 'b', maxCount: 1 }]), async (req, res) => { await storeUploads(req, { kind: KINDS.PROOF }); res.json({ ok: true }); });
+  app.post('/fail', uploader.single('file'), async (req, res) => { await storeUploads(req, { kind: KINDS.PROOF }); await discardUploads(req); res.status(500).json({ message: 'save failed' }); });
   const server = await new Promise((resolve) => { const s = app.listen(0, () => resolve(s)); });
   const base = `http://127.0.0.1:${server.address().port}`;
   const send = async (route, parts) => {
@@ -58,10 +59,10 @@ async function withApp(options, run) {
     return { status: res.status, body: await res.json().catch(() => null) };
   };
   try {
-    await run({ send, dir, files: () => fs.readdirSync(dir) });
+    await run({ send, files: async () => (await store.list()).map((f) => f.name), store });
   } finally {
     server.close();
-    fs.rmSync(dir, { recursive: true, force: true });
+    setStore(null);
   }
 }
 
@@ -72,17 +73,16 @@ test('a real PNG is saved under a random name with a .png extension, whatever it
     const res = await send('/one', one(PNG, 'evil.html', 'image/png'));
     assert.equal(res.status, 200);
     assert.match(res.body.saved, /^[0-9a-f]{32}\.png$/);
-    assert.deepEqual(files(), [res.body.saved]);
+    assert.deepEqual(await files(), [res.body.saved]);
   });
 });
 
-test('HTML pretending to be a PNG is refused and nothing is left on disk', async () => {
+test('HTML pretending to be a PNG is refused before anything is stored', async () => {
   await withApp({ allowedTypes: IMAGE_TYPES }, async ({ send, files }) => {
     const res = await send('/one', one(HTML, 'photo.png', 'image/png'));
     assert.equal(res.status, 400);
     assert.match(res.body.message, /not a real/);
-    await new Promise((r) => setTimeout(r, 50)); // the unlink is asynchronous
-    assert.deepEqual(files(), []);
+    assert.deepEqual(await files(), []);
   });
 });
 
@@ -93,8 +93,7 @@ test('SVG is refused, both honestly labelled and disguised as a JPEG', async () 
     assert.match(honest.body.message, /Only JPG, PNG or WEBP files are allowed/);
     const disguised = await send('/one', one(SVG, 'logo.jpg', 'image/jpeg'));
     assert.equal(disguised.status, 400);
-    await new Promise((r) => setTimeout(r, 50));
-    assert.deepEqual(files(), []);
+    assert.deepEqual(await files(), []);
   });
 });
 
@@ -102,7 +101,7 @@ test('an HTML file labelled text/html is refused', async () => {
   await withApp({ allowedTypes: PROOF_TYPES }, async ({ send, files }) => {
     const res = await send('/one', one(HTML, 'page.html', 'text/html'));
     assert.equal(res.status, 400);
-    assert.deepEqual(files(), []);
+    assert.deepEqual(await files(), []);
   });
 });
 
@@ -126,7 +125,7 @@ test('proofs also accept WEBP and PDF; profile photos do not accept PDF', async 
   await withApp({ allowedTypes: PROOF_TYPES }, async ({ send, files }) => {
     assert.equal((await send('/one', one(WEBP, 'a.webp', 'image/webp'))).status, 200);
     assert.equal((await send('/one', one(PDF, 'receipt.pdf', 'application/pdf'))).status, 200);
-    assert.ok(files().some((f) => f.endsWith('.pdf')));
+    assert.ok((await files()).some((f) => f.endsWith('.pdf')));
   });
   await withApp({ allowedTypes: IMAGE_TYPES }, async ({ send }) => {
     assert.equal((await send('/one', one(PDF, 'receipt.pdf', 'application/pdf'))).status, 400);
@@ -139,19 +138,36 @@ test('a file over the size limit is a 400 about size, not a server error', async
     const res = await send('/one', one(big, 'big.png', 'image/png'));
     assert.equal(res.status, 400);
     assert.match(res.body.message, /smaller/);
-    await new Promise((r) => setTimeout(r, 50));
-    assert.deepEqual(files(), []);
+    assert.deepEqual(await files(), []);
   });
 });
 
-test('when one of two uploaded files is bad, both are removed', async () => {
+test('when one of two uploaded files is bad, neither is stored', async () => {
   await withApp({ allowedTypes: PROOF_TYPES }, async ({ send, files }) => {
     const res = await send('/two', [
       { field: 'a', bytes: PNG, name: 'good.png', type: 'image/png' },
       { field: 'b', bytes: HTML, name: 'bad.png', type: 'image/png' },
     ]);
     assert.equal(res.status, 400);
-    await new Promise((r) => setTimeout(r, 50));
-    assert.deepEqual(files(), []);
+    assert.deepEqual(await files(), []);
+  });
+});
+
+test('a stored file keeps its kind, size and detected type, and not the name the client sent', async () => {
+  await withApp({ allowedTypes: IMAGE_TYPES }, async ({ send, store }) => {
+    const res = await send('/one', one(PNG, 'my-private-id-card.png', 'image/png'));
+    const stored = await store.open(res.body.saved);
+    assert.equal(stored.contentType, 'image/png');
+    assert.equal(stored.size, PNG.length);
+    assert.equal(stored.metadata.kind, 'proof');
+    assert.equal(JSON.stringify(stored.metadata).includes('my-private'), false);
+  });
+});
+
+test('a request that fails after storing removes its file', async () => {
+  await withApp({ allowedTypes: IMAGE_TYPES }, async ({ send, files }) => {
+    const res = await send('/fail', one(PNG, 'a.png', 'image/png'));
+    assert.equal(res.status, 500);
+    assert.deepEqual(await files(), []);
   });
 });

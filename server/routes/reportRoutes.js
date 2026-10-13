@@ -3,11 +3,9 @@ const { ROLE } = require('../constants/roles');
 const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const auditSpecs = require('../utils/auditSpecs');
 const { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } = require('../constants/paymentStatus');
-const { safeProofName } = require('../utils/fileAccess');
+const { safeProofName, PROOF_PREFIX } = require('../utils/fileAccess');
 const { sendRouteError } = require('../utils/routeErrors');
 const express = require('express');
-const path = require('path');
-const fs = require('fs');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const Report = require('../models/Report');
@@ -21,22 +19,17 @@ const { toCustomerView, toCustomerReport } = require('../utils/customerView');
 const BackJob = require('../models/BackJob');
 const { TECHNICIAN_BOOKING_FILTER, isHiddenFromTechnicians } = require('../utils/technicianVisibility');
 const { manilaTodayKey } = require('../utils/timeBlocks');
-const { createUploader, PHOTO_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
+const { createUploader, discardUploads, storeUploads, PHOTO_TYPES } = require('../utils/uploadSafety');
+const { KINDS, getStore } = require('../storage/fileStore');
 const { reportErrorResponse, validateReportInput, validateReportSections } = require('../utils/reportErrors');
 const { PHOTO_MAX_BYTES, consentProblem, signatureProblem, readFlag } = require('../utils/reportEvidence');
 
 // The photo of the signed paper form: JPG or PNG only, 5 MB at most, random stored name with an
 // extension from the validated type, first bytes checked (utils/uploadSafety.js).
 const receivePhoto = createUploader({
-    dir: path.join(UPLOADS_ROOT, 'proofs'),
     allowedTypes: PHOTO_TYPES,
     maxBytes: PHOTO_MAX_BYTES,
 }).single('photo');
-
-// A rejected report must not leave its photo behind on disk.
-const discardPhoto = (req) => {
-    if (req.file) fs.unlink(req.file.path, () => {});
-};
 
 // The booking shown with a report. An admin gets it whole; the owning customer only what a customer may
 // see; a technician only what a technician may see (no payment, proof, discount or refund data).
@@ -80,7 +73,7 @@ router.post('/', auth, receivePhoto, async (req, res) => {
         const preExistingIssueFlagged = readFlag(req.body.preExistingIssueFlagged);
 
         // Anything that stops the report below must not leave an uploaded photo behind.
-        res.on('finish', () => { if (res.statusCode >= 400) discardPhoto(req); });
+        res.on('finish', () => { if (res.statusCode >= 400) discardUploads(req); });
 
         // Validate required fields
         if (!bookingId) {
@@ -182,7 +175,9 @@ router.post('/', auth, receivePhoto, async (req, res) => {
         });
 
         // The report is saved first: the unique index on bookingId is what settles two quick submits, so a
-        // job is never marked Completed on behalf of a report that was refused as a duplicate.
+        // job is never marked Completed on behalf of a report that was refused as a duplicate. The photo is written to the file
+        // store just before, and removed again (by the finish hook above) if the report is refused or anything after it fails.
+        await storeUploads(req, { kind: KINDS.SIGNED_FORM, bookingId: booking.bookingId });
         await report.save();
 
         // Update booking with report reference
@@ -527,16 +522,17 @@ router.delete('/:id', auth, auditSpecs.reportDelete, async (req, res) => {
     }
 });
 
-// Removes an uploaded proof or photo from disk. Only a plain file name inside the proofs folder is ever touched, and a
-// file that is already gone is fine.
+// Removes an uploaded proof or photo from the file store. Only a plain file name is ever touched, and a file that is already
+// gone is fine.
 async function removeProofFile(storedPath) {
     if (typeof storedPath !== 'string') return;
-    const name = safeProofName(path.basename(storedPath));
+    if (!storedPath.startsWith(PROOF_PREFIX)) return;
+    const name = safeProofName(storedPath.slice(PROOF_PREFIX.length));
     if (!name) return;
     try {
-        await fs.promises.unlink(path.join(UPLOADS_ROOT, 'proofs', name));
+        await getStore().remove(name);
     } catch (err) {
-        if (err.code !== 'ENOENT') console.error('Could not remove a report photo:', err.message);
+        console.error('Could not remove a report photo:', err.message);
     }
 }
 

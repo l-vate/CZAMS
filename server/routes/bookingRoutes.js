@@ -9,7 +9,6 @@ const multer = require('multer');
 const auditSpecs = require('../utils/auditSpecs');
 const express = require('express');
 const router = express.Router();
-const path = require('path');
 const auth = require('../middleware/auth');
 const Booking = require('../models/Booking');
 const User = require('../models/User');
@@ -36,7 +35,8 @@ const { loadBackJobContexts } = require('../utils/backJobContext');
 const BackJob = require('../models/BackJob');
 const { TECHNICIAN_BOOKING_FILTER, isHiddenFromTechnicians } = require('../utils/technicianVisibility');
 const scheduling = require('../constants/scheduling');
-const { createUploader, discardUploads, PROOF_TYPES, UPLOADS_ROOT } = require('../utils/uploadSafety');
+const { createUploader, discardUploads, storeUploads, PROOF_TYPES } = require('../utils/uploadSafety');
+const { KINDS } = require('../storage/fileStore');
 const { manilaToday, isAtLeastDaysAhead } = require('../utils/manilaDate');
 const { readFeedback } = require('../utils/feedbackInput');
 const { normalizeContactNumber } = require('../utils/contactNumber');
@@ -82,9 +82,9 @@ const customerBooking = (booking) => toCustomerView(withWarranty(booking));
 // ============================================
 
 // Payment, ID, refund and purchase proofs: JPG, PNG, WEBP or PDF only, random stored name with an
-// extension from the validated type, first bytes checked (utils/uploadSafety.js).
+// extension from the validated type, first bytes checked (utils/uploadSafety.js). A route writes the files to the file store
+// with storeUploads once everything else has passed.
 const upload = createUploader({
-  dir: path.join(UPLOADS_ROOT, 'proofs'),
   allowedTypes: PROOF_TYPES,
 });
 
@@ -504,6 +504,8 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
     // on service switch, but this is the actual enforcement point.
     const isCleaningService = serviceDoc.serviceType === SERVICE_TYPE.CLEANING;
 
+    // Everything has passed: the files are written to the store now. If the booking cannot be saved, they are removed again.
+    await storeUploads(req, { kind: (file) => (file.fieldname === 'discountId' ? KINDS.ID_PHOTO : KINDS.PROOF), bookingId: req.generatedBookingId });
     const queueRank = await nextQueueRank(); // last in line: first come, first served
     const booking = await createWithUniqueBookingId((bookingId) => Booking.create({
       bookingId,
@@ -799,6 +801,7 @@ router.patch('/:bookingId/pay', auth, allowRoles(ROLE.CUSTOMER), upload.single('
     });
     if (submission.problem) return refuse(submission.problem);
 
+    await storeUploads(req, { kind: KINDS.PROOF, bookingId: booking.bookingId });
     const updated = await Booking.findOneAndUpdate(
       {
         _id: booking._id,
@@ -843,6 +846,7 @@ router.patch('/:bookingId/pay-balance', auth, allowRoles(ROLE.CUSTOMER), upload.
     });
     if (submission.problem) return refuse(submission.problem);
 
+    await storeUploads(req, { kind: KINDS.PROOF, bookingId: booking.bookingId });
     const updated = await Booking.findOneAndUpdate(
       {
         _id: booking._id,
@@ -927,6 +931,9 @@ router.get('/:bookingId/reference-duplicates', auth, async (req, res) => {
 // Pending or Approved, and only if there is no request yet or the last one was rejected.
 router.patch('/:bookingId/discount/request', auth, allowRoles(ROLE.CUSTOMER), upload.single('discountId'), async (req, res) => {
   try {
+    // A refused request must not leave its uploaded file behind.
+    res.on('finish', () => { if (res.statusCode >= 400) discardUploads(req); });
+
     const { discountType } = req.body;
     if (discountType !== 'Senior' && discountType !== 'PWD') {
       return res.status(400).json({ message: 'Choose either Senior Citizen or PWD for the discount.' });
@@ -945,6 +952,7 @@ router.patch('/:bookingId/discount/request', auth, allowRoles(ROLE.CUSTOMER), up
       return res.status(400).json({ message: 'This booking already has a discount request.' });
     }
 
+    await storeUploads(req, { kind: KINDS.ID_PHOTO, bookingId: booking.bookingId });
     booking.discount = { type: discountType, idFile: `/uploads/proofs/${req.file.filename}`, status: 'Pending', requestedAt: new Date() };
     await booking.save();
 
@@ -1119,6 +1127,9 @@ router.patch('/:bookingId/unit-purchase-proof', auth, auditSpecs.unitPurchasePro
       return res.status(400).json({ message: 'A proof-of-purchase file is required.' });
     }
 
+    if (!(await Booking.findOne({ bookingId: req.params.bookingId }))) return res.status(404).json({ message: 'Booking not found' });
+
+    await storeUploads(req, { kind: KINDS.PURCHASE_PROOF, bookingId: req.params.bookingId });
     const booking = await Booking.findOneAndUpdate(
       { bookingId: req.params.bookingId },
       { unitPurchaseProof: `/uploads/proofs/${req.file.filename}` },
@@ -2199,6 +2210,7 @@ router.patch('/:bookingId/refund', auth, auditSpecs.refundProcess, allowRoles(RO
       booking.refund.adjustedAt = new Date();
     }
 
+    await storeUploads(req, { kind: KINDS.REFUND_PROOF, bookingId: booking.bookingId });
     booking.refund.proofFile = `/uploads/proofs/${req.file.filename}`;
     booking.refund.status = REFUND_STATUS.PROCESSED;
     booking.refund.processedAt = new Date();

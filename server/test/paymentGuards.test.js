@@ -25,7 +25,9 @@ const PNG_BYTES = Buffer.from(PNG_DATA_URL.split(',')[1], 'base64');
 let DB;
 let server;
 let base;
-let filesBefore;
+const unlinked = []; // every file the code deleted: a refused upload must delete its file, and only that
+const savedByTest = new Set(); // files a successful submission kept, removed when the tests end
+const realUnlink = fs.unlink;
 
 const booking = (over = {}) => ({
   toObject() { return { ...this }; },
@@ -35,7 +37,7 @@ const booking = (over = {}) => ({
 });
 
 test.before(async () => {
-  filesBefore = new Set(fs.existsSync(PROOFS) ? fs.readdirSync(PROOFS) : []);
+  fs.unlink = (file, cb) => { unlinked.push(file); realUnlink(file, cb || (() => {})); };
   User.findById = (id) => chain(accounts[id] ? { _id: id, role: accounts[id], isActive: true } : null);
   Booking.findOne = (f) => chain(DB.find((d) => matches(d, f)) || null);
   Booking.findOneAndUpdate = (f, update) => {
@@ -51,18 +53,19 @@ test.before(async () => {
 });
 
 test.after(() => {
+  fs.unlink = realUnlink;
   server && server.close();
-  if (fs.existsSync(PROOFS)) fs.readdirSync(PROOFS).filter((f) => !filesBefore.has(f)).forEach((f) => fs.unlinkSync(path.join(PROOFS, f)));
+  savedByTest.forEach((file) => { try { fs.unlinkSync(path.join(PROOFS, path.basename(file))); } catch { /* already gone */ } });
 });
 test.beforeEach(() => { authCache.clear(); DB = [booking()]; });
 
-const newFiles = () => (fs.existsSync(PROOFS) ? fs.readdirSync(PROOFS) : []).filter((f) => !filesBefore.has(f));
 const send = async (route, as = 'CUS1', { reference = 'GC123456', file = true, id = 'CZ-1' } = {}) => {
   const token = jwt.sign({ id: as, role: accounts[as] }, process.env.JWT_SECRET, { expiresIn: '5m' });
   const form = new FormData();
   if (reference) form.append('referenceNumber', reference);
   if (file) form.append('proof', new Blob([PNG_BYTES], { type: 'image/png' }), 'proof.png');
   const res = await fetch(`${base}/api/bookings/${id}/${route}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form });
+  DB.forEach((b) => [b.proofFile, b.balanceProofFile].forEach((f) => { if (f && f.startsWith('/uploads/proofs/') && !f.includes('verified') && !f.endsWith('/b.png')) savedByTest.add(f); }));
   return { status: res.status, body: await res.json().catch(() => ({})) };
 };
 
@@ -109,11 +112,13 @@ test('a first down payment is accepted: status becomes to_verify, the proof is s
 test('a down payment sent again is refused, the first proof stays, and the new file is deleted', async () => {
   await send('pay');
   const firstProof = DB[0].proofFile;
-  const filesAfterFirst = newFiles().length;
+  const before = unlinked.length;
   const again = await send('pay');
   assert.equal(again.status, 400);
   assert.equal(DB[0].proofFile, firstProof);
-  assert.equal(newFiles().length, filesAfterFirst, 'the refused upload left no file behind');
+  assert.equal(unlinked.length - before, 1, 'the refused upload was deleted');
+  assert.equal(path.dirname(unlinked[unlinked.length - 1]), PROOFS);
+  assert.notEqual(path.basename(unlinked[unlinked.length - 1]), path.basename(firstProof), 'and it was not the first proof');
 });
 
 test('every refused state leaves no file and changes nothing', async () => {
@@ -128,11 +133,11 @@ test('every refused state leaves no file and changes nothing', async () => {
   for (const [route, over] of cases) {
     DB = [booking(over)];
     const snapshot = JSON.stringify(DB[0]);
-    const before = newFiles().length;
+    const before = unlinked.length;
     const res = await send(route);
     assert.equal(res.status, 400, `${route} ${JSON.stringify(over)}`);
     assert.equal(JSON.stringify(DB[0]), snapshot, 'nothing changed');
-    assert.equal(newFiles().length, before, 'no file left behind');
+    assert.equal(unlinked.length - before, 1, 'the refused upload was deleted');
   }
 });
 
@@ -143,17 +148,17 @@ test('after a rejection the customer can send a new down payment', async () => {
 });
 
 test('a refused proof for a missing reference deletes its file too', async () => {
-  const before = newFiles().length;
+  const before = unlinked.length;
   const res = await send('pay', 'CUS1', { reference: '' });
   assert.equal(res.status, 400);
-  assert.equal(newFiles().length, before);
+  assert.equal(unlinked.length - before, 1);
 });
 
 test('two submissions at the same moment: only one wins', async () => {
-  const before = newFiles().length;
+  const before = unlinked.length;
   const results = await Promise.all([send('pay'), send('pay')]);
   assert.equal(results.filter((r) => r.status === 200).length, 1, JSON.stringify(results.map((r) => r.status)));
-  assert.equal(newFiles().length - before, 1, 'only the winning proof is kept');
+  assert.equal(unlinked.length - before, 1, 'the losing proof was deleted, the winning one is kept');
 });
 
 test('the balance: accepted when due, refused the second time', async () => {
@@ -164,11 +169,11 @@ test('the balance: accepted when due, refused the second time', async () => {
 });
 
 test('another customer cannot pay on this booking, and the file is removed', async () => {
-  const before = newFiles().length;
+  const before = unlinked.length;
   assert.equal((await send('pay', 'CUS2')).status, 404);
   assert.equal((await send('pay-balance', 'CUS2')).status, 404);
   assert.equal(DB[0].paymentStatus, 'Unpaid');
-  assert.equal(newFiles().length, before);
+  assert.equal(unlinked.length - before, 2, 'both uploads were deleted');
 });
 
 test('a refused repeat does not change the refund amount a cancellation would use', async () => {

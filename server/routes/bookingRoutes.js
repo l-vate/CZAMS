@@ -3,6 +3,7 @@ const { NOTIFICATION_TYPE } = require('../constants/notificationTypes');
 const { ROLE } = require('../constants/roles');
 const { REFUND_STATUS } = require('../constants/refundStatus');
 const { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } = require('../constants/paymentStatus');
+const { PAYMENT_MODE } = require('../constants/paymentModes');
 const { BOOKING_STATUS, BOOKING_STATUS_VALUES } = require('../constants/bookingStatus');
 const multer = require('multer');
 const express = require('express');
@@ -39,7 +40,7 @@ const { manilaToday, isAtLeastDaysAhead } = require('../utils/manilaDate');
 const { readFeedback } = require('../utils/feedbackInput');
 const { normalizeContactNumber } = require('../utils/contactNumber');
 const { sendRouteError } = require('../utils/routeErrors');
-const { planPaymentChange, commitPayment } = require('../utils/paymentVerification');
+const { planPaymentChange, planInPersonPayment, commitPayment } = require('../utils/paymentVerification');
 const { buildPriceSnapshot } = require('../utils/priceSnapshot');
 const { serviceProblem, unitsProblem } = require('../utils/bookingValidation');
 const { downPaymentProblem, balanceProblem, firstPaymentModeProblem, DOWN_PAYMENT_BOOKING_STATUSES, DOWN_PAYMENT_OPEN, BALANCE_BOOKING_STATUSES, BALANCE_OPEN } = require('../utils/paymentGuards');
@@ -361,8 +362,13 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
     let bookingCustomer = null;
     if (req.userRole === ROLE.ADMIN && customer) {
       bookingCustomer = await User.findById(customer);
-      if (!bookingCustomer) {
+      // A walk-in booking belongs to a customer account: one that exists, is active, and is a customer (not a
+      // technician, an admin or a deactivated account).
+      if (!bookingCustomer || bookingCustomer.role !== ROLE.CUSTOMER) {
         return res.status(400).json({ message: 'Selected customer account not found.' });
+      }
+      if (bookingCustomer.isActive === false) {
+        return res.status(400).json({ message: 'That customer account is deactivated. Activate it first, or choose another customer.' });
       }
       bookingCustomerId = customer;
       isAdminWalkIn = true;
@@ -464,21 +470,10 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
         : { type: discountType, idFile: discountIdPath, status: 'Pending', requestedAt: now };
     }
 
-    // A walk-in booking's admin is physically/verbally confirming payment on the
-    // spot, so with no proof to check it's marked paid immediately instead of
-    // sitting in the Payments queue looking like an unresolved to-verify item with
-    // nothing to review. If the admin did attach proof (e.g. a GCash screenshot),
-    // it still goes through the normal to_verify review like any other booking.
-    // A 0% down payment (the Customer Classification return-customer perk) is the
-    // one case where nothing was actually collected, so it stays 'Unpaid' either way.
-    let paymentStatus;
-    if (proofFile) {
-      paymentStatus = PAYMENT_STATUS.TO_VERIFY;
-    } else if (isAdminWalkIn && Number(downPaymentPercent) > 0) {
-      paymentStatus = Number(downPaymentPercent) >= 100 ? PAYMENT_STATUS.FULLY_PAID : PAYMENT_STATUS.PARTIALLY_PAID;
-    } else {
-      paymentStatus = PAYMENT_STATUS.UNPAID;
-    }
+    // A booking is never marked paid just because an admin made it. Money received in person is recorded afterwards, on
+    // purpose, with the method, the amount and who received it (PATCH /:bookingId/record-payment). A proof attached here
+    // goes through the normal check like any other.
+    const paymentStatus = proofFile ? PAYMENT_STATUS.TO_VERIFY : PAYMENT_STATUS.UNPAID;
 
     const withinServiceArea = isWithinServiceArea(address);
 
@@ -550,12 +545,9 @@ clientSuppliedUnit: isClientSuppliedUnit,
       const basePrice = getBookingBasePrice(populated);
       populated.vatAmount = Math.round(basePrice * 0.12);
     }
-    // The amount of a down payment on file is recorded when it is verified, not from a submission nobody has
-    // checked (an admin walk-in that is paid on the spot is the one case recorded here).
-    const downPaymentOnFile = isAdminWalkIn && populated.downPaymentPercent > 0
-      && [PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(populated.paymentStatus);
-    if (downPaymentOnFile) populated.downPaymentPaidAmount = computeDownPaymentAmount(populated);
-    if (isCommercial || discountApprovedNow || bestPromo || downPaymentOnFile) {
+    // The amount of a down payment on file is recorded when it is verified or received, never from a submission nobody
+    // has checked.
+    if (isCommercial || discountApprovedNow || bestPromo) {
       await populated.save();
     }
 
@@ -838,6 +830,46 @@ router.patch('/:bookingId/pay-balance', auth, allowRoles(ROLE.CUSTOMER), upload.
     discardUploads(req);
     console.error(err);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: record a payment received in person (cash, cheque, or GCash or a bank transfer shown at the counter). Nothing is
+// verified until the admin says so here: the method, the amount and an optional reference or cheque number are stored with
+// who received it and when (paymentEvents), and the payment becomes Verified because the admin is the one verifying it.
+// Same state rules and the same one-step conditional update as verifying a customer's proof (utils/paymentVerification.js).
+router.patch('/:bookingId/record-payment', auth, allowRoles(ROLE.ADMIN), async (req, res) => {
+  try {
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId }).populate('service');
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    const planned = planInPersonPayment(booking, {
+      track: req.body.track, method: req.body.method, amount: req.body.amount, reference: req.body.reference,
+      allowedMethods: Object.values(PAYMENT_MODE),
+    });
+    if (planned.problem) return sendProblem(res, planned.problem);
+
+    const actor = { id: req.userId, name: (await User.findById(req.userId).select('name'))?.name || '' };
+    const committed = await commitPayment(Booking, booking, planned.plan, actor);
+    if (!committed) {
+      return res.status(409).json({ message: 'This payment was just changed by someone else, or the booking was cancelled. Reload and check its status.' });
+    }
+
+    await sendNotification(
+      booking.customer,
+      NOTIFICATION_TYPE.PAYMENT_VERIFIED,
+      `Your ${planned.plan.track === 'balance' ? 'balance ' : ''}payment for booking ${booking.bookingId} was received in person and recorded. Thank you!`,
+      { booking }
+    );
+
+    const populated = await committed.populate([
+      { path: 'service' },
+      { path: 'customer', select: 'name email phone clientType companyName representativeName' },
+      { path: 'technician', select: 'name' },
+      ...ASSIGNMENT_POPULATE,
+    ]);
+    res.json(withWarranty(populated));
+  } catch (err) {
+    sendRouteError(res, err);
   }
 });
 

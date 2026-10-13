@@ -11,7 +11,7 @@ import { isWithinQuezonCity } from '../utils/serviceArea';
 import { attempt, orFallback } from '../services/apiClient';
 import { getReportForBooking } from '../services/reportService';
 import {
-    adminUpdateBooking, uploadUnitPurchaseProof, rescheduleAfterDisruption, decideDiscount, decideReschedule, decideExtension,
+    adminUpdateBooking, recordPayment, uploadUnitPurchaseProof, rescheduleAfterDisruption, decideDiscount, decideReschedule, decideExtension,
 } from '../services/bookingService';
 import { BOOKING_STATUS } from '../constants/bookingStatus';
 import { TIME_BLOCK } from '../constants/timeBlocks';
@@ -62,6 +62,7 @@ function Icon({ name }) {
 function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
     
     const [saving, setSaving] = useState(false);
+    const [recordDraft, setRecordDraft] = useState(null); // a payment being recorded: received in person
     const [error, setError] = useState('');
     const [disruptionDate, setDisruptionDate] = useState('');
     const [disruptionTime, setDisruptionTime] = useState('');
@@ -131,6 +132,26 @@ const [report, setReport] = useState(null);
             console.error('Error updating booking:', err);
             setError('Network error. Please try again.');
             return false;
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // A payment received in person: method, amount and an optional reference, recorded with who received it.
+    const handleRecordPayment = async () => {
+        setSaving(true);
+        setError('');
+        try {
+            const recorded = await attempt(recordPayment(booking.bookingId, recordDraft), 'Could not record the payment.');
+            if (recorded.error) {
+                setError(recorded.error);
+                return;
+            }
+            setRecordDraft(null);
+            onUpdated?.(recorded.data);
+        } catch (err) {
+            console.error('Error recording payment:', err);
+            setError('Network error. Please try again.');
         } finally {
             setSaving(false);
         }
@@ -807,6 +828,32 @@ const [report, setReport] = useState(null);
                                                     </li>
                                                 ))}
                                             </ul>
+                                        </span>
+                                    </div>
+                                )}
+                                {booking.status !== 'Cancelled' && (
+                                    <div className="sdm-list-row">
+                                        <span>Received in person</span>
+                                        <span className="sdm-list-value">
+                                            {recordDraft ? (
+                                                <span>
+                                                    <select className="sdm-tech-select" aria-label="Which payment" value={recordDraft.track} onChange={(e) => setRecordDraft({ ...recordDraft, track: e.target.value })}>
+                                                        <option value="down">Down payment</option>
+                                                        <option value="balance">Balance</option>
+                                                    </select>
+                                                    <select className="sdm-tech-select" aria-label="Method" value={recordDraft.method} onChange={(e) => setRecordDraft({ ...recordDraft, method: e.target.value })}>
+                                                        {['Cash', 'Cheque', 'GCash', 'Bank Transfer'].map((m) => <option key={m} value={m}>{m}</option>)}
+                                                    </select>
+                                                    <input className="ma-input" type="number" min="1" step="0.01" aria-label="Amount received" placeholder="Amount received" value={recordDraft.amount} onChange={(e) => setRecordDraft({ ...recordDraft, amount: e.target.value })} />
+                                                    <input className="ma-input" type="text" maxLength={60} aria-label="Reference or cheque number" placeholder="Reference or cheque no. (optional)" value={recordDraft.reference} onChange={(e) => setRecordDraft({ ...recordDraft, reference: e.target.value })} />
+                                                    <button type="button" className="sdm-btn sdm-btn-primary" onClick={handleRecordPayment} disabled={saving || !recordDraft.amount}>Record payment</button>
+                                                    <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setRecordDraft(null)} disabled={saving}>Cancel</button>
+                                                </span>
+                                            ) : (
+                                                <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setRecordDraft({ track: 'down', method: 'Cash', amount: '', reference: '' })}>
+                                                    Record a payment
+                                                </button>
+                                            )}
                                         </span>
                                     </div>
                                 )}

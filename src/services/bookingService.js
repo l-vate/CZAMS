@@ -91,6 +91,11 @@ export function adminUpdateBooking(bookingId, body) {
   return request(`${booking(bookingId)}/admin-update`, { method: 'PATCH', body });
 }
 
+// Record a payment received in person: { track: 'down' | 'balance', method, amount, reference? }.
+export function recordPayment(bookingId, body) {
+  return request(`${booking(bookingId)}/record-payment`, { method: 'PATCH', body });
+}
+
 // `reason` is optional and goes into the assignment history.
 export function assignBooking(bookingId, assignments, reason) {
   return request(`${booking(bookingId)}/assign`, { method: 'PATCH', body: { assignments, ...(reason ? { reason } : {}) } });

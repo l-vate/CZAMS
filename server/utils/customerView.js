@@ -8,7 +8,6 @@
 //
 // Kept on purpose, because the customer's own screens show them to the customer: the reason a discount was not
 // approved, and the reason a refund amount was adjusted.
-const idOf = (x) => (x ? String(x._id || x) : null);
 
 const pick = (source, keys) => {
   const out = {};

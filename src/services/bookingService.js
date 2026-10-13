@@ -114,8 +114,9 @@ export function uploadUnitPurchaseProof(bookingId, file) {
   return upload(`${booking(bookingId)}/unit-purchase-proof`, formData, { method: 'PATCH' });
 }
 
-export function rescheduleAfterDisruption(bookingId, { date, time }) {
-  return request(`${booking(bookingId)}/disruption/reschedule`, { method: 'PATCH', body: { date, time } });
+// `reason` is needed when the admin starts the reschedule without a report from the lead technician.
+export function rescheduleAfterDisruption(bookingId, { date, time, reason }) {
+  return request(`${booking(bookingId)}/disruption/reschedule`, { method: 'PATCH', body: { date, time, ...(reason ? { reason } : {}) } });
 }
 
 // decision: 'approve' | 'reject'. `reason` is only sent when rejecting.

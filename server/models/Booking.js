@@ -292,6 +292,8 @@ const bookingSchema = new mongoose.Schema({
         reason: String,
         reportedAt: Date,
         reportedBy: String,
+        // Who started it: the lead technician reporting it, or the admin rescheduling directly.
+        initiatedBy: { type: String, enum: ['technician', 'admin'] },
         rescheduledAt: Date,
     },
     extensionRequest: {

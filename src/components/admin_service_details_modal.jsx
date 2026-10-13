@@ -65,6 +65,7 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
     const [error, setError] = useState('');
     const [disruptionDate, setDisruptionDate] = useState('');
     const [disruptionTime, setDisruptionTime] = useState('');
+    const [disruptionReason, setDisruptionReason] = useState('');
     const [instructionsDraft, setInstructionsDraft] = useState(booking?.technicianInstructions || '');
     // the extra day to approve: what the lead asked for, which the admin can change
     const [extraDate, setExtraDate] = useState(booking?.extensionRequest?.requestedDate || '');
@@ -185,11 +186,17 @@ const [report, setReport] = useState(null);
 
     const handleDisruptionReschedule = async () => {
         if (!disruptionDate || !disruptionTime) return;
+        // With no report from the lead, the admin starts it and says why.
+        const startedByAdmin = booking.disruption?.status !== 'Reported';
+        if (startedByAdmin && !disruptionReason.trim()) {
+            setError('Say what happened: a reason is required to reschedule a disrupted job.');
+            return;
+        }
         setSaving(true);
         setError('');
         try {
             const moved = await attempt(
-                rescheduleAfterDisruption(booking.bookingId, { date: disruptionDate, time: disruptionTime }),
+                rescheduleAfterDisruption(booking.bookingId, { date: disruptionDate, time: disruptionTime, reason: startedByAdmin ? disruptionReason.trim() : undefined }),
                 'Failed to reschedule.'
             );
             if (moved.error) {
@@ -470,6 +477,42 @@ const [report, setReport] = useState(null);
                                             className="sdm-btn sdm-btn-primary"
                                             onClick={handleDisruptionReschedule}
                                             disabled={saving || !disruptionDate || !disruptionTime}
+                                        >
+                                            Reschedule &amp; Notify
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {['Approved', 'In Progress'].includes(booking.status) && booking.disruption?.status !== 'Reported' && (
+                                <div className="sdm-notice">
+                                    <p className="admin-service-details-modal-x5">Job disrupted? Reschedule it now, without waiting for a report:</p>
+                                    <textarea
+                                        className="sdm-tech-select"
+                                        rows={2}
+                                        maxLength={300}
+                                        aria-label="What happened"
+                                        placeholder="What happened (required, the technicians see it)"
+                                        value={disruptionReason}
+                                        onChange={(e) => setDisruptionReason(e.target.value)}
+                                    />
+                                    <div className="admin-service-details-modal-x9">
+                                        <div>
+                                            <label className="sdm-row-label admin-service-details-modal-x10">New Date</label>
+                                            <ClosureDateInput className="ma-input" value={disruptionDate} onChange={setDisruptionDate} />
+                                        </div>
+                                        <div>
+                                            <label className="sdm-row-label admin-service-details-modal-x10">New Time</label>
+                                            <select className="sdm-tech-select" value={disruptionTime} onChange={(e) => setDisruptionTime(e.target.value)}>
+                                                <option value="">Select</option>
+                                                <option value={TIME_BLOCK.MORNING}>{TIME_BLOCK.MORNING}</option>
+                                                <option value={TIME_BLOCK.AFTERNOON}>{TIME_BLOCK.AFTERNOON}</option>
+                                            </select>
+                                        </div>
+                                        <button
+                                            className="sdm-btn sdm-btn-primary"
+                                            onClick={handleDisruptionReschedule}
+                                            disabled={saving || !disruptionDate || !disruptionTime || !disruptionReason.trim()}
                                         >
                                             Reschedule &amp; Notify
                                         </button>

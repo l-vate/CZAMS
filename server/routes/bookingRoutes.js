@@ -2088,8 +2088,17 @@ router.patch('/:bookingId/disruption/reschedule', auth, async (req, res) => {
     const booking = await Booking.findOne({ bookingId: req.params.bookingId }).populate('service');
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
-    if (booking.disruption?.status !== 'Reported') {
-      return res.status(400).json({ message: 'No reported disruption for this booking.' });
+    // Two ways in: the lead already reported a disruption (its reason is on the booking), or the admin starts the
+    // reschedule directly on an Approved or In Progress booking, without waiting for a report. The admin then gives the
+    // reason, so the record says why the job moved.
+    const technicianReported = booking.disruption?.status === 'Reported';
+    const adminReason = typeof req.body.reason === 'string' ? req.body.reason.trim() : '';
+    if (!technicianReported) {
+      if (![BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status)) {
+        return res.status(400).json({ message: 'A disruption reschedule can only be started for an Approved or In Progress booking.' });
+      }
+      if (!adminReason) return res.status(400).json({ message: 'Say what happened: a reason is required to reschedule a disrupted job.' });
+      if (adminReason.length > 300) return res.status(400).json({ message: 'The reason must be 300 characters or fewer.' });
     }
 
     if (!TIME_BLOCKS.includes(time)) {
@@ -2111,8 +2120,17 @@ router.patch('/:bookingId/disruption/reschedule', auth, async (req, res) => {
     // Nobody is actively working on it during the gap until the new date - back to
     // 'Approved' (scheduled, not in progress) rather than leaving it looking active.
     booking.status = BOOKING_STATUS.APPROVED;
-    booking.disruption.status = 'Rescheduled';
-    booking.disruption.rescheduledAt = new Date();
+    const movedAt = new Date();
+    if (technicianReported) {
+      booking.disruption.status = 'Rescheduled';
+      booking.disruption.initiatedBy = 'technician';
+      booking.disruption.rescheduledAt = movedAt;
+    } else {
+      booking.disruption = { status: 'Rescheduled', reason: adminReason, reportedAt: movedAt, reportedBy: req.userId, initiatedBy: 'admin', rescheduledAt: movedAt };
+    }
+    // Extra days approved against the old schedule no longer fit the job, so they stop holding the technicians.
+    booking.extensionDays = [];
+    if (booking.extensionRequest?.status === 'Pending') booking.extensionRequest.status = 'Denied';
 
     await booking.save();
 

@@ -21,6 +21,7 @@ const NOTIFICATION_TYPE = Object.freeze({
   RESCHEDULE_APPROVED: 'reschedule_approved',
   RESCHEDULE_DENIED: 'reschedule_denied',
   DISRUPTION_REPORTED: 'disruption_reported',
+  DISRUPTION_NOTICE: 'disruption_notice',
   DISRUPTION_RESCHEDULED: 'disruption_rescheduled',
   EXTENSION_REQUESTED: 'extension_requested',
   EXTENSION_APPROVED: 'extension_approved',

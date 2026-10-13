@@ -1285,21 +1285,33 @@ router.patch('/:bookingId/disruption/report', auth, async (req, res) => {
       return res.status(400).json({ message: 'A disruption has already been reported for this booking.' });
     }
 
-    booking.disruption = {
-      status: 'Reported',
-      reason: reason.trim(),
-      reportedAt: new Date(),
-      reportedBy: req.userId,
-    };
-
-    await booking.save();
+    // One report at a time: the check is part of the update, so two reports at once cannot both be saved or both notify.
+    const reported = await Booking.findOneAndUpdate(
+      { _id: booking._id, status: BOOKING_STATUS.IN_PROGRESS, 'disruption.status': { $ne: 'Reported' } },
+      { $set: { disruption: { status: 'Reported', reason: reason.trim(), reportedAt: new Date(), reportedBy: req.userId } } },
+      { new: true }
+    );
+    if (!reported) {
+      return res.status(400).json({ message: 'A disruption has already been reported for this booking.' });
+    }
 
     await notifyAdmins(
       NOTIFICATION_TYPE.DISRUPTION_REPORTED,
-      `A technician reported a disruption on booking ${booking.bookingId}: "${reason.trim().slice(0, 100)}". Reschedule needed.`,
-      { booking }
+      `A technician reported a disruption on booking ${reported.bookingId}: "${reason.trim().slice(0, 100)}". Reschedule needed.`,
+      { booking: reported }
     );
-    const populated = await booking.populate(['service', 'technician', 'customer', ...ASSIGNMENT_POPULATE]);
+    // The customer is told the job was interrupted and a new schedule is being arranged: no reason, no technician details.
+    try {
+      await sendNotification(
+        reported.customer,
+        NOTIFICATION_TYPE.DISRUPTION_NOTICE,
+        `Your service for booking ${reported.bookingId} was interrupted. We are arranging a new schedule and will tell you as soon as it is set.`,
+        { booking: reported }
+      );
+    } catch (notifyError) {
+      console.error(`Could not notify the customer about the disruption on booking ${reported.bookingId}:`, notifyError);
+    }
+    const populated = await reported.populate(['service', 'technician', 'customer', ...ASSIGNMENT_POPULATE]);
     res.json(toTechnicianView(populated.toObject(), { myRole: getRoleFor(populated, req.userId), isPrimaryLead: getPrimaryLeadId(populated) === req.userId }));
   } catch (err) {
     console.error(err);

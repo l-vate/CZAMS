@@ -468,6 +468,7 @@ function MyJobs() {
             className="tech-search-input"
             type="text"
             placeholder="Search by service, booking ID, customer, or address..."
+            aria-label="Search by service, booking ID, customer, or address"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />

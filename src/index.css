@@ -64,7 +64,7 @@
      --status-progress-bg/-txt pastel pair above (a different indigo, meant for
      tinted pills, not solid fills) and from --primary/--success/--danger/--warning
      since "in progress" isn't a stand-in for any of those four concepts. */
-  --status-progress-solid: #8b5cf6;
+  --status-progress-solid: #8655f6; /* was #8b5cf6: white text on it was 4.23:1, now 4.52:1 */
 
   /* Payment-status vocabulary (Unpaid/To Verify/Partially Paid/Fully Paid/
      Rejected/Cancelled/Refunded) reuses --danger/--warning/--primary/--success
@@ -338,7 +338,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .sidebar-link.active {
   background: rgba(37, 99, 235, 0.1);
-  color: var(--primary);
+  color: #2361eb; /* --primary nudged darker: 4.58:1 on the tint, --primary itself was 4.49:1 */
   border-left-color: var(--primary);
   font-weight: 600;
 }

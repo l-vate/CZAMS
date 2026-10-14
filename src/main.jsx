@@ -29,6 +29,9 @@ import './css/modals/payment_modal.css';
 import './css/modals/receipt_modal.css';
 import './css/modals/service_report_pdf_modal.css';
 
+// last, so the phone touch sizes apply on top of every page's own rules
+import './css/mobile_touch.css';
+
 import App from './App.jsx'
 
 

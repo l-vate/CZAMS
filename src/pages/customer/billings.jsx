@@ -7,7 +7,7 @@ import { FiClock, FiMapPin, FiFileText, FiCreditCard, FiEye } from 'react-icons/
 import { getBookingLineItems, getPaymentBreakdown } from '../../utils/bookingPricing';
 import { usePaymentSettings } from '../../utils/paymentSettings';
 import PaymentSettingsUnavailable from '../../components/payment_settings_unavailable';
-import { getFilterPillStyle } from '../../utils/statusColors';
+import { getFilterPillStyle, textOnFill } from '../../utils/statusColors';
 import { ApiError } from '../../services/apiClient';
 import { listMyBookings } from '../../services/bookingService';
 import { submitPayment, submitBalancePayment } from '../../services/paymentService';
@@ -272,7 +272,7 @@ paymentStatus: b.paymentStatus,
                   <small className="tech-job-date-label">{bill.date}</small>
                   <span
                     className="tech-job-status-badge"
-                    style={{ background: bill.isBackJob ? 'var(--success)' : getStatusColor(bill) }}
+                    style={{ background: bill.isBackJob ? 'var(--success)' : getStatusColor(bill), color: textOnFill(bill.isBackJob ? 'var(--success)' : getStatusColor(bill)) }}
                   >
                     {bill.isBackJob ? 'Free (Back Job)' : bill.status}
                   </span>

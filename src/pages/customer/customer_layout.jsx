@@ -40,6 +40,7 @@ function CustomerLayout({ title, children, searchValue, onSearchChange, searchPl
                 <input
                   type="search"
                   placeholder={searchPlaceholder || 'Search...'}
+                  aria-label={(searchPlaceholder || 'Search').replace(/\.{3}$/, '')}
                   value={searchValue}
                   onChange={(e) => onSearchChange(e.target.value)}
                 />

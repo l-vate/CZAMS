@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import AdminLayout from './admin_layout';
 import AdminServiceDetailsModal from '../../components/admin_service_details_modal';
 import PersonFilterBanner from '../../components/person_filter_banner';
-import { getStatusColor, getFilterPillStyle } from '../../utils/statusColors';
+import { getStatusColor, getFilterPillStyle, textOnFill } from '../../utils/statusColors';
 import { FiEye } from 'react-icons/fi';
 import { orFallback } from '../../services/apiClient';
 import { listBookings } from '../../services/bookingService';
@@ -154,7 +154,7 @@ function ServiceRequests() {
                                     </span>
                                     <span
                                         className="req-status-badge"
-                                        style={{ background: getStatusColor(req.status) }}
+                                        style={{ background: getStatusColor(req.status), color: textOnFill(getStatusColor(req.status)) }}
                                     >
                                         {req.status}
                                     </span>

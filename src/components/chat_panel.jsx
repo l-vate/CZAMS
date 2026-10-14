@@ -134,6 +134,7 @@ function ChatPanel({ conversationId, emptyText, partnerName = 'Admin Support', p
           className="chat-input"
           type="text"
           placeholder="Type a message..."
+          aria-label="Type a message"
           value={text}
           onChange={(e) => setText(e.target.value)}
           disabled={sending}

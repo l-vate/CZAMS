@@ -1,0 +1,48 @@
+/* Touch targets at phone width. Loaded last, so it adds to every page without changing any single page's rules.
+   Desktop is not touched: everything here is inside the phone breakpoint (768px, the one the layouts already use).
+   A fingertip needs about 40 px: buttons, icon buttons, selects and text fields get at least that height. min-height wins over a smaller
+   fixed height, so a page that sets height: 36px simply grows to 40px; nothing already taller changes. */
+@media (max-width: 768px) {
+  button,
+  [role="button"],
+  select,
+  textarea,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]) {
+    min-height: 40px;
+  }
+
+  /* an icon button is as wide as it is tall; a text button is already wider */
+  button,
+  [role="button"] {
+    min-width: 40px;
+  }
+
+  /* links that act as buttons or navigation */
+  a.info-card-view-all,
+  .customer-history-links a,
+  .sidebar-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+  }
+
+  /* a checkbox or radio is drawn a little bigger, and is hit through the label around it */
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 20px;
+    height: 20px;
+  }
+
+  label:has(> input[type="checkbox"]),
+  label:has(> input[type="radio"]) {
+    display: flex;
+    align-items: center;
+    min-height: 40px;
+  }
+
+  /* a small remove or close button inside a row should not squeeze the row's text */
+  button.pset-remove-detail-btn,
+  button.svc-btn-danger {
+    flex-shrink: 0;
+  }
+}

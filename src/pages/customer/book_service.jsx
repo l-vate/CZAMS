@@ -11,7 +11,7 @@ import { UNIT_TYPES, MAX_UNIT_QUANTITY } from '../../constants/unitTypes';
 import { resolveCleaningTier } from '../../../shared/bookingRules.js';
 import { useServices } from '../../hooks/useServices';
 import { useTechnicians } from '../../hooks/useTechnicians';
-import { useMyClassification } from '../../hooks/useMyClassification';
+import { useMyClassification, useMyAgreedTerms } from '../../hooks/useMyClassification';
 import { getUnitPrice } from '../../utils/bookingPricing';
 import { earliestBookingKey, formatManilaDay } from '../../utils/manilaTime';
 import { isValidContactNumber, getAccountPhone } from '../../utils/contact';
@@ -521,7 +521,7 @@ const PAYMENT_STATUS_LABELS = {
   rejected: 'Rejected',
 };
 
-function Step4({ form, setForm, services, isReturnCustomer, paymentMethods, downPaymentPercentages, promos }) {
+function Step4({ form, setForm, services, isReturnCustomer, onAgreedTerms, paymentMethods, downPaymentPercentages, promos }) {
   const [showModal, setShowModal] = useState(false);
   const { lineItems, basePrice, discountAmount, discountLabel, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages), 0, promos);
   const isNoDownPayment = dpPercent === 0;
@@ -566,7 +566,7 @@ const handleSubmitPayment = ({ proof, referenceNumber }) => {
           <div className="bs-field-group">
             <label className="bs-label">Down Payment</label>
             <div className="dp-radio-grid">
-              {getDownPaymentOptions(isReturnCustomer, downPaymentPercentages).map((opt) => (
+              {getDownPaymentOptions(isReturnCustomer, downPaymentPercentages, { onAgreedTerms }).map((opt) => (
                 <label key={opt.value} className="dp-radio-label">
                   <input
                     type="radio"
@@ -765,6 +765,7 @@ function BookService() {
   const { technicians } = useTechnicians();
   const classification = useMyClassification();
   const isReturnCustomer = classification === 'Return';
+  const onAgreedTerms = useMyAgreedTerms();
   const { paymentMethods, downPaymentPercentages, ready: paymentSettingsReady, failed: paymentSettingsFailed, refetch: refetchPaymentSettings } = usePaymentSettings();
   const { promos } = usePublicPromos();
   const navigate = useNavigate();
@@ -891,6 +892,7 @@ const canNext = () => {
               setForm={setForm}
               services={services}
               isReturnCustomer={isReturnCustomer}
+              onAgreedTerms={onAgreedTerms}
               paymentMethods={paymentMethods}
               downPaymentPercentages={downPaymentPercentages}
               promos={promos}

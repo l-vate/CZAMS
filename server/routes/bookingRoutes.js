@@ -528,7 +528,7 @@ clientSuppliedUnit: isClientSuppliedUnit,
         isActivelyLeaking: isActivelyLeaking === 'true' || isActivelyLeaking === true,
       } : undefined,
       isCommercial,
-      poNumber: isCommercial && poNumber ? String(poNumber).trim().slice(0, 40) : null,
+      poNumber: isCommercial ? (String(poNumber ?? '').trim().slice(0, 40) || null) : null,
       paymentTermsDays: termsDays,
       ...(discount ? { discount } : {}),
     }), { firstId: req.generatedBookingId });

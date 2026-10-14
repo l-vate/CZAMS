@@ -46,3 +46,7 @@ server/uploads/**/*
 uploads/
 !server/uploads/
 
+
+# Audit pass: credentials for the test accounts, and screenshots. Never tracked.
+server/.audit-credentials.json
+docs/audit-pass/screens/

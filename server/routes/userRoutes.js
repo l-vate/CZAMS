@@ -2,7 +2,6 @@ const { ROLE } = require('../constants/roles');
 const auditSpecs = require('../utils/auditSpecs');
 const express = require('express');
 const router = express.Router();
-const crypto = require('crypto');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 const { resolveClassification } = require('../utils/classification');
@@ -15,6 +14,7 @@ const { summarizeHistory } = require('../utils/customerHistory');
 const { clearAuthCache } = require('../utils/authCache');
 const { userInputProblem } = require('../utils/adminInput');
 const { findUserByEmail, normalizeEmail } = require('../utils/accountInput');
+const { generateUserId, createWithUniqueUserId } = require('../utils/uniqueUserId');
 const { sendRouteError } = require('../utils/routeErrors');
 const { isFieldTechnician } = require('../utils/technicians');
 const { memberFilter } = require('../utils/assignments');
@@ -166,11 +166,13 @@ router.post('/', auth, auditSpecs.userCreate, async (req, res) => {
     const typedPassword = typeof password === 'string' && password.length > 0 ? password : null;
     const plainPassword = typedPassword || generateTemporaryPassword();
 
-    const newUser = await User.create({
-      _id: crypto.randomUUID(),
+    const hashedPassword = await hashPassword(plainPassword);
+    // the same kind of public id as a registered account (CUS1234, STF1234, ADM1234), retried when two accounts draw the same one
+    const newUser = await createWithUniqueUserId((id) => User.create({
+      _id: id,
       name: name ? name.trim() : '',
       email: email.trim().toLowerCase(),
-      password: await hashPassword(plainPassword),
+      password: hashedPassword,
       phone: phone ? phone.trim() : '',
       address: address ? address.trim() : '',
       role: accountRole,
@@ -178,7 +180,7 @@ router.post('/', auth, auditSpecs.userCreate, async (req, res) => {
       // Only customers have a client type.
       ...(clientType !== undefined && accountRole === ROLE.CUSTOMER ? { clientType } : {}),
       ...profile.values,
-    });
+    }), () => generateUserId(accountRole));
 
     res.status(201).json({ ...newUser.toObject(), ...(typedPassword ? {} : { generatedPassword: plainPassword }) });
   } catch (err) {

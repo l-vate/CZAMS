@@ -1,7 +1,16 @@
 // A new account's public id (CUS1234) is a prefix and four random digits, so two accounts can draw the same one. The unique index on
 // _id refuses the second; this tries again with a new id instead of failing the registration. A duplicate email (its own unique
 // index) is not retried: it is reported as such.
+const { ROLE } = require('../constants/roles');
+
 const MAX_ATTEMPTS = 8;
+
+// The public id of a new account: CUS (customer), STF (staff) or ADM (admin) and four random digits. The ONE generator, used by registering
+// and by an admin creating an account, so both give the same kind of id.
+function generateUserId(role) {
+  const prefix = role === ROLE.STAFF ? 'STF' : role === ROLE.ADMIN ? 'ADM' : 'CUS';
+  return `${prefix}${Math.floor(1000 + Math.random() * 9000)}`;
+}
 
 class UserIdExhaustedError extends Error {
   constructor() {
@@ -26,4 +35,4 @@ async function createWithUniqueUserId(create, generate, maxAttempts = MAX_ATTEMP
   throw new UserIdExhaustedError();
 }
 
-module.exports = { createWithUniqueUserId, UserIdExhaustedError, isDuplicateOn, MAX_ATTEMPTS };
+module.exports = { generateUserId, createWithUniqueUserId, UserIdExhaustedError, isDuplicateOn, MAX_ATTEMPTS };

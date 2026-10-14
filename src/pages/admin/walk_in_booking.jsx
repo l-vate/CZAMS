@@ -22,6 +22,7 @@ import GeneratedPasswordNotice from '../../components/generated_password_notice'
 import PaymentSettingsUnavailable from '../../components/payment_settings_unavailable';
 import { REFERENCE_MAX, referenceError } from '../../utils/paymentReference';
 import { listUsers, createUser } from '../../services/userService';
+import { selectableCustomers } from '../../utils/walkInCustomers';
 import { ROLE } from '../../constants/roles';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
 
@@ -52,15 +53,8 @@ function CustomerStep({ customers, loadingCustomers, selectedCustomer, onSelectC
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
 
-  const filteredCustomers = customers.filter((c) => {
-    const term = search.trim().toLowerCase();
-    if (!term) return true;
-    return (
-      (c.name || '').toLowerCase().includes(term) ||
-      (c.email || '').toLowerCase().includes(term) ||
-      (c.phone || '').toLowerCase().includes(term)
-    );
-  });
+  // active customers only: a deactivated account cannot be booked for (the server refuses it), so it is not offered
+  const filteredCustomers = selectableCustomers(customers, search);
 
   const handleCreateCustomer = async (e) => {
     e.preventDefault();

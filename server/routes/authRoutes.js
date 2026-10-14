@@ -19,14 +19,7 @@ const { findDeletionBlockers } = require('../utils/deletionBlockers');
 const { normalizeEmail, findUserByEmail, validateRegistration, validateProfileUpdate } = require('../utils/accountInput');
 const { sendProblem } = require('../utils/validation');
 const { sendRouteError } = require('../utils/routeErrors');
-const { createWithUniqueUserId, UserIdExhaustedError, isDuplicateOn } = require('../utils/uniqueUserId');
-
-// Simple ID generator matching your ADM001-style pattern
-function generateUserId(role) {
-  const prefix = role === ROLE.STAFF ? 'STF' : role === ROLE.ADMIN ? 'ADM' : 'CUS';
-  const random = Math.floor(1000 + Math.random() * 9000);
-  return `${prefix}${random}`;
-}
+const { generateUserId, createWithUniqueUserId, UserIdExhaustedError, isDuplicateOn } = require('../utils/uniqueUserId');
 
 // Profile photos: JPG, PNG or WEBP only, stored under a random name with an extension taken from
 // the validated type, and the first bytes of the saved file are checked (utils/uploadSafety.js).

@@ -770,6 +770,7 @@ function BookService() {
   const { promos } = usePublicPromos();
   const navigate = useNavigate();
   const { notice, showNotice, clearNotice } = useNotice();
+  const [submitting, setSubmitting] = useState(false);
   const [step, setStep] = useState(1);
 
   const [form, setForm] = useState({
@@ -826,6 +827,9 @@ const canNext = () => {
   };
 
  const handleConfirmBooking = async () => {
+    // one click only: the button stays off until the answer comes back, so a second click cannot send the booking again
+    if (submitting) return;
+    setSubmitting(true);
     try {
       const formData = new FormData();
       formData.append('service', form.service);
@@ -864,6 +868,8 @@ const canNext = () => {
       navigate(`/customer/book_details/${data.bookingId}`, { state: { booking: data } });
     } catch (err) {
       showNotice(err instanceof ApiError ? err.message || 'Failed to create booking' : 'Could not connect to server. Is the backend running?');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -922,9 +928,9 @@ const canNext = () => {
               {step === 4 ? <>Book <FiArrowRight /></> : <>Next <FiArrowRight /></>}
             </button>
           ) : (
-            <button className="bs-next-btn" onClick={handleConfirmBooking} disabled={!paymentSettingsReady}
+            <button className="bs-next-btn" onClick={handleConfirmBooking} disabled={submitting || !paymentSettingsReady}
             >
-              Confirm <FiCheck />
+              {submitting ? 'Confirming...' : <>Confirm <FiCheck /></>}
             </button>
           )}
         </div>

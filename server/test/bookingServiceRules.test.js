@@ -5,7 +5,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const harness = require('./helpers/createBooking');
 
-const { state, post } = harness;
+const { state, post, goodDate } = harness;
 
 const services = () => [
   { _id: 'S-CLEAN', name: 'Cleaning', serviceType: 'Cleaning', price: 800, isActive: true },
@@ -74,7 +74,7 @@ test('the tier follows the answers: regular, deep, pull-down', async () => {
   assert.equal((await post({ service: 'S-CLEAN', lastCleanedOver6MonthsAgo: false, isActivelyLeaking: false })).status, 201);
   assert.equal((await post({ service: 'S-DEEP', lastCleanedOver6MonthsAgo: true, isActivelyLeaking: false })).status, 201);
   assert.equal((await post({ service: 'S-PULL', lastCleanedOver6MonthsAgo: false, isActivelyLeaking: true })).status, 201);
-  assert.equal((await post({ service: 'S-PULL', lastCleanedOver6MonthsAgo: true, isActivelyLeaking: true })).status, 201, 'leaking wins over not cleaned');
+  assert.equal((await post({ service: 'S-PULL', lastCleanedOver6MonthsAgo: true, isActivelyLeaking: true, date: goodDate(9) })).status, 201, 'leaking wins over not cleaned');
 });
 
 test('a tier that does not match the answers is refused, naming the right one', async () => {

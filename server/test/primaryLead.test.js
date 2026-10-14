@@ -41,6 +41,7 @@ const makeBooking = (assignments) => {
 const TWO_PAIRS = [{ lead: 'T1', helper: 'T2' }, { lead: 'T3', helper: 'T4' }];
 
 test.before(async () => {
+  require('./helpers/stubLocks').installLockStub(); // an assignment now takes a short lock per technician (utils/slotLock.js)
   User.findById = (id) => chain(accounts[id] ? { _id: id, role: accounts[id], isActive: true, position: 'Technician' } : null);
   User.findOne = (f) => chain({ _id: f && f._id, role: 'staff' });
   User.find = () => chain([]);

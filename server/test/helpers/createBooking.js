@@ -20,8 +20,9 @@ const { manilaTodayKey } = require('../../utils/timeBlocks');
 const { addDays } = require('../../utils/extensionDays');
 const { matches, chain } = require('./memoryQueries');
 const { createMemoryStore, setStore } = require('../../storage/fileStore');
+const Lock = require('../../models/Lock');
 
-const state = { store: null, versioned: false, backJobDelay: 0, users: [], services: [], bookings: [], notes: [], closures: [], promos: [], backJobs: [], settings: null };
+const state = { locks: new Map(), store: null, versioned: false, backJobDelay: 0, users: [], services: [], bookings: [], notes: [], closures: [], promos: [], backJobs: [], settings: null };
 let seq = 0;
 let server;
 let base;
@@ -71,6 +72,7 @@ function reset({ users = [], services = [], settings = DEFAULT_SETTINGS } = {}) 
   // Uploaded files go to an in-memory store, never to disk or a database: state.store shows what was kept.
   state.store = createMemoryStore();
   setStore(state.store);
+  state.locks = new Map();
   state.users = users;
   state.services = services;
   state.settings = settings;
@@ -94,6 +96,18 @@ async function install() {
   Closure.findOne = (f) => chain(state.closures.find((c) => matches(c, f)) || null);
   Closure.find = (f) => chain(state.closures.filter((c) => matches(c, f)));
   Promo.find = () => chain(state.promos);
+  // locks: creating one that exists fails with a duplicate key error (what the unique _id does in MongoDB); an expired one can be deleted
+  Lock.create = async (doc) => {
+    if (state.locks.has(doc._id)) throw Object.assign(new Error('E11000 duplicate key error'), { code: 11000 });
+    state.locks.set(doc._id, doc); // taken at once: the database decides who is first in one step
+    await new Promise((resolve) => { setImmediate(resolve); }); // and the answer still takes a moment to come back, so requests overlap
+    return doc;
+  };
+  Lock.deleteOne = async (filter) => {
+    const held = state.locks.get(filter._id);
+    if (held && (!filter.expiresAt || held.expiresAt < filter.expiresAt.$lt)) state.locks.delete(filter._id);
+    return { acknowledged: true };
+  };
   Counter.findOneAndUpdate = async () => ({ seq: (seq += 1) * 1000 });
   Notification.create = async (d) => { state.notes.push(d); return d; };
   // With state.versioned, every read gives its own copy and a save is refused (VersionError) when the stored booking changed since

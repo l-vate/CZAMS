@@ -87,7 +87,7 @@ test.describe('creating bookings', () => {
     assert.equal(first.body.priceSnapshot.lines[0].lineTotal, 2400, 'the customer gets it too');
 
     state.services[0].unitTypePricing = [{ unitType: 'Split Type', price: 2000 }];
-    const second = await post({ units: [{ type: 'Split Type', quantity: 2 }] });
+    const second = await post({ units: [{ type: 'Split Type', quantity: 2 }], date: harness.goodDate(9) }); // another day: the same booking twice is refused
     assert.equal(second.status, 201);
     const later = state.bookings[1];
     assert.equal(later.priceSnapshot.lines[0].unitPrice, 2000, 'the new booking uses the new price');

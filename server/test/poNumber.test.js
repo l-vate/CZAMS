@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const harness = require('./helpers/createBooking');
 
-const { state, post } = harness;
+const { state, post, goodDate } = harness;
 const cleaning = { _id: 'S-CLEAN', name: 'Cleaning', serviceType: 'Cleaning', price: 1000, isActive: true };
 
 test.before(() => harness.install());
@@ -31,7 +31,7 @@ test('a PO number longer than 40 characters is cut to 40', async () => {
 
 test('no PO number, or only spaces, is stored as none', async () => {
   await post({}, 'COM1');
-  await post({ poNumber: '    ' }, 'COM1');
+  await post({ poNumber: '    ', date: goodDate(8) }, 'COM1'); // another day: the same booking twice is refused
   assert.deepEqual(state.bookings.map((b) => b.poNumber), [null, null]);
 });
 

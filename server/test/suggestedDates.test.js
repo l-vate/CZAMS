@@ -29,6 +29,7 @@ test.beforeEach(() => {
   harness.reset({
     users: [
       { _id: 'CUS1', role: 'customer', isActive: true, clientType: 'Residential', name: 'Customer One' },
+      { _id: 'CUS2', role: 'customer', isActive: true, clientType: 'Residential', name: 'Customer Two' },
       { _id: 'ADM1', role: 'admin', isActive: true, name: 'Admin One' },
       tech('T1'), tech('T2'), tech('T3'), tech('T4'),
     ],
@@ -59,7 +60,7 @@ test('assigning a technician who is busy is a 409 that also carries the dates wh
 
 test('a walk-in booking nobody can staff comes back with the dates, for the admin only', async () => {
   everyoneBusy();
-  const made = await post({ date: D, time: 'Morning', customer: 'CUS1' }, 'ADM1', { role: 'admin' });
+  const made = await post({ date: D, time: 'Morning', customer: 'CUS2' }, 'ADM1', { role: 'admin' });
   assert.equal(made.status, 201, JSON.stringify(made.body));
   assert.ok(made.body.suggestedDates.length > 0);
   assert.deepEqual(state.bookings.find((b) => b.bookingId === made.body.bookingId).assignments, []);

@@ -38,6 +38,7 @@ const booking = (service, status, assignments, over = {}) => {
 const svc = (serviceType, extra = {}) => ({ _id: 'S1', name: serviceType, serviceType, ...extra });
 
 test.before(async () => {
+  require('./helpers/stubLocks').installLockStub(); // an assignment now takes a short lock per technician (utils/slotLock.js)
   User.findById = (id) => chain(accounts[id] ? { _id: id, role: accounts[id], isActive: true } : null);
   User.find = (filter) => {
     const ids = filter?._id?.$in;

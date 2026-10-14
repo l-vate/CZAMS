@@ -28,6 +28,8 @@ test.beforeEach(() => {
   harness.reset({
     users: [
       { _id: 'CUS1', role: 'customer', isActive: true, clientType: 'Residential', name: 'Customer One' },
+      { _id: 'CUS2', role: 'customer', isActive: true, clientType: 'Residential', name: 'Customer Two' },
+      { _id: 'CUS3', role: 'customer', isActive: true, clientType: 'Residential', name: 'Customer Three' },
       { _id: 'ADM1', role: 'admin', isActive: true, name: 'Admin One' },
       tech('T1'), tech('T2'), tech('T3'), tech('T4'),
     ],
@@ -36,11 +38,11 @@ test.beforeEach(() => {
 });
 const move = (id, action) => call('PATCH', `/${id}/queue`, 'ADM1', { action }, { role: 'admin' });
 
-// three requests for one block, with only two pairs of technicians
+// three requests for one block, with only two pairs of technicians, from three customers (one customer cannot send the same booking twice)
 const three = async () => {
   const ids = [];
   for (let i = 0; i < 3; i += 1) {
-    const res = await post({ date: D, time: 'Morning' });
+    const res = await post({ date: D, time: 'Morning' }, `CUS${i + 1}`);
     assert.equal(res.status, 201, JSON.stringify(res.body));
     ids.push(res.body.bookingId);
   }

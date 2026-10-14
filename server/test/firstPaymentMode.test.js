@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const harness = require('./helpers/createBooking');
 const { firstPaymentModeProblem } = require('../utils/paymentGuards');
 
-const { state, post } = harness;
+const { state, post, goodDate } = harness;
 
 test.before(() => harness.install());
 test.after(() => harness.close());
@@ -31,7 +31,7 @@ test('a customer booking with Cash or Cheque as the first payment is refused and
 
 test('a customer booking with GCash or Bank Transfer is accepted', async () => {
   assert.equal((await post({ paymentMode: 'GCash' })).status, 201);
-  assert.equal((await post({ paymentMode: 'Bank Transfer' })).status, 201);
+  assert.equal((await post({ paymentMode: 'Bank Transfer', date: goodDate(8) })).status, 201); // another day: the same booking twice is refused
 });
 
 test('the second payment (the balance) may be cash or cheque, paid at the shop', async () => {
@@ -40,8 +40,8 @@ test('the second payment (the balance) may be cash or cheque, paid at the shop',
 });
 
 test('an admin walk-in booking may record a cash or cheque first payment', async () => {
-  for (const paymentMode of ['Cash', 'Cheque']) {
-    const res = await post({ paymentMode, customer: 'CUS1' }, 'ADM1', { role: 'admin' });
+  for (const [i, paymentMode] of ['Cash', 'Cheque'].entries()) {
+    const res = await post({ paymentMode, customer: 'CUS1', date: goodDate(7 + i) }, 'ADM1', { role: 'admin' }); // another day each: the same booking twice is refused
     assert.equal(res.status, 201, `${paymentMode}: ${JSON.stringify(res.body)}`);
   }
 });

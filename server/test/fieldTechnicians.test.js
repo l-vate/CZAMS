@@ -77,6 +77,7 @@ let server;
 let base;
 
 test.before(async () => {
+  require('./helpers/stubLocks').installLockStub(); // an assignment now takes a short lock per technician (utils/slotLock.js)
   User.findById = (id) => chain(accounts[id] ? { _id: id, role: accounts[id], isActive: true } : null);
   // what the database does for the queries the code makes: staff only, active only, and by id when asked
   User.find = (filter = {}) => chain(STAFF.filter((u) => (!filter.isActive || u.isActive === true) && (!filter._id || filter._id.$in.includes(u._id))));

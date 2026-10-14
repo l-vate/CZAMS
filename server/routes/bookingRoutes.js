@@ -37,6 +37,8 @@ const { TECHNICIAN_BOOKING_FILTER, isHiddenFromTechnicians } = require('../utils
 const scheduling = require('../constants/scheduling');
 const { createUploader, discardUploads, storeUploads, PROOF_TYPES } = require('../utils/uploadSafety');
 const { KINDS } = require('../storage/fileStore');
+const { withLocks, LockBusyError } = require('../utils/slotLock');
+const { duplicateKey, findActiveDuplicate, DuplicateBookingError } = require('../utils/duplicateBooking');
 const { manilaToday, isAtLeastDaysAhead } = require('../utils/manilaDate');
 const { readFeedback } = require('../utils/feedbackInput');
 const { normalizeContactNumber } = require('../utils/contactNumber');
@@ -504,34 +506,39 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
     // on service switch, but this is the actual enforcement point.
     const isCleaningService = serviceDoc.serviceType === SERVICE_TYPE.CLEANING;
 
-    // Everything has passed: the files are written to the store now. If the booking cannot be saved, they are removed again.
-    await storeUploads(req, { kind: (file) => (file.fieldname === 'discountId' ? KINDS.ID_PHOTO : KINDS.PROOF), bookingId: req.generatedBookingId });
-    const queueRank = await nextQueueRank(); // last in line: first come, first served
-    const booking = await createWithUniqueBookingId((bookingId) => Booking.create({
-      bookingId,
-      queueRank,
-      customer: bookingCustomerId,
-      service, units, problemDescription,
-      priceSnapshot: buildPriceSnapshot(serviceDoc, units),
-      date, time, requestedTechnician: technician || undefined, address: address.trim(), contactNumber: cleanContactNumber,
-      downPaymentPercent, paymentMode, paymentMode2,
-      paymentStatus, proofFile, referenceNumber: paymentSubmission.reference,
-clientSuppliedUnit: isClientSuppliedUnit,
-      unitWaiver: isClientSuppliedUnit ? {
-        acknowledged: true,
-        customerName: unitWaiverName.trim(),
-        acknowledgedAt: new Date(),
-      } : undefined,
-      serviceAreaCheck: { withinArea: withinServiceArea, checkedAt: new Date() },
-      cleaningTierAnswers: (isCleaningService && (lastCleanedOver6MonthsAgo !== undefined || isActivelyLeaking !== undefined)) ? {
-        lastCleanedOver6MonthsAgo: lastCleanedOver6MonthsAgo === 'true' || lastCleanedOver6MonthsAgo === true,
-        isActivelyLeaking: isActivelyLeaking === 'true' || isActivelyLeaking === true,
-      } : undefined,
-      isCommercial,
-      poNumber: isCommercial ? (String(poNumber ?? '').trim().slice(0, 40) || null) : null,
-      paymentTermsDays: termsDays,
-      ...(discount ? { discount } : {}),
-    }), { firstId: req.generatedBookingId });
+    // Everything has passed. The check for an identical booking and the insert happen while holding one lock (utils/slotLock.js), so
+    // two copies sent at the same moment (a double click) take turns: the second sees the first and is refused. The files are written
+    // to the store only once the booking is certain to be made, and removed again if it cannot be saved.
+    const booking = await withLocks([duplicateKey({ customer: bookingCustomerId, date, time, service })], async () => {
+      if (await findActiveDuplicate(Booking, { customer: bookingCustomerId, date, time, service, units })) throw new DuplicateBookingError();
+      await storeUploads(req, { kind: (file) => (file.fieldname === 'discountId' ? KINDS.ID_PHOTO : KINDS.PROOF), bookingId: req.generatedBookingId });
+      const queueRank = await nextQueueRank(); // last in line: first come, first served
+      return createWithUniqueBookingId((bookingId) => Booking.create({
+        bookingId,
+        queueRank,
+        customer: bookingCustomerId,
+        service, units, problemDescription,
+        priceSnapshot: buildPriceSnapshot(serviceDoc, units),
+        date, time, requestedTechnician: technician || undefined, address: address.trim(), contactNumber: cleanContactNumber,
+        downPaymentPercent, paymentMode, paymentMode2,
+        paymentStatus, proofFile, referenceNumber: paymentSubmission.reference,
+  clientSuppliedUnit: isClientSuppliedUnit,
+        unitWaiver: isClientSuppliedUnit ? {
+          acknowledged: true,
+          customerName: unitWaiverName.trim(),
+          acknowledgedAt: new Date(),
+        } : undefined,
+        serviceAreaCheck: { withinArea: withinServiceArea, checkedAt: new Date() },
+        cleaningTierAnswers: (isCleaningService && (lastCleanedOver6MonthsAgo !== undefined || isActivelyLeaking !== undefined)) ? {
+          lastCleanedOver6MonthsAgo: lastCleanedOver6MonthsAgo === 'true' || lastCleanedOver6MonthsAgo === true,
+          isActivelyLeaking: isActivelyLeaking === 'true' || isActivelyLeaking === true,
+        } : undefined,
+        isCommercial,
+        poNumber: isCommercial ? (String(poNumber ?? '').trim().slice(0, 40) || null) : null,
+        paymentTermsDays: termsDays,
+        ...(discount ? { discount } : {}),
+      }), { firstId: req.generatedBookingId });
+    });
 
     const populated = await booking.populate('service');
 
@@ -610,6 +617,8 @@ clientSuppliedUnit: isClientSuppliedUnit,
       : customerBooking(populated));
   } catch (err) {
     if (err instanceof BookingIdExhaustedError) { console.error(err); return res.status(500).json({ message: err.message }); }
+    if (err instanceof DuplicateBookingError) return res.status(409).json({ message: err.message });
+    if (err instanceof LockBusyError) return res.status(503).json({ message: err.message });
     sendRouteError(res, err);
   }
 });
@@ -1709,33 +1718,39 @@ async function performAssignment(booking, requested, { changedBy, reason } = {})
     if (staffing) return { error: { status: 400, message: staffing } };
   }
 
-  // Hard block, per member, so the message can name who is the problem.
-  for (const id of seen) {
-    const conflict = await findConflictingBooking([id], booking.date, booking.time, booking.bookingId);
-    if (conflict) {
-      const who = await User.findById(id).select('name');
-      return {
-        error: {
-          status: 409,
-          message: `${who?.name || 'A technician'} is already booked ${booking.date} (${booking.time}) on ${conflict.bookingId}. Choose a different technician, or move the booking to a date when enough technicians are free.`,
-          suggestedDates: await suggestionsFor(booking),
-        },
-      };
-    }
-  }
-
+  // Hard block, per member, so the message can name who is the problem. The check and the save happen while holding a lock for each
+  // technician in this slot (utils/slotLock.js): two requests for the same technician at the same moment take turns, so the second one
+  // sees the first one's booking and is refused instead of double booking the slot.
   const before = new Set(getMemberIds(booking));
   const previousAssignments = getAssignments(booking);
-  booking.assignments = resolved;
-  booking.technician = resolved[0].lead;
-  booking.needsReassignment = false; // whoever is on it now is active (only active field technicians can be assigned)
-  await booking.save();
+  let blocked = null;
+  await withLocks([...seen].map((id) => `tech:${id}|${booking.date}|${booking.time}`), async () => {
+    for (const id of seen) {
+      const conflict = await findConflictingBooking([id], booking.date, booking.time, booking.bookingId);
+      if (conflict) {
+        const who = await User.findById(id).select('name');
+        blocked = {
+          error: {
+            status: 409,
+            message: `${who?.name || 'A technician'} is already booked ${booking.date} (${booking.time}) on ${conflict.bookingId}. Choose a different technician, or move the booking to a date when enough technicians are free.`,
+            suggestedDates: await suggestionsFor(booking),
+          },
+        };
+        return;
+      }
+    }
+    booking.assignments = resolved;
+    booking.technician = resolved[0].lead;
+    booking.needsReassignment = false; // whoever is on it now is active (only active field technicians can be assigned)
+    await booking.save();
 
-  // The trail of who was on the job. Appended on the first assignment and on every change after.
-  await Booking.updateOne(
-    { _id: booking._id },
-    { $push: { assignmentHistory: buildHistoryEntry({ before: previousAssignments, after: resolved, changedBy, reason }) } }
-  );
+    // The trail of who was on the job. Appended on the first assignment and on every change after.
+    await Booking.updateOne(
+      { _id: booking._id },
+      { $push: { assignmentHistory: buildHistoryEntry({ before: previousAssignments, after: resolved, changedBy, reason }) } }
+    );
+  });
+  if (blocked) return blocked;
 
   // Tell technicians who are newly on the job, and those who were taken off it. Nothing is sent while the
   // booking is Pending: technicians hear about the job when the admin approves it (notifyAssignedTechnicians).
@@ -1775,10 +1790,19 @@ async function notifyAssignedTechnicians(booking) {
 // throws, so a failure just leaves the booking unassigned.
 async function autoAssignNewBooking(booking, reason = 'Assigned automatically by the system') {
   try {
-    const proposal = await proposeAssignment(booking);
-    if (!proposal.assignment) return { suggestedDates: proposal.suggestedDates || [] };
-    await performAssignment(booking, [proposal.assignment], { reason });
-    await booking.populate(ASSIGNMENT_POPULATE);
+    // If someone else took the technicians between the proposal and the save (two bookings made at the same moment), propose again: the
+    // second look sees the first booking and chooses someone who is still free, or nobody.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const proposal = await proposeAssignment(booking);
+      if (!proposal.assignment) return { suggestedDates: proposal.suggestedDates || [] };
+      const result = await performAssignment(booking, [proposal.assignment], { reason });
+      if (!result || !result.error) {
+        await booking.populate(ASSIGNMENT_POPULATE);
+        return { suggestedDates: [] };
+      }
+      if (result.error.status !== 409) break;
+      if (attempt === 2) return { suggestedDates: result.error.suggestedDates || [] };
+    }
   } catch (err) {
     console.error('Auto-assign on create failed:', err);
   }

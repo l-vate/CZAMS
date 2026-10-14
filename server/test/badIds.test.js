@@ -92,7 +92,9 @@ const fill = (template, value) => template.replace(/:[A-Za-z]+/g, encodeURICompo
 const send = async (method, url) => {
   const res = await fetch(`${base}${url}`, { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: method === 'GET' ? undefined : JSON.stringify({ reason: 'Test reason for removing it' }) });
   const text = await res.text();
-  return { status: res.status, text, json: (() => { try { return JSON.parse(text); } catch { return null; } })() };
+  const parse = () => { try { return { value: JSON.parse(text) }; } catch { return null; } };
+  const parsed = parse();
+  return { status: res.status, text, isJson: parsed !== null, json: parsed ? parsed.value : null };
 };
 const leaks = (text) => /\bat [\w$.<> ]+ \(|node_modules|[A-Za-z]:\\|CastError|Cast to ObjectId|MongoServerError/i.test(text);
 
@@ -115,7 +117,7 @@ test('a malformed id never gives a 500 or a stack trace on any route that has on
       sent += 1;
       if (res.status >= 500) problems.push(`${method} ${template} with "${value.slice(0, 20)}" answered ${res.status}`);
       else if (leaks(res.text)) problems.push(`${method} ${template} leaked internals`);
-      else if (!res.json) problems.push(`${method} ${template} did not answer in JSON (${res.status})`);
+      else if (!res.isJson) problems.push(`${method} ${template} did not answer in JSON (${res.status})`);
     }
   }
   assert.deepEqual(problems, []);

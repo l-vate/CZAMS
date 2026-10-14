@@ -2,6 +2,8 @@ const { ROLE } = require('../constants/roles');
 const auditSpecs = require('../utils/auditSpecs');
 const express = require('express');
 const router = express.Router();
+const { requireObjectId } = require('../utils/idParam');
+requireObjectId(router, 'id');
 const auth = require('../middleware/auth');
 const { sendRouteError } = require('../utils/routeErrors');
 const Promo = require('../models/Promo');

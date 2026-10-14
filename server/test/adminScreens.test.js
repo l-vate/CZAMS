@@ -16,6 +16,8 @@ const User = require('../models/User');
 const Conversation = require('../models/Conversation');
 const { authCache } = require('../utils/authCache');
 const { chain } = require('./helpers/memoryQueries');
+// conversation ids are MongoDB ObjectIds: a text id is refused as malformed before the route looks anything up
+const C1 = '64b64c1f1c1f1c1f1c1f1c11';
 const harness = require('./helpers/createBooking');
 
 const src = (...p) => path.join(__dirname, '..', '..', 'src', ...p);
@@ -54,7 +56,7 @@ test.describe('chat unread', () => {
   test.after(() => server && server.close());
   test.beforeEach(() => {
     authCache.clear();
-    threads = [{ _id: 'c1', participantId: 'CUS1', participantRole: 'customer', lastMessageBySenderRole: 'customer', lastMessageAt: new Date('2026-10-01T10:00:00Z'), adminReadAt: null, toObject() { return { ...this }; } }];
+    threads = [{ _id: C1, participantId: 'CUS1', participantRole: 'customer', lastMessageBySenderRole: 'customer', lastMessageAt: new Date('2026-10-01T10:00:00Z'), adminReadAt: null, toObject() { return { ...this }; } }];
   });
 
   test('a new customer message is unread for every admin', async () => {
@@ -63,20 +65,20 @@ test.describe('chat unread', () => {
   });
 
   test('one admin opening the thread does not hide it from the other', async () => {
-    assert.equal((await get('/conversations/c1/messages', 'ADM1')).status, 200);
+    assert.equal((await get(`/conversations/${C1}/messages`, 'ADM1')).status, 200);
     assert.equal((await get('/conversations', 'ADM1')).body[0].unread, false, 'read for the admin who opened it');
     assert.equal((await get('/conversations', 'ADM2')).body[0].unread, true, 'still unread for the other admin');
   });
 
   test('a message that arrives after an admin read it is unread again for that admin only', async () => {
-    await get('/conversations/c1/messages', 'ADM1');
-    await get('/conversations/c1/messages', 'ADM2');
+    await get(`/conversations/${C1}/messages`, 'ADM1');
+    await get(`/conversations/${C1}/messages`, 'ADM2');
     await new Promise((resolve) => { setTimeout(resolve, 20); });
     threads[0].lastMessageAt = new Date();
     await new Promise((resolve) => { setTimeout(resolve, 20); });
     assert.equal((await get('/conversations', 'ADM1')).body[0].unread, true);
     assert.equal((await get('/conversations', 'ADM2')).body[0].unread, true);
-    await get('/conversations/c1/messages', 'ADM2');
+    await get(`/conversations/${C1}/messages`, 'ADM2');
     assert.equal((await get('/conversations', 'ADM2')).body[0].unread, false);
     assert.equal((await get('/conversations', 'ADM1')).body[0].unread, true);
   });
@@ -84,7 +86,7 @@ test.describe('chat unread', () => {
   test('a thread read under the old shared time is not unread for everyone; the other admins read times are never sent', async () => {
     threads[0].adminReadAt = new Date('2026-10-02T00:00:00Z');
     assert.equal((await get('/conversations', 'ADM1')).body[0].unread, false);
-    await get('/conversations/c1/messages', 'ADM2');
+    await get(`/conversations/${C1}/messages`, 'ADM2');
     const body = (await get('/conversations', 'ADM1')).body[0];
     assert.equal('adminReadAtBy' in body, false);
   });

@@ -7,6 +7,8 @@ const { safeProofName, PROOF_PREFIX } = require('../utils/fileAccess');
 const { sendRouteError } = require('../utils/routeErrors');
 const express = require('express');
 const router = express.Router();
+const { requireObjectId } = require('../utils/idParam');
+requireObjectId(router, 'id');
 const auth = require('../middleware/auth');
 const Report = require('../models/Report');
 const Booking = require('../models/Booking');

@@ -22,6 +22,8 @@ function errorHandler(err, req, res, next) {
   // a body that is not JSON, or too big, is the sender's mistake
   if (err && err.type === 'entity.parse.failed') return res.status(400).json({ message: 'The request body is not valid JSON.' });
   if (err && err.type === 'entity.too.large') return res.status(413).json({ message: 'The request is too large.' });
+  // an id the database cannot read, from a route that did not catch it: the caller's mistake, not a fault
+  if (err && err.name === 'CastError') return res.status(400).json({ message: 'Invalid id' });
   if (err && err.status >= 400 && err.status < 500 && err.expose) return res.status(err.status).json({ message: err.message });
 
   console.error(`[request ${req.id || 'unknown'}] ${req.method} ${req.path}:`, err && err.message ? err.message : err);

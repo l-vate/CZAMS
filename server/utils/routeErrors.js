@@ -31,7 +31,7 @@ function sendRouteError(res, err, log = console.error) {
   if (err && err.name === 'VersionError') return res.status(409).json({ message: 'This was just changed by someone else. Reload and try again.' });
   // two requests for the same thing at once and this one waited too long for its turn: nothing is wrong, ask again
   if (err && err.name === 'LockBusyError') return res.status(503).json({ message: err.message });
-  if (err && err.name === 'CastError') return res.status(400).json({ message: `${labelFor(err.path)} is not valid.` });
+  if (err && err.name === 'CastError') return res.status(400).json({ message: err.path === '_id' ? 'Invalid id' : `${labelFor(err.path)} is not valid.` });
   log(err);
   return res.status(500).json({ message: 'Server error' });
 }

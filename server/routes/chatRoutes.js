@@ -2,6 +2,8 @@ const { NOTIFICATION_TYPE } = require('../constants/notificationTypes');
 const { ROLE } = require('../constants/roles');
 const express = require('express');
 const router = express.Router();
+const { requireObjectId } = require('../utils/idParam');
+requireObjectId(router, 'id');
 const auth = require('../middleware/auth');
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');

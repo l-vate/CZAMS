@@ -18,6 +18,9 @@ const { authCache } = require('../utils/authCache');
 const { createMemoryStore, setStore } = require('../storage/fileStore');
 const { chain } = require('./helpers/memoryQueries');
 
+// report ids are MongoDB ObjectIds: a text id is refused as malformed before the route looks anything up
+const R1 = '64b64c1f1c1f1c1f1c1f1c01';
+const R2 = '64b64c1f1c1f1c1f1c1f1c02';
 let reports;
 let booking;
 let claim;
@@ -29,7 +32,7 @@ const PNG_BYTES = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 const makeReport = (over = {}) => {
   const r = {
-    _id: 'r1', bookingId: 'CZ-1', technicianId: 'T1', workSummary: 'Cleaned', issueResolution: 'Complete', laborHours: 2, followUpRequired: false,
+    _id: R1, bookingId: 'CZ-1', technicianId: 'T1', workSummary: 'Cleaned', issueResolution: 'Complete', laborHours: 2, followUpRequired: false,
     isFinal: true, signedFormPhoto: undefined, ...over,
   };
   r.toObject = () => ({ ...r });
@@ -67,7 +70,7 @@ test.beforeEach(() => {
 
 const send = async (method, body, as = 'ADM1') => {
   const token = jwt.sign({ id: as, role: as === 'ADM1' ? 'admin' : 'staff' }, process.env.JWT_SECRET, { expiresIn: '5m' });
-  const res = await fetch(`${base}/api/reports/r1`, { method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const res = await fetch(`${base}/api/reports/${R1}`, { method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: body === undefined ? undefined : JSON.stringify(body) });
   return { status: res.status, body: await res.json().catch(() => ({})) };
 };
 
@@ -159,7 +162,7 @@ test('delete is refused (409) while a back job claim depends on the report, or a
   assert.equal(booking.status, 'Completed');
 
   claim = null;
-  reports.push(makeReport({ _id: 'r2', bookingId: 'CZ-2', backJob: { originalReportId: 'r1' } }));
+  reports.push(makeReport({ _id: R2, bookingId: 'CZ-2', backJob: { originalReportId: R1 } }));
   assert.equal((await send('DELETE', { reason: 'Duplicate' })).status, 409);
 });
 

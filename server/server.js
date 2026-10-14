@@ -53,6 +53,9 @@ const { startBookingStatusSchedule } = require('./jobs/bookingStatusJob');
 databaseReady.then(() => {
   startServiceReminderSchedule();
   startBookingStatusSchedule();
+  // say once, plainly, if a unique index could not be built (utils/indexWatch.js); the server keeps running
+  const mongoose = require('mongoose');
+  require('./utils/indexWatch').watchIndexes(mongoose.modelNames().map((name) => mongoose.model(name)));
 });
 
 const PORT = process.env.PORT || 5000;

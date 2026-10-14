@@ -2316,6 +2316,10 @@ router.patch('/:bookingId/refund/flag', auth, allowRoles(ROLE.CUSTOMER), async (
     if (!booking.refund || booking.refund.status === REFUND_STATUS.NONE) {
       return res.status(400).json({ message: 'There is no refund on this booking to flag.' });
     }
+    // A refund that has not been sent yet cannot have failed to arrive: it is still waiting for the admin.
+    if (booking.refund.status !== REFUND_STATUS.PROCESSED) {
+      return res.status(400).json({ message: 'This refund has not been sent yet, so there is nothing to flag. We will tell you as soon as it is processed.' });
+    }
 
     if (booking.refund.customerFlag?.flagged && !booking.refund.customerFlag?.resolved) {
       return res.status(400).json({ message: "You've already flagged this refund - our team will follow up." });

@@ -202,9 +202,8 @@ router.get('/booking/:bookingId', auth, async (req, res) => {
     const backJob = await BackJob.findOne({ originalBookingId: req.params.bookingId })
       .populate('resultingBooking');
 
-    if (!backJob) {
-      return res.status(404).json({ message: 'No back job report found for this booking' });
-    }
+    // No claim on a booking is the normal case, not an error: 200 with null, so a booking page that asks does not log a failed request.
+    if (!backJob) return res.json(null);
 
     if (req.userRole !== ROLE.ADMIN && backJob.customer !== req.userId) {
       return res.status(403).json({ message: 'Forbidden' });

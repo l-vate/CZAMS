@@ -7,7 +7,9 @@ import BackJobModal from '../../components/back_job_modal';
 import ServiceReportViewer from '../../components/service_report_viewer';
 import { getBookingLineItems, getPaymentBreakdown, formatPeso } from '../../utils/bookingPricing';
 import { getMemberNames } from '../../utils/assignments';
-import { earliestBookingKey, formatManilaDay } from '../../utils/manilaTime';
+import { earliestBookingKey, formatManilaDay, manilaTodayKey } from '../../utils/manilaTime';
+import { bookingHeading } from '../../utils/bookingHeading';
+import { SAME_DAY_CANCEL_WARNING, sameDayCancelledMessage, showsSameDayWarning } from '../../config/cancellation';
 import { usePaymentSettings, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
 import {
   FiCheck, FiBell, FiPrinter,
@@ -164,7 +166,7 @@ function RescheduleModal({ booking, onClose, onSubmit, submitting }) {
   );
 }
 
-function CancelConfirmDialog({ onKeep, onConfirmCancel }) {
+function CancelConfirmDialog({ onKeep, onConfirmCancel, sameDayWarning = false }) {
   return (
     <div className="modal-overlay" onClick={onKeep}>
       <div className="modal-card cancel-confirm-card" onClick={(e) => e.stopPropagation()}>
@@ -173,6 +175,7 @@ function CancelConfirmDialog({ onKeep, onConfirmCancel }) {
         <p className="cancel-confirm-text">
           This action can't be undone. Your technician assignment and scheduled slot will be released.
         </p>
+        {sameDayWarning && <p className="cancel-confirm-text" role="note"><strong>{SAME_DAY_CANCEL_WARNING}</strong></p>}
         <div className="cancel-confirm-actions">
           <button className="bs-back-btn" onClick={onKeep}>Keep booking</button>
           <button className="cancel-booking-btn" onClick={onConfirmCancel}>Yes, cancel it</button>
@@ -210,10 +213,8 @@ function RefundStatusMessage({ refund }) {
   if (refund.isSameDay) {
     return (
       <p className="cancelled-message">
-        Your booking has been successfully cancelled. Since this was cancelled on the
-        same day as your scheduled service, a dispatch/transportation cost will be
-        deducted from your down payment of <strong>₱{refund.downPaymentAmount?.toLocaleString()}</strong>{' '}
-        before it's refunded. Our admin team will review this and process your refund shortly.
+        Your booking has been successfully cancelled. {sameDayCancelledMessage(`₱${refund.downPaymentAmount?.toLocaleString()}`)}{' '}
+        Our admin team will review this and process your refund shortly.
       </p>
     );
   }
@@ -351,7 +352,7 @@ function BookingCancelled({ bookingId, refund, onBookAgain, onBackToDashboard, o
         {refund && refund.status !== REFUND_STATUS.NONE && (
           <RefundReceivedConfirm bookingId={bookingId} refund={refund} onConfirmed={onRefundFlagged} />
         )}
-        {refund && refund.status !== REFUND_STATUS.NONE && (
+        {refund && refund.status === REFUND_STATUS.PROCESSED && (
           <RefundFlagForm bookingId={bookingId} refund={refund} onFlagged={onRefundFlagged} />
         )}
         <div className="cancelled-actions">
@@ -549,6 +550,7 @@ function BookDetails() {
         <CancelConfirmDialog
           onKeep={() => setShowCancel(false)}
           onConfirmCancel={handleConfirmCancel}
+          sameDayWarning={showsSameDayWarning(booking, manilaTodayKey())}
         />
       )}
 
@@ -600,7 +602,7 @@ function BookDetails() {
       <div className="confirmation-wrap">
         <div className="confirmation-heading">
           <span className="confirmation-check-icon"><FiCheck /></span>
-          <h2>Booking Request Submitted!</h2>
+          <h2>{bookingHeading(booking.status)}</h2>
           <p className="confirmation-id">Booking ID: {booking.bookingId}</p>
         </div>
 

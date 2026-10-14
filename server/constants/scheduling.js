@@ -27,6 +27,7 @@
 //     utils/extensionDays.js    nextWorkingDayKey, extensionSlotProblem
 //     utils/availability.js     the public calendar
 //     utils/autoAssign.js       suggested dates
+//   The date pickers keep their own copy of this switch in src/utils/businessDays.js (SUNDAY_CLOSED there): change both together.
 //   The landing page footer line "Sunday: Closed" (src/pages/public/landing_page.jsx) is text and must be edited by hand.
 //
 // MIN_LEAD_DAYS  (default 3)

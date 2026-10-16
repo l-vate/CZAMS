@@ -3,6 +3,7 @@ import { FiSend, FiUser, FiMessageCircle } from 'react-icons/fi';
 import { ApiError } from '../services/apiClient';
 import { listMessages, sendMessage as postMessage } from '../services/chatService';
 import { ROLE } from '../constants/roles';
+import { BRAND_NAME } from '../config/company';
 
 const POLL_INTERVAL_MS = 15000;
 
@@ -12,7 +13,7 @@ const POLL_INTERVAL_MS = 15000;
 // operate on "their" own conversation, created lazily on first message. Customer
 // and staff only ever talk to admin, so partnerName/partnerSubtitle default to
 // that; admin passes the actual participant's name/role from its inbox instead.
-function ChatPanel({ conversationId, emptyText, partnerName = 'Admin Support', partnerSubtitle = 'Cooling Zone Aircon Services', initialMessage }) {
+function ChatPanel({ conversationId, emptyText, partnerName = 'Admin Support', partnerSubtitle = BRAND_NAME, initialMessage }) {
   const user = JSON.parse(localStorage.getItem('user') || 'null');
   const isAdmin = user?.role === ROLE.ADMIN;
   const [messages, setMessages] = useState([]);

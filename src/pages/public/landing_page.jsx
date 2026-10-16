@@ -15,6 +15,9 @@ import { listPublicServices } from '../../services/serviceCatalogService';
 import { listPublicAnnouncements } from '../../services/announcementService';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
 import { UNIT_TYPES } from '../../constants/unitTypes';
+import PublicNavbar from '../../components/public_navbar';
+import { pluralize } from '../../utils/pluralize';
+import { BRAND_NAME, BRAND_SHORT } from '../../config/company';
 
 
 const NAV_SEARCH_RESULTS_LIMIT = 8;
@@ -143,7 +146,8 @@ function NavSearch({ navigate, services }) {
         <input
           type="search"
           className="search"
-          placeholder="Search services or technicians..."
+          placeholder="Search services"
+          aria-label="Search services or technicians"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setOpen(true)}
@@ -235,7 +239,7 @@ function NavSearch({ navigate, services }) {
                         ) : (
                           <>
                             <span className="nav-search-reviews-stat">
-                              ★ {feedbackSummary.averageRating} average from {feedbackSummary.totalReviews} review{feedbackSummary.totalReviews === 1 ? '' : 's'}
+                              ★ {feedbackSummary.averageRating} average from {feedbackSummary.totalReviews} {pluralize(feedbackSummary.totalReviews, 'review')}
                             </span>
                             <div className="nav-search-review-list">
                               {(feedbackSummary.recentReviews || []).map((r, i) => (
@@ -334,22 +338,7 @@ function LandingPage() {
   return (
     <>
       {/* ============ NAVBAR ============ */}
-      <header className="navbar">
-        <div className="nav-left">
-          <img src="/images/logo.png" alt="Cooling Zone Logo" className="logo" />
-          <span className="brand">COOLING ZONE AIRCON MAINTENANCE SERVICES</span>
-        </div>
-        <div className="nav-right">
-          <nav className="nav-links">
-            <a href="#home">HOME</a>
-            <a href="#about">ABOUT US</a>
-            <a href="#services">SERVICES</a>
-            <a href="#availability">AVAILABLE DATES</a>
-          </nav>
-          <NavSearch navigate={navigate} services={serviceCards} />
-          <button className="login-btn" onClick={() => navigate('/login')}>LOG IN</button>
-        </div>
-      </header>
+      <PublicNavbar search={<NavSearch navigate={navigate} services={serviceCards} />} onLogin={() => navigate('/login')} />
 
       {/* ============ HERO ============ */}
       <section id="home" className="hero landing-section">
@@ -496,8 +485,8 @@ function LandingPage() {
         <div className="footer-grid">
           <div>
             <div className="footer-brand-row">
-              <img src="/images/logo.png" alt="Logo" className="footer-logo" />
-              <span className="footer-brand-name">COOLING ZONE</span>
+              <img src="/images/logo.png" alt={`${BRAND_NAME} logo`} className="footer-logo" />
+              <span className="footer-brand-name">{BRAND_SHORT.toUpperCase()}</span>
             </div>
             <p className="footer-brand-desc">Serving Metro Manila and nearby areas since 2009.</p>
           </div>
@@ -521,12 +510,12 @@ function LandingPage() {
               src="https://www.google.com/maps?q=N.S.+Amoranto+corner+Cadig+St.,+Quezon+City,+Metro+Manila&output=embed"
               className="map"
               loading="lazy"
-              title="Cooling Zone Location Map"
+              title={`${BRAND_SHORT} Location Map`}
             ></iframe>
           </div>
         </div>
 
-        <p className="copy">© 2009 Cooling Zone Aircon Maintenance Services. All Rights Reserved.</p>
+        <p className="copy">© 2009 {BRAND_NAME}. All Rights Reserved.</p>
       </footer>
     </>
   );

@@ -4,6 +4,7 @@ import { usePaymentSettings } from '../utils/paymentSettings';
 import { attempt } from '../services/apiClient';
 import { updatePaymentSettings } from '../services/paymentSettingsService';
 import PaymentSettingsUnavailable from './payment_settings_unavailable';
+import { BRAND_NAME } from '../config/company';
 
 
 // Admin editor for the System Configuration Module's payment settings - payment
@@ -190,7 +191,7 @@ function PaymentSettingsPanel() {
                 <input
                   type="text"
                   className="pset-input"
-                  placeholder="Value (e.g. Cooling Zone Aircon Services)"
+                  placeholder={`Value (e.g. ${BRAND_NAME})`}
                   aria-label={`Detail value for ${method.name || 'this method'}`}
                   value={detail.value}
                   onChange={(e) => updateDetail(mIndex, dIndex, 'value', e.target.value)}

@@ -36,6 +36,8 @@ import { SERVICE_TYPE } from '../../constants/serviceTypes';
 
 import Notice from '../../components/notice';
 import { useNotice } from '../../hooks/useNotice';
+import { pluralize } from '../../utils/pluralize';
+import { BRAND_NAME, BRAND_SHORT } from '../../config/company';
 // System Configuration Module: payment methods and down payment percentages used
 // to be hardcoded here (DOWN_PAYMENT_OPTIONS / PAYMENT_MODES / getDownPaymentOptions).
 // Both are now admin-managed - see src/utils/paymentSettings.js (usePaymentSettings,
@@ -339,7 +341,7 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
         <div className="bs-field-group waiver-box">
           <label className="bs-label">Unit Warranty Waiver</label>
           <p className="bs-card-sub">
-            Since this unit wasn't purchased through Cooling Zone, our Unit Warranty (compressor
+            Since this unit wasn't purchased through {BRAND_SHORT}, our Unit Warranty (compressor
             and parts coverage) does not apply to it. Installation workmanship is still covered
             for 3 months.
           </p>
@@ -349,7 +351,7 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
               checked={form.unitWaiverAcknowledged || false}
               onChange={(e) => setForm({ ...form, unitWaiverAcknowledged: e.target.checked })}
             />
-            I confirm this unit was not purchased through Cooling Zone Aircon Services, and
+            I confirm this unit was not purchased through {BRAND_NAME}, and
             understand the Unit Warranty does not apply to it.
           </label>
           <input
@@ -460,7 +462,7 @@ export function Step3({ form, setForm, technicians }) {
         </select>
         {form.date && form.time && busyTechIds.length > 0 && (
           <p className="customer-book-service-x2">
-            {busyTechIds.length} technician{busyTechIds.length === 1 ? '' : 's'} already booked for this date/time {busyTechIds.length === 1 ? 'is' : 'are'} not shown.
+            {busyTechIds.length} {pluralize(busyTechIds.length, 'technician')} already booked for this date/time {busyTechIds.length === 1 ? 'is' : 'are'} not shown.
           </p>
         )}
       </div>

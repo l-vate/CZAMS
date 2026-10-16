@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getMe } from '../services/userService';
 import { documentTitle } from '../utils/receiptStatus';
 import { ProofLink } from './proof_file';
+import { BRAND_NAME } from '../config/company';
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -77,9 +78,9 @@ function ReceiptModal({ form, booking, billTo, onClose }) {
         <div className="receipt-print-area">
           <div className="receipt-top-row">
             <div className="receipt-brand">
-              <img src="/images/logo.png" alt="Cooling Zone Logo" className="receipt-logo" />
+              <img src="/images/logo.png" alt={`${BRAND_NAME} logo`} className="receipt-logo" />
               <div>
-                <p className="receipt-brand-name">Cooling Zone Aircon Services</p>
+                <p className="receipt-brand-name">{BRAND_NAME}</p>
               </div>
             </div>
             <div className="receipt-invoice-meta">
@@ -245,7 +246,7 @@ function ReceiptModal({ form, booking, billTo, onClose }) {
           </div>
 
           <p className="receipt-thanks">
-            Thank you for choosing Cooling Zone Aircon Services.
+            Thank you for choosing {BRAND_NAME}.
           </p>
         </div>
 

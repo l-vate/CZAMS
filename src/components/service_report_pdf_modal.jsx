@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { ProofImage } from './proof_file';
+import { BRAND_NAME } from '../config/company';
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -39,9 +40,9 @@ function ServiceReportPdfModal({ report, reportItem, onClose }) {
         <div className="report-pdf-print-area">
           <div className="report-pdf-top-row">
             <div className="report-pdf-brand">
-              <img src="/images/logo.png" alt="Cooling Zone Logo" className="report-pdf-logo" />
+              <img src="/images/logo.png" alt={`${BRAND_NAME} logo`} className="report-pdf-logo" />
               <div>
-                <p className="report-pdf-brand-name">Cooling Zone Aircon Services</p>
+                <p className="report-pdf-brand-name">{BRAND_NAME}</p>
                 <p className="report-pdf-brand-sub">Service Report</p>
               </div>
             </div>

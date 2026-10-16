@@ -324,7 +324,7 @@ const [user, setUser] = useState(loadUserFromStorage);
         </div>
 
         {/* Booking history summary */}
-        <div className="profile-card">
+        <div className="profile-card profile-card--history">
           <h3 className="section-title">My Booking History</h3>
           <CustomerHistory />
         </div>

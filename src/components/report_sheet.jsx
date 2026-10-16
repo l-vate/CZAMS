@@ -1,4 +1,5 @@
 import { BarChart, DonutChart, HorizontalBarChart, ChartCard } from './charts';
+import { pluralize } from '../utils/pluralize';
 
 function Chart({ chart }) {
   if (chart.kind === 'bar') {
@@ -85,7 +86,7 @@ function ReportSheet({ report, meta }) {
           </table>
           </div>
         )}
-        <p className="report-record-count">{report.rows.length} record{report.rows.length === 1 ? '' : 's'}</p>
+        <p className="report-record-count">{report.rows.length} {pluralize(report.rows.length, 'record')}</p>
         {report.notes.length > 0 && (
           <ul className="report-notes">
             {report.notes.map((note) => <li key={note}>{note}</li>)}

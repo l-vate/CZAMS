@@ -15,6 +15,7 @@ import { listPublicServices } from '../../services/serviceCatalogService';
 import { listPublicAnnouncements } from '../../services/announcementService';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
 import { UNIT_TYPES } from '../../constants/unitTypes';
+import { pluralize } from '../../utils/pluralize';
 
 
 const NAV_SEARCH_RESULTS_LIMIT = 8;
@@ -235,7 +236,7 @@ function NavSearch({ navigate, services }) {
                         ) : (
                           <>
                             <span className="nav-search-reviews-stat">
-                              ★ {feedbackSummary.averageRating} average from {feedbackSummary.totalReviews} review{feedbackSummary.totalReviews === 1 ? '' : 's'}
+                              ★ {feedbackSummary.averageRating} average from {feedbackSummary.totalReviews} {pluralize(feedbackSummary.totalReviews, 'review')}
                             </span>
                             <div className="nav-search-review-list">
                               {(feedbackSummary.recentReviews || []).map((r, i) => (

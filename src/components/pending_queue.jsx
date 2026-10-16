@@ -5,6 +5,7 @@ import { getQueue, moveInQueue, moveToDate } from '../services/bookingService';
 import SuggestedDates from './suggested_dates';
 import { getMemberNames } from '../utils/assignments';
 import { customerLabel } from '../utils/customerLabel';
+import { pluralize } from '../utils/pluralize';
 
 // The Pending queue: first come, first served, and the admin can move a request up, down or
 // to the top. Each row shows how many technicians (or pairs) are free for that request's date and time block,
@@ -99,7 +100,7 @@ function PendingQueue({ refreshKey, onViewDetails }) {
                     {assigned ? `Assigned: ${assigned}` : 'Nobody assigned yet'}
                   </p>
                   <p className={`queue-capacity${item.overCapacity ? ' queue-capacity--over' : ''}`}>
-                    {item.free} {item.unit}{item.free === 1 ? '' : 's'} free for {b.date} {b.time}
+                    {item.free} {pluralize(item.free, item.unit)} free for {b.date} {b.time}
                     {item.positionInBlock ? ` · request ${item.positionInBlock} for this slot` : ''}
                     {item.overCapacity ? ' · Over capacity: more requests than free ' + item.unit + 's' : ''}
                   </p>

@@ -3,6 +3,7 @@ import { listClosures, addClosure, deleteClosure } from '../services/closureServ
 import { attempt } from '../services/apiClient';
 import { formatClosureDate, formatClosureRange, groupClosures, affectedBookingsNote } from '../utils/closureDates';
 import { REASON_MIN, REASON_MAX } from '../constants/closures';
+import { pluralize } from '../utils/pluralize';
 
 const MAX_RANGE_DAYS = 31;
 
@@ -75,7 +76,7 @@ function ClosureManager() {
         if (saved.error) failed.push(`${formatClosureDate(day)}: ${saved.error}`);
         else affected += saved.data.affectedBookings || 0;
       }
-      if (failed.length > 0) setError(`Could not close ${failed.length} date${failed.length === 1 ? '' : 's'}. ${failed.join(' ')}`);
+      if (failed.length > 0) setError(`Could not close ${failed.length} ${pluralize(failed.length, 'date')}. ${failed.join(' ')}`);
       if (failed.length < toClose.length) {
         setWarning(affectedBookingsNote(affected, toClose.length > 1));
         setDate('');

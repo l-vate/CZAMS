@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { getCustomerHistory, getMyHistory } from '../services/userService';
-
-const peso = (n) => `₱${(Math.round(n) || 0).toLocaleString()}`;
+import { formatPeso } from '../utils/bookingPricing';
+import CustomerHistorySummary from './customer_history_summary';
 
 // A customer's history. `userId` set: the admin view (latest bookings, counts, total paid and the
 // feedback the customer gave). Left out: the customer's own short summary for the profile page.
@@ -24,34 +23,13 @@ function CustomerHistory({ userId }) {
 
   const { counts } = history;
 
-  if (!admin) {
-    return (
-      <div className="customer-history">
-        <p className="customer-history-counts">
-          {counts.total} bookings: {counts.completed} completed, {counts.pending + counts.approved + counts.inProgress} open, {counts.cancelled} cancelled.
-          Total paid {peso(history.totalPaid)}.
-        </p>
-        <p className="customer-history-links">
-          <Link to="/customer/bookings">My Bookings</Link>
-          {' · '}
-          <Link to="/customer/billings">Billings</Link>
-          {' · '}
-          <Link to="/customer/bookings">Feedback you gave ({history.feedback.length})</Link>
-        </p>
-        {history.feedback.slice(0, 3).map((f) => (
-          <p key={f.bookingId} className="customer-history-feedback">
-            {f.service}: {f.rating !== null ? `${f.rating}/5` : 'no rating'}{f.text ? `, "${f.text}"` : ''}
-          </p>
-        ))}
-      </div>
-    );
-  }
+  if (!admin) return <CustomerHistorySummary history={history} />;
 
   return (
     <div className="customer-history">
       <p className="customer-history-counts">
         Bookings {counts.total} · Completed {counts.completed} · Cancelled {counts.cancelled} · Back jobs {counts.backJobs}
-        {' · '}Total paid {peso(history.totalPaid)}{history.totalRefunded > 0 ? ` (${peso(history.totalRefunded)} refunded)` : ''}
+        {' · '}Total paid {formatPeso(history.totalPaid)}{history.totalRefunded > 0 ? ` (${formatPeso(history.totalRefunded)} refunded)` : ''}
       </p>
 
       {history.recent.length === 0 ? (
@@ -64,7 +42,7 @@ function CustomerHistory({ userId }) {
           <tbody>
             {history.recent.map((b) => (
               <tr key={b.bookingId}>
-                <td>{b.bookingId}</td><td>{b.service}</td><td>{b.date}</td><td>{b.status}</td><td>{peso(b.total)}</td>
+                <td>{b.bookingId}</td><td>{b.service}</td><td>{b.date}</td><td>{b.status}</td><td>{formatPeso(b.total)}</td>
               </tr>
             ))}
           </tbody>

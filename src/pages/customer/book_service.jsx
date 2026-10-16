@@ -36,6 +36,7 @@ import { SERVICE_TYPE } from '../../constants/serviceTypes';
 
 import Notice from '../../components/notice';
 import { useNotice } from '../../hooks/useNotice';
+import { pluralize } from '../../utils/pluralize';
 // System Configuration Module: payment methods and down payment percentages used
 // to be hardcoded here (DOWN_PAYMENT_OPTIONS / PAYMENT_MODES / getDownPaymentOptions).
 // Both are now admin-managed - see src/utils/paymentSettings.js (usePaymentSettings,
@@ -460,7 +461,7 @@ export function Step3({ form, setForm, technicians }) {
         </select>
         {form.date && form.time && busyTechIds.length > 0 && (
           <p className="customer-book-service-x2">
-            {busyTechIds.length} technician{busyTechIds.length === 1 ? '' : 's'} already booked for this date/time {busyTechIds.length === 1 ? 'is' : 'are'} not shown.
+            {busyTechIds.length} {pluralize(busyTechIds.length, 'technician')} already booked for this date/time {busyTechIds.length === 1 ? 'is' : 'are'} not shown.
           </p>
         )}
       </div>

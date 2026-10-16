@@ -7,10 +7,11 @@ import { computeAmount } from './promos';
 // off that. Admin-entered distance/mobilization charges are added on top afterwards and
 // are never discounted.
 
-// "₱1,234", or "-₱800" for a negative amount (a discount line).
+// "₱1,234", or "-₱800" for a negative amount (a discount line). Two decimals only when the amount is not a whole number: "₱1,234.50".
 export function formatPeso(amount) {
   const n = Number(amount) || 0;
-  return `${n < 0 ? '-' : ''}₱${Math.abs(n).toLocaleString()}`;
+  const fraction = Number.isInteger(n) ? {} : { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+  return `${n < 0 ? '-' : ''}₱${Math.abs(n).toLocaleString('en-US', fraction)}`;
 }
 
 // The price for one unit of `unitType` under `service` - its unitTypePricing override if the

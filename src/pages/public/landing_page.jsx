@@ -15,6 +15,7 @@ import { listPublicServices } from '../../services/serviceCatalogService';
 import { listPublicAnnouncements } from '../../services/announcementService';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
 import { UNIT_TYPES } from '../../constants/unitTypes';
+import PublicNavbar from '../../components/public_navbar';
 import { pluralize } from '../../utils/pluralize';
 
 
@@ -144,7 +145,8 @@ function NavSearch({ navigate, services }) {
         <input
           type="search"
           className="search"
-          placeholder="Search services or technicians..."
+          placeholder="Search services"
+          aria-label="Search services or technicians"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setOpen(true)}
@@ -335,22 +337,7 @@ function LandingPage() {
   return (
     <>
       {/* ============ NAVBAR ============ */}
-      <header className="navbar">
-        <div className="nav-left">
-          <img src="/images/logo.png" alt="Cooling Zone Logo" className="logo" />
-          <span className="brand">COOLING ZONE AIRCON MAINTENANCE SERVICES</span>
-        </div>
-        <div className="nav-right">
-          <nav className="nav-links">
-            <a href="#home">HOME</a>
-            <a href="#about">ABOUT US</a>
-            <a href="#services">SERVICES</a>
-            <a href="#availability">AVAILABLE DATES</a>
-          </nav>
-          <NavSearch navigate={navigate} services={serviceCards} />
-          <button className="login-btn" onClick={() => navigate('/login')}>LOG IN</button>
-        </div>
-      </header>
+      <PublicNavbar search={<NavSearch navigate={navigate} services={serviceCards} />} onLogin={() => navigate('/login')} />
 
       {/* ============ HERO ============ */}
       <section id="home" className="hero landing-section">

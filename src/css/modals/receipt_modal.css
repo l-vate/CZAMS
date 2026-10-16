@@ -24,7 +24,8 @@
 
 .receipt-brand-name {
   font-family: 'Outfit', sans-serif;
-  font-size: 20px;
+  font-size: 15px; /* the full official name is long: two lines beside the logo */
+  line-height: 1.25;
   font-weight: 700;
   color: #0f172a;
   margin: 0;

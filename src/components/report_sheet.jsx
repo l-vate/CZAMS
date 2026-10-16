@@ -1,5 +1,6 @@
 import { BarChart, DonutChart, HorizontalBarChart, ChartCard } from './charts';
 import { pluralize } from '../utils/pluralize';
+import { BRAND_NAME } from '../config/company';
 
 function Chart({ chart }) {
   if (chart.kind === 'bar') {
@@ -19,9 +20,9 @@ function ReportSheet({ report, meta }) {
     <article className="report-sheet">
       <header className="report-header">
         <div className="report-brand">
-          <img src="/images/logo.png" alt="Cooling Zone Logo" className="report-logo" />
+          <img src="/images/logo.png" alt={`${BRAND_NAME} logo`} className="report-logo" />
           <div>
-            <p className="report-company">Cooling Zone Aircon Services</p>
+            <p className="report-company">{BRAND_NAME}</p>
             <h1 className="report-title">{report.title}</h1>
           </div>
         </div>

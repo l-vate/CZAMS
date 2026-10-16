@@ -17,6 +17,7 @@ import { SERVICE_TYPE } from '../../constants/serviceTypes';
 import { UNIT_TYPES } from '../../constants/unitTypes';
 import PublicNavbar from '../../components/public_navbar';
 import { pluralize } from '../../utils/pluralize';
+import { BRAND_NAME, BRAND_SHORT } from '../../config/company';
 
 
 const NAV_SEARCH_RESULTS_LIMIT = 8;
@@ -484,8 +485,8 @@ function LandingPage() {
         <div className="footer-grid">
           <div>
             <div className="footer-brand-row">
-              <img src="/images/logo.png" alt="Logo" className="footer-logo" />
-              <span className="footer-brand-name">COOLING ZONE</span>
+              <img src="/images/logo.png" alt={`${BRAND_NAME} logo`} className="footer-logo" />
+              <span className="footer-brand-name">{BRAND_SHORT.toUpperCase()}</span>
             </div>
             <p className="footer-brand-desc">Serving Metro Manila and nearby areas since 2009.</p>
           </div>
@@ -509,12 +510,12 @@ function LandingPage() {
               src="https://www.google.com/maps?q=N.S.+Amoranto+corner+Cadig+St.,+Quezon+City,+Metro+Manila&output=embed"
               className="map"
               loading="lazy"
-              title="Cooling Zone Location Map"
+              title={`${BRAND_SHORT} Location Map`}
             ></iframe>
           </div>
         </div>
 
-        <p className="copy">© 2009 Cooling Zone Aircon Maintenance Services. All Rights Reserved.</p>
+        <p className="copy">© 2009 {BRAND_NAME}. All Rights Reserved.</p>
       </footer>
     </>
   );

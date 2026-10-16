@@ -2,6 +2,7 @@ import { useEffect, useReducer, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { FiMenu, FiX } from 'react-icons/fi';
 import { navMenuReducer, isOutsideMenu } from '../utils/navMenu';
+import { BRAND_NAME } from '../config/company';
 
 // At this width and below the links, search and LOG IN fold into a menu opened by a hamburger button (public.css uses the same number).
 const DESKTOP_QUERY = '(min-width: 1025px)';
@@ -66,8 +67,8 @@ function PublicNavbar({ search, onLogin, initialOpen = false }) {
   return (
     <header className={`navbar${open ? ' nav-open' : ''}`} ref={barRef}>
       <div className="nav-left">
-        <img src="/images/logo.png" alt="Cooling Zone Logo" className="logo" />
-        <span className="brand">COOLING ZONE AIRCON MAINTENANCE SERVICES</span>
+        <img src="/images/logo.png" alt={`${BRAND_NAME} logo`} className="logo" />
+        <span className="brand">{BRAND_NAME.toUpperCase()}</span>
       </div>
       <button
         type="button"

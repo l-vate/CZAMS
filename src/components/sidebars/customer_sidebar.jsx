@@ -1,4 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
+import { BRAND_NAME, BRAND_SHORT, BRAND_SUB } from '../../config/company';
 
 function CustomerSidebar({ onNavigate }) {
   const navigate = useNavigate();
@@ -19,12 +20,12 @@ function CustomerSidebar({ onNavigate }) {
         <div className="sidebar-brand">
           <img
             src="/images/logo.png"
-            alt="Cooling Zone Aircon Services"
+            alt={`${BRAND_NAME} logo`}
             className="sidebar-logo"
           />
           <div className="sidebar-brand-text">
-            <span className="sidebar-brand-name">Cooling Zone Aircon</span>
-            <span className="sidebar-brand-sub">Services</span>
+            <span className="sidebar-brand-name">{BRAND_SHORT}</span>
+            <span className="sidebar-brand-sub">{BRAND_SUB}</span>
           </div>
         </div>
 

@@ -4,6 +4,7 @@ import ChatPanel from '../../components/chat_panel';
 import { orFallback } from '../../services/apiClient';
 import { listConversations } from '../../services/chatService';
 import { ROLE } from '../../constants/roles';
+import { DELETED_CUSTOMER } from '../../utils/customerLabel';
 
 
 function AdminChat() {
@@ -49,7 +50,7 @@ function AdminChat() {
                 onClick={() => handleSelect(c._id)}
               >
                 <div className="chat-inbox-item-top">
-                  <span className="chat-inbox-name">{c.participant?.name || 'Unknown'}</span>
+                  <span className="chat-inbox-name">{c.participant?.name || (c.participantRole === ROLE.STAFF ? 'Unknown' : DELETED_CUSTOMER)}</span>
                   {c.unread && <span className="chat-inbox-dot" />}
                 </div>
                 <span className="chat-inbox-role">{c.participantRole === ROLE.STAFF ? 'Technician' : 'Customer'}</span>
@@ -61,7 +62,7 @@ function AdminChat() {
         <div className="chat-admin-panel">
           <ChatPanel
             conversationId={selectedId}
-            partnerName={selectedConversation?.participant?.name || 'Unknown'}
+            partnerName={selectedConversation?.participant?.name || (selectedConversation?.participantRole === ROLE.STAFF ? 'Unknown' : DELETED_CUSTOMER)}
             partnerSubtitle={selectedConversation?.participantRole === ROLE.STAFF ? 'Technician' : 'Customer'}
           />
         </div>

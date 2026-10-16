@@ -3,7 +3,7 @@ import AdminLayout from './admin_layout';
 import ReportSheet from '../../components/report_sheet';
 import StatementOfAccount from '../../components/statement_of_account';
 import { loadReportData } from '../../services/analyticsService';
-import { toLocalDateKey } from '../../utils/date';
+import { manilaTodayKey, addDaysToKey } from '../../utils/manilaTime';
 import { csvFilename, downloadCsv } from '../../utils/csvExport';
 import {
   REPORT_TYPES, DATE_BASES, BUILDERS, formatRange, formatGeneratedAt,
@@ -13,14 +13,14 @@ const CLIENT_TYPES = [
   { key: 'all', label: 'All Clients' },
   { key: 'Residential', label: 'Residential' },
   { key: 'Commercial', label: 'Commercial' },
+  { key: 'Unknown', label: 'Deleted accounts' },
 ];
 
 const DEFAULT_DAYS = 30;
 
 function defaultRange() {
-  const to = new Date();
-  const from = new Date(to.getFullYear(), to.getMonth(), to.getDate() - (DEFAULT_DAYS - 1));
-  return { fromKey: toLocalDateKey(from), toKey: toLocalDateKey(to) };
+  const toKey = manilaTodayKey();
+  return { fromKey: addDaysToKey(toKey, -(DEFAULT_DAYS - 1)), toKey };
 }
 
 // Admin report builder: pick a report, a date range and a client type, preview it on

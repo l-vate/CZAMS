@@ -51,6 +51,10 @@ const backJobSchema = new mongoose.Schema({
     },
     resultingBookingId: { type: String, default: null },
 
+    // True while the claim is open (Scheduled or Not Covered), false once an admin has Reviewed it. Only open claims are
+    // unique per booking (the partial index below), so two claims filed at the same moment cannot both be saved.
+    isOpen: { type: Boolean, default: true },
+
     reportedAt: { type: Date, default: Date.now },
     reviewedAt: Date,
     reviewedBy: String,
@@ -59,6 +63,8 @@ const backJobSchema = new mongoose.Schema({
 });
 
 backJobSchema.index({ originalBookingId: 1 });
+// One open claim per booking. A partial index (only documents with isOpen true) so a closed claim does not block a new one.
+backJobSchema.index({ originalBookingId: 1 }, { unique: true, partialFilterExpression: { isOpen: true }, name: 'originalBookingId_open_unique' });
 backJobSchema.index({ customer: 1 });
 backJobSchema.index({ status: 1 });
 

@@ -91,6 +91,16 @@ export function adminUpdateBooking(bookingId, body) {
   return request(`${booking(bookingId)}/admin-update`, { method: 'PATCH', body });
 }
 
+// Move a Pending or Approved booking to a date (one of the suggested ones) through the normal approval: { date, time }.
+export function moveToDate(bookingId, { date, time }) {
+  return request(`${booking(bookingId)}/reschedule/use-date`, { method: 'PATCH', body: { date, time } });
+}
+
+// Record a payment received in person: { track: 'down' | 'balance', method, amount, reference? }.
+export function recordPayment(bookingId, body) {
+  return request(`${booking(bookingId)}/record-payment`, { method: 'PATCH', body });
+}
+
 // `reason` is optional and goes into the assignment history.
 export function assignBooking(bookingId, assignments, reason) {
   return request(`${booking(bookingId)}/assign`, { method: 'PATCH', body: { assignments, ...(reason ? { reason } : {}) } });
@@ -101,10 +111,6 @@ export function assignBooking(bookingId, assignments, reason) {
 export async function getAssignmentHistory(bookingId) {
   const result = await orFallback(request(`${booking(bookingId)}/assignment-history`), { history: [] });
   return result.history || [];
-}
-
-export function autoAssignBooking(bookingId) {
-  return request(`${booking(bookingId)}/auto-assign`, { method: 'POST' });
 }
 
 // `action` is 'up' | 'down' | 'top'. Resolves to the reordered queue.
@@ -118,8 +124,9 @@ export function uploadUnitPurchaseProof(bookingId, file) {
   return upload(`${booking(bookingId)}/unit-purchase-proof`, formData, { method: 'PATCH' });
 }
 
-export function rescheduleAfterDisruption(bookingId, { date, time }) {
-  return request(`${booking(bookingId)}/disruption/reschedule`, { method: 'PATCH', body: { date, time } });
+// `reason` is needed when the admin starts the reschedule without a report from the lead technician.
+export function rescheduleAfterDisruption(bookingId, { date, time, reason }) {
+  return request(`${booking(bookingId)}/disruption/reschedule`, { method: 'PATCH', body: { date, time, ...(reason ? { reason } : {}) } });
 }
 
 // decision: 'approve' | 'reject'. `reason` is only sent when rejecting.
@@ -136,8 +143,9 @@ export function decideReschedule(bookingId, decision) {
 }
 
 // decision: 'approve' | 'deny'.
-export function decideExtension(bookingId, decision) {
-  return request(`${booking(bookingId)}/extension/${decision}`, { method: 'PATCH' });
+// On approve, `slot` ({ date, time }) lets the admin pick another extra day than the one asked for.
+export function decideExtension(bookingId, decision, slot) {
+  return request(`${booking(bookingId)}/extension/${decision}`, { method: 'PATCH', ...(slot ? { body: slot } : {}) });
 }
 
 // ---- Technician actions ----
@@ -145,6 +153,7 @@ export function reportDisruption(bookingId, reason) {
   return request(`${booking(bookingId)}/disruption/report`, { method: 'PATCH', body: { reason } });
 }
 
-export function requestExtension(bookingId, reason) {
-  return request(`${booking(bookingId)}/extension/request`, { method: 'PATCH', body: { reason } });
+// `slot` is the extra day asked for ({ date, time }); leave it out for the next working day in the job's block.
+export function requestExtension(bookingId, reason, slot = {}) {
+  return request(`${booking(bookingId)}/extension/request`, { method: 'PATCH', body: { reason, ...slot } });
 }

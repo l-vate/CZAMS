@@ -10,6 +10,7 @@ import './css/staff.css'
 import './css/components/calendar.css'
 import './css/components/sidebar.css'
 import './css/components/notification_bell.css'
+import './css/components/notice.css'
 import './css/components/charts.css'
 import './css/components/report_print.css'
 import './css/components/queue.css'
@@ -27,6 +28,9 @@ import "./css/modals/service_request_modal.css"
 import './css/modals/payment_modal.css';
 import './css/modals/receipt_modal.css';
 import './css/modals/service_report_pdf_modal.css';
+
+// last, so the phone touch sizes apply on top of every page's own rules
+import './css/mobile_touch.css';
 
 import App from './App.jsx'
 

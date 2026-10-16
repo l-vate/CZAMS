@@ -3,6 +3,7 @@ import { listBookings } from './bookingService';
 import { listReports } from './reportService';
 import { listBackJobs } from './backJobService';
 import { listUsers } from './userService';
+import { isFieldTechnician } from '../utils/technicians';
 
 // Analytics page: everything it charts. A part that fails to load comes back empty so the
 // rest of the page still shows.
@@ -21,5 +22,6 @@ export async function loadReportData() {
   const [bookings, reports, backJobs, customers, technicians] = await Promise.all([
     listBookings(), listReports(), listBackJobs(), listUsers('customer'), listUsers('staff'),
   ]);
-  return { bookings, reports, backJobs, customers, technicians };
+  // only field technicians (not a secretary or a cashier) appear in technician figures
+  return { bookings, reports, backJobs, customers, technicians: Array.isArray(technicians) ? technicians.filter(isFieldTechnician) : technicians };
 }

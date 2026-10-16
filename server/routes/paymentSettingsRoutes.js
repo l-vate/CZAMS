@@ -1,20 +1,24 @@
 const { ROLE } = require('../constants/roles');
+const auditSpecs = require('../utils/auditSpecs');
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
+const { sendRouteError } = require('../utils/routeErrors');
 const PaymentSettings = require('../models/PaymentSettings');
 
 const { SETTINGS_ID, getOrCreateSettings } = require('../utils/paymentSettings');
 
-// Any logged-in role - customer/walk-in booking flows need this to render
-// payment mode options and down payment choices, not just the admin editor.
+// Customers and admins: the booking flows need this to render payment mode options and down payment
+// choices. It holds the company's GCash and bank account details, which a technician never needs.
 router.get('/', auth, async (req, res) => {
   try {
+    if (req.userRole === ROLE.STAFF) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
     const settings = await getOrCreateSettings();
     res.json(settings);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -22,7 +26,7 @@ router.get('/', auth, async (req, res) => {
 // that would leave zero payment methods or zero down payment percentages, since
 // that would silently lock the entire booking flow (no selectable options) for
 // every customer and walk-in booking until someone noticed and fixed it back.
-router.put('/', auth, async (req, res) => {
+router.put('/', auth, auditSpecs.settingsUpdate, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -78,8 +82,7 @@ router.put('/', auth, async (req, res) => {
 
     res.json(settings);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 

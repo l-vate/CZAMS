@@ -1,68 +1,76 @@
 import { useState, useEffect } from 'react';
-import { ApiError, attempt, orFallback } from '../services/apiClient';
+import { orFallback } from '../services/apiClient';
 import { getTeamAvailability } from '../services/teamService';
-import { assignBooking, autoAssignBooking } from '../services/bookingService';
-import { getAssignments, getMinTechnicians } from '../utils/assignments';
+import { ApiError } from '../services/apiClient';
+import { assignBooking, moveToDate } from '../services/bookingService';
+import SuggestedDates from './suggested_dates';
+import { getAssignments } from '../utils/assignments';
 import { BOOKING_STATUS } from '../constants/bookingStatus';
 
-// The booking's assignment editor: pick a team for the primary assignment and optionally
-// add more teams for a big job. A team shows as busy unless BOTH its members are free in
-// the booking's date and time block. A single technician can be picked only for a service
-// that needs just one (a check-up or survey visit). The server re-checks all of this.
+// The booking's assignment editor: one or more pairs. Each pair has a lead and an optional helper. The lead of the
+// first pair is the primary lead, the only technician who files the service report on a job with several pairs.
+// A technician shows as busy when they are on another booking in the booking's date and time block, and one who is
+// already picked in another slot of this form cannot be picked again. The server re-checks all of this.
+// `helper: null` means the helper dropdown is hidden; `helper: ''` means shown and still empty.
 function AssignmentPanel({ booking, onUpdated }) {
   const editable = [BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status);
-  const needsOnlyOne = getMinTechnicians(booking.service) === 1;
 
-  // The dropdown values for what is saved on the booking: team:<id> or tech:<id>.
-  const currentSelections = () => {
-    if (booking.assignments?.length > 0) {
-      return booking.assignments.map((a) => (a.team ? `team:${a.team._id || a.team}` : `tech:${a.lead._id || a.lead}`));
-    }
-    return booking.technician ? [`tech:${booking.technician._id || booking.technician}`] : [];
+  // What is saved on the booking, as editable pairs (one empty pair when nobody is assigned yet).
+  const savedPairs = () => {
+    const list = getAssignments(booking).map((a) => ({ lead: a.lead._id, helper: a.helper ? a.helper._id : null }));
+    return list.length > 0 ? list : [{ lead: '', helper: null }];
   };
 
-  const [availability, setAvailability] = useState({ teams: [], technicians: [] });
-  // always at least one (empty) row so the primary team can be chosen
-  const initialRows = () => (currentSelections().length > 0 ? currentSelections() : ['']);
-  const [rows, setRows] = useState(initialRows());
+  const [technicians, setTechnicians] = useState([]);
+  const [pairs, setPairs] = useState(savedPairs());
   const [saving, setSaving] = useState(false);
   const [reason, setReason] = useState('');
-const [error, setError] = useState('');
-  const [autoNote, setAutoNote] = useState(null); // { bookingId, text }
-  const [suggestedDates, setSuggestedDates] = useState([]);
+  const [error, setError] = useState('');
+  const [suggestedDates, setSuggestedDates] = useState([]); // dates offered when nobody is free on the booking's date
 
   useEffect(() => {
-    setRows(initialRows());
+    setPairs(savedPairs());
     setError('');
     if (!editable || !booking.date || !booking.time) return;
     orFallback(
       getTeamAvailability({ date: booking.date, time: booking.time, excludeBookingId: booking.bookingId }),
-      { teams: [], technicians: [] }
+      { technicians: [] }
     )
-      .then((data) => setAvailability({ teams: data.teams || [], technicians: data.technicians || [] }))
-      .catch(() => setAvailability({ teams: [], technicians: [] }));
+      .then((data) => setTechnicians(data.technicians || []))
+      .catch(() => setTechnicians([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [booking]);
 
-  const chosen = rows.filter(Boolean);
-  const saved = currentSelections().filter(Boolean);
-  const dirty = JSON.stringify(chosen) !== JSON.stringify(saved);
+  const comparable = (list) => JSON.stringify(list.filter((p) => p.lead).map((p) => [p.lead, p.helper || '']));
+  const dirty = comparable(pairs) !== comparable(getAssignments(booking).map((a) => ({ lead: a.lead._id, helper: a.helper ? a.helper._id : null })));
+  const incomplete = pairs.some((p) => !p.lead || p.helper === '');
 
   const names = getAssignments(booking);
+  const manyPairs = names.length > 1;
 
-  const updateRow = (index, value) => setRows((prev) => prev.map((r, i) => (i === index ? value : r)));
+  const setPair = (index, change) => setPairs((prev) => prev.map((p, i) => (i === index ? { ...p, ...change } : p)));
+  // someone picked in any other slot of the form
+  const pickedElsewhere = (index, role) => new Set(pairs.flatMap((p, i) => [
+    i === index && role === 'lead' ? null : p.lead,
+    i === index && role === 'helper' ? null : p.helper,
+  ]).filter(Boolean));
 
   const save = async () => {
     setSaving(true);
     setError('');
     try {
-      const assignments = chosen.map((v) => (v.startsWith('team:') ? { teamId: v.slice(5) } : { technicianId: v.slice(5) }));
-      const saved = await attempt(assignBooking(booking.bookingId, assignments, reason.trim()), 'Could not save the assignment.');
-      if (saved.error) {
-        setError(saved.error);
+      const entries = pairs.map((p) => ({ technicianId: p.lead, ...(p.helper ? { helperId: p.helper } : {}) }));
+      setSuggestedDates([]);
+      let data;
+      try {
+        data = await assignBooking(booking.bookingId, entries, reason.trim());
+      } catch (err) {
+        if (!(err instanceof ApiError)) throw err;
+        setError(err.message || 'Could not save the assignment.');
+        setSuggestedDates((err.data && err.data.suggestedDates) || []);
         return;
       }
-      onUpdated?.(saved.data);
+      onUpdated?.(data);
     } catch (err) {
       console.error('Error saving assignment:', err);
       setError('Network error. Please try again.');
@@ -71,38 +79,23 @@ const [error, setError] = useState('');
     }
   };
 
-  // Auto-assign picks a team (or a single technician for a one-person service) and saves it.
-  // It never approves: the admin still presses Approve, and can change the assignment by hand.
-  const autoAssign = async () => {
-    setSaving(true);
-    setError('');
-    setSuggestedDates([]);
-    try {
-      const data = await autoAssignBooking(booking.bookingId);
-      setAutoNote({ bookingId: booking.bookingId, text: data.autoAssignNote });
-      onUpdated?.(data);
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message || 'Could not auto-assign.');
-        setSuggestedDates(err.data?.suggestedDates || []);
-        return;
-      }
-      console.error('Error auto-assigning:', err);
-      setError('Network error. Please try again.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const formatDay = (key) => {
-    const [y, m, d] = key.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const optionLabel = (t) => `${t.name}${t.position ? ` (${t.position})` : ''}${t.free ? '' : ' - busy'}`;
+  const optionsFor = (index, role, current) => {
+    const taken = pickedElsewhere(index, role);
+    return technicians.filter((t) => !taken.has(t._id)).map((t) => (
+      <option key={t._id} value={t._id} disabled={!t.free && current !== t._id}>
+        {optionLabel(t)}
+      </option>
+    ));
   };
 
   return (
     <div className="sdm-tech-strip assignment-panel-x1">
       <div className="sdm-tech-info assignment-panel-x2">
-        <span className="sdm-row-label">ASSIGNED TEAM{names.length > 1 ? 'S' : ''}</span>
+        {booking.needsReassignment && (
+          <p className="sdm-error" role="alert">A technician on this job was deactivated. Assign someone else.</p>
+        )}
+        <span className="sdm-row-label">ASSIGNED TECHNICIAN{manyPairs || names[0]?.helper ? 'S' : ''}</span>
 
         {names.length === 0 ? (
           <p className="sdm-muted assignment-panel-x3">Nobody assigned yet.</p>
@@ -110,6 +103,7 @@ const [error, setError] = useState('');
           <ul className="assignment-list assignment-panel-x4">
             {names.map((a, i) => (
               <li key={i}>
+                {manyPairs ? <strong>{i === 0 ? 'Pair 1 (primary, files the report): ' : `Pair ${i + 1}: `}</strong> : null}
                 {a.team ? <strong>{a.team}: </strong> : null}
                 {a.lead.name} (lead){a.helper ? `, ${a.helper.name} (helper)` : ''}
               </li>
@@ -119,39 +113,47 @@ const [error, setError] = useState('');
 
         {editable && (
           <>
-            {rows.map((value, index) => (
+            {pairs.map((pair, index) => (
               <div key={index} className="assignment-panel-x5">
+                {pairs.length > 1 && (
+                  <span className="sdm-row-label">{index === 0 ? 'PAIR 1 - PRIMARY LEAD FILES THE REPORT' : `PAIR ${index + 1}`}</span>
+                )}
                 <select
                   className="sdm-tech-select"
-                  value={value}
-                  onChange={(e) => updateRow(index, e.target.value)}
+                  value={pair.lead}
+                  onChange={(e) => setPair(index, { lead: e.target.value })}
                   disabled={saving}
-                  aria-label={index === 0 ? 'Primary team' : `Additional team ${index}`}
+                  aria-label={pairs.length > 1 ? `Lead technician, pair ${index + 1}` : 'Technician'}
                 >
-                  <option value="">{index === 0 ? 'Choose a team' : 'Choose another team'}</option>
-                  <optgroup label="Teams">
-                    {availability.teams.map((t) => {
-                      const takenElsewhere = rows.some((r, i) => i !== index && r === `team:${t._id}`);
-                      return (
-                        <option key={t._id} value={`team:${t._id}`} disabled={(!t.free && value !== `team:${t._id}`) || takenElsewhere}>
-                          {t.name} ({t.lead.name} + {t.helper.name}){t.free ? '' : ` - busy: ${t.busyMembers.join(', ')}`}
-                        </option>
-                      );
-                    })}
-                  </optgroup>
-                  {needsOnlyOne && (
-                    <optgroup label="Single technician (check-up or survey only)">
-                      {availability.technicians.map((t) => (
-                        <option key={t._id} value={`tech:${t._id}`} disabled={!t.free && value !== `tech:${t._id}`}>
-                          {t.name}{t.position ? ` (${t.position})` : ''}{t.free ? '' : ' - busy'}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
+                  <option value="">Choose a technician</option>
+                  {optionsFor(index, 'lead', pair.lead)}
                 </select>
-                {index > 0 && (
-                  <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setRows((prev) => prev.filter((_, i) => i !== index))} disabled={saving}>
-                    Remove
+
+                {pair.helper !== null && (
+                  <>
+                    <select
+                      className="sdm-tech-select"
+                      value={pair.helper}
+                      onChange={(e) => setPair(index, { helper: e.target.value })}
+                      disabled={saving}
+                      aria-label={pairs.length > 1 ? `Helper, pair ${index + 1}` : 'Another technician'}
+                    >
+                      <option value="">Choose another technician</option>
+                      {optionsFor(index, 'helper', pair.helper)}
+                    </select>
+                    <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setPair(index, { helper: null })} disabled={saving}>
+                      Remove
+                    </button>
+                  </>
+                )}
+                {pair.helper === null && (
+                  <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setPair(index, { helper: '' })} disabled={saving || !pair.lead}>
+                    Add another technician
+                  </button>
+                )}
+                {pairs.length > 1 && (
+                  <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setPairs((prev) => prev.filter((_, i) => i !== index))} disabled={saving}>
+                    Remove pair
                   </button>
                 )}
               </div>
@@ -161,15 +163,12 @@ const [error, setError] = useState('');
               <button
                 type="button"
                 className="sdm-btn sdm-btn-outline"
-                onClick={() => setRows((prev) => [...prev, ''])}
-                disabled={saving || rows.length === 0 || rows.some((r) => !r)}
+                onClick={() => setPairs((prev) => [...prev, { lead: '', helper: null }])}
+                disabled={saving || !pairs[pairs.length - 1].lead}
               >
-                Add another team
+                Add another pair
               </button>
-              <button type="button" className="sdm-btn sdm-btn-outline" onClick={autoAssign} disabled={saving}>
-                {needsOnlyOne ? 'Auto-assign technician' : 'Auto-assign team'}
-              </button>
-              <button type="button" className="sdm-btn sdm-btn-primary" onClick={save} disabled={saving || chosen.length === 0 || !dirty}>
+              <button type="button" className="sdm-btn sdm-btn-primary" onClick={save} disabled={saving || !dirty || incomplete}>
                 {saving ? 'Saving...' : 'Save assignment'}
               </button>
             </div>
@@ -183,20 +182,25 @@ const [error, setError] = useState('');
               onChange={(e) => setReason(e.target.value)}
               disabled={saving}
             />
-            {needsOnlyOne ? (
-              <p className="sdm-muted assignment-panel-x7">This service needs 1 technician, so a single technician is allowed.</p>
-            ) : (
-              <p className="sdm-muted assignment-panel-x7">This service needs a team of 2 (a lead and a helper).</p>
-            )}
-            {autoNote && autoNote.bookingId === booking.bookingId && (
-              <div className="sdm-notice assignment-panel-x8">Auto-assigned. {autoNote.text} You can still change it, then press Approve.</div>
-            )}
             {error && <div className="sdm-error assignment-panel-x8">{error}</div>}
-            {suggestedDates.length > 0 && (
-              <div className="sdm-notice assignment-panel-x8">
-                Next dates with someone free in this {booking.time} block: <strong>{suggestedDates.map(formatDay).join(', ')}</strong>. Ask the customer to reschedule, or pick a team by hand.
-              </div>
-            )}
+            <SuggestedDates
+              dates={suggestedDates}
+              time={booking.time}
+              disabled={saving}
+              onUse={async (date, block) => {
+                setSaving(true);
+                try {
+                  const moved = await moveToDate(booking.bookingId, { date, time: block });
+                  setSuggestedDates([]);
+                  setError('');
+                  onUpdated?.(moved);
+                } catch (err) {
+                  setError(err instanceof ApiError ? err.message || 'Could not move the booking.' : 'Network error. Please try again.');
+                } finally {
+                  setSaving(false);
+                }
+              }}
+            />
           </>
         )}
       </div>

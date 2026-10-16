@@ -2,6 +2,9 @@
 // kind of notification needs no migration; this list is what the code currently sends.
 const NOTIFICATION_TYPE = Object.freeze({
   BOOKING_CREATED: 'booking_created',
+  BOOKING_NEW: 'booking_new',
+  PAYMENT_SUBMITTED: 'payment_submitted',
+  REFUND_FLAGGED: 'refund_flagged',
   BOOKING_APPROVED: 'booking_approved',
   BOOKING_CANCELLED: 'booking_cancelled',
   BOOKING_COMPLETED: 'booking_completed',
@@ -16,17 +19,24 @@ const NOTIFICATION_TYPE = Object.freeze({
   REFUND_REQUESTED: 'refund_requested',
   REFUND_PROCESSED: 'refund_processed',
   REFUND_CONFIRMED: 'refund_confirmed',
-RESCHEDULE_REQUESTED: 'reschedule_requested',
+  RESCHEDULE_REQUESTED: 'reschedule_requested',
+  RESCHEDULE_RECEIVED: 'reschedule_received',
   RESCHEDULE_APPROVED: 'reschedule_approved',
   RESCHEDULE_DENIED: 'reschedule_denied',
   DISRUPTION_REPORTED: 'disruption_reported',
+  DISRUPTION_NOTICE: 'disruption_notice',
   DISRUPTION_RESCHEDULED: 'disruption_rescheduled',
   EXTENSION_REQUESTED: 'extension_requested',
   EXTENSION_APPROVED: 'extension_approved',
   EXTENSION_DENIED: 'extension_denied',
   BACKJOB_FILED: 'backjob_filed',
+  TECHNICIAN_DEACTIVATED: 'technician_deactivated',
+  BACKJOB_RECEIVED: 'backjob_received',
+  BACKJOB_DECIDED: 'backjob_decided',
   SERVICE_REMINDER: 'service_reminder',
   CHAT_MESSAGE: 'chat_message',
+  INSTRUCTIONS_UPDATED: 'instructions_updated',
+  REPORT_REMOVED: 'report_removed',
 });
 
 module.exports = { NOTIFICATION_TYPE };

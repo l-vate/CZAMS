@@ -18,6 +18,11 @@ export function getStatusColor(status) {
   return STATUS_COLORS[status] || '#64748b';
 }
 
+// The two light fills (amber and green) do not hold white text: it is 2.15:1 and 2.28:1 on them. Text on those fills is dark; every other
+// fill keeps its own (white) text, so this returns undefined for them.
+const LIGHT_FILLS = new Set(['var(--warning)', 'var(--success)']);
+export const textOnFill = (fill) => (LIGHT_FILLS.has(fill) ? '#0f172a' : undefined);
+
 // Color for a pill-filter's *active* state (.filter-pill--active), keyed by the
 // filter's own label/value rather than its position in the row - a page can list
 // its filters in any order (or a different subset) and each one still gets its
@@ -59,5 +64,5 @@ export function getFilterPillColor(filter) {
 export function getFilterPillStyle(filter, isActive) {
   if (!isActive) return undefined;
   const color = getFilterPillColor(filter);
-  return color ? { background: color, borderColor: color } : undefined;
+  return color ? { background: color, borderColor: color, ...(textOnFill(color) ? { color: textOnFill(color) } : {}) } : undefined;
 }

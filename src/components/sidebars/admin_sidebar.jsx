@@ -58,9 +58,6 @@ function AdminSidebar({ onNavigate }) {
           <NavLink to="/admin/manage_accounts" className={linkClass} onClick={onNavigate}>
             Manage Accounts
           </NavLink>
-          <NavLink to="/admin/teams" className={linkClass} onClick={onNavigate}>
-            Teams
-          </NavLink>
 
           {/* ── Services dropdown ───────────────────────── */}
           <div className="sidebar-dropdown">
@@ -129,6 +126,9 @@ function AdminSidebar({ onNavigate }) {
           </NavLink>
           <NavLink to="/admin/reports" className={linkClass} onClick={onNavigate}>
             Reports
+          </NavLink>
+          <NavLink to="/admin/audit-log" className={linkClass} onClick={onNavigate}>
+            Audit Log
           </NavLink>
         </nav>
       </div>

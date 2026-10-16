@@ -22,6 +22,7 @@ import GeneratedPasswordNotice from '../../components/generated_password_notice'
 import PaymentSettingsUnavailable from '../../components/payment_settings_unavailable';
 import { REFERENCE_MAX, referenceError } from '../../utils/paymentReference';
 import { listUsers, createUser } from '../../services/userService';
+import { selectableCustomers } from '../../utils/walkInCustomers';
 import { ROLE } from '../../constants/roles';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
 
@@ -52,15 +53,8 @@ function CustomerStep({ customers, loadingCustomers, selectedCustomer, onSelectC
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
 
-  const filteredCustomers = customers.filter((c) => {
-    const term = search.trim().toLowerCase();
-    if (!term) return true;
-    return (
-      (c.name || '').toLowerCase().includes(term) ||
-      (c.email || '').toLowerCase().includes(term) ||
-      (c.phone || '').toLowerCase().includes(term)
-    );
-  });
+  // active customers only: a deactivated account cannot be booked for (the server refuses it), so it is not offered
+  const filteredCustomers = selectableCustomers(customers, search);
 
   const handleCreateCustomer = async (e) => {
     e.preventDefault();
@@ -385,7 +379,7 @@ function WalkInPaymentStep({ form, setForm, services, isReturnCustomer, isCommer
                   file input here, visually inconsistent with the rest of the app. */}
               <label className="modal-file-btn">
                 {form.proofFile || '[Choose a file]'}
-                <input type="file" accept="image/*,.pdf" className="admin-walk-in-booking-x4" onChange={handleProofChange} />
+                <input type="file" accept="image/jpeg,image/png,image/webp,.pdf" className="admin-walk-in-booking-x4" onChange={handleProofChange} />
               </label>
             </div>
 
@@ -497,7 +491,8 @@ function WalkInBooking() {
       const selectedService = services.find((s) => s.id === form.service);
       const isInstallation = selectedService?.serviceType === SERVICE_TYPE.INSTALLATION;
       if (isInstallation && form.clientSuppliedUnit) {
-        return !!form.unitWaiverAcknowledged && !!(form.unitWaiverName || '').trim();
+        const nameMatches = (form.unitWaiverName || '').trim().toLowerCase() === (customer?.name || '').trim().toLowerCase();
+        return !!form.unitWaiverAcknowledged && !!customer?.name && nameMatches;
       }
       return true;
     }
@@ -579,7 +574,7 @@ function WalkInBooking() {
         ) : (
           <>
             {step === 2 && <Step1 form={form} setForm={setForm} services={services} />}
-            {step === 3 && <Step2 form={form} setForm={setForm} services={services} />}
+            {step === 3 && <Step2 form={form} setForm={setForm} services={services} accountName={customer?.name || ''} />}
             {step === 4 && <Step3 form={form} setForm={setForm} technicians={technicians} />}
             {step >= 5 && !paymentSettingsReady && (
               paymentSettingsFailed

@@ -4,16 +4,18 @@ import CustomerLayout from './customer_layout';
 import ReceiptModal from '../../components/receipt_modal';
 import FeedbackModal from '../../components/feedback_modal';
 import BackJobModal from '../../components/back_job_modal';
+import ServiceReportViewer from '../../components/service_report_viewer';
 import { getBookingLineItems, getPaymentBreakdown, formatPeso } from '../../utils/bookingPricing';
 import { getMemberNames } from '../../utils/assignments';
-import { toLocalDateKey } from '../../utils/date';
+import { earliestBookingKey, formatManilaDay, manilaTodayKey } from '../../utils/manilaTime';
+import { bookingHeading } from '../../utils/bookingHeading';
+import { SAME_DAY_CANCEL_WARNING, sameDayCancelledMessage, showsSameDayWarning } from '../../config/cancellation';
 import { usePaymentSettings, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
 import {
-  FiCheck, FiMail, FiMessageSquare, FiBell, FiPrinter,
+  FiCheck, FiBell, FiPrinter,
   FiCalendar, FiClock, FiMapPin, FiInfo, FiCreditCard,
-  FiUser, FiAlertTriangle, FiX, FiArrowRight, FiStar, FiPhone,
+  FiUser, FiAlertTriangle, FiX, FiArrowRight, FiStar, FiPhone, FiFileText,
 } from 'react-icons/fi';
-import { API_BASE } from '../../config/api';
 import { ApiError, orFallback } from '../../services/apiClient';
 import { getBooking, cancelBooking, rescheduleBooking, submitFeedback, requestDiscount } from '../../services/bookingService';
 import ClosureDateInput from '../../components/closure_date_input';
@@ -26,7 +28,10 @@ import { BOOKING_STATUS } from '../../constants/bookingStatus';
 import { REFUND_STATUS } from '../../constants/refundStatus';
 import { TIME_BLOCK_VALUES } from '../../constants/timeBlocks';
 import { NOTIFICATION_TYPE } from '../../constants/notificationTypes';
+import { ProofLink } from '../../components/proof_file';
 
+import Notice from '../../components/notice';
+import { useNotice } from '../../hooks/useNotice';
 const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
 
 const FEEDBACK_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -107,11 +112,7 @@ function RescheduleModal({ booking, onClose, onSubmit, submitting }) {
   const [time, setTime] = useState(booking.time || '');
   const needsApproval = [BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status);
 
-  const minDate = (() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 3);
-    return toLocalDateKey(d);
-  })();
+  const minDate = earliestBookingKey(3); // 3 days after today in Manila, YYYY-MM-DD for <input type="date">
 
   const isDateValid = date >= minDate;
 
@@ -130,7 +131,7 @@ function RescheduleModal({ booking, onClose, onSubmit, submitting }) {
           <label className="bs-label">New Date</label>
           <ClosureDateInput min={minDate} value={date} onChange={setDate} />
           <p className="customer-book-details-x1">
-            Earliest available date is {new Date(minDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.
+            Earliest available date is {formatManilaDay(minDate, { month: 'long', day: 'numeric', year: 'numeric' })}.
           </p>
         </div>
 
@@ -165,7 +166,7 @@ function RescheduleModal({ booking, onClose, onSubmit, submitting }) {
   );
 }
 
-function CancelConfirmDialog({ onKeep, onConfirmCancel }) {
+function CancelConfirmDialog({ onKeep, onConfirmCancel, sameDayWarning = false }) {
   return (
     <div className="modal-overlay" onClick={onKeep}>
       <div className="modal-card cancel-confirm-card" onClick={(e) => e.stopPropagation()}>
@@ -174,6 +175,7 @@ function CancelConfirmDialog({ onKeep, onConfirmCancel }) {
         <p className="cancel-confirm-text">
           This action can't be undone. Your technician assignment and scheduled slot will be released.
         </p>
+        {sameDayWarning && <p className="cancel-confirm-text" role="note"><strong>{SAME_DAY_CANCEL_WARNING}</strong></p>}
         <div className="cancel-confirm-actions">
           <button className="bs-back-btn" onClick={onKeep}>Keep booking</button>
           <button className="cancel-booking-btn" onClick={onConfirmCancel}>Yes, cancel it</button>
@@ -211,10 +213,8 @@ function RefundStatusMessage({ refund }) {
   if (refund.isSameDay) {
     return (
       <p className="cancelled-message">
-        Your booking has been successfully cancelled. Since this was cancelled on the
-        same day as your scheduled service, a dispatch/transportation cost will be
-        deducted from your down payment of <strong>₱{refund.downPaymentAmount?.toLocaleString()}</strong>{' '}
-        before it's refunded. Our admin team will review this and process your refund shortly.
+        Your booking has been successfully cancelled. {sameDayCancelledMessage(`₱${refund.downPaymentAmount?.toLocaleString()}`)}{' '}
+        Our admin team will review this and process your refund shortly.
       </p>
     );
   }
@@ -352,7 +352,7 @@ function BookingCancelled({ bookingId, refund, onBookAgain, onBackToDashboard, o
         {refund && refund.status !== REFUND_STATUS.NONE && (
           <RefundReceivedConfirm bookingId={bookingId} refund={refund} onConfirmed={onRefundFlagged} />
         )}
-        {refund && refund.status !== REFUND_STATUS.NONE && (
+        {refund && refund.status === REFUND_STATUS.PROCESSED && (
           <RefundFlagForm bookingId={bookingId} refund={refund} onFlagged={onRefundFlagged} />
         )}
         <div className="cancelled-actions">
@@ -369,6 +369,7 @@ function BookDetails() {
   const location = useLocation();
   const navigate = useNavigate();
   const { downPaymentPercentages } = usePaymentSettings();
+  const { notice, showNotice, clearNotice } = useNotice();
 
   const [booking, setBooking] = useState(location.state?.booking || null);
   const [loading, setLoading] = useState(!location.state?.booking);
@@ -380,6 +381,7 @@ function BookDetails() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const [showBackJob, setShowBackJob] = useState(false);
+  const [showReport, setShowReport] = useState(false);
   const [submittingBackJob, setSubmittingBackJob] = useState(false);
   const [backJob, setBackJob] = useState(null);
   const [bookingNotification, setBookingNotification] = useState(null);
@@ -483,7 +485,7 @@ function BookDetails() {
       setBooking(data);
       setShowCancel(false);
     } catch (err) {
-      alert(err instanceof ApiError ? err.message || 'Failed to cancel booking' : 'Could not connect to server.');
+      showNotice(err instanceof ApiError ? err.message || 'Failed to cancel booking' : 'Could not connect to server.');
     } finally {
       setCancelling(false);
     }
@@ -496,7 +498,7 @@ function BookDetails() {
       setBooking(data);
       setShowReschedule(false);
     } catch (err) {
-      alert(err instanceof ApiError ? err.message || 'Failed to submit reschedule' : 'Could not connect to server.');
+      showNotice(err instanceof ApiError ? err.message || 'Failed to submit reschedule' : 'Could not connect to server.');
     } finally {
       setRescheduling(false);
     }
@@ -509,7 +511,7 @@ function BookDetails() {
       setBooking(data);
       setShowFeedback(false);
     } catch (err) {
-      alert(err instanceof ApiError ? err.message || 'Failed to submit feedback' : 'Could not connect to server.');
+      showNotice(err instanceof ApiError ? err.message || 'Failed to submit feedback' : 'Could not connect to server.');
     } finally {
       setSubmittingFeedback(false);
     }
@@ -521,7 +523,7 @@ function BookDetails() {
       const data = await reportBackJob({ bookingId: booking.bookingId, issueDescription });
       setBackJob(data);
     } catch (err) {
-      alert(err instanceof ApiError ? err.message || 'Failed to submit report' : 'Could not connect to server.');
+      showNotice(err instanceof ApiError ? err.message || 'Failed to submit report' : 'Could not connect to server.');
     } finally {
       setSubmittingBackJob(false);
     }
@@ -543,10 +545,12 @@ function BookDetails() {
 
   return (
     <CustomerLayout title="Booking Details">
+      <Notice message={notice} onClose={clearNotice} />
       {showCancelConfirm && (
         <CancelConfirmDialog
           onKeep={() => setShowCancel(false)}
           onConfirmCancel={handleConfirmCancel}
+          sameDayWarning={showsSameDayWarning(booking, manilaTodayKey())}
         />
       )}
 
@@ -577,6 +581,14 @@ function BookDetails() {
         />
       )}
 
+      {showReport && (
+        <ServiceReportViewer
+          bookingId={booking.bookingId}
+          fallback={{ service: booking.service?.name, customer: booking.customer?.name, address: booking.address, date: booking.date }}
+          onClose={() => setShowReport(false)}
+        />
+      )}
+
       {showBackJob && (
         <BackJobModal
           booking={booking}
@@ -590,19 +602,11 @@ function BookDetails() {
       <div className="confirmation-wrap">
         <div className="confirmation-heading">
           <span className="confirmation-check-icon"><FiCheck /></span>
-          <h2>Booking Request Submitted!</h2>
+          <h2>{bookingHeading(booking.status)}</h2>
           <p className="confirmation-id">Booking ID: {booking.bookingId}</p>
         </div>
 
         <div className="confirmation-notif-row">
-          <div className="confirmation-notif-card confirmation-notif-card--disabled">
-            <p className="confirmation-notif-title"><FiMail /> Email notification</p>
-            <p className="confirmation-notif-sub">Coming soon</p>
-          </div>
-          <div className="confirmation-notif-card confirmation-notif-card--disabled">
-            <p className="confirmation-notif-title"><FiMessageSquare /> SMS notification</p>
-            <p className="confirmation-notif-sub">Coming soon</p>
-          </div>
           <div className="confirmation-notif-card">
             <p className="confirmation-notif-title"><FiBell /> In-app notification</p>
             <p className="confirmation-notif-sub">
@@ -705,13 +709,7 @@ function BookDetails() {
                 <span>Proof of Payment</span>
                 <span className="cost-link">
                   {booking.proofFile ? (
-                    
-                      <a href={`${API_BASE}${booking.proofFile}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      View File
-                    </a>
+                    <ProofLink path={booking.proofFile}>View File</ProofLink>
                   ) : (
                     'None'
                   )}
@@ -722,13 +720,7 @@ function BookDetails() {
                   <span>Balance Proof of Payment</span>
                   <span className="cost-link">
                     {booking.balanceProofFile ? (
-                      
-                        <a href={`${API_BASE}${booking.balanceProofFile}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        View File
-                      </a>
+                    <ProofLink path={booking.balanceProofFile}>View File</ProofLink>
                     ) : (
                       'None'
                     )}
@@ -803,7 +795,7 @@ function BookDetails() {
                   <button className="bs-back-btn" disabled>
                     Reschedule Pending Approval
                   </button>
-                ) : (
+                ) : booking.status !== BOOKING_STATUS.IN_PROGRESS && (
                   <button className="bs-back-btn" onClick={() => setShowReschedule(true)}>
                     {rescheduleStatus === 'Denied' ? 'Pick New Date' : 'Reschedule'}
                   </button>
@@ -829,6 +821,12 @@ function BookDetails() {
             {getFeedbackAction(booking) && (
               <button className="bs-back-btn" onClick={() => setShowFeedback(true)}>
                 <FiStar /> {FEEDBACK_ACTION_LABEL[getFeedbackAction(booking)]}
+              </button>
+            )}
+
+            {booking.status === BOOKING_STATUS.COMPLETED && booking.reportSubmitted && (
+              <button className="bs-back-btn" onClick={() => setShowReport(true)}>
+                <FiFileText /> View Service Report
               </button>
             )}
 

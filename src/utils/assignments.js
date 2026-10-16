@@ -1,4 +1,4 @@
-import { SERVICE_TYPE } from '../constants/serviceTypes';
+import { SERVICE_TYPE } from '../constants/serviceTypes.js';
 // Who is assigned to a booking, for display and for the same staffing rule the server
 // enforces (server/utils/assignments.js). A booking that only has `technician` (made before
 // teams existed) is read as a solo assignment: nothing is migrated.
@@ -51,8 +51,12 @@ export function getMemberNames(booking, fallback = 'Unassigned') {
   return names.length > 0 ? [...new Set(names)].join(', ') : fallback;
 }
 
-// How many technicians a service needs: the explicit value, else 1 for a Check-up, else 2.
+// Mirrors getMinTechnicians in server/utils/assignments.js: solo only for a check-up, or a survey marked solo
+// on a service of type Other; every other service needs a lead and a helper.
 export function getMinTechnicians(service) {
-  if (service?.minTechnicians === 1 || service?.minTechnicians === 2) return service.minTechnicians;
-  return service?.serviceType === SERVICE_TYPE.CHECK_UP ? 1 : 2;
+  if (service?.minTechnicians === 2) return 2;
+  const type = service?.serviceType;
+  if (type === SERVICE_TYPE.CHECK_UP) return 1;
+  if (service?.minTechnicians === 1 && type === SERVICE_TYPE.OTHER) return 1;
+  return 2;
 }

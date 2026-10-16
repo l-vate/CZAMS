@@ -9,17 +9,19 @@
 //    payment once accepted, plus the balance once settled), minus refunds already processed.
 //  - Both count a booking by its service date or its date requested, never by the day money moved.
 
+import { manilaDateKey } from './manilaTime.js';
+import { clientGroupOf } from './clientGroup.js';
+
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
 const VERIFIED_DOWN_PAYMENT = ['partially_paid', 'fully_paid', 'Paid'];
 
-// "YYYY-MM-DD" of a stored date: a plain service date as is, a timestamp in the viewer's local day.
+// "YYYY-MM-DD" of a stored date: a plain service date as is, a timestamp as the Manila day it falls on, whatever time zone the
+// browser is in.
 export function dateKeyOf(value) {
   if (!value) return null;
   if (DATE_KEY.test(value)) return value;
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  if (Number.isNaN(new Date(value).getTime())) return null;
+  return manilaDateKey(value);
 }
 
 // The date a booking is counted by: its service date, or the day it was requested.
@@ -36,7 +38,7 @@ export function inRange(booking, { fromKey, toKey, dateBasis }) {
   return true;
 }
 
-export const clientTypeOf = (booking) => booking.customer?.clientType || 'Residential';
+export const clientTypeOf = (booking) => clientGroupOf(booking.customer);
 
 export function matchesClientType(booking, clientType) {
   return !clientType || clientType === 'all' || clientTypeOf(booking) === clientType;

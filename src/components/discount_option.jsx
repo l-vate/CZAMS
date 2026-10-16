@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { shrinkPhoto } from '../utils/photoShrink';
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB, same rule as every other upload
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
@@ -10,6 +11,7 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf
 // there and the discount is applied straight away.
 function DiscountOption({ form, setForm, idRequired, appliesNow, percent, optional = true }) {
   const [fileError, setFileError] = useState('');
+  const [preparing, setPreparing] = useState(false);
 
   const choose = (type) => {
     setFileError('');
@@ -20,25 +22,30 @@ function DiscountOption({ form, setForm, idRequired, appliesNow, percent, option
     }
   };
 
-  const handleFile = (e) => {
-    const file = e.target.files[0];
-    if (!file) {
+  const handleFile = async (e) => {
+    const picked = e.target.files[0];
+    if (!picked) {
       setFileError('');
-      setForm({ ...form, discountIdFileObj: null });
+      setForm((f) => ({ ...f, discountIdFileObj: null }));
       return;
     }
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    if (!ALLOWED_TYPES.includes(picked.type)) {
       setFileError('Only images (JPG, PNG) or PDF files are allowed.');
-      setForm({ ...form, discountIdFileObj: null });
+      setForm((f) => ({ ...f, discountIdFileObj: null }));
       return;
     }
+    // A phone photo is shrunk first, so a 6 to 10 MB photo fits the 5 MB limit. The 5 MB rule below
+    // still applies to what is actually sent.
+    setPreparing(true);
+    const file = await shrinkPhoto(picked);
+    setPreparing(false);
     if (file.size > MAX_SIZE) {
       setFileError('File is too large. Max size is 5MB.');
-      setForm({ ...form, discountIdFileObj: null });
+      setForm((f) => ({ ...f, discountIdFileObj: null }));
       return;
     }
     setFileError('');
-    setForm({ ...form, discountIdFileObj: file });
+    setForm((f) => ({ ...f, discountIdFileObj: file }));
   };
 
   return (
@@ -71,6 +78,7 @@ function DiscountOption({ form, setForm, idRequired, appliesNow, percent, option
               onChange={handleFile}
             />
           </label>
+          {preparing && <p className="sdm-muted" role="status">Preparing photo...</p>}
           {fileError && (
             <p className="discount-option-x3">{fileError}</p>
           )}

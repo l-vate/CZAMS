@@ -33,6 +33,37 @@ const bookingSchema = new mongoose.Schema({
     bookingId: { type: String, unique: true, required: true },
     customer: { type: String, ref: 'User', required: true },
     service: { type: String, ref: 'Service', required: true },
+    // Every verification, rejection, reversal and in-person payment: who (admin id and name), when, which payment,
+    // the amount, the outcome and the reason. Added only by the payment routes (utils/paymentVerification.js).
+    paymentEvents: [{
+      track: { type: String, enum: ['down', 'balance'] },
+      status: { type: String, enum: ['verified', 'rejected', 'reversed', 'recorded'] },
+      amount: Number,
+      reason: String,
+      method: String,
+      reference: String,
+      inPerson: Boolean,
+      by: { id: String, name: String },
+      at: Date,
+      _id: false,
+    }],
+    // Set when a technician on this job was deactivated and nobody has been assigned in their place yet. The admin sees it
+    // on the booking and in the assignment panel until the job is reassigned. Admin only.
+    needsReassignment: { type: Boolean, default: false },
+    // Set when the booking was cancelled while its down payment proof was still waiting to be verified. No refund is opened for an amount
+    // nobody has checked: the admin verifies or rejects the proof first, and a refund opens only once it is verified.
+    paymentCheckAfterCancel: { type: Boolean, default: false },
+    // The prices this booking was made at (utils/priceSnapshot.js). Totals use these, not the service's current price.
+    // Bookings made before this existed have none and follow the current price.
+    priceSnapshot: {
+      serviceId: String,
+      serviceName: String,
+      serviceType: String,
+      tier: String,
+      basePrice: Number,
+      lines: [{ type: { type: String }, quantity: Number, unitPrice: Number, lineTotal: Number, _id: false }],
+      frozenAt: Date,
+    },
 
     // Multi-Unit Booking Redesign: a customer can now list one or more unit
     // entries, each with its own type, quantity, and brand/model - replacing the
@@ -164,6 +195,10 @@ const bookingSchema = new mongoose.Schema({
         text: String,
         rating: Number,
         createdAt: Date,
+        // Set when the customer changes it inside the 24-hour window. `edits` keeps each earlier version with the time
+        // it was replaced.
+        editedAt: Date,
+        edits: [{ text: String, rating: Number, replacedAt: Date }],
     },
 
     // Down-payment refund on a cancelled booking. Only set when the booking actually
@@ -277,16 +312,32 @@ const bookingSchema = new mongoose.Schema({
         isActivelyLeaking: Boolean,
     },
 
+    // Extra days an admin approved for this job. Each one holds every technician on the booking for that date
+    // and time block, the same as the booking's own date and block (utils/assignments.js findConflictingBooking).
+    extensionDays: [{
+        date: String,
+        time: String,
+        approvedBy: String,
+        approvedAt: Date,
+        _id: false,
+    }],
+
     disruption: {
         status: { type: String, enum: ['None', 'Reported', 'Rescheduled'], default: 'None' },
         reason: String,
         reportedAt: Date,
         reportedBy: String,
+        // Who started it: the lead technician reporting it, or the admin rescheduling directly.
+        initiatedBy: { type: String, enum: ['technician', 'admin'] },
         rescheduledAt: Date,
     },
     extensionRequest: {
         status: { type: String, enum: ['None', 'Pending', 'Approved', 'Denied'], default: 'None' },
         reason: String,
+        // The extra day asked for (a YYYY-MM-DD date and a time block). When the admin approves it, the day that
+        // was approved is copied to extensionDays below.
+        requestedDate: String,
+        requestedTime: String,
         requestedAt: Date,
         requestedBy: String,
         decidedAt: Date,
@@ -333,7 +384,9 @@ const bookingSchema = new mongoose.Schema({
     // a Senior/PWD discount approved after the customer paid must not shrink their refund.
     // Bookings made before this field existed have none and fall back to the current computation.
     downPaymentPaidAmount: Number,
-}, { timestamps: true });
+// optimisticConcurrency: a save is refused (VersionError, answered as a 409) when the booking changed since it was read, so two
+// admins acting on the same booking at once cannot both succeed or both notify the customer.
+}, { timestamps: true, optimisticConcurrency: true });
 
 // Add index for efficient queries
 // REMOVED: bookingSchema.index({ bookingId: 1 }); // <-- This is the duplicate!
@@ -341,6 +394,13 @@ const bookingSchema = new mongoose.Schema({
 bookingSchema.index({ technician: 1, status: 1 });
 bookingSchema.index({ status: 1, queueRank: 1 });
 bookingSchema.index({ customer: 1 });
+// The main filters: by service date (calendar, reports, the lead-time and conflict checks), by status within a date range,
+// by the people on a job (a technician's own list and the "is this technician busy" check read lead and helper), and the queue.
+bookingSchema.index({ date: 1 });
+bookingSchema.index({ status: 1, date: 1 });
+bookingSchema.index({ 'assignments.lead': 1 });
+bookingSchema.index({ 'assignments.helper': 1 });
+bookingSchema.index({ queueRank: 1 });
 bookingSchema.index({ referenceNumber: 1 });
 bookingSchema.index({ balanceReferenceNumber: 1 });
 

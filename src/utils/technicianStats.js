@@ -1,5 +1,5 @@
-import { getMembers } from './assignments';
-import { BOOKING_STATUS } from '../constants/bookingStatus';
+import { getMembers } from './assignments.js';
+import { BOOKING_STATUS } from '../constants/bookingStatus.js';
 
 // Technician Performance Analytics: completedJobs + delays come from Booking
 // (technician ref, status, disruption, extensionRequest); avgTime comes from

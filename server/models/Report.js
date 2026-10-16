@@ -92,12 +92,22 @@ const reportSchema = new mongoose.Schema({
     // Photo of the signed paper form (/uploads/proofs/<unguessable name>). Optional; with it, the
     // drawn signature and typed name become optional. Reports filed before this existed have none.
     signedFormPhoto: String,
+
+    // A report for a back job visit (a free repair after a warranty claim) records which job it follows: the claim,
+    // the original booking, and the original report if there was one. Reports for ordinary bookings have none.
+    backJob: {
+        backJobId: String,
+        originalBookingId: String,
+        originalReportId: { type: mongoose.Schema.Types.ObjectId, ref: 'Report' },
+    },
 }, {
     timestamps: true
 });
 
 // Index for faster queries
-reportSchema.index({ bookingId: 1 });
+// One report per booking, enforced by the database so two quick submits cannot both succeed.
+// An existing plain index on bookingId must be replaced first: node scripts/checkDuplicateReports.js
+reportSchema.index({ bookingId: 1 }, { unique: true });
 reportSchema.index({ technicianId: 1 });
 reportSchema.index({ submittedAt: -1 });
 

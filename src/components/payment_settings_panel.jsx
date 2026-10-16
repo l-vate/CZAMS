@@ -163,6 +163,7 @@ function PaymentSettingsPanel() {
                 type="text"
                 className="pset-input pset-method-name"
                 placeholder="Method name (e.g. GCash)"
+                aria-label="Payment method name"
                 value={method.name}
                 onChange={(e) => updateMethodName(mIndex, e.target.value)}
               />
@@ -182,6 +183,7 @@ function PaymentSettingsPanel() {
                   type="text"
                   className="pset-input"
                   placeholder="Label (e.g. Account Name)"
+                  aria-label={`Detail label for ${method.name || 'this method'}`}
                   value={detail.label}
                   onChange={(e) => updateDetail(mIndex, dIndex, 'label', e.target.value)}
                 />
@@ -189,6 +191,7 @@ function PaymentSettingsPanel() {
                   type="text"
                   className="pset-input"
                   placeholder="Value (e.g. Cooling Zone Aircon Services)"
+                  aria-label={`Detail value for ${method.name || 'this method'}`}
                   value={detail.value}
                   onChange={(e) => updateDetail(mIndex, dIndex, 'value', e.target.value)}
                 />
@@ -229,6 +232,7 @@ function PaymentSettingsPanel() {
               <input
                 type="number"
                 className="pset-input pset-percent-input"
+                aria-label={`Down payment option ${i + 1}, percent`}
                 min="1"
                 max="100"
                 value={p}

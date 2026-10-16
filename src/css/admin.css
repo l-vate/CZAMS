@@ -171,6 +171,15 @@
 
 .recent-bookings-body.tech-job-list { gap: 12px; }
 
+/* A table inside a dashboard card lines up with the card's 22px title gutter and has no
+   dead space under the last row. */
+.recent-bookings .analytics-table { margin-bottom: 0; }
+.recent-bookings .analytics-table th:first-child,
+.recent-bookings .analytics-table td:first-child { padding-left: 22px; }
+.recent-bookings .analytics-table th:last-child,
+.recent-bookings .analytics-table td:last-child { padding-right: 22px; }
+.recent-bookings .analytics-table tbody tr:last-child td { border-bottom: none; }
+
 /* ============ ANALYTICS ============ */
 .analytics-page { padding: 20px; }
 
@@ -2491,7 +2500,8 @@
    The class is doubled so it keeps the priority the inline style had over other rules. */
 .admin-dashboard-x1.admin-dashboard-x1 {
   color: #666;
-  margin: 0 0 8px;
+  margin: 0;
+  padding-bottom: 14px;
 }
 .admin-dashboard-x2.admin-dashboard-x2 {
   color: #666;
@@ -2716,14 +2726,6 @@
    The class is doubled so it keeps the priority the inline style had over other rules. */
 .admin-service-requests-x1.admin-service-requests-x1 {
   margin-bottom: 10px;
-}
-
-
-/* Extracted from inline styles in pages/admin/teams.jsx.
-   The class is doubled so it keeps the priority the inline style had over other rules. */
-.admin-teams-x1.admin-teams-x1 {
-  display: flex;
-  gap: 8px;
 }
 
 

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { listClosures } from '../services/closureService';
 import { formatClosureDate } from '../utils/closureDates';
+import { sundayProblem } from '../utils/businessDays';
 
-// A date input that refuses the days the shop is closed. A browser date picker cannot grey out
-// single days, so a closed day is cleared as soon as it is picked and the reason is shown.
+// A date input that refuses the days the shop is closed: a Sunday (while Sundays are closed, utils/businessDays.js) and the dates the
+// admin closed. A browser date picker cannot grey out single days, so a closed day is cleared as soon as it is picked and the reason is shown.
 // The closed dates coming up are listed underneath so the choice is clear before picking.
 function ClosureDateInput({ value, onChange, min, className = 'bs-input', id }) {
   const [closures, setClosures] = useState([]);
@@ -19,6 +20,12 @@ function ClosureDateInput({ value, onChange, min, className = 'bs-input', id }) 
 
   const handleChange = (e) => {
     const picked = e.target.value;
+    const sunday = sundayProblem(picked);
+    if (sunday) {
+      setNotice(sunday);
+      onChange('');
+      return;
+    }
     const closed = closures.find((c) => c.date === picked);
     if (closed) {
       setNotice(`The shop is closed on ${formatClosureDate(closed.date)}: ${closed.reason}`);

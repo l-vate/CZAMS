@@ -52,8 +52,7 @@ test('a booking or reschedule on a closed date is rejected, on an open date it p
 test('the next free dates suggested after a disruption skip closure dates', () => {
   const { findNextFreeDates } = require('../utils/autoAssign');
   const technicians = [{ _id: 'T1' }, { _id: 'T2' }];
-  const teams = [{ _id: 'A', lead: 'T1', helper: 'T2' }];
-  const args = { minTechnicians: 2, teams, technicians, afterDateKey: '2026-10-12', busyByDate: new Map(), limit: 3 };
+  const args = { minTechnicians: 2, technicians, afterDateKey: '2026-10-12', busyByDate: new Map(), limit: 3 };
   // 2026-10-17 is a Saturday, 2026-10-18 a Sunday (always skipped), so the week is Mon 13 to Sat 17, then Mon 19.
   assert.deepEqual(findNextFreeDates(args), ['2026-10-13', '2026-10-14', '2026-10-15']);
   assert.deepEqual(findNextFreeDates({ ...args, closedDates: new Set(['2026-10-13', '2026-10-15']) }), ['2026-10-14', '2026-10-16', '2026-10-17']);

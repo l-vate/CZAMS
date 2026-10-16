@@ -6,12 +6,14 @@ import ClosureDateInput from '../../components/closure_date_input';
 import DiscountOption from '../../components/discount_option';
 import { usePublicPromos } from '../../utils/promos';
 import { getCostBreakdown } from '../../utils/costBreakdown';
-import { UNIT_TYPES } from '../../constants/unitTypes';
+import { getMe } from '../../services/userService';
+import { UNIT_TYPES, MAX_UNIT_QUANTITY } from '../../constants/unitTypes';
+import { resolveCleaningTier } from '../../../shared/bookingRules.js';
 import { useServices } from '../../hooks/useServices';
 import { useTechnicians } from '../../hooks/useTechnicians';
-import { useMyClassification } from '../../hooks/useMyClassification';
+import { useMyClassification, useMyAgreedTerms } from '../../hooks/useMyClassification';
 import { getUnitPrice } from '../../utils/bookingPricing';
-import { toLocalDateKey } from '../../utils/date';
+import { earliestBookingKey, formatManilaDay } from '../../utils/manilaTime';
 import { isValidContactNumber, getAccountPhone } from '../../utils/contact';
 import { usePaymentSettings, getDownPaymentOptions, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
 import { isWithinQuezonCity } from '../../utils/serviceArea';
@@ -32,6 +34,8 @@ import { PAYMENT_STATUS } from '../../constants/paymentStatus';
 import { TIME_BLOCK_VALUES, TIME_BLOCK } from '../../constants/timeBlocks';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
 
+import Notice from '../../components/notice';
+import { useNotice } from '../../hooks/useNotice';
 // System Configuration Module: payment methods and down payment percentages used
 // to be hardcoded here (DOWN_PAYMENT_OPTIONS / PAYMENT_MODES / getDownPaymentOptions).
 // Both are now admin-managed - see src/utils/paymentSettings.js (usePaymentSettings,
@@ -71,14 +75,7 @@ export function StepIndicator({ current, total = TOTAL_STEPS }) {
 // tier in Manage Services doesn't break this - the higher price for the more
 // involved job is the actual defining trait the client described.
 function resolveCleaningTierService(services, lastCleanedOver6MonthsAgo, isActivelyLeaking) {
-  const tiers = services
-    .filter((s) => s.serviceType === SERVICE_TYPE.CLEANING)
-    .sort((a, b) => a.price - b.price);
-  if (tiers.length === 0) return null;
-
-  if (isActivelyLeaking) return tiers[tiers.length - 1];
-  if (lastCleanedOver6MonthsAgo) return tiers[1] || tiers[0];
-  return tiers[0];
+  return resolveCleaningTier(services.filter((s) => s.serviceType === SERVICE_TYPE.CLEANING), lastCleanedOver6MonthsAgo, isActivelyLeaking);
 }
 
 function CleaningTierQuestions({ onResolve, onCancel, initialAnswers, services }) {
@@ -217,8 +214,9 @@ function getAccountName() {
   return storedUser ? (JSON.parse(storedUser).name || '') : '';
 }
 
-export function Step2({ form, setForm, services = [] }) {
-  const accountName = getAccountName();
+// `accountName` is whose name the waiver must carry. It defaults to the signed-in customer;
+// the admin's walk-in booking passes the chosen customer's name instead.
+export function Step2({ form, setForm, services = [], accountName = getAccountName() }) {
   const waiverNameMatches = (form.unitWaiverName || '').trim().toLowerCase() === accountName.trim().toLowerCase();
   // Multi-Unit Booking Redesign: a booking now lists one or more unit entries
   // (type + quantity + its own brand/model), replacing the old flat
@@ -277,8 +275,10 @@ export function Step2({ form, setForm, services = [] }) {
                 type="number"
                 className="bs-input unit-entry-qty"
                 min="1"
+                max={MAX_UNIT_QUANTITY}
+                step="1"
                 value={unit.quantity}
-                onChange={(e) => updateUnit(index, { quantity: Number(e.target.value) || 1 })}
+                onChange={(e) => updateUnit(index, { quantity: Math.min(MAX_UNIT_QUANTITY, Math.max(1, Math.floor(Number(e.target.value)) || 1)) })}
               />
 
               <input
@@ -381,11 +381,15 @@ export function Step2({ form, setForm, services = [] }) {
 
 /* ── Step 3: Location & Schedule ──────────────────────────── */
 export function Step3({ form, setForm, technicians }) {
-  const minDate = (() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 3);
-    return toLocalDateKey(d); // YYYY-MM-DD for <input type="date">
-  })();
+  // Only a Commercial client is asked for a purchase order number. The account is asked once.
+  const [isCommercial, setIsCommercial] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    getMe().then((me) => { if (!cancelled) setIsCommercial(me.clientType === 'Commercial'); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  const minDate = earliestBookingKey(3); // 3 days after today in Manila, YYYY-MM-DD for <input type="date">
 
   // Hard-Block Technician Double-Booking: this is a UX convenience (hide the
   // obviously-unavailable options) - the real enforcement is server-side on
@@ -421,7 +425,7 @@ export function Step3({ form, setForm, technicians }) {
             onChange={(date) => setForm({ ...form, date })}
           />
           <p className="customer-book-service-x2">
-            Earliest available date is {new Date(minDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.
+            Earliest available date is {formatManilaDay(minDate, { month: 'long', day: 'numeric', year: 'numeric' })}.
           </p>
         </div>
 
@@ -490,6 +494,20 @@ export function Step3({ form, setForm, technicians }) {
           The number our technician will call. Prefilled from your profile, change it if someone else will be on site.
         </p>
       </div>
+
+      {isCommercial && (
+        <div className="bs-field-group">
+          <label className="bs-label">Purchase Order Number (optional)</label>
+          <input
+            type="text"
+            className="bs-input"
+            maxLength={40}
+            placeholder="Your PO number, if you use one"
+            value={form.poNumber || ''}
+            onChange={(e) => setForm({ ...form, poNumber: e.target.value })}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -503,7 +521,7 @@ const PAYMENT_STATUS_LABELS = {
   rejected: 'Rejected',
 };
 
-function Step4({ form, setForm, services, isReturnCustomer, paymentMethods, downPaymentPercentages, promos }) {
+function Step4({ form, setForm, services, isReturnCustomer, onAgreedTerms, paymentMethods, downPaymentPercentages, promos }) {
   const [showModal, setShowModal] = useState(false);
   const { lineItems, basePrice, discountAmount, discountLabel, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages), 0, promos);
   const isNoDownPayment = dpPercent === 0;
@@ -548,7 +566,7 @@ const handleSubmitPayment = ({ proof, referenceNumber }) => {
           <div className="bs-field-group">
             <label className="bs-label">Down Payment</label>
             <div className="dp-radio-grid">
-              {getDownPaymentOptions(isReturnCustomer, downPaymentPercentages).map((opt) => (
+              {getDownPaymentOptions(isReturnCustomer, downPaymentPercentages, { onAgreedTerms }).map((opt) => (
                 <label key={opt.value} className="dp-radio-label">
                   <input
                     type="radio"
@@ -747,9 +765,12 @@ function BookService() {
   const { technicians } = useTechnicians();
   const classification = useMyClassification();
   const isReturnCustomer = classification === 'Return';
+  const onAgreedTerms = useMyAgreedTerms();
   const { paymentMethods, downPaymentPercentages, ready: paymentSettingsReady, failed: paymentSettingsFailed, refetch: refetchPaymentSettings } = usePaymentSettings();
   const { promos } = usePublicPromos();
   const navigate = useNavigate();
+  const { notice, showNotice, clearNotice } = useNotice();
+  const [submitting, setSubmitting] = useState(false);
   const [step, setStep] = useState(1);
 
   const [form, setForm] = useState({
@@ -782,7 +803,7 @@ const canNext = () => {
     if (step === 2) {
       const units = form.units || [];
       if (units.length === 0) return false;
-      if (units.some((u) => !u.type || !u.quantity || u.quantity < 1)) return false;
+      if (units.some((u) => !u.type || !Number.isInteger(u.quantity) || u.quantity < 1 || u.quantity > MAX_UNIT_QUANTITY)) return false;
       const selectedService = services.find((s) => s.id === form.service);
       const isInstallation = selectedService?.serviceType === SERVICE_TYPE.INSTALLATION;
       if (isInstallation && form.clientSuppliedUnit) {
@@ -794,11 +815,7 @@ const canNext = () => {
     }
     if (step === 3) {
       if (!form.date || !form.time || !form.address || !isValidContactNumber(form.contactNumber)) return false;
-      const minDate = new Date();
-      minDate.setDate(minDate.getDate() + 3);
-      minDate.setHours(0, 0, 0, 0);
-      const selected = new Date(form.date);
-      return selected >= minDate;
+      return form.date >= earliestBookingKey(3); // both are Manila day keys, so a plain comparison is right
     }
     if (step === 4) {
       const { dpPercent } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages));
@@ -810,6 +827,9 @@ const canNext = () => {
   };
 
  const handleConfirmBooking = async () => {
+    // one click only: the button stays off until the answer comes back, so a second click cannot send the booking again
+    if (submitting) return;
+    setSubmitting(true);
     try {
       const formData = new FormData();
       formData.append('service', form.service);
@@ -822,6 +842,7 @@ const canNext = () => {
       formData.append('technician', form.technician || '');
       formData.append('address', form.address);
       formData.append('contactNumber', form.contactNumber || '');
+      if (form.poNumber) formData.append('poNumber', form.poNumber);
       formData.append('clientSuppliedUnit', form.clientSuppliedUnit || false);
       if (form.clientSuppliedUnit) {
         formData.append('unitWaiverAcknowledged', form.unitWaiverAcknowledged || false);
@@ -846,12 +867,15 @@ const canNext = () => {
 
       navigate(`/customer/book_details/${data.bookingId}`, { state: { booking: data } });
     } catch (err) {
-      alert(err instanceof ApiError ? err.message || 'Failed to create booking' : 'Could not connect to server. Is the backend running?');
+      showNotice(err instanceof ApiError ? err.message || 'Failed to create booking' : 'Could not connect to server. Is the backend running?');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
     <CustomerLayout title="Book Service">
+      <Notice message={notice} onClose={clearNotice} />
       <h1 className="dashboard-welcome">Tell us what you need</h1>
 
       <StepIndicator current={step} />
@@ -874,6 +898,7 @@ const canNext = () => {
               setForm={setForm}
               services={services}
               isReturnCustomer={isReturnCustomer}
+              onAgreedTerms={onAgreedTerms}
               paymentMethods={paymentMethods}
               downPaymentPercentages={downPaymentPercentages}
               promos={promos}
@@ -903,9 +928,9 @@ const canNext = () => {
               {step === 4 ? <>Book <FiArrowRight /></> : <>Next <FiArrowRight /></>}
             </button>
           ) : (
-            <button className="bs-next-btn" onClick={handleConfirmBooking} disabled={!paymentSettingsReady}
+            <button className="bs-next-btn" onClick={handleConfirmBooking} disabled={submitting || !paymentSettingsReady}
             >
-              Confirm <FiCheck />
+              {submitting ? 'Confirming...' : <>Confirm <FiCheck /></>}
             </button>
           )}
         </div>

@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const { requireObjectId } = require('../utils/idParam');
+requireObjectId(router, 'id');
 const auth = require('../middleware/auth');
 const Notification = require('../models/Notification');
 

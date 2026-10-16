@@ -9,13 +9,14 @@ import { getBookingLineItems, getUnitsSummary } from '../../utils/bookingPricing
 import { getMemberNames } from '../../utils/assignments';
 import { getFilterPillStyle } from '../../utils/statusColors';
 import { usePaymentSettings, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
-import { API_BASE } from '../../config/api';
 import { withFallback } from '../../services/apiClient';
 import { listBookings, adminUpdateBooking } from '../../services/bookingService';
 import { processRefund, resolveRefundFlag } from '../../services/refundService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
 import { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } from '../../constants/paymentStatus';
 import { REFUND_STATUS } from '../../constants/refundStatus';
+import { ProofLink, ProofImage } from '../../components/proof_file';
+import { customerLabel } from '../../utils/customerLabel';
 
 
 function formatDate(dateStr) {
@@ -102,6 +103,7 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
   const { downPaymentPercentages } = usePaymentSettings();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [reason, setReason] = useState(''); // required when rejecting; the customer is told it
 
   if (!payment) return null;
 
@@ -114,6 +116,10 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
     try {
       const isBalanceProof = Boolean(payment.raw?.balanceProofFile && payment.raw?.balancePaymentStatus === BALANCE_PAYMENT_STATUS.TO_VERIFY);
       const isRejecting = status === PAYMENT_STATUS.REJECTED;
+      if (isRejecting && reason.trim().length < 3) {
+        setError('Give a short reason for rejecting this payment. The customer will be told.');
+        return;
+      }
 
       // Decide target statuses based on whether it's a balance proof or down payment proof,
       // and whether this is an approval or a rejection. Rejecting a balance proof must NOT
@@ -121,8 +127,9 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
       const payload = isBalanceProof
         ? (isRejecting
             ? { balancePaymentStatus: BALANCE_PAYMENT_STATUS.REJECTED }
-            : { balancePaymentStatus: BALANCE_PAYMENT_STATUS.PAID, balancePaid: true })
+            : { balancePaymentStatus: BALANCE_PAYMENT_STATUS.PAID })
         : { paymentStatus: status }; // status can be 'partially_paid', 'fully_paid', or 'rejected'
+      if (isRejecting) payload.reason = reason.trim();
 
       await adminUpdateBooking(payment.bookingId, payload).catch(withFallback('Failed to update payment status.'));
 
@@ -195,23 +202,18 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
               isPdf ? (
                 <div className="admin-payments-x6">
                   <p className="admin-payments-x7">PDF Document Attached</p>
-                  <a
-                    href={payment.attachmentUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="admin-payments-x8"
-                  >
+                  <ProofLink path={payment.attachmentUrl} className="admin-payments-x8">
                     📄 View PDF Proof
-                  </a>
+                  </ProofLink>
                 </div>
               ) : (
-                <a href={payment.attachmentUrl} target="_blank" rel="noopener noreferrer">
-                  <img
-                    src={payment.attachmentUrl}
+                <ProofLink path={payment.attachmentUrl}>
+                  <ProofImage
+                    path={payment.attachmentUrl}
                     alt="Payment proof"
                     className="payment-review-attachment-img admin-payments-x9"
                   />
-                </a>
+                </ProofLink>
               )
             ) : (
               <div
@@ -230,6 +232,20 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
           )}
         </div>
 
+
+          <div className="payment-review-reason">
+            <label htmlFor="payment-reject-reason" className="sdm-row-label">REASON (needed to reject)</label>
+            <textarea
+              id="payment-reject-reason"
+              className="sdm-tech-select"
+              rows={2}
+              maxLength={300}
+              placeholder="For example: the reference number does not match"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              disabled={submitting}
+            />
+          </div>
 
           <div className="cancel-confirm-actions admin-payments-x13">
           <button
@@ -360,7 +376,7 @@ function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
 
   const paymentsList = useMemo(() => {
     return rawBookings.map((b) => {
-      const clientName = typeof b.customer === 'object' ? (b.customer?.name || 'Customer') : (b.customerName || 'Customer');
+      const clientName = typeof b.customer === 'object' ? customerLabel(b.customer, 'Customer') : (b.customerName || 'Customer');
       const technician = getMemberNames(b);
       const serviceType = typeof b.service === 'object' ? (b.service?.name || 'Service') : (b.service || 'Service');
       const detail = getUnitsSummary(b) || b.brandModel || b.problemDescription || 'Detail';
@@ -372,6 +388,8 @@ function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
         status = 'free_back_job';
       } else if (b.refund?.status === REFUND_STATUS.PROCESSED) {
         status = 'refunded';
+      } else if (b.status === BOOKING_STATUS.CANCELLED && b.paymentCheckAfterCancel) {
+        status = 'to_verify'; // cancelled while its proof was still waiting: the admin checks the proof, then a refund can open
       } else if (b.status === BOOKING_STATUS.CANCELLED) {
         status = b.refund?.status === REFUND_STATUS.PENDING ? 'cancelled_refund_pending' : 'cancelled';
       } else if (b.paymentStatus === PAYMENT_STATUS.REJECTED) {
@@ -391,9 +409,8 @@ function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
       const proofFile = b.balancePaymentStatus === BALANCE_PAYMENT_STATUS.TO_VERIFY
         ? (b.balanceProofFile || b.proofFile)
         : (b.proofFile || b.balanceProofFile);
-      const attachmentUrl = proofFile
-        ? (proofFile.startsWith('http') ? proofFile : `${API_BASE}${proofFile}`)
-        : null;
+      // the stored path (or an external link); the review window asks the server for a signed link
+      const attachmentUrl = proofFile || null;
 
       return {
         id: b._id || b.bookingId,
@@ -724,7 +741,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
               {proof ? proof.name : '[Choose a file]'}
               <input
                 type="file"
-                accept="image/*,.pdf"
+                accept="image/jpeg,image/png,image/webp,.pdf"
                 className="admin-payments-x16"
                 onChange={(e) => setProof(e.target.files[0] || null)}
               />
@@ -758,14 +775,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
         {!isPending && refund.proofFile && (
           <div className="payment-review-cell admin-payments-x14">
             <span className="confirmation-detail-label">Proof of Refund</span>
-            <a
-              href={`${API_BASE}${refund.proofFile}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="sdm-link"
-            >
-              View File
-            </a>
+            <ProofLink path={refund.proofFile} className="sdm-link">View File</ProofLink>
           </div>
         )}
 

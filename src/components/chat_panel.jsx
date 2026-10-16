@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { FiSend, FiUser, FiMessageCircle } from 'react-icons/fi';
-import { ApiError, orFallback } from '../services/apiClient';
+import { ApiError } from '../services/apiClient';
 import { listMessages, sendMessage as postMessage } from '../services/chatService';
 import { ROLE } from '../constants/roles';
 
@@ -19,6 +19,8 @@ function ChatPanel({ conversationId, emptyText, partnerName = 'Admin Support', p
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  // True while the last refresh failed. The next poll tries again and clears it when it works.
+  const [connectionProblem, setConnectionProblem] = useState(false);
   const bottomRef = useRef(null);
   // Quick-question picker (customer chat.jsx) hands off a question to send as
   // the opening message - guarded so it only ever fires once, even though this
@@ -32,9 +34,13 @@ function ChatPanel({ conversationId, emptyText, partnerName = 'Admin Support', p
     if (isAdmin && !conversationId) return;
     setLoading(true);
     const fetchMessages = () => {
-      orFallback(listMessages(threadId), [])
-        .then((data) => setMessages(Array.isArray(data) ? data : []))
-        .catch(() => {})
+      listMessages(threadId)
+        .then((data) => {
+          if (!Array.isArray(data)) throw new Error('Unexpected messages reply');
+          setMessages(data);
+          setConnectionProblem(false);
+        })
+        .catch(() => setConnectionProblem(true))
         .finally(() => setLoading(false));
     };
     fetchMessages();
@@ -58,6 +64,7 @@ function ChatPanel({ conversationId, emptyText, partnerName = 'Admin Support', p
       setText('');
     } catch (err) {
       if (!(err instanceof ApiError)) console.error('Failed to send message', err);
+      setConnectionProblem(true); // the message was not sent; the indicator clears when the next refresh works
     } finally {
       setSending(false);
     }
@@ -96,6 +103,7 @@ function ChatPanel({ conversationId, emptyText, partnerName = 'Admin Support', p
       </div>
 
       <div className="chat-messages">
+        {connectionProblem && <p className="connection-problem" role="status">Connection problem. Trying again...</p>}
         {loading ? (
           <p className="chat-empty">Loading messages...</p>
         ) : messages.length === 0 ? (
@@ -126,6 +134,7 @@ function ChatPanel({ conversationId, emptyText, partnerName = 'Admin Support', p
           className="chat-input"
           type="text"
           placeholder="Type a message..."
+          aria-label="Type a message"
           value={text}
           onChange={(e) => setText(e.target.value)}
           disabled={sending}

@@ -1,108 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
-import { FiUser, FiX, FiCamera, FiEdit2, FiMail, FiCalendar, FiPhone, FiMapPin, FiLock, FiTrash2 } from 'react-icons/fi';
+import { FiUser, FiCamera, FiEdit2, FiMail, FiCalendar, FiPhone, FiMapPin, FiLock, FiTrash2 } from 'react-icons/fi';
 import { API_BASE } from '../../config/api';
 import { ApiError } from '../../services/apiClient';
 import CustomerHistory from '../../components/customer_history';
-import { uploadProfilePhoto, updateProfile, changePassword, deleteAccount } from '../../services/authService';
+import ChangePasswordModal from '../../components/change_password_modal';
+import { uploadProfilePhoto, updateProfile, deleteAccount } from '../../services/authService';
 
-/* ── Change Password Modal ─────────────────────────────── */
-function ChangePasswordModal({ onClose, onSubmit, submitting, serverError }) {
-  const [form, setForm] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-  });
-  const [error, setError] = useState('');
-
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-    setError('');
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!form.currentPassword || !form.newPassword || !form.confirmPassword) {
-      setError('Please fill in all fields.');
-      return;
-    }
-    if (form.newPassword.length < 8) {
-      setError('New password must be at least 8 characters.');
-      return;
-    }
-    if (form.newPassword !== form.confirmPassword) {
-      setError('New passwords do not match.');
-      return;
-    }
-    onSubmit(form);
-  };
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h4 className="modal-title">Change Password</h4>
-          <button className="modal-close-btn" onClick={onClose}>
-            <FiX />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="auth-form">
-          <div className="form-group">
-            <label htmlFor="currentPassword">Current Password</label>
-            <input
-              type="password"
-              id="currentPassword"
-              name="currentPassword"
-              value={form.currentPassword}
-              onChange={handleChange}
-              placeholder="Enter current password"
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="newPassword">New Password</label>
-            <input
-              type="password"
-              id="newPassword"
-              name="newPassword"
-              value={form.newPassword}
-              onChange={handleChange}
-              placeholder="Min. 8 characters"
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="confirmPassword">Confirm New Password</label>
-            <input
-              type="password"
-              id="confirmPassword"
-              name="confirmPassword"
-              value={form.confirmPassword}
-              onChange={handleChange}
-              placeholder="Re-enter new password"
-            />
-          </div>
-
-          {(error || serverError) && (
-            <p className="customer-profile-x1">{error || serverError}</p>
-          )}
-
-          <div className="cancel-confirm-actions">
-            <button type="button" className="bs-back-btn" onClick={onClose} disabled={submitting}>
-              Cancel
-            </button>
-            <button type="submit" className="bs-next-btn" disabled={submitting}>
-              {submitting ? 'Updating...' : 'Update Password'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
+import Notice from '../../components/notice';
+import { useNotice } from '../../hooks/useNotice';
 /* ── Delete Account Confirm Dialog ─────────────────────── */
 function DeleteAccountDialog({ onKeep, onConfirmDelete, deleting }) {
   return (
@@ -110,8 +17,9 @@ function DeleteAccountDialog({ onKeep, onConfirmDelete, deleting }) {
       <div className="modal-card cancel-confirm-card" onClick={(e) => e.stopPropagation()}>
         <h4 className="modal-title cancel-confirm-title">Delete your account?</h4>
         <p className="cancel-confirm-text">
-          This action can't be undone. All your bookings, billing history, and
-          personal information will be permanently removed.
+          This action can't be undone. Your account and personal details are removed and you will be signed out. Your
+          past bookings, invoices and service reports stay as company records. If you still have an active booking, an
+          unsettled refund or a claim waiting for review, those must be finished first.
         </p>
         <div className="cancel-confirm-actions">
           <button className="bs-back-btn" onClick={onKeep} disabled={deleting}>
@@ -129,6 +37,7 @@ function DeleteAccountDialog({ onKeep, onConfirmDelete, deleting }) {
 /* ── Profile ────────────────────────────────────────────── */
 function Profile() {
   const navigate = useNavigate();
+  const { notice, showNotice, clearNotice } = useNotice();
 
   function loadUserFromStorage() {
   const stored = localStorage.getItem('user');
@@ -159,8 +68,6 @@ const [user, setUser] = useState(loadUserFromStorage);
   const [editForm, setEditForm] = useState(user);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [passwordSubmitting, setPasswordSubmitting] = useState(false);
-  const [passwordError, setPasswordError] = useState('');
   const [deleting, setDeleting] = useState(false);
 
   const handleEditClick = () => {
@@ -190,7 +97,7 @@ const [user, setUser] = useState(loadUserFromStorage);
     localStorage.setItem('user', JSON.stringify(data.user));
     setEditForm((prev) => ({ ...prev, photo: `${API_BASE}${data.user.profileImage}` }));
   } catch (err) {
-    alert(err instanceof ApiError ? err.message || 'Failed to upload photo' : 'Could not connect to server for photo upload.');
+    showNotice(err instanceof ApiError ? err.message || 'Failed to upload photo' : 'Could not connect to server for photo upload.');
   }
 };
 
@@ -222,29 +129,12 @@ const [user, setUser] = useState(loadUserFromStorage);
 
     setIsEditing(false);
   } catch (err) {
-    alert(err instanceof ApiError ? err.message || 'Failed to update profile' : 'Could not connect to server. Is the backend running?');
+    showNotice(err instanceof ApiError ? err.message || 'Failed to update profile' : 'Could not connect to server. Is the backend running?');
   }
 };
 
   const handleCancelEdit = () => {
     setIsEditing(false);
-  };
-
-  const handlePasswordSubmit = async (form) => {
-    setPasswordSubmitting(true);
-    setPasswordError('');
-    try {
-      await changePassword({
-        currentPassword: form.currentPassword,
-        newPassword: form.newPassword,
-      });
-
-      setShowChangePassword(false);
-    } catch (err) {
-      setPasswordError(err instanceof ApiError ? err.message || 'Failed to update password' : 'Could not connect to server.');
-    } finally {
-      setPasswordSubmitting(false);
-    }
   };
 
   const handleConfirmDelete = async () => {
@@ -257,13 +147,14 @@ const [user, setUser] = useState(loadUserFromStorage);
       setShowDeleteConfirm(false);
       navigate('/register');
     } catch (err) {
-      alert(err instanceof ApiError ? err.message || 'Failed to delete account' : 'Could not connect to server.');
+      showNotice(err instanceof ApiError ? err.message || 'Failed to delete account' : 'Could not connect to server.');
       setDeleting(false);
     }
   };
 
   return (
     <CustomerLayout title="My Profile">
+      <Notice message={notice} onClose={clearNotice} />
       <div className="profile-page">
 
         {/* Profile Header - same layout/classes as the technician portal's
@@ -291,7 +182,7 @@ const [user, setUser] = useState(loadUserFromStorage);
                 {editForm.photo ? 'Change Photo' : 'Upload Photo'}
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   onChange={handlePhotoChange}
                   className="customer-profile-x4"
                 />
@@ -462,12 +353,7 @@ const [user, setUser] = useState(loadUserFromStorage);
       </div>
 
       {showChangePassword && (
-        <ChangePasswordModal
-          onClose={() => setShowChangePassword(false)}
-          onSubmit={handlePasswordSubmit}
-          submitting={passwordSubmitting}
-          serverError={passwordError}
-        />
+        <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
       )}
 
       {showDeleteConfirm && (

@@ -1,4 +1,6 @@
 import { API_BASE } from '../config/api';
+import { clearSession, setSessionNotice, sessionEndMessage, shouldRefreshAfterFailure } from '../utils/session';
+import { refreshSession } from './sessionService';
 
 // The one place the app talks to the backend. It builds the URL from API_BASE, attaches the
 // login token, sends JSON (or a FormData untouched), and turns a failed response into an
@@ -22,6 +24,7 @@ const authHeader = () => {
 // A network failure rejects with the original TypeError, exactly like fetch.
 export async function request(path, { method = 'GET', body, auth = true } = {}) {
   const headers = auth ? authHeader() : {};
+  const hadToken = !!headers.Authorization;
   let payload;
   if (body instanceof FormData) {
     payload = body;
@@ -33,6 +36,17 @@ export async function request(path, { method = 'GET', body, auth = true } = {}) 
   const response = await fetch(`${API_BASE}${path}`, { method, headers, body: payload });
   const data = await response.json().catch(() => null);
   if (!response.ok) {
+    // An expired token, or an account an admin deactivated: sign out and go to the login page.
+    const endMessage = sessionEndMessage(response.status, data?.message, hadToken);
+    if (endMessage) {
+      clearSession();
+      setSessionNotice(endMessage);
+      window.location.assign('/login');
+    } else if (hadToken && path !== '/api/users/me' && shouldRefreshAfterFailure({ status: response.status, message: data?.message })) {
+      // A 403 may mean the person's role was changed. Check the saved user against the server (at most every
+      // 10 seconds, see utils/sessionRefresh.js); if the role changed the app moves to the new role's pages.
+      refreshSession();
+    }
     throw new ApiError(data?.message || '', response.status, data);
   }
   return data;

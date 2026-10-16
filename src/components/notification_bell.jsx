@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { FiBell } from 'react-icons/fi';
-import { orFallback } from '../services/apiClient';
 import { listNotifications, markNotificationRead, markAllNotificationsRead } from '../services/notificationService';
 
 
@@ -26,15 +25,19 @@ function NotificationBell({ onNotificationClick }) {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const wrapperRef = useRef(null);
 
   const fetchNotifications = () => {
     const token = localStorage.getItem('token');
     if (!token) return;
     setLoading(true);
-    orFallback(listNotifications(), [])
-      .then((data) => setNotifications(Array.isArray(data) ? data : []))
-      .catch(() => {})
+    listNotifications()
+      .then((data) => {
+        setNotifications(Array.isArray(data) ? data : []);
+        setLoadFailed(false);
+      })
+      .catch(() => setLoadFailed(true)) // shown in the dropdown, never an empty "No notifications yet."
       .finally(() => setLoading(false));
   };
 
@@ -117,6 +120,11 @@ function NotificationBell({ onNotificationClick }) {
 
           {loading ? (
             <div className="notif-dropdown-empty">Loading...</div>
+          ) : loadFailed ? (
+            <div className="notif-dropdown-empty" role="alert">
+              Could not load notifications.{' '}
+              <button type="button" className="notif-mark-all-btn" onClick={fetchNotifications}>Retry</button>
+            </div>
           ) : notifications.length === 0 ? (
             <div className="notif-dropdown-empty">No notifications yet.</div>
           ) : (

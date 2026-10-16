@@ -3,20 +3,20 @@
 // tested without a database. proposeAssignment gathers the data and calls them.
 //
 // Rules, in order:
-//  1. Only active teams whose members are BOTH free in the booking's date and time block are
-//     candidates (for a service that needs just one technician, any free active technician).
-//  2. If the customer asked for a technician and that technician (or their team) is a
-//     candidate, choose it.
-//  3. Otherwise choose the candidate with the fewest bookings in the booking's Monday to
-//     Sunday week. Ties: fewest upcoming bookings overall, then the name (A to Z).
+//  1. Only active technicians who are free in the booking's date and time block are candidates.
+//     A service that needs two gets a lead and a helper.
+//  2. If the customer asked for a technician and they are a candidate, they are the lead.
+//  3. Otherwise the lead is the candidate with the fewest bookings in the booking's Monday to
+//     Sunday week. Ties: fewest upcoming bookings overall, then the name (A to Z). The helper
+//     is the next one by the same order.
 //  4. Nobody free: say so, and suggest up to 3 later dates where someone is.
-const { ROLE } = require('../constants/roles');
-const Team = require('../models/Team');
 const User = require('../models/User');
 const Booking = require('../models/Booking');
 const Closure = require('../models/Closure');
-const { ACTIVE_STATUSES, getMemberIds, getMinTechnicians } = require('./assignments');
+const { activeStatuses, getMemberIds, getMinTechnicians } = require('./assignments');
 const { manilaTodayKey } = require('./timeBlocks');
+const { listFieldTechnicians } = require('./technicians');
+const { slotsOf } = require('./extensionDays');
 
 // ---------- date keys ("YYYY-MM-DD"), worked out in UTC so the server's timezone never matters
 function toUtc(key) {
@@ -42,7 +42,7 @@ function weekRange(key) {
   return { start: monday, end: addDays(monday, 6) };
 }
 
-const isSunday = (key) => toUtc(key).getUTCDay() === 0;
+const { isBusinessDay } = require('./businessDays');
 
 // ---------- pure selection
 
@@ -67,74 +67,62 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 /**
  * @param {object} input
- * @param {number} input.minTechnicians  1 (a single technician will do) or 2 (a team)
- * @param {{_id,name,lead,helper}[]} input.teams          active teams, lead/helper as ids
+ * @param {number} input.minTechnicians  1 (a single technician will do) or 2 (a lead and a helper)
  * @param {{_id,name}[]} input.technicians                active technicians
  * @param {Iterable<string>} input.busyIds                technicians busy in this date and block
  * @param {string} [input.requestedTechnicianId]
  * @param {string[][]} input.weekBookings                 member ids of each booking that week
  * @param {string[][]} input.upcomingBookings             member ids of each upcoming booking
- * @returns {{ assignment: null | {teamId} | {technicianId}, reason: string }}
+ * @returns {{ assignment: null | {technicianId, helperId?}, reason: string }}
  */
 function pickAssignment({
-  minTechnicians, teams, technicians, busyIds, requestedTechnicianId,
+  minTechnicians, technicians, busyIds, requestedTechnicianId,
   weekBookings = [], upcomingBookings = [],
 }) {
   const busy = new Set(busyIds);
   const requestedName = technicians.find((t) => t._id === requestedTechnicianId)?.name;
+  const needed = minTechnicians <= 1 ? 1 : 2;
 
-  let candidates;
-  if (minTechnicians <= 1) {
-    candidates = technicians
-      .filter((t) => !busy.has(t._id))
-      .map((t) => ({ kind: 'technician', id: t._id, name: t.name, memberIds: [t._id] }));
-  } else {
-    candidates = teams
-      .filter((t) => !busy.has(t.lead) && !busy.has(t.helper))
-      .map((t) => ({ kind: 'team', id: t._id, name: t.name, memberIds: [t.lead, t.helper] }));
-  }
+  const candidates = technicians
+    .filter((t) => !busy.has(t._id))
+    .map((t) => rank({ id: t._id, name: t.name, memberIds: [t._id] }, weekBookings, upcomingBookings))
+    .sort(byLoadThenName);
 
-  if (candidates.length === 0) {
+  if (candidates.length < needed) {
     return {
       assignment: null,
-      reason: minTechnicians <= 1
+      reason: needed === 1
         ? 'No technician is free for this date and time block.'
-        : 'No team is free for this date and time block (a team is free only if both members are).',
+        : 'Two technicians are not free for this date and time block.',
     };
   }
 
-  const toAssignment = (c) => (c.kind === 'team' ? { teamId: c.id } : { technicianId: c.id });
+  // 2. the customer's requested technician leads, if free
+  const preferred = requestedTechnicianId ? candidates.find((c) => c.id === requestedTechnicianId) : null;
+  const lead = preferred || candidates[0];
+  const helper = needed === 2 ? candidates.find((c) => c.id !== lead.id) : null;
+  const assignment = helper ? { technicianId: lead.id, helperId: helper.id } : { technicianId: lead.id };
+  const withHelper = helper ? ` with ${helper.name} as helper` : '';
 
-  // 2. the customer's requested technician, if they (or their team) are free
-  if (requestedTechnicianId) {
-    const preferred = candidates.find((c) => c.memberIds.includes(requestedTechnicianId));
-    if (preferred) {
-      return {
-        assignment: toAssignment(preferred),
-        reason: preferred.kind === 'team'
-          ? `${requestedName || 'The technician the customer asked for'} is free, so their team, ${preferred.name}, was chosen.`
-          : `${preferred.name}, the technician the customer asked for, is free, so they were chosen.`,
-      };
-    }
+  if (preferred) {
+    return { assignment, reason: `${preferred.name}, the technician the customer asked for, is free, so they were chosen${helper ? ` as lead${withHelper}` : ''}.` };
   }
 
   // 3. lightest week, then fewest upcoming, then name
-  const ranked = candidates.map((c) => rank(c, weekBookings, upcomingBookings)).sort(byLoadThenName);
-  const best = ranked[0];
-  const tiedOnWeek = ranked.filter((c) => c.weekLoad === best.weekLoad);
-  const tiedOnBoth = tiedOnWeek.filter((c) => c.upcomingLoad === best.upcomingLoad);
+  const tiedOnWeek = candidates.filter((c) => c.weekLoad === lead.weekLoad);
+  const tiedOnBoth = tiedOnWeek.filter((c) => c.upcomingLoad === lead.upcomingLoad);
 
-  let reason = `${best.name} has the fewest bookings that week (${plural(best.weekLoad, 'booking')}).`;
-  if (requestedTechnicianId && !candidates.some((c) => c.memberIds.includes(requestedTechnicianId))) {
+  let reason = `${lead.name} has the fewest bookings that week (${plural(lead.weekLoad, 'booking')})${withHelper ? `${withHelper}` : ''}.`;
+  if (requestedTechnicianId) {
     reason = `${requestedName || 'The technician the customer asked for'} is busy then. ${reason}`;
   }
   if (tiedOnWeek.length > 1) {
     reason += tiedOnBoth.length > 1
       ? ` ${plural(tiedOnBoth.length, 'candidate')} tied on both that week and upcoming bookings, so the name (A to Z) decided.`
-      : ` ${plural(tiedOnWeek.length, 'candidate')} tied for the week; ${best.name} has the fewest upcoming bookings (${best.upcomingLoad}).`;
+      : ` ${plural(tiedOnWeek.length, 'candidate')} tied for the week; ${lead.name} has the fewest upcoming bookings (${lead.upcomingLoad}).`;
   }
 
-  return { assignment: toAssignment(best), reason };
+  return { assignment, reason };
 }
 
 /**
@@ -143,16 +131,14 @@ function pickAssignment({
  * technician ids; closedDates is a Set of closure date keys.
  */
 function findNextFreeDates({
-  minTechnicians, teams, technicians, afterDateKey, busyByDate, closedDates = new Set(), limit = 3, searchDays = 60,
+  minTechnicians, technicians, afterDateKey, busyByDate, closedDates = new Set(), limit = 3, searchDays = 60,
 }) {
   const found = [];
   for (let i = 1; i <= searchDays && found.length < limit; i += 1) {
     const key = addDays(afterDateKey, i);
-    if (isSunday(key) || closedDates.has(key)) continue;
+    if (!isBusinessDay(key, closedDates)) continue;
     const busy = busyByDate.get(key) || new Set();
-    const someoneFree = minTechnicians <= 1
-      ? technicians.some((t) => !busy.has(t._id))
-      : teams.some((t) => !busy.has(t.lead) && !busy.has(t.helper));
+    const someoneFree = technicians.filter((t) => !busy.has(t._id)).length >= (minTechnicians <= 1 ? 1 : 2);
     if (someoneFree) found.push(key);
   }
   return found;
@@ -160,17 +146,12 @@ function findNextFreeDates({
 
 // ---------- the database side
 
-// `booking` must have its service populated. Returns the proposal without saving anything:
-// { assignment, reason } or { assignment: null, reason, suggestedDates }.
-async function proposeAssignment(booking) {
+// Everything the choosing needs about one booking's date: who exists, who is busy when, and which dates are closed.
+// `booking` must have its service populated.
+async function loadContext(booking) {
   const minTechnicians = getMinTechnicians(booking.service);
-  const members = await User.find({ role: ROLE.STAFF, isActive: true }).select('name');
-  const activeIds = new Set(members.map((u) => u._id));
+  const members = await listFieldTechnicians(User, 'name');
 
-  const teamDocs = await Team.find({ isActive: true }).select('name lead helper');
-  const teams = teamDocs
-    .filter((t) => activeIds.has(t.lead) && activeIds.has(t.helper)) // a deactivated member sidelines the team
-    .map((t) => ({ _id: String(t._id), name: t.name, lead: t.lead, helper: t.helper }));
   const technicians = members.map((u) => ({ _id: u._id, name: u.name }));
 
   // Everything on the books in the surrounding weeks and from today on, excluding this booking.
@@ -178,27 +159,43 @@ async function proposeAssignment(booking) {
   const today = manilaTodayKey();
   const horizon = addDays(booking.date, 61);
   const nearby = await Booking.find({
-    status: { $in: ACTIVE_STATUSES },
+    status: { $in: activeStatuses() },
     bookingId: { $ne: booking.bookingId },
-    date: { $gte: start < today ? start : today, $lte: horizon },
-  }).select('date time technician assignments');
+    $or: [{ date: { $gte: start < today ? start : today, $lte: horizon } }, { 'extensionDays.date': { $gte: start < today ? start : today, $lte: horizon } }],
+  }).select('date time technician assignments extensionDays');
 
   const memberLists = (docs) => docs.map((b) => getMemberIds(b));
   const weekBookings = memberLists(nearby.filter((b) => b.date >= start && b.date <= end));
   const upcomingBookings = memberLists(nearby.filter((b) => b.date >= today));
 
-  const busyByDate = new Map();
-  nearby.filter((b) => b.time === booking.time).forEach((b) => {
-    if (!busyByDate.has(b.date)) busyByDate.set(b.date, new Set());
-    getMemberIds(b).forEach((id) => busyByDate.get(b.date).add(id));
-  });
-  const busyIds = busyByDate.get(booking.date) || new Set();
+  const busyByDate = busyByDateOf(nearby, booking.time);
   const closedDates = new Set((await Closure.find({ date: { $gte: today, $lte: horizon } }).select('date').lean()).map((c) => c.date));
+  return { minTechnicians, technicians, weekBookings, upcomingBookings, busyByDate, closedDates };
+}
+
+// A booking holds its technicians on its own date and block and on each approved extra day. Maps a date key to the set of
+// technician ids busy in `time` that day.
+function busyByDateOf(bookings, time) {
+  const busyByDate = new Map();
+  bookings.forEach((b) => {
+    slotsOf(b).filter((s) => s.time === time).forEach((s) => {
+      if (!busyByDate.has(s.date)) busyByDate.set(s.date, new Set());
+      getMemberIds(b).forEach((id) => busyByDate.get(s.date).add(id));
+    });
+  });
+  return busyByDate;
+}
+
+// Returns the proposal without saving anything:
+// { assignment, reason } or { assignment: null, reason, suggestedDates }.
+async function proposeAssignment(booking) {
+  const ctx = await loadContext(booking);
+  const busyIds = ctx.busyByDate.get(booking.date) || new Set();
 
   const decision = pickAssignment({
-    minTechnicians, teams, technicians, busyIds,
+    minTechnicians: ctx.minTechnicians, technicians: ctx.technicians, busyIds,
     requestedTechnicianId: booking.requestedTechnician,
-    weekBookings, upcomingBookings,
+    weekBookings: ctx.weekBookings, upcomingBookings: ctx.upcomingBookings,
   });
 
   if (decision.assignment) return decision;
@@ -206,11 +203,29 @@ async function proposeAssignment(booking) {
   return {
     ...decision,
     suggestedDates: findNextFreeDates({
-      minTechnicians, teams, technicians, afterDateKey: booking.date, busyByDate, closedDates,
+      minTechnicians: ctx.minTechnicians, technicians: ctx.technicians, afterDateKey: booking.date, busyByDate: ctx.busyByDate, closedDates: ctx.closedDates,
     }),
   };
 }
 
+// The next dates (up to `limit`, business days only: no Sundays while they are closed, no closure dates) on which enough
+// technicians are free in this booking's time block. Used when approving or assigning fails because nobody is free.
+async function suggestNextDates(booking, { limit = 3 } = {}) {
+  const ctx = await loadContext(booking);
+  return findNextFreeDates({
+    minTechnicians: ctx.minTechnicians, technicians: ctx.technicians, afterDateKey: booking.date, busyByDate: ctx.busyByDate, closedDates: ctx.closedDates, limit,
+  });
+}
+
+// The same, from data the caller already has (the Pending queue loads every active booking once): `occupying` are the
+// bookings that hold technicians, `booking` the request to find dates for.
+function suggestFromBookings({ booking, minTechnicians, technicians, occupying, closedDates, limit = 3 }) {
+  const others = occupying.filter((b) => b.bookingId !== booking.bookingId);
+  return findNextFreeDates({
+    minTechnicians, technicians, afterDateKey: booking.date, busyByDate: busyByDateOf(others, booking.time), closedDates, limit,
+  });
+}
+
 module.exports = {
-  pickAssignment, findNextFreeDates, proposeAssignment, weekRange, addDays,
+  pickAssignment, findNextFreeDates, proposeAssignment, suggestNextDates, suggestFromBookings, weekRange, addDays,
 };

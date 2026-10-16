@@ -2,57 +2,45 @@
 const { ROLE } = require('../constants/roles');
 const express = require('express');
 const router = express.Router();
-const crypto = require('crypto');
-const fs = require('fs');
 const { hashPassword, verifyPassword } = require('../utils/password');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { readProfileFields } = require('../utils/profileFields');
 const auth = require('../middleware/auth');
+const { createUploader, discardUploads, storeUploads, IMAGE_TYPES } = require('../utils/uploadSafety');
+const { KINDS } = require('../storage/fileStore');
+const { clearAuthCache } = require('../utils/authCache');
+const { validateNewPassword } = require('../utils/passwordRules');
+const { listFieldTechnicians } = require('../utils/technicians');
+const { loginLimiter, registerLimiter } = require('../middleware/rateLimit');
+const Booking = require('../models/Booking');
+const BackJob = require('../models/BackJob');
+const { findDeletionBlockers } = require('../utils/deletionBlockers');
+const { normalizeEmail, findUserByEmail, validateRegistration, validateProfileUpdate } = require('../utils/accountInput');
+const { sendProblem } = require('../utils/validation');
+const { sendRouteError } = require('../utils/routeErrors');
+const { generateUserId, createWithUniqueUserId, UserIdExhaustedError, isDuplicateOn } = require('../utils/uniqueUserId');
 
-// Simple ID generator matching your ADM001-style pattern
-function generateUserId(role) {
-  const prefix = role === ROLE.STAFF ? 'STF' : role === ROLE.ADMIN ? 'ADM' : 'CUS';
-  const random = Math.floor(1000 + Math.random() * 9000);
-  return `${prefix}${random}`;
-}
-
-//profile pics
-const multer = require('multer');
-const path = require('path');
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = path.join(__dirname, '../uploads/profile-images');
-    fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  // Unguessable name: the uploads folder is served statically, so the filename is
-  // the only thing standing between a URL and the file.
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase().replace(/[^.a-z0-9]/g, '');
-    cb(null, `${crypto.randomBytes(16).toString('hex')}${ext}`);
-  },
+// Profile photos: JPG, PNG or WEBP only, stored under a random name with an extension taken from
+// the validated type, and the first bytes of the saved file are checked (utils/uploadSafety.js).
+const upload = createUploader({
+  allowedTypes: IMAGE_TYPES,
 });
 
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) cb(null, true);
-    else cb(new Error('Only image files are allowed'));
-  },
-});
-
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
   try {
     const { firstName, lastName, email, phone, password, clientType } = req.body;
+
+    // Names, a real email, a contact number and a password of at least 8 characters, checked here as well as in the form.
+    const inputProblem = validateRegistration({ firstName, lastName, email, phone, password });
+    if (inputProblem) return sendProblem(res, inputProblem);
 
     // Company details only apply to a Commercial customer; anything else is ignored.
     const profile = readProfileFields({ role: ROLE.CUSTOMER, clientType, body: req.body });
     if (profile.problem) return res.status(profile.problem.status).json({ message: profile.problem.message });
 
-    const existing = await User.findOne({ email });
+    // Found without regard to letter case, so Ana@Mail.com and ana@mail.com are the same account.
+    const existing = await findUserByEmail(User, email);
     if (existing) {
       return res.status(400).json({ message: 'Email already registered' });
     }
@@ -64,11 +52,11 @@ router.post('/register', async (req, res) => {
 
     const hashedPassword = await hashPassword(password);
 
-    const user = await User.create({
-      _id: generateUserId(mappedRole),
-      name: `${firstName} ${lastName}`,
-      email,
-      phone,
+    const user = await createWithUniqueUserId((id) => User.create({
+      _id: id,
+      name: `${firstName.trim()} ${lastName.trim()}`,
+      email: normalizeEmail(email),
+      phone: phone.trim(),
       password: hashedPassword,
       role: mappedRole,
       isActive: true,
@@ -76,7 +64,7 @@ router.post('/register', async (req, res) => {
       // and keep the schema default.
       ...(mappedRole === ROLE.CUSTOMER && clientType === 'Commercial' ? { clientType: 'Commercial' } : {}),
       ...profile.values,
-});
+    }), () => generateUserId(mappedRole));
 
     const token = jwt.sign(
       { id: user._id, role: user.role },
@@ -99,15 +87,17 @@ router.post('/register', async (req, res) => {
   },
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    // two accounts registering with the same email at once: the second is told so, not given an error
+    if (isDuplicateOn('email', err)) return res.status(400).json({ message: 'Email already registered' });
+    if (err instanceof UserIdExhaustedError) return res.status(503).json({ message: err.message });
+    sendRouteError(res, err);
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
+    const user = typeof email === 'string' && email.trim() ? await findUserByEmail(User, email) : null;
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
@@ -144,8 +134,7 @@ router.post('/login', async (req, res) => {
   },
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -153,22 +142,27 @@ router.put('/profile', auth, async (req, res) => {
   try {
     const { firstName, lastName, email, phone, address } = req.body;
 
+    // A name and a real email are required, a phone number must be valid when given; "undefined undefined" can never be saved.
+    const inputProblem = validateProfileUpdate({ firstName, lastName, email, phone });
+    if (inputProblem) return sendProblem(res, inputProblem);
+
     const user = await User.findById(req.userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    if (email && email !== user.email) {
-      const existing = await User.findOne({ email });
+    const newEmail = normalizeEmail(email);
+    if (newEmail !== String(user.email).toLowerCase()) {
+      const existing = await findUserByEmail(User, newEmail, req.userId);
       if (existing) {
         return res.status(400).json({ message: 'Email already in use' });
       }
+      user.email = newEmail;
     }
 
-    user.name = `${firstName} ${lastName}`.trim();
-    user.email = email || user.email;
-    user.phone = phone || user.phone;
-    user.address = address || user.address;
+    user.name = `${firstName.trim()} ${lastName.trim()}`;
+    if (typeof phone === 'string' && phone.trim()) user.phone = phone.trim();
+    if (typeof address === 'string' && address.trim()) user.address = address.trim();
 
     await user.save();
 
@@ -185,13 +179,15 @@ router.put('/profile', auth, async (req, res) => {
       },
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
 router.post('/profile/photo', auth, upload.single('photo'), async (req, res) => {
   try {
+    // A refused or failed request must not leave its uploaded file behind.
+    res.on('finish', () => { if (res.statusCode >= 400) discardUploads(req); });
+
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded' });
     }
@@ -201,6 +197,7 @@ router.post('/profile/photo', auth, upload.single('photo'), async (req, res) => 
       return res.status(404).json({ message: 'User not found' });
     }
 
+    await storeUploads(req, { kind: KINDS.PROFILE_IMAGE });
     const imageUrl = `/uploads/profile-images/${req.file.filename}`;
     user.profileImage = imageUrl;
     await user.save();
@@ -227,6 +224,10 @@ router.put('/change-password', auth, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
 
+    // Checked first, so a bad new password is a clear 400 and nothing below ever sees it.
+    const problem = validateNewPassword({ currentPassword, newPassword });
+    if (problem) return res.status(problem.status).json({ message: problem.message });
+
     const user = await User.findById(req.userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -239,22 +240,42 @@ router.put('/change-password', auth, async (req, res) => {
     }
 
     user.password = await hashPassword(newPassword);
+    user.passwordChangedAt = new Date();
     await user.save();
 
-    res.json({ message: 'Password updated successfully' });
+    // Every other token for this account stops working at once (middleware/auth.js). The cache is cleared
+    // so that holds on the very next request, and this response carries a fresh token so the person
+    // changing the password stays signed in on this device.
+    clearAuthCache(req.userId);
+    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
+    res.json({ message: 'Password updated successfully', token });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
+// Customers only. A technician or an admin account is removed by an admin (deactivate it), never by
+// its own owner, so a technician cannot orphan their assigned jobs and the last admin cannot vanish.
+// A customer's bookings are left as they are when the account goes: nothing is cancelled or deleted.
 router.delete('/account', auth, async (req, res) => {
   try {
+    if (req.userRole !== ROLE.CUSTOMER) {
+      return res.status(403).json({ message: 'Only customers can delete their own account. Ask an administrator.' });
+    }
+    // Not while something is still open (an active booking, an unsettled refund, a claim waiting for review).
+    const blockers = await findDeletionBlockers(req.userId, { Booking, BackJob });
+    if (blockers.message) {
+      return res.status(400).json({ message: blockers.message, blockers: blockers.counts });
+    }
+
+    // Only the account is deleted. Their completed bookings, reports, chat and files stay as company records.
     const user = await User.findByIdAndDelete(req.userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    clearAuthCache(req.userId);
     res.json({ message: 'Account deleted successfully' });
   } catch (err) {
     console.error(err);
@@ -262,10 +283,28 @@ router.delete('/account', auth, async (req, res) => {
   }
 });
 
-// GET all active technicians (for client-side booking dropdown)
+// True when the request carries a valid token. No account lookup: this only decides how much of a
+// public list to show, it never grants access to anything.
+function hasValidToken(req) {
+  const header = req.headers.authorization;
+  if (!header || !header.startsWith('Bearer ')) return false;
+  try {
+    jwt.verify(header.split(' ')[1], process.env.JWT_SECRET);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Active technicians. The public landing page search needs the names, so a visitor with no login gets
+// names only. A signed-in user (the booking form's preferred technician list) also gets the ids and
+// positions, which is what the form needs.
 router.get('/technicians', async (req, res) => {
   try {
-    const technicians = await User.find({ role: ROLE.STAFF, isActive: true }).select('_id name position');
+    const technicians = await listFieldTechnicians(User, '_id name');
+    if (!hasValidToken(req)) {
+      return res.json(technicians.map((t) => ({ name: t.name })));
+    }
     res.json(technicians);
   } catch (err) {
     console.error(err);

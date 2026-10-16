@@ -11,6 +11,9 @@ const userSchema = new mongoose.Schema({
   address: String,
   profileImage: String,
   isActive: { type: Boolean, default: true },
+  // When the password was last changed. A token issued before this is refused (middleware/auth.js), so
+  // changing a password signs out every other device. Accounts that never changed it have none and are unaffected.
+  passwordChangedAt: { type: Date },
 
   // Customer Classification Module. When set, this wins outright over the
   // auto-computed 3-completed-bookings-in-12-months rule (see utils/classification.js);
@@ -25,9 +28,28 @@ const userSchema = new mongoose.Schema({
   // Staff only: a free-text job title (the form suggests Technician, Secretary and Cashier).
   position: { type: String, maxlength: 40 },
 
+  // Commercial customers only: payment terms the admin AGREED with this client, in days after the service (7 to 10).
+  // Set by an admin, never by the customer. A commercial client with terms may book without a down payment, and their
+  // invoices carry these terms. Empty means no terms were agreed.
+  agreedPaymentTermsDays: { type: Number, min: 7, max: 10, default: null },
+
   // Commercial customers only, shown on their invoice. Accounts made before these existed have none.
   companyName: { type: String, maxlength: 80 },
   representativeName: { type: String, maxlength: 80 },
 }, { timestamps: true, collection: 'users' });
+
+// The password (a bcrypt hash, or an old plain-text value) never leaves the server in a response.
+// Doing it here, in the model, means no route can return it by accident: every toObject() and
+// toJSON() of a user, including a user populated inside another document, leaves it out. Code that
+// needs it (the login check, changing a password) reads user.password on the document itself.
+const stripPassword = (doc, ret) => {
+  delete ret.password;
+  return ret;
+};
+userSchema.set('toJSON', { transform: stripPassword });
+userSchema.set('toObject', { transform: stripPassword });
+
+// Listing technicians and counting active admins filter on role and active.
+userSchema.index({ role: 1, isActive: 1 });
 
 module.exports = mongoose.model('User', userSchema);

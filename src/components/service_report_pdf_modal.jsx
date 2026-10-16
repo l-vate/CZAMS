@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { API_BASE } from '../config/api';
+import { ProofImage } from './proof_file';
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -113,8 +113,8 @@ function ServiceReportPdfModal({ report, reportItem, onClose }) {
               />
             )}
             {report.signedFormPhoto && (
-              <img
-                src={`${API_BASE}${report.signedFormPhoto}`}
+              <ProofImage
+                path={report.signedFormPhoto}
                 alt="Photo of signed paper form"
                 className="report-pdf-signature-img report-signed-photo"
               />

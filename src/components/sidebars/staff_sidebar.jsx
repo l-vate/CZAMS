@@ -1,11 +1,14 @@
 import { NavLink, useNavigate } from 'react-router-dom';
+import { clearSession } from '../../utils/session';
 
 function Sidebar({ onNavigate }) {
   const navigate = useNavigate();
 
   const handleLogout = () => {
+    clearSession();
     if (onNavigate) onNavigate();
-    navigate('/login');
+    // replace, so Back does not return to a private page
+    navigate('/login', { replace: true });
   };
 
   const linkClass = ({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`;

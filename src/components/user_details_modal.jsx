@@ -37,6 +37,18 @@ function Icon({ name }) {
   }
 }
 
+// Sets an account active or not. A technician with open jobs: the server lists them and waits for a yes before deactivating.
+async function setActiveWithConfirmation(userId, isActive) {
+  try {
+    return await updateUser(userId, { isActive });
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 409 && err.data && err.data.needsConfirmation)) throw err;
+    const list = (err.data.openBookings || []).map((b) => `${b.bookingId} (${b.date}, ${b.time})`).join(String.fromCharCode(10));
+    if (!window.confirm(`${err.message}${String.fromCharCode(10, 10)}${list}`)) return null;
+    return updateUser(userId, { isActive, confirmReassign: true });
+  }
+}
+
 function UserDetailsModal({ user, onClose, onUpdated }) {
   const [formData, setFormData] = useState({
     name: '',
@@ -50,6 +62,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
     position: '',
     companyName: '',
     representativeName: '',
+    agreedPaymentTermsDays: '', // days agreed with a Commercial client, 7 to 10, or '' for none
   });
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -69,6 +82,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
         position: user.position || '',
         companyName: user.companyName || '',
         representativeName: user.representativeName || '',
+        agreedPaymentTermsDays: user.agreedPaymentTermsDays ?? '',
       });
       setIsEditing(false);
     }
@@ -117,7 +131,8 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
     setError('');
     try {
       const updatedStatus = !formData.isActive;
-      const data = await updateUser(user._id, { isActive: updatedStatus });
+      const data = await setActiveWithConfirmation(user._id, updatedStatus);
+      if (!data) return; // the admin chose not to go ahead
 
       setFormData((prev) => ({ ...prev, isActive: updatedStatus }));
       onUpdated?.(data);
@@ -341,6 +356,28 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
                         />
                       ) : (
                         <p className="sdm-row-value">{formData.representativeName || 'Not recorded'}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="sdm-row">
+                    <div className="sdm-row-icon"><Icon name="pin" /></div>
+                    <div>
+                      <span className="sdm-row-label">AGREED PAYMENT TERMS (DAYS AFTER SERVICE, 7 TO 10)</span>
+                      {isEditing ? (
+                        <input
+                          type="number"
+                          className="sdm-tech-select"
+                          min="7"
+                          max="10"
+                          step="1"
+                          placeholder="None agreed"
+                          value={formData.agreedPaymentTermsDays}
+                          onChange={(e) => setFormData({ ...formData, agreedPaymentTermsDays: e.target.value })}
+                        />
+                      ) : (
+                        <p className="sdm-row-value">
+                          {formData.agreedPaymentTermsDays ? `${formData.agreedPaymentTermsDays} days (may book without a down payment)` : 'None agreed'}
+                        </p>
                       )}
                     </div>
                   </div>

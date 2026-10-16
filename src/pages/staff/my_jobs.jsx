@@ -1,16 +1,22 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import StaffLayout from './staff_layout';
 import {
   FiChevronDown, FiSearch, FiClock, FiMapPin, FiX, FiInfo, FiUser, FiPhone, FiEye,
 } from 'react-icons/fi';
 import { getUnitsSummary } from '../../utils/bookingPricing';
 import { getFilterPillStyle } from '../../utils/statusColors';
-import { ApiError, orFallback } from '../../services/apiClient';
+import { ApiError } from '../../services/apiClient';
+import LoadError from '../../components/load_error';
 import { listTechnicianJobs, reportDisruption, requestExtension } from '../../services/bookingService';
+import { listClosures } from '../../services/closureService';
+import { defaultExtensionDate, manilaTodayKey } from '../../utils/workingDays';
 import { getAssignedNames } from '../../utils/assignments';
 import AssignmentHistory from '../../components/assignment_history';
 import { JOB_SORT, JOB_SORT_OPTIONS, sortJobs } from '../../utils/jobSort';
 import { BOOKING_STATUS, BOOKING_STATUS_VALUES } from '../../constants/bookingStatus';
+import { BackJobBadge, BackJobInfo } from '../../components/back_job_info';
+import ServiceReportViewer from '../../components/service_report_viewer';
 
 
 const statusClass = {
@@ -37,10 +43,13 @@ function JobDetailsModal({ job, onClose }) {
           <span className="tech-job-detail-service">{job.service}</span>
           <span className={`tech-job-status-badge ${statusClass[job.status] || ''}`}>{job.status}</span>
         </div>
-        <p className="tech-job-detail-booking">Booking ID: {job.bookingId}</p>
-        <p className="tech-job-detail-booking">Your role: <strong>{job.myRole}</strong>{job.team ? ` · Team: ${job.team}` : ''}</p>
+        <p className="tech-job-detail-booking">Booking ID: {job.bookingId}{job.isBackJob ? ' (back job)' : ''}</p>
+        <p className="tech-job-detail-booking">Your role: <strong>{job.myRole}</strong>{job.assigned ? ` · Assigned: ${job.assigned}` : ''}</p>
+        {job.myRole === 'Lead' && !job.isPrimaryLead && (
+          <p className="tech-job-detail-booking">Primary lead files the report. You lead a pair on this job, so the service report is read-only for you.</p>
+        )}
         {job.myRole === 'Helper' && (
-          <p className="tech-job-detail-booking">You are the helper on this job, so it is read-only for you. Your team lead reports disruptions, asks for extensions and submits the service report.</p>
+          <p className="tech-job-detail-booking">You are the helper on this job, so it is read-only for you. The lead technician reports disruptions, asks for extensions and submits the service report.</p>
         )}
 
         <div className="tech-job-detail-grid">
@@ -103,6 +112,30 @@ function JobDetailsModal({ job, onClose }) {
           </div>
         )}
 
+        {job.isBackJob && <BackJobInfo backJob={job.backJob} />}
+
+        {job.extensionRequest?.status === 'Pending' && job.extensionRequest.requestedDate && (
+          <div className="tech-job-detail-cell tech-job-detail-full">
+            <span className="confirmation-detail-icon"><FiClock /></span>
+            <div>
+              <p className="confirmation-detail-label">Extra day requested</p>
+              <p className="confirmation-detail-value">{job.extensionRequest.requestedDate}, {job.extensionRequest.requestedTime} (waiting for admin)</p>
+            </div>
+          </div>
+        )}
+
+        {job.extensionDays?.length > 0 && (
+          <div className="tech-job-detail-cell tech-job-detail-full">
+            <span className="confirmation-detail-icon"><FiClock /></span>
+            <div>
+              <p className="confirmation-detail-label">Extra day{job.extensionDays.length > 1 ? 's' : ''} approved</p>
+              {job.extensionDays.map((d) => (
+                <p className="confirmation-detail-value" key={`${d.date}-${d.time}`}>{d.date}, {d.time}</p>
+              ))}
+            </div>
+          </div>
+        )}
+
         <AssignmentHistory bookingId={job.bookingId} />
 
         <button className="bs-back-btn staff-my-jobs-x2" onClick={onClose}>
@@ -132,25 +165,47 @@ const DISRUPTION_EXTENSION_COPY = {
       Approved: 'Approved - you have the extra day.',
       Denied: 'Not approved.',
     },
+    extraDayLabel: 'Extra day',
   },
 };
 
-function DisruptionExtensionModal({ kind, job, onClose, onSubmit, submitting }) {
+function DisruptionExtensionModal({ kind, job, onClose, onSubmit, submitting, serverError }) {
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
+  // the extra day asked for: the next working day by default, in the job's own block
+  const [extraDate, setExtraDate] = useState('');
+  const [extraTime, setExtraTime] = useState(job.time || 'Morning');
 
   const copy = DISRUPTION_EXTENSION_COPY[kind];
   const record = kind === 'disruption' ? job.disruption : job.extensionRequest;
   const status = record?.status || 'None';
-  const isResolved = status !== 'None';
+  // A disruption is reported once. An extension can be asked for again after an answer (a second extra day).
+  const isResolved = kind === 'disruption' ? status !== 'None' : status === 'Pending';
+  const lastAnswer = kind === 'extension' && ['Approved', 'Denied'].includes(status) ? copy.statusText[status] : '';
+
+  useEffect(() => {
+    if (kind !== 'extension') return undefined;
+    let cancelled = false;
+    // closed shop dates are skipped when picking the default day
+    listClosures()
+      .catch(() => [])
+      .then((closures) => {
+        if (!cancelled) setExtraDate(defaultExtensionDate(job.date, new Set((closures || []).map((c) => c.date))));
+      });
+    return () => { cancelled = true; };
+  }, [kind, job.date]);
 
   const handleSubmit = () => {
     if (!reason.trim()) {
-      setError('Please describe what happened.');
+      setError(kind === 'extension' ? 'Please describe why more time is needed.' : 'Please describe what happened.');
+      return;
+    }
+    if (kind === 'extension' && !extraDate) {
+      setError('Choose the extra day.');
       return;
     }
     setError('');
-    onSubmit(reason.trim());
+    onSubmit(reason.trim(), kind === 'extension' ? { date: extraDate, time: extraTime } : undefined);
   };
 
   return (
@@ -164,6 +219,9 @@ function DisruptionExtensionModal({ kind, job, onClose, onSubmit, submitting }) 
         {isResolved ? (
           <>
             <p className="modal-instruction">{copy.statusText[status]}</p>
+            {kind === 'extension' && record.requestedDate && (
+              <p className="modal-instruction">Extra day: {record.requestedDate}, {record.requestedTime}</p>
+            )}
             <p className="cancel-confirm-text">"{record.reason}"</p>
             <button className="bs-back-btn staff-my-jobs-x3" onClick={onClose}>
               Close
@@ -171,7 +229,25 @@ function DisruptionExtensionModal({ kind, job, onClose, onSubmit, submitting }) 
           </>
         ) : (
           <>
+            {lastAnswer && <p className="modal-instruction">Last request: {lastAnswer}</p>}
             <p className="modal-instruction">{copy.description}</p>
+            {kind === 'extension' && (
+              <div className="bs-field-group">
+                <label className="bs-label" htmlFor="extra-day">{copy.extraDayLabel}</label>
+                <input
+                  id="extra-day"
+                  type="date"
+                  className="bs-input"
+                  value={extraDate}
+                  min={job.date && job.date > manilaTodayKey() ? job.date : manilaTodayKey()}
+                  onChange={(e) => setExtraDate(e.target.value)}
+                />
+                <select className="bs-select" aria-label="Time block for the extra day" value={extraTime} onChange={(e) => setExtraTime(e.target.value)}>
+                  <option value="Morning">Morning</option>
+                  <option value="Afternoon">Afternoon</option>
+                </select>
+              </div>
+            )}
             <div className="bs-field-group">
               <label className="bs-label">Details</label>
               <textarea
@@ -182,8 +258,8 @@ function DisruptionExtensionModal({ kind, job, onClose, onSubmit, submitting }) 
                 onChange={(e) => setReason(e.target.value)}
               />
             </div>
-            {error && (
-              <p className="staff-my-jobs-x4">{error}</p>
+            {(error || serverError) && (
+              <p className="staff-my-jobs-x4" role="alert">{error || serverError}</p>
             )}
             <button className="modal-submit-btn" onClick={handleSubmit} disabled={submitting}>
               {submitting ? 'Submitting...' : 'Submit'}
@@ -213,6 +289,7 @@ function extensionLabel(job) {
 function toViewJob(booking) {
   return {
     date: booking.date,
+    createdAt: booking.createdAt,
     status: booking.status,
     bookingId: booking.bookingId,
     service: booking.service?.name || 'Service',
@@ -225,30 +302,67 @@ function toViewJob(booking) {
     technicianInstructions: booking.technicianInstructions,
     disruption: booking.disruption,
     extensionRequest: booking.extensionRequest,
+    extensionDays: booking.extensionDays || [],
+    isBackJob: !!booking.isBackJob,
+    backJob: booking.backJob || null,
     // 'Lead' or 'Helper'. Only a lead can report a disruption or ask for an extension.
     myRole: booking.myRole || 'Lead',
-    team: getAssignedNames(booking, ''),
+    // The lead of the first pair files the service report; another lead on a job with several pairs only reads it.
+    isPrimaryLead: booking.isPrimaryLead !== false,
+    reportSubmitted: !!booking.reportSubmitted,
+    assigned: getAssignedNames(booking, ''),
   };
 }
 
 function MyJobs() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [notice, setNotice] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('All');
   const [sortBy, setSortBy] = useState(JOB_SORT.NEWEST);
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [reportModal, setReportModal] = useState(null); // { kind: 'disruption' | 'extension', job }
+  const [viewingReport, setViewingReport] = useState(null); // the job whose filed service report is open, read-only
   const [submittingReport, setSubmittingReport] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const sortWrapperRef = useRef(null);
 
+  // A failed load is an error state with a Retry, never "No jobs match your search or filter".
+  const loadJobs = () => listTechnicianJobs()
+    .then((data) => {
+      if (!Array.isArray(data)) throw new Error('Unexpected jobs reply');
+      setJobs(data.map(toViewJob));
+    })
+    .catch((err) => {
+      console.error('Failed to load jobs', err);
+      setLoadFailed(true);
+    })
+    .finally(() => setLoading(false));
+
+  const retryLoad = () => {
+    setLoadFailed(false);
+    setLoading(true);
+    loadJobs();
+  };
+
   useEffect(() => {
-    orFallback(listTechnicianJobs(), [])
-      .then((data) => setJobs(Array.isArray(data) ? data.map(toViewJob) : []))
-      .catch((err) => console.error('Failed to load jobs', err))
-      .finally(() => setLoading(false));
+    loadJobs();
   }, []);
+
+  // A notification links here with ?job=<booking id>: open that job once the list has loaded. If it is
+  // not in the list (it was reassigned away, say) say so instead of showing nothing.
+  const jobFromLink = searchParams.get('job');
+  useEffect(() => {
+    if (!jobFromLink || loading || loadFailed) return;
+    const job = jobs.find((j) => j.bookingId === jobFromLink);
+    setSelectedJob(job || null);
+    setNotice(job ? '' : `Job ${jobFromLink} is not on your list any more.`);
+    setSearchParams({}, { replace: true });
+  }, [jobFromLink, loading, loadFailed, jobs, setSearchParams]);
 
   useEffect(() => {
     if (!showSortMenu) return;
@@ -290,18 +404,19 @@ function MyJobs() {
 
   const handleSelectSort = (value) => { setSortBy(value); setShowSortMenu(false); };
 
-  const handleSubmitReport = async (reasonText) => {
+  const handleSubmitReport = async (reasonText, slot) => {
     if (!reportModal) return;
     setSubmittingReport(true);
+    setSubmitError('');
     try {
       const send = reportModal.kind === 'disruption' ? reportDisruption : requestExtension;
-      const data = await send(reportModal.job.bookingId, reasonText);
+      const data = await send(reportModal.job.bookingId, reasonText, slot);
       // the action response is not per-technician, so keep the role already known for this job
-      const updatedJob = { ...toViewJob(data), myRole: reportModal.job.myRole };
+      const updatedJob = { ...toViewJob(data), myRole: reportModal.job.myRole, isPrimaryLead: reportModal.job.isPrimaryLead, backJob: reportModal.job.backJob };
       setJobs((prev) => prev.map((j) => (j.bookingId === updatedJob.bookingId ? updatedJob : j)));
       setReportModal({ kind: reportModal.kind, job: updatedJob });
     } catch (err) {
-      alert(err instanceof ApiError ? err.message || 'Failed to submit.' : 'Could not connect to server.');
+      setSubmitError(err instanceof ApiError ? err.message || 'Failed to submit.' : 'Could not connect to server.');
     } finally {
       setSubmittingReport(false);
     }
@@ -322,6 +437,8 @@ function MyJobs() {
           </button>
         ))}
       </div>
+
+      {notice && <p className="sdm-muted" role="status">{notice}</p>}
 
       <div className="tech-jobs-toolbar">
         <div className="tech-sort-wrapper" ref={sortWrapperRef}>
@@ -351,6 +468,7 @@ function MyJobs() {
             className="tech-search-input"
             type="text"
             placeholder="Search by service, booking ID, customer, or address..."
+            aria-label="Search by service, booking ID, customer, or address"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -360,6 +478,10 @@ function MyJobs() {
       <div className="tech-job-list">
         {loading ? (
           <p className="tech-job-empty">Loading jobs...</p>
+        ) : loadFailed ? (
+          <LoadError message="Could not load your jobs." onRetry={retryLoad} />
+        ) : jobs.length === 0 ? (
+          <p className="tech-job-empty">You have no jobs yet.</p>
         ) : visibleJobs.length === 0 ? (
           <p className="tech-job-empty">No jobs match your search or filter.</p>
         ) : (
@@ -370,6 +492,7 @@ function MyJobs() {
                   <small className="tech-job-date-label">{job.date}</small>
                   <span className={`tech-job-status-badge ${statusClass[job.status] || ''}`}>{job.status}</span>
                   <span className={`tech-job-status-badge ${job.myRole === 'Helper' ? 'tech-role-helper' : 'tech-role-lead'}`}>{job.myRole}</span>
+                  {job.isBackJob && <BackJobBadge />}
                 </div>
                 <div className="tech-job-service">{job.service}</div>
                 <small className="tech-job-booking">{job.bookingId}</small>
@@ -384,6 +507,12 @@ function MyJobs() {
               >
                 <FiEye size={14} /> View Details
               </button>
+
+              {job.reportSubmitted && !(job.myRole === 'Lead' && job.isPrimaryLead) && (
+                <button className="tech-job-view-link staff-my-jobs-x6" onClick={() => setViewingReport(job)}>
+                  <FiInfo /> View service report
+                </button>
+              )}
 
               {job.status === BOOKING_STATUS.IN_PROGRESS && job.myRole === 'Lead' && (
                 <>
@@ -408,13 +537,22 @@ function MyJobs() {
 
       {selectedJob && <JobDetailsModal job={selectedJob} onClose={handleCloseDetails} />}
 
+      {viewingReport && (
+        <ServiceReportViewer
+          bookingId={viewingReport.bookingId}
+          fallback={{ service: viewingReport.service, customer: viewingReport.customerName, address: viewingReport.address, date: viewingReport.date }}
+          onClose={() => setViewingReport(null)}
+        />
+      )}
+
       {reportModal && (
         <DisruptionExtensionModal
           kind={reportModal.kind}
           job={reportModal.job}
-          onClose={() => setReportModal(null)}
+          onClose={() => { setReportModal(null); setSubmitError(''); }}
           onSubmit={handleSubmitReport}
           submitting={submittingReport}
+          serverError={submitError}
         />
       )}
     </StaffLayout>

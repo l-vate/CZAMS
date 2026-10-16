@@ -1,19 +1,18 @@
-// Sort orders for the technician's My Jobs list.
+// Sort orders for the technician's My Jobs list. Four distinct sorts: two by when the booking was
+// made, one by the service date, one by status.
 import { BOOKING_STATUS } from '../constants/bookingStatus.js';
 
 export const JOB_SORT = Object.freeze({
   NEWEST: 'newest',
   OLDEST: 'oldest',
   SERVICE_SOONEST: 'service-soonest',
-  SERVICE_LATEST: 'service-latest',
   STATUS: 'status',
 });
 
 export const JOB_SORT_OPTIONS = Object.freeze([
-  { value: JOB_SORT.NEWEST, label: 'Newest first' },
-  { value: JOB_SORT.OLDEST, label: 'Oldest first' },
-  { value: JOB_SORT.SERVICE_SOONEST, label: 'Service date, soonest first' },
-  { value: JOB_SORT.SERVICE_LATEST, label: 'Service date, latest first' },
+  { value: JOB_SORT.NEWEST, label: 'Newest booking created' },
+  { value: JOB_SORT.OLDEST, label: 'Oldest booking created' },
+  { value: JOB_SORT.SERVICE_SOONEST, label: 'Service date soonest' },
   { value: JOB_SORT.STATUS, label: 'Status' },
 ]);
 
@@ -42,18 +41,27 @@ export function parseJobDate(dateStr) {
 
 const byDate = (a, b) => parseJobDate(a.date).getTime() - parseJobDate(b.date).getTime();
 
-// A new sorted array; `jobs` is left alone. Newest and Oldest keep their original meaning (by date).
+// When the booking was made. A booking with no created time sorts as the oldest.
+const createdMs = (job) => {
+  const t = job.createdAt ? new Date(job.createdAt).getTime() : 0;
+  return Number.isNaN(t) ? 0 : t;
+};
+
+// Oldest booking first; bookings made at the same time (or with no created time) keep service date order.
+const byCreated = (a, b) => createdMs(a) - createdMs(b) || byDate(a, b);
+
+// A new sorted array; `jobs` is left alone.
 export function sortJobs(jobs, sortBy) {
   const list = [...jobs];
   switch (sortBy) {
     case JOB_SORT.OLDEST:
+      return list.sort(byCreated);
     case JOB_SORT.SERVICE_SOONEST:
       return list.sort(byDate);
     case JOB_SORT.STATUS:
       return list.sort((a, b) => statusRank(a.status) - statusRank(b.status) || byDate(a, b));
     case JOB_SORT.NEWEST:
-    case JOB_SORT.SERVICE_LATEST:
     default:
-      return list.sort((a, b) => byDate(b, a));
+      return list.sort((a, b) => byCreated(b, a));
   }
 }

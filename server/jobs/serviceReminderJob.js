@@ -7,6 +7,9 @@ const Service = require('../models/Service');
 const ServiceReminder = require('../models/ServiceReminder');
 const { sendNotification } = require('../utils/notifications');
 const { effectiveCompletedAt } = require('../utils/completion');
+const { manilaDateKey, monthsAgoManilaKey } = require('../utils/manilaDate');
+const { addMonths } = require('../utils/warranty');
+const { TIMEZONE } = require('../utils/timeBlocks');
 
 // "3-4 months since the last cleaning" - a range, not an exact number. This uses
 // the sooner end as the trigger point (a customer becomes due once 3 months have
@@ -48,13 +51,14 @@ async function runServiceReminderCheck() {
     }
   }
 
-  const dueCutoff = new Date();
-  dueCutoff.setMonth(dueCutoff.getMonth() - SERVICE_REMINDER_TRIGGER_MONTHS);
+  // Due once the Manila day of the cleaning is three calendar months back or more, so the answer does not depend on
+  // the server's time zone.
+  const dueCutoffKey = monthsAgoManilaKey(SERVICE_REMINDER_TRIGGER_MONTHS);
 
   let remindersCreated = 0;
   for (const [customerId, booking] of latestByCustomer) {
     const completedAt = effectiveCompletedAt(booking);
-    if (completedAt > dueCutoff) continue; // not due yet
+    if (manilaDateKey(completedAt) > dueCutoffKey) continue; // not due yet
 
     // One reminder per (customer, last cleaning) - skip if this cycle already flagged.
     const alreadyFlagged = await ServiceReminder.findOne({
@@ -63,8 +67,7 @@ async function runServiceReminderCheck() {
     });
     if (alreadyFlagged) continue;
 
-    const dueAt = new Date(completedAt);
-    dueAt.setMonth(dueAt.getMonth() + SERVICE_REMINDER_TRIGGER_MONTHS);
+    const dueAt = addMonths(completedAt, SERVICE_REMINDER_TRIGGER_MONTHS);
 
     await ServiceReminder.create({
       customer: customerId,
@@ -90,7 +93,7 @@ async function deliverPendingServiceReminders() {
   let delivered = 0;
   for (const reminder of pending) {
     const lastCleaningDate = new Date(reminder.lastCleaningDate).toLocaleDateString('en-US', {
-      month: 'long', day: 'numeric', year: 'numeric',
+      month: 'long', day: 'numeric', year: 'numeric', timeZone: TIMEZONE,
     });
 
     await sendNotification(
@@ -109,16 +112,21 @@ async function deliverPendingServiceReminders() {
   return { delivered };
 }
 
-// Runs once a day - plenty granular for a months-long interval, no need for anything tighter.
+async function safeRunDaily() {
+  try {
+    await runServiceReminderCheck();
+    await deliverPendingServiceReminders();
+  } catch (err) {
+    console.error('Service reminder check failed:', err);
+  }
+}
+
+// Runs every day at midnight Manila time - plenty granular for a months-long interval - and once right now. The check works from the
+// bookings and the reminders already recorded (one reminder per customer and last cleaning), so it can be run at any time and as often
+// as needed: a server that was asleep or off at midnight catches up as soon as it starts, and a second run creates and sends nothing twice.
 function startServiceReminderSchedule() {
-  cron.schedule('0 0 * * *', async () => {
-    try {
-      await runServiceReminderCheck();
-      await deliverPendingServiceReminders();
-    } catch (err) {
-      console.error('Service reminder check failed:', err);
-    }
-  });
+  cron.schedule('0 0 * * *', safeRunDaily, { timezone: TIMEZONE });
+  safeRunDaily();
 }
 
 module.exports = {

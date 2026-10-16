@@ -5,6 +5,7 @@ import { getFilterPillStyle } from '../../utils/statusColors';
 import { withFallback } from '../../services/apiClient';
 import { listBackJobs, markBackJobReviewed } from '../../services/backJobService';
 import { BACK_JOB_STATUS } from '../../constants/backJobStatus';
+import { customerLabel } from '../../utils/customerLabel';
 
 // Same badge/left-accent classes as the customer's My Bookings and technician's
 // My Jobs cards (staff.css) - .tech-job-card colors its left border automatically
@@ -210,7 +211,7 @@ function BackJobs() {
       .map((bj) => ({
         id: bj._id,
         backJobId: bj.backJobId,
-        clientName: bj.customer?.name || 'Customer',
+        clientName: customerLabel(bj.customer, 'Customer'),
         originalBookingId: bj.originalBookingId,
         serviceType: bj.originalBooking?.service?.name || 'Service',
         issueDescription: bj.issueDescription,

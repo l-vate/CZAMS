@@ -10,11 +10,15 @@ import {
   FiUsers,
   FiMapPin,
   FiEye,
+  FiRotateCcw,
 } from 'react-icons/fi';
-import { orFallback } from '../../services/apiClient';
+import LoadError from '../../components/load_error';
+import { clientGroupOf } from '../../utils/clientGroup';
 import { listBookings, getTechnicianWorkload } from '../../services/bookingService';
 import { listUsers } from '../../services/userService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
+import { customerLabel } from '../../utils/customerLabel';
+import { isFieldTechnician } from '../../utils/technicians';
 
 // Same badge/left-accent classes used by the customer's My Bookings and the
 // technician's My Jobs cards (staff.css) - .tech-job-card colors its left
@@ -48,6 +52,7 @@ const CLIENT_TYPE_FILTERS = [
   { key: 'all', label: 'All Clients' },
   { key: 'Residential', label: 'Residential' },
   { key: 'Commercial', label: 'Commercial' },
+  { key: 'Unknown', label: 'Deleted accounts' },
 ];
 
 const RECENT_BOOKINGS_LIMIT = 5;
@@ -57,46 +62,51 @@ function Dashboard() {
   const [activeStaffCount, setActiveStaffCount] = useState(0);
   const [workload, setWorkload] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
   const [activeClientType, setActiveClientType] = useState('all');
   const [selectedBooking, setSelectedBooking] = useState(null);
 
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      try {
-        const [bookingsData, staffData, workloadData] = await Promise.all([
-          orFallback(listBookings(), []),
-          orFallback(listUsers('staff'), []),
-          orFallback(getTechnicianWorkload(), []),
-        ]);
-        setWorkload(Array.isArray(workloadData) ? workloadData : []);
-
-        setBookings(Array.isArray(bookingsData) ? bookingsData : []);
-        setActiveStaffCount(
-          Array.isArray(staffData) ? staffData.filter((s) => s.isActive).length : 0
-        );
-      } catch (err) {
-        console.error('Error loading dashboard data:', err);
-      } finally {
-        setLoading(false);
-      }
+  // A failed load is an error with a Retry, never zeros and empty tables that look like "no bookings".
+  const fetchData = async () => {
+    setLoading(true);
+    setFailed(false);
+    try {
+      const [bookingsData, staffData, workloadData] = await Promise.all([
+        listBookings(),
+        listUsers('staff'),
+        getTechnicianWorkload(),
+      ]);
+      if (![bookingsData, staffData, workloadData].every(Array.isArray)) throw new Error('Unexpected reply');
+      setWorkload(workloadData);
+      setBookings(bookingsData);
+      setActiveStaffCount(staffData.filter((s) => s.isActive && isFieldTechnician(s)).length);
+    } catch (err) {
+      console.error('Error loading dashboard data:', err);
+      setFailed(true);
+    } finally {
+      setLoading(false);
     }
+  };
 
+  useEffect(() => {
     fetchData();
   }, []);
 
   const filteredBookings = useMemo(() => {
     if (activeClientType === 'all') return bookings;
-    return bookings.filter(
-      (b) => (b.customer?.clientType || 'Residential') === activeClientType
-    );
+    return bookings.filter((b) => clientGroupOf(b.customer) === activeClientType);
   }, [bookings, activeClientType]);
 
   const stats = useMemo(() => [
     {
       title: 'Total Bookings',
-      value: filteredBookings.length,
+      value: filteredBookings.filter((b) => !b.isBackJob).length,
       icon: <FiClipboard />,
+    },
+    {
+      title: 'Back Job Visits',
+      value: filteredBookings.filter((b) => b.isBackJob).length,
+      icon: <FiRotateCcw />,
     },
     {
       title: 'Pending Requests',
@@ -132,6 +142,8 @@ function Dashboard() {
           <p>Manage bookings, staff, and services from one place.</p>
         </div>
 
+        {failed && <LoadError message="Could not load the dashboard." onRetry={fetchData} />}
+
         <div className="dash-filters">
           {CLIENT_TYPE_FILTERS.map((filter) => (
             <button
@@ -149,7 +161,7 @@ function Dashboard() {
           {stats.map((stat) => (
             <div className="stat-card" key={stat.title}>
               <div className="stat-icon">{stat.icon}</div>
-              <h3>{loading ? '-' : stat.value}</h3>
+              <h3>{loading || failed ? '-' : stat.value}</h3>
               <p>{stat.title}</p>
             </div>
           ))}
@@ -171,7 +183,7 @@ function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
+              {failed ? null : loading ? (
                 <tr><td colSpan={3}>Loading...</td></tr>
               ) : workload.length === 0 ? (
                 <tr><td colSpan={3}>No active technicians.</td></tr>
@@ -191,7 +203,7 @@ function Dashboard() {
         <div className="recent-bookings">
           <h2>Recent Bookings</h2>
 
-          {loading ? (
+          {failed ? null : loading ? (
             <p className="recent-bookings-body">Loading bookings...</p>
           ) : recentBookings.length === 0 ? (
             <p className="recent-bookings-body admin-dashboard-x2">No bookings found.</p>
@@ -207,7 +219,7 @@ function Dashboard() {
                       </span>
                     </div>
                     <div className="tech-job-service">{b.service?.name || 'N/A'}</div>
-                    <small className="tech-job-booking">{b.bookingId} · {b.customer?.name || 'N/A'}</small>
+                    <small className="tech-job-booking">{b.bookingId} · {customerLabel(b.customer)}</small>
                   </div>
 
                   <div className="tech-job-meta">

@@ -58,21 +58,6 @@ export function getDefaultDownPaymentPercent(percentages) {
   return sorted.length > 0 ? sorted[0] : null;
 }
 
-// Customer Classification Module perk: a "Return" customer sees an extra
-// no-down-payment option up front. This 0% option is intentionally NOT part of
-// the admin-editable percentage list - it's tied to that separate module's own
-// business rule, not general payment config, and 0 is rejected as an admin-added
-// value server-side for the same reason (it would collide with this perk's meaning
-// for customers who aren't actually Return customers).
-export function getDownPaymentOptions(isReturnCustomer, percentages) {
-  const base = (percentages || [])
-    .slice()
-    .sort((a, b) => a - b)
-    .map((value) => ({
-      value,
-      label: value === 100 ? 'Full Payment (100%)' : `${value}% Down Payment`,
-    }));
-
-  if (!isReturnCustomer) return base;
-  return [{ label: 'No Down Payment (Return Customer)', value: 0 }, ...base];
-}
+// The down payment options a customer is offered (and the rule behind the extra 0% one) live in downPaymentOptions.js, a plain file
+// the tests can load on its own.
+export { getDownPaymentOptions } from './downPaymentOptions';

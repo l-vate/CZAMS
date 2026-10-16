@@ -1,20 +1,28 @@
 const { NOTIFICATION_TYPE } = require('../constants/notificationTypes');
 const { TIME_BLOCK } = require('../constants/timeBlocks');
 const { ROLE } = require('../constants/roles');
-const { BACK_JOB_STATUS } = require('../constants/backJobStatus');
+const { BACK_JOB_STATUS, OPEN_BACK_JOB_STATUSES } = require('../constants/backJobStatus');
 const { PAYMENT_STATUS } = require('../constants/paymentStatus');
 const { BOOKING_STATUS } = require('../constants/bookingStatus');
+const auditSpecs = require('../utils/auditSpecs');
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
+const { allowRoles } = require('../middleware/roles');
+const { toCustomerBackJob } = require('../utils/customerView');
 const Booking = require('../models/Booking');
 const BackJob = require('../models/BackJob');
 const Report = require('../models/Report');
 const { getWarrantyStatus } = require('../utils/warranty');
-const { notifyAdmins } = require('../utils/notifications');
+const { notifyAdmins, sendNotification } = require('../utils/notifications');
+const { sendRouteError } = require('../utils/routeErrors');
+const { manilaToday, addDaysManila } = require('../utils/manilaDate');
+const { nextBusinessDay } = require('../utils/businessDays');
+const { nextQueueRank } = require('../utils/queue');
+const Closure = require('../models/Closure');
 const {
   createWithUniqueBookingId, BookingIdExhaustedError,
-  createWithUniqueBackJobId, BackJobIdExhaustedError, isBackJobIdCollision,
+  createWithUniqueBackJobId, BackJobIdExhaustedError,
 } = require('../utils/bookingId');
 
 // "Typically 2-3 days after the report is filed" - the paper gives a range, not an
@@ -22,16 +30,20 @@ const {
 // always reschedule afterward through the normal reschedule/admin-update routes.
 const BACK_JOB_SCHEDULE_LEAD_DAYS = 2;
 
-function toDateString(d) {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
+// The date of the free visit: two days after the claim, in Manila, moved to the next business day when that day is a
+// Sunday (while Sundays are closed) or a shop closure date (utils/businessDays.js).
+async function visitDate() {
+  const wanted = addDaysManila(manilaToday(), BACK_JOB_SCHEDULE_LEAD_DAYS);
+  const closures = await Closure.find({ date: { $gte: wanted, $lte: addDaysManila(wanted, 60) } }).select('date').lean();
+  return nextBusinessDay(wanted, new Set(closures.map((c) => c.date)), { inclusive: true });
 }
+
+// True for a duplicate key error on the one-open-claim-per-booking index.
+const isDuplicateClaim = (err) => err && err.code === 11000 && (!err.keyPattern || 'originalBookingId' in err.keyPattern);
 
 // Customer: report a back job (leak right after cleaning, AC not cooling soon
 // after installation) on one of their own completed bookings.
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, allowRoles(ROLE.CUSTOMER), async (req, res) => {
   try {
     const { bookingId, issueDescription } = req.body;
 
@@ -52,9 +64,16 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ message: 'A back job can only be reported on a completed booking.' });
     }
 
-    const existing = await BackJob.findOne({ originalBookingId: bookingId });
+    // A free repair visit cannot itself be claimed against: the claim belongs to the booking the visit was for.
+    if (originalBooking.isBackJob) {
+      const visitClaim = await BackJob.findOne({ backJobId: originalBooking.backJobId });
+      const original = visitClaim ? ` Report it against booking ${visitClaim.originalBookingId}.` : '';
+      return res.status(400).json({ message: `This is a free repair visit, so it cannot have its own claim.${original}` });
+    }
+
+    const existing = await BackJob.findOne({ originalBookingId: bookingId, status: { $in: OPEN_BACK_JOB_STATUSES } });
     if (existing) {
-      return res.status(400).json({ message: 'An issue has already been reported for this booking.' });
+      return res.status(400).json({ message: 'A claim already exists for this booking.' });
     }
 
     // Warranty Tracking Module: back jobs are specifically workmanship issues, so
@@ -69,18 +88,19 @@ router.post('/', auth, async (req, res) => {
       let resultingBooking = null;
 
       if (withinWarranty) {
-        const scheduledDate = new Date();
-        scheduledDate.setDate(scheduledDate.getDate() + BACK_JOB_SCHEDULE_LEAD_DAYS);
+        const scheduledDate = await visitDate();
+        const queueRank = await nextQueueRank(); // joins the Pending queue like any request; the admin assigns it
 
         resultingBooking = await createWithUniqueBookingId((bookingId) => Booking.create({
           bookingId,
+          queueRank,
           customer: originalBooking.customer,
           service: originalBooking.service._id,
           units: (originalBooking.units || []).map(({ type, quantity, brandModel }) => ({ type, quantity, brandModel })),
           unitTypes: originalBooking.unitTypes,
           brandModel: originalBooking.brandModel,
           problemDescription: issueDescription.trim(),
-          date: toDateString(scheduledDate),
+          date: scheduledDate,
           time: originalBooking.time || TIME_BLOCK.MORNING,
           address: originalBooking.address,
           contactNumber: originalBooking.contactNumber,
@@ -110,7 +130,8 @@ router.post('/', auth, async (req, res) => {
         });
         return { backJob, resultingBooking };
       } catch (err) {
-        if (resultingBooking && isBackJobIdCollision(err)) await Booking.deleteOne({ _id: resultingBooking._id });
+        // the free visit means nothing without its claim, whatever stopped the claim from being saved
+        if (resultingBooking) await Booking.deleteOne({ _id: resultingBooking._id });
         throw err;
       }
     });
@@ -123,12 +144,22 @@ router.post('/', auth, async (req, res) => {
       { booking: originalBooking }
     );
 
+    // the customer is told what became of the claim straight away (the system decides it from the warranty window)
+    await sendNotification(
+      originalBooking.customer,
+      NOTIFICATION_TYPE.BACKJOB_RECEIVED,
+      withinWarranty
+        ? `We received your claim ${backJob.backJobId} for booking ${originalBooking.bookingId}. It is covered by your warranty, so the repair visit is free and is scheduled for ${resultingBooking.date}, ${resultingBooking.time}. Our team will assign a technician.`
+        : `We received your claim ${backJob.backJobId} for booking ${originalBooking.bookingId}. It is outside the warranty period, so our team will review it and get in touch.`,
+      { booking: originalBooking }
+    );
+
     const populated = await BackJob.findById(backJob._id).populate('resultingBooking');
-    res.status(201).json(populated);
+    res.status(201).json(toCustomerBackJob(populated));
   } catch (err) {
-    console.error(err);
-    if (err instanceof BookingIdExhaustedError || err instanceof BackJobIdExhaustedError) return res.status(500).json({ message: err.message });
-    res.status(500).json({ message: 'Server error' });
+    if (isDuplicateClaim(err)) return res.status(400).json({ message: 'A claim already exists for this booking.' });
+    if (err instanceof BookingIdExhaustedError || err instanceof BackJobIdExhaustedError) { console.error(err); return res.status(500).json({ message: err.message }); }
+    sendRouteError(res, err);
   }
 });
 
@@ -171,15 +202,15 @@ router.get('/booking/:bookingId', auth, async (req, res) => {
     const backJob = await BackJob.findOne({ originalBookingId: req.params.bookingId })
       .populate('resultingBooking');
 
-    if (!backJob) {
-      return res.status(404).json({ message: 'No back job report found for this booking' });
-    }
+    // No claim on a booking is the normal case, not an error: 200 with null, so a booking page that asks does not log a failed request.
+    if (!backJob) return res.json(null);
 
     if (req.userRole !== ROLE.ADMIN && backJob.customer !== req.userId) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    res.json(backJob);
+    // the customer sees the claim without who reviewed it, and the free visit through the customer whitelist
+    res.json(req.userRole === ROLE.ADMIN ? backJob : toCustomerBackJob(backJob));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -190,7 +221,7 @@ router.get('/booking/:bookingId', auth, async (req, res) => {
 // (the paper doesn't specify what "handled" means here - outside warranty could
 // become a new paid booking, or something else entirely; this route only records
 // that admin has looked at it, it doesn't automate any outcome).
-router.patch('/:backJobId/review', auth, async (req, res) => {
+router.patch('/:backJobId/review', auth, auditSpecs.backJobReview, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -204,9 +235,22 @@ router.patch('/:backJobId/review', auth, async (req, res) => {
     }
 
     backJob.status = BACK_JOB_STATUS.REVIEWED;
+    backJob.isOpen = false;
     backJob.reviewedAt = new Date();
     backJob.reviewedBy = req.userId;
     await backJob.save();
+
+    // the customer hears the decision; a notification problem never undoes it
+    try {
+      await sendNotification(
+        backJob.customer,
+        NOTIFICATION_TYPE.BACKJOB_DECIDED,
+        `Our team reviewed your claim ${backJob.backJobId} for booking ${backJob.originalBookingId}. It was outside the warranty period, so it is not covered. Contact us if you would like to arrange a paid visit.`,
+        { booking: { _id: backJob.originalBooking, bookingId: backJob.originalBookingId } }
+      );
+    } catch (err) {
+      console.error('Could not notify the customer about a reviewed claim:', err);
+    }
 
     res.json(backJob);
   } catch (err) {

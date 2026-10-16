@@ -191,7 +191,7 @@
 
 .cta {
   background: var(--coral);
-  color: white;
+  color: var(--navy); /* was white on coral, 2.82:1; navy on the same coral is 6.3:1 */
   padding: 15px 34px;
   border: none;
   border-radius: 28px;
@@ -647,7 +647,7 @@
   font-family: 'Outfit', sans-serif;
   font-size: 13px;
   font-weight: 700;
-  color: var(--teal, #0e8c8c);
+  color: #0c7c7c; /* the teal, a little darker: 4.55:1 on its tint (was 3.71:1) */
   background: rgba(14,140,140,0.08);
   padding: 4px 12px;
   border-radius: 20px;
@@ -723,7 +723,7 @@
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--navy-soft);
+  color: #488eda; /* was --navy-soft, dark blue on the dark footer: 1.33:1; now 4.51:1 */
   margin-bottom: 14px;
 }
 

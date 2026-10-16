@@ -4,6 +4,7 @@ import { FiMenu, FiX, FiMessageCircle, FiSearch } from 'react-icons/fi';
 import Sidebar from '../../components/sidebars/admin_sidebar';
 import NotificationBell from '../../components/notification_bell';
 
+import { adminNotificationTarget } from '../../utils/notificationTarget';
 // Search moved here (topbar), same pattern as the customer portal - pages that
 // need search pass searchValue/onSearchChange/searchPlaceholder in and get the
 // topbar box; pages that don't just omit those props and get nothing.
@@ -12,9 +13,8 @@ function AdminLayout({ title, children, searchValue, onSearchChange, searchPlace
   const navigate = useNavigate();
 
   const handleNotificationClick = (notification) => {
-    if (notification.relatedBookingId) {
-      navigate('/admin/services/requests');
-    }
+    const target = adminNotificationTarget(notification);
+    if (target) navigate(target);
   };
 
   return (
@@ -40,6 +40,7 @@ function AdminLayout({ title, children, searchValue, onSearchChange, searchPlace
                 <input
                   type="search"
                   placeholder={searchPlaceholder || 'Search...'}
+                  aria-label={(searchPlaceholder || 'Search').replace(/\.{3}$/, '')}
                   value={searchValue}
                   onChange={(e) => onSearchChange(e.target.value)}
                 />

@@ -1,17 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FiArrowUp, FiArrowDown, FiChevronsUp, FiEye, FiZap } from 'react-icons/fi';
+import { FiArrowUp, FiArrowDown, FiChevronsUp, FiEye } from 'react-icons/fi';
 import { ApiError } from '../services/apiClient';
-import { getQueue, moveInQueue, autoAssignBooking } from '../services/bookingService';
+import { getQueue, moveInQueue, moveToDate } from '../services/bookingService';
+import SuggestedDates from './suggested_dates';
 import { getMemberNames } from '../utils/assignments';
+import { customerLabel } from '../utils/customerLabel';
 
 // The Pending queue: first come, first served, and the admin can move a request up, down or
-// to the top. Each row shows how many teams are free for that request's date and time block,
-// so it is clear when there are more requests than teams. Queue positions are admin-only.
+// to the top. Each row shows how many technicians (or pairs) are free for that request's date and time block,
+// so it is clear when there are more requests than free technicians. Queue positions are admin-only.
 function PendingQueue({ refreshKey, onViewDetails }) {
   const [queue, setQueue] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
-  const [message, setMessage] = useState({}); // bookingId -> { text, isError }
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
@@ -33,6 +34,20 @@ function PendingQueue({ refreshKey, onViewDetails }) {
     load();
   }, [load, refreshKey]);
 
+  // One click: move a request to a date when enough technicians are free, then show the queue again.
+  const moveRequestToDate = async (bookingId, date, time) => {
+    setBusyId(bookingId);
+    setError('');
+    try {
+      await moveToDate(bookingId, { date, time });
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message || 'Could not move that request.' : 'Network error. Please try again.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const move = async (bookingId, action) => {
     setBusyId(bookingId);
     setError('');
@@ -47,26 +62,6 @@ function PendingQueue({ refreshKey, onViewDetails }) {
       }
       console.error('Error moving request:', err);
       setError('Network error. Please try again.');
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const autoAssign = async (bookingId) => {
-    setBusyId(bookingId);
-    try {
-      const data = await autoAssignBooking(bookingId);
-      setMessage((prev) => ({ ...prev, [bookingId]: { isError: false, text: `Assigned. ${data.autoAssignNote}` } }));
-      await load();
-    } catch (err) {
-      if (err instanceof ApiError) {
-        const dates = (err.data?.suggestedDates || []).join(', ');
-        setMessage((prev) => ({ ...prev, [bookingId]: { isError: true, text: `${err.data?.message}${dates ? ` Next free dates: ${dates}.` : ''}` } }));
-        await load();
-      } else {
-        console.error('Error auto-assigning:', err);
-        setMessage((prev) => ({ ...prev, [bookingId]: { isError: true, text: 'Network error. Please try again.' } }));
-      }
     } finally {
       setBusyId(null);
     }
@@ -90,7 +85,6 @@ function PendingQueue({ refreshKey, onViewDetails }) {
             const b = item.booking;
             const working = busyId === b.bookingId;
             const assigned = getMemberNames(b, '');
-            const note = message[b.bookingId];
             return (
               <li className="queue-row" key={b._id}>
                 <span className="queue-position" aria-label={`Queue position ${item.position}`}>{item.position}</span>
@@ -98,7 +92,7 @@ function PendingQueue({ refreshKey, onViewDetails }) {
                 <div className="queue-info">
                   <p className="queue-title">{b.service?.name || 'Service'} <span className="queue-id">{b.bookingId}</span></p>
                   <p className="queue-meta">
-                    {b.customer?.name || 'Customer'} · {b.date}, {b.time}
+                    {customerLabel(b.customer, 'Customer')} · {b.date}, {b.time}
                     {b.customer?.clientType === 'Commercial' ? ' · Commercial' : ''}
                   </p>
                   <p className="queue-meta">
@@ -109,7 +103,9 @@ function PendingQueue({ refreshKey, onViewDetails }) {
                     {item.positionInBlock ? ` · request ${item.positionInBlock} for this slot` : ''}
                     {item.overCapacity ? ' · Over capacity: more requests than free ' + item.unit + 's' : ''}
                   </p>
-                  {note && <p className={note.isError ? 'ma-form-error' : 'queue-note'}>{note.text}</p>}
+                  {item.overCapacity && (
+                    <SuggestedDates dates={item.suggestedDates} time={b.time} disabled={working} onUse={(date, block) => moveRequestToDate(b.bookingId, date, block)} />
+                  )}
                 </div>
 
                 <div className="queue-actions">
@@ -121,9 +117,6 @@ function PendingQueue({ refreshKey, onViewDetails }) {
                   </button>
                   <button type="button" className="view-details-btn" onClick={() => move(b.bookingId, 'down')} disabled={working || index === queue.length - 1} title="Move down">
                     <FiArrowDown size={14} /> Down
-                  </button>
-                  <button type="button" className="view-details-btn" onClick={() => autoAssign(b.bookingId)} disabled={working} title="Auto-assign">
-                    <FiZap size={14} /> Auto-assign
                   </button>
                   <button type="button" className="view-details-btn" onClick={() => onViewDetails(b)}>
                     <FiEye size={14} /> Details

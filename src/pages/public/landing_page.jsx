@@ -220,7 +220,7 @@ function NavSearch({ navigate, services }) {
                       <div className="nav-search-reviews-card">
                         <div className="nav-search-reviews-card-header">
                           {technicianResults.map((t) => (
-                            <span className="nav-search-tech-chip" key={t._id}>{t.name}</span>
+                            <span className="nav-search-tech-chip" key={t._id || t.name}>{t.name}</span>
                           ))}
                         </div>
 

@@ -13,6 +13,15 @@ function getUnitPrice(service, unitType) {
   return override ? override.price : (service?.price || 0);
 }
 
+// The price of the unit at `index` on this booking. A booking made after prices were frozen carries the prices it was
+// made at (priceSnapshot, see utils/priceSnapshot.js), so a later change to the service never changes it. An older
+// booking has no snapshot and follows the service's current price, as before.
+function unitPriceOf(booking, index, unit) {
+  const line = booking?.priceSnapshot?.lines?.[index];
+  if (line && line.type === unit.type && typeof line.unitPrice === 'number') return line.unitPrice;
+  return getUnitPrice(booking?.service, unit.type);
+}
+
 // Bookings created before the Multi-Unit Booking Redesign have no `units`, only the old
 // flat `unitTypes` list - treat each listed type as quantity 1. A booking with neither
 // falls back to the flat service price, matching what those bookings always displayed.
@@ -24,7 +33,7 @@ function getBookingGrossUnitsSubtotal(booking) {
 
   return units.length === 0
     ? (service?.price || 0)
-    : units.reduce((sum, u) => sum + getUnitPrice(service, u.type) * (u.quantity || 0), 0);
+    : units.reduce((sum, u, i) => sum + unitPriceOf(booking, i, u) * (u.quantity || 0), 0);
 }
 
 // Total number of units ordered (what a promo's minimum is measured against).
@@ -96,6 +105,7 @@ function getPaymentBreakdown(booking) {
 }
 
 module.exports = {
+  unitPriceOf,
   getBookingTotalQuantity,
   getPromoAmount,
   getSeniorDiscountAmount,

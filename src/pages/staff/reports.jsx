@@ -1,25 +1,33 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import StaffLayout from './staff_layout';
 import { FiClock, FiFileText, FiX, FiUser, FiMapPin } from 'react-icons/fi';
 import SignaturePad from '../../components/signature_pad';
 import ServiceReportPdfModal from '../../components/service_report_pdf_modal';
 import { getFilterPillStyle } from '../../utils/statusColors';
-import { orFallback, withFallback } from '../../services/apiClient';
+import { withFallback } from '../../services/apiClient';
+import LoadError from '../../components/load_error';
 import { listTechnicianJobs } from '../../services/bookingService';
-import { getReportForBooking, submitReport } from '../../services/reportService';
-import { API_BASE } from '../../config/api';
+import { listMyReports, submitReport } from '../../services/reportService';
 import { PHOTO_MAX_BYTES, PHOTO_MIME_TYPES } from '../../constants/reportPhoto';
+import { shrinkPhoto } from '../../utils/photoShrink';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
+import { ProofLink, ProofImage } from '../../components/proof_file';
+import { BackJobBadge, BackJobInfo } from '../../components/back_job_info';
 
 
-function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
+// Today's date as YYYY-MM-DD in Philippine time, the same day the server compares against.
+const todayKey = () => new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+
+function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverError }) {
   const [form, setForm] = useState({
     workSummary: '',
     partsUsed: '',
+    partsNone: false, // the lead confirms no parts were used
     recommendations: '',
+    recommendationsNone: false, // the lead confirms there are no recommendations
     laborHours: '',
-    issueResolution: 'Partial',
-    followUpRequired: false,
+    issueResolution: '', // no default: the lead chooses how it ended
+    followUpRequired: null, // no default: Yes or No must be chosen
     followUpDate: '',
     notes: '',
     preExistingIssueFlagged: false,
@@ -28,18 +36,29 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
     clientConsentSignatureDataUrl: null,
   });
   const [photo, setPhoto] = useState(null);
+  const [preparing, setPreparing] = useState(false);
   const [error, setError] = useState('');
+  // set at once on the first click, before React re-renders, so a fast double click sends one report
+  const sendingRef = useRef(false);
 
-  const handlePhoto = (e) => {
-    const file = e.target.files[0] || null;
-    if (file && !PHOTO_MIME_TYPES.includes(file.type)) {
+  const handlePhoto = async (e) => {
+    const input = e.target;
+    const picked = input.files[0] || null;
+    if (picked && !PHOTO_MIME_TYPES.includes(picked.type)) {
       setError('The photo must be a JPG or PNG image.');
-      e.target.value = '';
+      input.value = '';
       return;
+    }
+    // A phone photo is shrunk first (JPEG, longest side 2000 px), so it fits the 5 MB limit.
+    let file = picked;
+    if (picked) {
+      setPreparing(true);
+      file = await shrinkPhoto(picked);
+      setPreparing(false);
     }
     if (file && file.size > PHOTO_MAX_BYTES) {
       setError('The photo must be 5 MB or smaller.');
-      e.target.value = '';
+      input.value = '';
       return;
     }
     setError('');
@@ -48,10 +67,10 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setForm({
-      ...form,
-      [name]: type === 'checkbox' ? checked : value,
-    });
+    const next = { ...form, [name]: type === 'checkbox' ? checked : value };
+    if (name === 'partsNone' && checked) next.partsUsed = '';
+    if (name === 'recommendationsNone' && checked) next.recommendations = '';
+    setForm(next);
     setError('');
   };
 
@@ -61,8 +80,33 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
       setError('Please provide a summary of the work done.');
       return;
     }
+    if (!form.issueResolution) {
+      setError('Choose how the issue was resolved: Complete, Partial or Unresolved.');
+      return;
+    }
+    if (form.laborHours === '') {
+      setError('Labor hours are required: a number from 0 to 24 in steps of 0.5.');
+      return;
+    }
+    const hours = Number(form.laborHours);
+    if (!(hours >= 0 && hours <= 24)) {
+      setError('Labor hours must be a number from 0 to 24.');
+      return;
+    }
+    if (Math.round(hours * 2) !== hours * 2) {
+      setError('Labor hours must be in steps of 0.5 (for example 1.5).');
+      return;
+    }
+    if (form.followUpRequired === null) {
+      setError('Say whether a follow-up service is needed (Yes or No).');
+      return;
+    }
     if (form.followUpRequired && !form.followUpDate) {
       setError('Please specify a follow-up date if follow-up is required.');
+      return;
+    }
+    if (form.followUpRequired && form.followUpDate < todayKey()) {
+      setError('The follow-up date cannot be in the past.');
       return;
     }
     if (form.preExistingIssueFlagged && !form.preExistingIssueDescription.trim()) {
@@ -78,7 +122,17 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
       setError("The client's signature is required to finalize this report, or attach a photo of the signed paper form.");
       return;
     }
-    onSubmit(form, photo);
+    if (sendingRef.current) return;
+    sendingRef.current = true;
+    // What is sent: "None" where the lead ticked it, and no follow-up date unless the follow-up is Yes.
+    const { partsNone, recommendationsNone, ...answers } = form;
+    const payload = {
+      ...answers,
+      partsUsed: partsNone ? 'None' : form.partsUsed,
+      recommendations: recommendationsNone ? 'None' : form.recommendations,
+      followUpDate: form.followUpRequired ? form.followUpDate : '',
+    };
+    Promise.resolve(onSubmit(payload, photo)).finally(() => { sendingRef.current = false; });
   };
 
   return (
@@ -126,6 +180,12 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
           </div>
         </div>
 
+        {reportItem.isBackJob && (
+          <div className="report-booking-info staff-reports-x1">
+            <BackJobInfo backJob={reportItem.backJob} showReport />
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="tech-profile-edit-form staff-reports-x2">
           {/* Work Summary */}
           <div className="form-group">
@@ -142,11 +202,11 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
             />
           </div>
 
-          {/* Labor Hours & Resolution */}
+          {/* Labor Hours & Resolution: both required */}
           <div className="staff-reports-x5">
             <div className="form-group">
               <label htmlFor="laborHours" className="tech-stat-label">
-                Labor Hours <span className="staff-reports-x6">(Optional)</span>
+                Labor Hours <span className="staff-reports-x3">*</span>
               </label>
               <input
                 type="number"
@@ -164,7 +224,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
 
             <div className="form-group">
               <label htmlFor="issueResolution" className="tech-stat-label">
-                Resolution
+                Resolution <span className="staff-reports-x3">*</span>
               </label>
               <select
                 id="issueResolution"
@@ -173,6 +233,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
                 value={form.issueResolution}
                 onChange={handleChange}
               >
+                <option value="">Choose...</option>
                 <option value="Complete">Complete</option>
                 <option value="Partial">Partial</option>
                 <option value="Unresolved">Unresolved</option>
@@ -180,7 +241,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
             </div>
           </div>
 
-          {/* Parts Used */}
+          {/* Parts Used: optional, with a tick to confirm there were none */}
           <div className="form-group">
             <label htmlFor="partsUsed" className="tech-stat-label">
               Parts Used <span className="staff-reports-x6">(Optional)</span>
@@ -193,26 +254,41 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
               placeholder="e.g. 1x capacitor, refrigerant top-up"
               value={form.partsUsed}
               onChange={handleChange}
+              disabled={form.partsNone}
             />
-          </div>
-
-          {/* Follow-up Checkbox */}
-          <div className="form-group staff-reports-x7">
-            <input
-              type="checkbox"
-              id="followUpRequired"
-              name="followUpRequired"
-              checked={form.followUpRequired}
-              onChange={handleChange}
-              className="staff-reports-x8"
-            />
-            <label htmlFor="followUpRequired" className="tech-stat-label staff-reports-x9">
-              Follow-up service required
+            <label className="staff-reports-x9" htmlFor="partsNone">
+              <input type="checkbox" id="partsNone" name="partsNone" checked={form.partsNone} onChange={handleChange} /> None, no parts were used
             </label>
           </div>
 
-          {/* Conditional Follow-up Date */}
-          {form.followUpRequired && (
+          {/* Follow-up: Yes or No must be chosen */}
+          <fieldset className="form-group">
+            <legend className="tech-stat-label">
+              Follow-up service needed? <span className="staff-reports-x3">*</span>
+            </legend>
+            <label className="staff-reports-x9" htmlFor="followUpYes">
+              <input
+                type="radio"
+                id="followUpYes"
+                name="followUpRequired"
+                checked={form.followUpRequired === true}
+                onChange={() => { setForm({ ...form, followUpRequired: true }); setError(''); }}
+              /> Yes
+            </label>
+            {' '}
+            <label className="staff-reports-x9" htmlFor="followUpNo">
+              <input
+                type="radio"
+                id="followUpNo"
+                name="followUpRequired"
+                checked={form.followUpRequired === false}
+                onChange={() => { setForm({ ...form, followUpRequired: false, followUpDate: '' }); setError(''); }}
+              /> No
+            </label>
+          </fieldset>
+
+          {/* Follow-up date: only when the answer is Yes */}
+          {form.followUpRequired === true && (
             <div className="form-group">
               <label htmlFor="followUpDate" className="tech-stat-label">
                 Follow-up Date <span className="staff-reports-x3">*</span>
@@ -222,13 +298,14 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
                 id="followUpDate"
                 name="followUpDate"
                 className="tech-search-input"
+                min={todayKey()}
                 value={form.followUpDate}
                 onChange={handleChange}
               />
             </div>
           )}
 
-          {/* Recommendations */}
+          {/* Recommendations: optional, with a tick to confirm there were none */}
           <div className="form-group">
             <label htmlFor="recommendations" className="tech-stat-label">
               Recommendations <span className="staff-reports-x6">(Optional)</span>
@@ -240,7 +317,11 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
               placeholder="Preventive maintenance tips, safety notes..."
               value={form.recommendations}
               onChange={handleChange}
+              disabled={form.recommendationsNone}
             />
+            <label className="staff-reports-x9" htmlFor="recommendationsNone">
+              <input type="checkbox" id="recommendationsNone" name="recommendationsNone" checked={form.recommendationsNone} onChange={handleChange} /> None, nothing to recommend
+            </label>
           </div>
 
           {/* Additional Notes */}
@@ -319,10 +400,11 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
               With a photo attached, the signature and name above are no longer required.
             </p>
             <input id="signed-form-photo" type="file" accept="image/jpeg,image/png" onChange={handlePhoto} />
+            {preparing && <p className="sdm-muted" role="status">Preparing photo...</p>}
           </div>
 
-          {error && (
-            <p className="staff-reports-x13">{error}</p>
+          {(error || serverError) && (
+            <p className="staff-reports-x13" role="alert">{error || serverError}</p>
           )}
 
           <div className="staff-reports-x14">
@@ -337,7 +419,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting }) {
             <button
               type="submit"
               className="tech-sort-btn staff-reports-x15"
-              disabled={submitting}
+              disabled={submitting || preparing}
             >
               {submitting ? 'Submitting...' : 'Submit Report'}
             </button>
@@ -407,6 +489,15 @@ function ViewReportModal({ reportItem, onClose }) {
         </div>
 
         <div className="tech-job-detail-grid staff-reports-x16">
+          {report.backJob?.originalBookingId && (
+            <div className="tech-job-detail-cell tech-job-detail-full">
+              <div>
+                <p className="confirmation-detail-label">Back job</p>
+                <p className="confirmation-detail-value">Follows booking {report.backJob.originalBookingId}{report.backJob.originalReportId ? ' and its original report' : ''}</p>
+              </div>
+            </div>
+          )}
+
           {/* Work Summary */}
           <div className="tech-job-detail-cell tech-job-detail-full">
             <span className="confirmation-detail-icon"><FiFileText /></span>
@@ -458,7 +549,7 @@ function ViewReportModal({ reportItem, onClose }) {
                 <span className="confirmation-detail-icon"><FiFileText /></span>
                 <div>
                   <p className="confirmation-detail-label">Follow-up</p>
-                  <p className="confirmation-detail-value">Yes Required</p>
+                  <p className="confirmation-detail-value">Yes</p>
                 </div>
               </div>
               {report.followUpDate && (
@@ -526,9 +617,9 @@ function ViewReportModal({ reportItem, onClose }) {
             <div className="tech-job-detail-cell tech-job-detail-full">
               <div>
                 <p className="confirmation-detail-label">Photo of signed paper form</p>
-                <a href={`${API_BASE}${report.signedFormPhoto}`} target="_blank" rel="noopener noreferrer">
-                  <img src={`${API_BASE}${report.signedFormPhoto}`} alt="Signed paper form" className="report-signed-photo" />
-                </a>
+                <ProofLink path={report.signedFormPhoto}>
+                  <ProofImage path={report.signedFormPhoto} alt="Signed paper form" className="report-signed-photo" />
+                </ProofLink>
               </div>
             </div>
           )}
@@ -585,8 +676,14 @@ function toReportItem(booking, reportData) {
     dueDate: booking.date,
     status: reportData ? 'Completed' : 'Pending',
     report: reportData || null,
+    isBackJob: !!booking.isBackJob,
+    backJob: booking.backJob || null,
   };
 }
+
+// A completed job whose report could not be loaded. It is neither Pending nor Completed: the technician
+// must never be offered "Submit Report" for a job that may already have one.
+const UNKNOWN_STATUS = 'Could not check';
 
 function Reports() {
   const [reports, setReports] = useState([]);
@@ -595,60 +692,68 @@ function Reports() {
   const [activeReport, setActiveReport] = useState(null);
   const [modalMode, setModalMode] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reportsFailed, setReportsFailed] = useState(false);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
+  const loadReports = async () => {
+    try {
+      // First, get all bookings assigned to the technician
+      const bookingsData = await listTechnicianJobs();
+      if (!Array.isArray(bookingsData)) throw new Error('Unexpected jobs reply');
 
+      // A job is waiting for its report while it is In Progress (filing the report is what
+      // completes it). Completed jobs are listed too, so ones finished before this rule
+      // existed that still have no report can get one.
+      // Only the primary lead (the lead of the first pair) files the report, so only their jobs are listed here.
+      const reportableBookings = bookingsData.filter(b => [BOOKING_STATUS.IN_PROGRESS, BOOKING_STATUS.COMPLETED].includes(b.status) && b.myRole === 'Lead' && b.isPrimaryLead !== false);
+
+      // One request for every report, instead of one per completed job.
+      let reportsByBooking = null;
       try {
-        // First, get all bookings assigned to the technician
-        const bookingsData = await orFallback(listTechnicianJobs(), null);
-        
-        if (!Array.isArray(bookingsData)) {
-          setReports([]);
-          return;
-        }
-
-        // A job is waiting for its report while it is In Progress (filing the report is what
-        // completes it). Completed jobs are listed too, so ones finished before this rule
-        // existed that still have no report can get one.
-        // Only the team lead files the report, so only the lead's jobs are listed here.
-        const reportableBookings = bookingsData.filter(b => [BOOKING_STATUS.IN_PROGRESS, BOOKING_STATUS.COMPLETED].includes(b.status) && b.myRole === 'Lead');
-        
-        // For each one, fetch its report from the reports collection
-        const reportPromises = reportableBookings.map(async (booking) => {
-          // An In Progress job cannot have a report yet.
-          if (booking.status === BOOKING_STATUS.IN_PROGRESS) return toReportItem(booking, null);
-          try {
-            // No report found, but booking is completed: the item is listed without one.
-            const reportData = await orFallback(getReportForBooking(booking.bookingId), null);
-            return toReportItem(booking, reportData);
-          } catch (err) {
-            console.error(`Error fetching report for booking ${booking.bookingId}:`, err);
-            return toReportItem(booking, null);
-          }
-        });
-
-        const reportItems = await Promise.all(reportPromises);
-        setReports(reportItems);
-        
+        const mine = await listMyReports();
+        if (!Array.isArray(mine)) throw new Error('Unexpected reports reply');
+        reportsByBooking = new Map(mine.map((r) => [r.bookingId, r]));
       } catch (err) {
         console.error('Failed to load reports', err);
-        setReports([]);
-      } finally {
-        setLoading(false);
+        setReportsFailed(true);
       }
-    };
 
-    fetchData();
+      setReports(reportableBookings.map((booking) => {
+        // An In Progress job cannot have a report yet.
+        if (booking.status === BOOKING_STATUS.IN_PROGRESS) return toReportItem(booking, null);
+        // Reports could not be loaded: we do not know, so it is not shown as Pending.
+        if (!reportsByBooking) return { ...toReportItem(booking, null), status: UNKNOWN_STATUS };
+        return toReportItem(booking, reportsByBooking.get(booking.bookingId) || null);
+      }));
+    } catch (err) {
+      // a failed load is an error state with a Retry, never "No reports in this category"
+      console.error('Failed to load jobs', err);
+      setLoadFailed(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const retryLoad = () => {
+    setLoadFailed(false);
+    setReportsFailed(false);
+    setLoading(true);
+    loadReports();
+  };
+
+  useEffect(() => {
+    loadReports();
   }, []);
 
+  // A job that could not be checked needs attention, so it also shows under Pending (labelled as such).
   const visibleReports =
     filter === 'All'
       ? reports
-      : reports.filter((r) => r.status === filter);
+      : reports.filter((r) => r.status === filter || (filter === 'Pending' && r.status === UNKNOWN_STATUS));
 
   const handleOpenReport = (reportItem) => {
+    setSubmitError('');
     setActiveReport(reportItem);
     setModalMode(reportItem.status === 'Pending' ? 'submit' : 'view');
   };
@@ -660,12 +765,12 @@ function Reports() {
 
   const handleSubmitReport = async (form, photo) => {
     setSubmitting(true);
+    setSubmitError('');
     try {
       // Create report in reports collection
       const data = await submitReport({
         bookingId: activeReport.bookingId,
         ...form,
-        submittedAt: new Date().toISOString()
       }, photo).catch(withFallback('Failed to submit report'));
 
       // Update local state
@@ -678,7 +783,7 @@ function Reports() {
       );
       handleClose();
     } catch (err) {
-      alert(err.message);
+      setSubmitError(err.message || 'Could not submit the report.');
     } finally {
       setSubmitting(false);
     }
@@ -700,9 +805,15 @@ function Reports() {
         ))}
       </div>
 
+      {!loading && !loadFailed && reportsFailed && (
+        <LoadError message="Could not load your service reports, so some jobs cannot be checked." onRetry={retryLoad} />
+      )}
+
       <div className="tech-job-list">
         {loading ? (
           <p className="tech-job-empty">Loading reports...</p>
+        ) : loadFailed ? (
+          <LoadError message="Could not load your reports." onRetry={retryLoad} />
         ) : visibleReports.length === 0 ? (
           <p className="tech-job-empty">No reports in this category.</p>
         ) : (
@@ -710,7 +821,8 @@ function Reports() {
             <div className="tech-job-card tech-report-card" key={i}>
               <div className="tech-job-info">
                 <div className="tech-job-top-row">
-                  <span className={`tech-job-status-badge ${r.status === 'Completed' ? 'tech-status-completed' : 'tech-status-pending'}`}>
+                  {r.isBackJob && <BackJobBadge />}
+                  <span className={`tech-job-status-badge ${r.status === 'Completed' ? 'tech-status-completed' : r.status === UNKNOWN_STATUS ? 'tech-status-cancelled' : 'tech-status-pending'}`}>
                     {r.status}
                   </span>
                 </div>
@@ -729,13 +841,19 @@ function Reports() {
                 <FiClock /> {r.bookingDate}
               </div>
 
-              <button
-                className="tech-job-view-link staff-reports-x21"
-                onClick={() => handleOpenReport(r)}
-              >
-                <FiFileText />{' '}
-                {r.status === 'Pending' ? 'Submit Report' : 'View Report'}
-              </button>
+              {r.status === UNKNOWN_STATUS ? (
+                <button className="tech-job-view-link staff-reports-x21" onClick={retryLoad}>
+                  <FiFileText /> Retry
+                </button>
+              ) : (
+                <button
+                  className="tech-job-view-link staff-reports-x21"
+                  onClick={() => handleOpenReport(r)}
+                >
+                  <FiFileText />{' '}
+                  {r.status === 'Pending' ? 'Submit Report' : 'View Report'}
+                </button>
+              )}
             </div>
           ))
         )}
@@ -747,6 +865,7 @@ function Reports() {
           onClose={handleClose}
           onSubmit={handleSubmitReport}
           submitting={submitting}
+          serverError={submitError}
         />
       )}
 

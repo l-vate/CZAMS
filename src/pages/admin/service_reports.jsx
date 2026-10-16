@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from 'react';
-import { API_BASE } from '../../config/api';
 import { useLocation } from 'react-router-dom';
 import AdminLayout from './admin_layout';
 import { FiClock, FiFileText, FiUser, FiMapPin, FiX, FiEye, FiCheckCircle, FiAlertCircle } from 'react-icons/fi';
@@ -8,8 +7,11 @@ import PersonFilterBanner from '../../components/person_filter_banner';
 import { getUnitsSummary } from '../../utils/bookingPricing';
 import { getFilterPillStyle } from '../../utils/statusColors';
 import { listReports } from '../../services/reportService';
+import { ProofLink, ProofImage } from '../../components/proof_file';
+import { customerLabel } from '../../utils/customerLabel';
 
 
+import { clientGroupOf } from '../../utils/clientGroup';
 // Filter options
 const FILTERS = [
   { key: 'all', label: 'All Reports' },
@@ -233,9 +235,9 @@ function ViewReportModal({ report, onClose }) {
           {report.signedFormPhoto && (
             <div className="report-view-field report-view-field--full">
               <label className="report-view-label">Photo of signed paper form</label>
-              <a href={`${API_BASE}${report.signedFormPhoto}`} target="_blank" rel="noopener noreferrer">
-                <img src={`${API_BASE}${report.signedFormPhoto}`} alt="Signed paper form" className="report-signed-photo" />
-              </a>
+              <ProofLink path={report.signedFormPhoto}>
+                <ProofImage path={report.signedFormPhoto} alt="Signed paper form" className="report-signed-photo" />
+              </ProofLink>
             </div>
           )}
 
@@ -278,7 +280,7 @@ function ViewReportModal({ report, onClose }) {
           reportItem={{
             bookingId: report.bookingId,
             service: report.bookingDetails?.service?.name || 'Service',
-            customer: report.bookingDetails?.customer?.name || 'Customer',
+            customer: customerLabel(report.bookingDetails?.customer, 'Customer'),
             address: report.bookingDetails?.address || '-',
             bookingDate: formatDate(report.bookingDetails?.date),
           }}
@@ -314,7 +316,7 @@ function ReportCard({ report, onViewReport }) {
         </div>
         <div className="report-card__customer">
           <UserIcon />
-          <span>{report.bookingDetails?.customer?.name || 'N/A'}</span>
+          <span>{customerLabel(report.bookingDetails?.customer)}</span>
         </div>
         <div className="report-card__technician">
           <span className="report-card__tech-label">Technician:</span>
@@ -401,7 +403,7 @@ function ServiceReports() {
 
       const matchesClientType =
         activeClientType === 'all' ||
-        (report.bookingDetails?.customer?.clientType || 'Residential') === activeClientType;
+        clientGroupOf(report.bookingDetails?.customer) === activeClientType;
 
       const query = search.trim().toLowerCase();
       const matchesSearch =

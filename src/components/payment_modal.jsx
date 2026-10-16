@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { formatPeso } from '../utils/bookingPricing';
 import { needsReference, normalizeReference, referenceError, REFERENCE_MAX } from '../utils/paymentReference';
+import { shrinkPhoto } from '../utils/photoShrink';
 
 function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], onClose, onSubmit }) {
   const basePrice = form.basePrice || 0;
@@ -22,6 +23,7 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
   const accountDetails = paymentMethods.find((m) => m.name === selectedModeName)?.accountDetails || [];
 
   const [proof, setProof] = useState(null);
+  const [preparing, setPreparing] = useState(false);
   const [fileError, setFileError] = useState('');
   const [referenceNumber, setReferenceNumber] = useState('');
 
@@ -30,23 +32,27 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
   const requiresReference = needsReference(selectedModeName);
   const proofRequired = requiresReference || !selectedModeName;
   const referenceProblem = requiresReference ? referenceError(referenceNumber) : '';
-  const canSubmit = (!proofRequired || !!proof) && !referenceProblem;
+  const canSubmit = (!proofRequired || !!proof) && !referenceProblem && !preparing;
 
   const MAX_SIZE = 5 * 1024 * 1024; // 5MB
   const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 
-  const handleProofChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) {
+  const handleProofChange = async (e) => {
+    const picked = e.target.files[0];
+    if (!picked) {
       setProof(null);
       setFileError('');
       return;
     }
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    if (!ALLOWED_TYPES.includes(picked.type)) {
       setFileError('Only images (JPG, PNG) or PDF files are allowed.');
       setProof(null);
       return;
     }
+    // A phone photo is shrunk first, so a 6 to 10 MB photo fits the 5 MB limit.
+    setPreparing(true);
+    const file = await shrinkPhoto(picked);
+    setPreparing(false);
     if (file.size > MAX_SIZE) {
       setFileError('File is too large. Max size is 5MB.');
       setProof(null);
@@ -115,6 +121,7 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
               onChange={handleProofChange}
             />
           </label>
+          {preparing && <p className="sdm-muted" role="status">Preparing photo...</p>}
           {fileError && (
             <p className="payment-modal-x2">
               {fileError}

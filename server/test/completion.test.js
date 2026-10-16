@@ -20,7 +20,10 @@ test('a Completed cleaning with no completedAt is covered from the fallback date
   const status = getWarrantyStatus({ status: 'Completed', updatedAt, service: { serviceType: 'Cleaning' } });
   assert.equal(status.applicable, true);
   assert.equal(status.workmanship.active, true);
-  assert.equal(Math.round((status.workmanship.expiresAt - updatedAt) / 86400000), 7);
+  // 7 Manila calendar days after the completion day, ending at the end of that day (see utils/warranty.js)
+  const day = new Date(updatedAt.getTime() + 8 * 3600000);
+  const expected = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate() + 7, 23, 59, 59, 999) - 8 * 3600000);
+  assert.equal(status.workmanship.expiresAt.getTime(), expected.getTime());
   // not completed: still nothing is covered
   assert.equal(getWarrantyStatus({ status: 'Approved', updatedAt, service: { serviceType: 'Cleaning' } }).applicable, false);
 });

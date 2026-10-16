@@ -3,13 +3,12 @@ const { NOTIFICATION_TYPE } = require('../constants/notificationTypes');
 const { ROLE } = require('../constants/roles');
 const { REFUND_STATUS } = require('../constants/refundStatus');
 const { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } = require('../constants/paymentStatus');
+const { PAYMENT_MODE } = require('../constants/paymentModes');
 const { BOOKING_STATUS, BOOKING_STATUS_VALUES } = require('../constants/bookingStatus');
 const multer = require('multer');
-const crypto = require('crypto');
-const fs = require('fs');
+const auditSpecs = require('../utils/auditSpecs');
 const express = require('express');
 const router = express.Router();
-const path = require('path');
 const auth = require('../middleware/auth');
 const Booking = require('../models/Booking');
 const User = require('../models/User');
@@ -19,7 +18,7 @@ const { sendNotification, notifyAdmins } = require('../utils/notifications');
 const Report = require('../models/Report');
 const {
   getBookingBasePrice, getBookingUnitsSubtotal, getBookingGrossUnitsSubtotal, getBookingTotalQuantity,
-  getSeniorDiscountAmount, getAppliedDiscount,
+  getSeniorDiscountAmount, getAppliedDiscount, getPaymentBreakdown,
 } = require('../utils/pricing');
 const Promo = require('../models/Promo');
 const { pickBestPromo } = require('../utils/promos');
@@ -27,18 +26,41 @@ const { manilaTodayKey } = require('../utils/timeBlocks');
 const { isWithinServiceArea } = require('../utils/serviceArea');
 const { runBookingStatusCheck } = require('../jobs/bookingStatusJob');
 const { getOrCreateSettings } = require('../utils/paymentSettings');
-const Team = require('../models/Team');
-const { proposeAssignment } = require('../utils/autoAssign');
+const { proposeAssignment, suggestNextDates } = require('../utils/autoAssign');
+const { toTechnicianView } = require('../utils/technicianView');
+const { allowRoles } = require('../middleware/roles');
+const { listFieldTechnicians, hasFieldPosition, isFieldTechnician } = require('../utils/technicians');
+const { toCustomerView } = require('../utils/customerView');
+const { loadBackJobContexts } = require('../utils/backJobContext');
+const BackJob = require('../models/BackJob');
+const { TECHNICIAN_BOOKING_FILTER, isHiddenFromTechnicians } = require('../utils/technicianVisibility');
+const scheduling = require('../constants/scheduling');
+const { createUploader, discardUploads, storeUploads, PROOF_TYPES } = require('../utils/uploadSafety');
+const { KINDS } = require('../storage/fileStore');
+const { withLocks, LockBusyError } = require('../utils/slotLock');
+const { duplicateKey, findActiveDuplicate, DuplicateBookingError } = require('../utils/duplicateBooking');
+const { manilaToday, isAtLeastDaysAhead } = require('../utils/manilaDate');
+const { readFeedback } = require('../utils/feedbackInput');
+const { normalizeContactNumber } = require('../utils/contactNumber');
+const { sendRouteError } = require('../utils/routeErrors');
+const { planPaymentChange, planInPersonPayment, commitPayment } = require('../utils/paymentVerification');
+const { describeChargeChanges } = require('../utils/chargeNotice');
+const { buildPriceSnapshot } = require('../utils/priceSnapshot');
+const { readPaging } = require('../utils/adminInput');
+const { serviceProblem, unitsProblem } = require('../utils/bookingValidation');
+const { downPaymentProblem, balanceProblem, firstPaymentModeProblem, DOWN_PAYMENT_BOOKING_STATUSES, DOWN_PAYMENT_OPEN, BALANCE_BOOKING_STATUSES, BALANCE_OPEN } = require('../utils/paymentGuards');
 const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/queue');
 const { generateBookingId, createWithUniqueBookingId, BookingIdExhaustedError } = require('../utils/bookingId');
 const { invalid, sendProblem } = require('../utils/validation');
 const { readPaymentSubmission, findSameReference } = require('../utils/paymentReference');
 const { resolveRefundAmounts } = require('../utils/refundAmounts');
 const Closure = require('../models/Closure');
-const { closureProblemFor } = require('../utils/closures');
+const { businessDayProblem } = require('../utils/businessDays');
+const { isRealDateKey } = require('../utils/closures');
+const { nextWorkingDayKey, extensionSlotProblem, addDays } = require('../utils/extensionDays');
 const {
-  ASSIGNMENT_POPULATE, getMemberIds, getLeadIds, getRoleFor, getMinTechnicians,
-  memberFilter, findConflictingBooking, getBusyTechnicianIds, getAssignments,
+  ASSIGNMENT_POPULATE, getMemberIds, getLeadIds, getPrimaryLeadId, getRoleFor,
+  memberFilter, findConflictingBooking, getBusyTechnicianIds, getAssignments, staffingProblem,
 } = require('../utils/assignments');
 const { readReason, buildHistoryEntry, viewHistory, idsIn } = require('../utils/assignmentHistory');
 const { resolveClassification } = require('../utils/classification');
@@ -54,60 +76,33 @@ function withWarranty(booking) {
   return obj;
 }
 
+// The same, for a customer: only the fields a customer may see (utils/customerView.js).
+const customerBooking = (booking) => toCustomerView(withWarranty(booking));
+
 // ============================================
 // 1. CONFIGURATION & HELPERS
 // ============================================
 
-// Multer configuration for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = path.join(__dirname, '../uploads/proofs');
-    fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  // Unguessable name: /uploads is served statically, so the filename is the only
-  // thing protecting a payment proof, refund proof, or purchase proof from being
-  // found by guessing a booking ID.
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase().replace(/[^.a-z0-9]/g, '');
-    cb(null, `${crypto.randomBytes(16).toString('hex')}${ext}`);
-  },
+// Payment, ID, refund and purchase proofs: JPG, PNG, WEBP or PDF only, random stored name with an
+// extension from the validated type, first bytes checked (utils/uploadSafety.js). A route writes the files to the file store
+// with storeUploads once everything else has passed.
+const upload = createUploader({
+  allowedTypes: PROOF_TYPES,
 });
 
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image or PDF files are allowed'));
-    }
-  },
-});
+// Validate date: a real YYYY-MM-DD date at least MIN_LEAD_DAYS (constants/scheduling.js) after today in Manila (utils/manilaDate.js),
+// whatever time zone the server runs in.
+const isDateAllowed = (dateStr) => isAtLeastDaysAhead(dateStr, scheduling.MIN_LEAD_DAYS);
 
-// Validate date (must be at least 3 days from today)
-function isDateAllowed(dateStr) {
-  if (!dateStr) return false;
-
-  const minDate = new Date();
-  minDate.setDate(minDate.getDate() + 3);
-  minDate.setHours(0, 0, 0, 0);
-
-  const selected = new Date(dateStr);
-  if (isNaN(selected)) return false;
-  selected.setHours(0, 0, 0, 0);
-
-  return selected >= minDate;
-}
-
-// A phone number the technician can actually call: digits plus the usual
-// separators, 7 to 15 digits. Returns the trimmed value, or null if invalid.
-function normalizeContactNumber(raw) {
-  const value = String(raw || '').trim();
-  if (!/^\+?[0-9\s\-()]+$/.test(value)) return null;
-  const digits = value.replace(/\D/g, '');
-  return digits.length >= 7 && digits.length <= 15 ? value : null;
+// The next dates when enough technicians are free, offered with a refusal. It is a help, never the answer: if looking them
+// up fails or takes more than a few seconds, the refusal goes out without them.
+async function suggestionsFor(booking) {
+  try {
+    return await Promise.race([suggestNextDates(booking), new Promise((resolve) => { setTimeout(() => resolve([]), 4000).unref(); })]);
+  } catch (err) {
+    console.error('Could not look up suggested dates:', err.message);
+    return [];
+  }
 }
 
 // What an admin may do to a booking's status: null when allowed, otherwise { status, message }.
@@ -129,14 +124,20 @@ async function notifyMembers(booking, type, message) {
   await Promise.all(getMemberIds(booking).map((id) => sendNotification(id, type, message, { booking })));
 }
 
-// Local YYYY-MM-DD for today, for same-day-cancellation comparisons against booking.date
-function todayDateString() {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
+// Tells every technician on the job about a change, once each. A booking that was Pending before the change was never
+// visible to its technicians (see utils/technicianVisibility.js), so nobody is told about it. A notification problem
+// never fails the change that was already saved. `wasStatus` is the status before the change.
+async function notifyMembersOfChange(booking, wasStatus, type, message) {
+  if (wasStatus === BOOKING_STATUS.PENDING) return;
+  try {
+    await notifyMembers(booking, type, message);
+  } catch (err) {
+    console.error(`Could not notify the technicians on booking ${booking.bookingId}:`, err);
+  }
 }
+
+// Today's date in Manila as YYYY-MM-DD, for same-day-cancellation comparisons against booking.date.
+const todayDateString = () => manilaToday();
 
 // Opens a refund request on a booking that's about to be cancelled, but only if a
 // down payment was actually on file (cleaning bookings with no down payment simply
@@ -149,12 +150,19 @@ function computeDownPaymentAmount(booking) {
   return Math.round(getBookingUnitsSubtotal(booking) * ((booking.downPaymentPercent || 0) / 100));
 }
 
+// Returns 'opened' when a refund was opened, 'awaiting-check' when the down payment proof is still waiting to be verified (no refund is
+// opened for an amount nobody has checked: the booking is flagged, and the refund opens once an admin verifies the proof), or
+// 'none' when no down payment is on file.
 function openRefundIfEligible(booking) {
+  if (booking.downPaymentPercent > 0 && booking.paymentStatus === PAYMENT_STATUS.TO_VERIFY) {
+    booking.paymentCheckAfterCancel = true;
+    return 'awaiting-check';
+  }
   const hasDownPaymentOnFile =
     booking.downPaymentPercent > 0 &&
-    ![PAYMENT_STATUS.UNPAID, PAYMENT_STATUS.REJECTED].includes(booking.paymentStatus);
+    [PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(booking.paymentStatus);
 
-  if (!hasDownPaymentOnFile) return;
+  if (!hasDownPaymentOnFile) return 'none';
 
   // What the customer actually paid when they submitted it, else (older bookings) the current figure.
   const downPaymentAmount = typeof booking.downPaymentPaidAmount === 'number'
@@ -172,6 +180,7 @@ function openRefundIfEligible(booking) {
     refundableAmount: isSameDay ? undefined : downPaymentAmount,
     requestedAt: new Date(),
   };
+  return 'opened';
 }
 
 // ============================================
@@ -209,8 +218,7 @@ router.get('/public/feedback-summary', async (req, res) => {
       })),
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -225,8 +233,7 @@ router.post('/status-check/run', auth, async (req, res) => {
     const result = await runBookingStatusCheck();
     res.json(result);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -259,8 +266,7 @@ router.get('/technicians/:id/feedback', auth, async (req, res) => {
 
     res.json(reviews);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -272,11 +278,14 @@ router.get('/technicians/:id/feedback', auth, async (req, res) => {
 // customer themselves; an admin creating a walk-in/phone-in booking on someone
 // else's behalf may pass `customer` to book it under that customer's account
 // instead - only admins can do this, everyone else always books under their own id.
-router.post('/', auth, (req, res, next) => {
+router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) => {
   req.generatedBookingId = generateBookingId();
   next();
 }, upload.fields([{ name: 'proof', maxCount: 1 }, { name: 'discountId', maxCount: 1 }]), async (req, res) => {
   try {
+    // A refused request must not leave its uploaded file behind.
+    res.on('finish', () => { if (res.statusCode >= 400) discardUploads(req); });
+
     const {
       service, units: unitsRaw, problemDescription,
       date, time, technician, address,
@@ -286,7 +295,9 @@ router.post('/', auth, (req, res, next) => {
       poNumber, paymentTermsDays, discountType,
     } = req.body;
 
-    if (paymentTermsDays !== undefined && paymentTermsDays !== '' && paymentTermsDays !== null) {
+    // Payment terms are agreed by an admin, never sent by a customer: a customer's paymentTermsDays is ignored. Only an
+    // admin booking a walk-in may give terms here, and they must be 7 to 10 days.
+    if (req.userRole === ROLE.ADMIN && paymentTermsDays !== undefined && paymentTermsDays !== '' && paymentTermsDays !== null) {
       const days = Number(paymentTermsDays);
       if (!Number.isInteger(days) || days < 7 || days > 10) {
         return res.status(400).json({ message: 'Payment terms must be between 7 and 10 days.' });
@@ -299,11 +310,15 @@ router.post('/', auth, (req, res, next) => {
       });
     }
 
-    const closedOnCreate = await closureProblemFor(Closure, date);
+    const closedOnCreate = await businessDayProblem(Closure, date);
     if (closedOnCreate) return sendProblem(res, closedOnCreate);
 
     if (!TIME_BLOCKS.includes(time)) {
       return res.status(400).json({ message: 'Time must be Morning or Afternoon.' });
+    }
+
+    if (typeof address !== 'string' || !address.trim()) {
+      return res.status(400).json({ message: 'Address is required.' });
     }
 
     const cleanContactNumber = normalizeContactNumber(contactNumber);
@@ -311,12 +326,12 @@ router.post('/', auth, (req, res, next) => {
       return res.status(400).json({ message: 'A valid contact number is required (7 to 15 digits).' });
     }
 
+    // A requested technician must be an active field technician (not a secretary, a cashier, an admin or anyone else).
+    // If they are busy that day the system simply chooses someone else (below); the customer is not turned away.
     if (technician) {
-      const conflict = await findConflictingBooking(technician, date, time);
-      if (conflict) {
-        return res.status(400).json({
-          message: `This technician is already booked ${date} (${time}). Choose a different technician or time.`
-        });
+      const requested = typeof technician === 'string' ? await User.findById(technician).select('role isActive position') : null;
+      if (!isFieldTechnician(requested)) {
+        return res.status(400).json({ message: 'That technician cannot be requested. Choose a technician from the list, or leave it open.' });
       }
     }
 
@@ -341,6 +356,21 @@ router.post('/', auth, (req, res, next) => {
       brandModel: u.brandModel || '',
     }));
 
+    // The booking must fit its service: the service exists and is open for booking, a cleaning booking uses the tier its
+    // two answers lead to, and every unit has a known type, a whole quantity and a price (utils/bookingValidation.js).
+    const serviceDoc = await Service.findById(service).select('name serviceType isActive isArchived hiddenFromDirectSelection price unitTypePricing');
+    const serviceIssue = await serviceProblem({
+      service: serviceDoc,
+      cleaningServices: serviceDoc?.serviceType === SERVICE_TYPE.CLEANING
+        ? await Service.find({ serviceType: SERVICE_TYPE.CLEANING, isActive: { $ne: false }, isArchived: { $ne: true } }).select('name price')
+        : [],
+      answers: { lastCleanedOver6MonthsAgo, isActivelyLeaking },
+      isAdmin: req.userRole === ROLE.ADMIN,
+    });
+    if (serviceIssue) return sendProblem(res, serviceIssue);
+    const unitIssue = await unitsProblem(units, serviceDoc);
+    if (unitIssue) return sendProblem(res, unitIssue);
+
     // Warranty Tracking Module: a client-supplied unit on an installation booking
     // has no Unit Warranty, so a signed waiver acknowledging that is required.
     const isClientSuppliedUnit = clientSuppliedUnit === 'true' || clientSuppliedUnit === true;
@@ -356,8 +386,13 @@ router.post('/', auth, (req, res, next) => {
     let bookingCustomer = null;
     if (req.userRole === ROLE.ADMIN && customer) {
       bookingCustomer = await User.findById(customer);
-      if (!bookingCustomer) {
+      // A walk-in booking belongs to a customer account: one that exists, is active, and is a customer (not a
+      // technician, an admin or a deactivated account).
+      if (!bookingCustomer || bookingCustomer.role !== ROLE.CUSTOMER) {
         return res.status(400).json({ message: 'Selected customer account not found.' });
+      }
+      if (bookingCustomer.isActive === false) {
+        return res.status(400).json({ message: 'That customer account is deactivated. Activate it first, or choose another customer.' });
       }
       bookingCustomerId = customer;
       isAdminWalkIn = true;
@@ -371,6 +406,15 @@ router.post('/', auth, (req, res, next) => {
     // isCommercial anyway.
     const isCommercial = bookingCustomer?.clientType === 'Commercial';
 
+    // The terms on this booking: the ones the admin agreed for the account, or (an admin walk-in only) the ones the admin
+    // typed. A commercial client with no terms pays a down payment like everyone else.
+    const agreedTerms = bookingCustomer?.agreedPaymentTermsDays;
+    let termsDays = null;
+    if (isCommercial) {
+      if (Number.isInteger(agreedTerms) && agreedTerms >= 7 && agreedTerms <= 10) termsDays = agreedTerms;
+      else if (req.userRole === ROLE.ADMIN && paymentTermsDays) termsDays = Number(paymentTermsDays);
+    }
+
     // Down payment and payment modes must come from what admin has configured in
     // Payment Settings. 0% is a perk, not a configured option: only a Return
     // customer, or a Commercial booking billed on payment terms, may use it.
@@ -383,7 +427,7 @@ router.post('/', auth, (req, res, next) => {
       return res.status(400).json({ message: 'A down payment option is required.' });
     }
     if (!allowedPercents.includes(dpPercent)) {
-      const hasPaymentTerms = isCommercial && !!paymentTermsDays;
+      const hasPaymentTerms = termsDays !== null;
       const zeroAllowed = dpPercent === 0 &&
         (hasPaymentTerms || (await resolveClassification(bookingCustomer)) === 'Return');
       if (!zeroAllowed) {
@@ -393,6 +437,11 @@ router.post('/', auth, (req, res, next) => {
             : `Down payment must be one of: ${allowedPercents.join('%, ')}%.`
         });
       }
+    }
+    // A customer's first payment cannot be cash or cheque, whatever the form offers. An admin walk-in may record them.
+    if (req.userRole !== ROLE.ADMIN) {
+      const firstModeProblem = firstPaymentModeProblem(paymentMode);
+      if (firstModeProblem) return sendProblem(res, firstModeProblem);
     }
     if (dpPercent > 0 && !allowedModes.includes(paymentMode)) {
       return res.status(400).json({ message: 'Choose a valid payment mode.' });
@@ -445,55 +494,51 @@ router.post('/', auth, (req, res, next) => {
         : { type: discountType, idFile: discountIdPath, status: 'Pending', requestedAt: now };
     }
 
-    // A walk-in booking's admin is physically/verbally confirming payment on the
-    // spot, so with no proof to check it's marked paid immediately instead of
-    // sitting in the Payments queue looking like an unresolved to-verify item with
-    // nothing to review. If the admin did attach proof (e.g. a GCash screenshot),
-    // it still goes through the normal to_verify review like any other booking.
-    // A 0% down payment (the Customer Classification return-customer perk) is the
-    // one case where nothing was actually collected, so it stays 'Unpaid' either way.
-    let paymentStatus;
-    if (proofFile) {
-      paymentStatus = PAYMENT_STATUS.TO_VERIFY;
-    } else if (isAdminWalkIn && Number(downPaymentPercent) > 0) {
-      paymentStatus = Number(downPaymentPercent) >= 100 ? PAYMENT_STATUS.FULLY_PAID : PAYMENT_STATUS.PARTIALLY_PAID;
-    } else {
-      paymentStatus = PAYMENT_STATUS.UNPAID;
-    }
+    // A booking is never marked paid just because an admin made it. Money received in person is recorded afterwards, on
+    // purpose, with the method, the amount and who received it (PATCH /:bookingId/record-payment). A proof attached here
+    // goes through the normal check like any other.
+    const paymentStatus = proofFile ? PAYMENT_STATUS.TO_VERIFY : PAYMENT_STATUS.UNPAID;
 
     const withinServiceArea = isWithinServiceArea(address);
 
     // Guard against stale cleaning-tier answers riding along onto a booking for
     // a different (or no longer Cleaning) service - the client also resets these
     // on service switch, but this is the actual enforcement point.
-    const selectedService = await Service.findById(service).select('serviceType');
-    const isCleaningService = selectedService?.serviceType === SERVICE_TYPE.CLEANING;
+    const isCleaningService = serviceDoc.serviceType === SERVICE_TYPE.CLEANING;
 
-    const queueRank = await nextQueueRank(); // last in line: first come, first served
-    const booking = await createWithUniqueBookingId((bookingId) => Booking.create({
-      bookingId,
-      queueRank,
-      customer: bookingCustomerId,
-      service, units, problemDescription,
-      date, time, requestedTechnician: technician || undefined, address, contactNumber: cleanContactNumber,
-      downPaymentPercent, paymentMode, paymentMode2,
-      paymentStatus, proofFile, referenceNumber: paymentSubmission.reference,
-clientSuppliedUnit: isClientSuppliedUnit,
-      unitWaiver: isClientSuppliedUnit ? {
-        acknowledged: true,
-        customerName: unitWaiverName.trim(),
-        acknowledgedAt: new Date(),
-      } : undefined,
-      serviceAreaCheck: { withinArea: withinServiceArea, checkedAt: new Date() },
-      cleaningTierAnswers: (isCleaningService && (lastCleanedOver6MonthsAgo !== undefined || isActivelyLeaking !== undefined)) ? {
-        lastCleanedOver6MonthsAgo: lastCleanedOver6MonthsAgo === 'true' || lastCleanedOver6MonthsAgo === true,
-        isActivelyLeaking: isActivelyLeaking === 'true' || isActivelyLeaking === true,
-      } : undefined,
-      isCommercial,
-      poNumber: isCommercial && poNumber ? String(poNumber).trim() : null,
-      paymentTermsDays: isCommercial && paymentTermsDays ? Number(paymentTermsDays) : null,
-      ...(discount ? { discount } : {}),
-    }), { firstId: req.generatedBookingId });
+    // Everything has passed. The check for an identical booking and the insert happen while holding one lock (utils/slotLock.js), so
+    // two copies sent at the same moment (a double click) take turns: the second sees the first and is refused. The files are written
+    // to the store only once the booking is certain to be made, and removed again if it cannot be saved.
+    const booking = await withLocks([duplicateKey({ customer: bookingCustomerId, date, time, service })], async () => {
+      if (await findActiveDuplicate(Booking, { customer: bookingCustomerId, date, time, service, units })) throw new DuplicateBookingError();
+      await storeUploads(req, { kind: (file) => (file.fieldname === 'discountId' ? KINDS.ID_PHOTO : KINDS.PROOF), bookingId: req.generatedBookingId });
+      const queueRank = await nextQueueRank(); // last in line: first come, first served
+      return createWithUniqueBookingId((bookingId) => Booking.create({
+        bookingId,
+        queueRank,
+        customer: bookingCustomerId,
+        service, units, problemDescription,
+        priceSnapshot: buildPriceSnapshot(serviceDoc, units),
+        date, time, requestedTechnician: technician || undefined, address: address.trim(), contactNumber: cleanContactNumber,
+        downPaymentPercent, paymentMode, paymentMode2,
+        paymentStatus, proofFile, referenceNumber: paymentSubmission.reference,
+  clientSuppliedUnit: isClientSuppliedUnit,
+        unitWaiver: isClientSuppliedUnit ? {
+          acknowledged: true,
+          customerName: unitWaiverName.trim(),
+          acknowledgedAt: new Date(),
+        } : undefined,
+        serviceAreaCheck: { withinArea: withinServiceArea, checkedAt: new Date() },
+        cleaningTierAnswers: (isCleaningService && (lastCleanedOver6MonthsAgo !== undefined || isActivelyLeaking !== undefined)) ? {
+          lastCleanedOver6MonthsAgo: lastCleanedOver6MonthsAgo === 'true' || lastCleanedOver6MonthsAgo === true,
+          isActivelyLeaking: isActivelyLeaking === 'true' || isActivelyLeaking === true,
+        } : undefined,
+        isCommercial,
+        poNumber: isCommercial ? (String(poNumber ?? '').trim().slice(0, 40) || null) : null,
+        paymentTermsDays: termsDays,
+        ...(discount ? { discount } : {}),
+      }), { firstId: req.generatedBookingId });
+    });
 
     const populated = await booking.populate('service');
 
@@ -531,11 +576,9 @@ clientSuppliedUnit: isClientSuppliedUnit,
       const basePrice = getBookingBasePrice(populated);
       populated.vatAmount = Math.round(basePrice * 0.12);
     }
-    // Remember what the down payment came to now, while the totals are what the customer saw.
-    const downPaymentOnFile = populated.downPaymentPercent > 0
-      && [PAYMENT_STATUS.TO_VERIFY, PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(populated.paymentStatus);
-    if (downPaymentOnFile) populated.downPaymentPaidAmount = computeDownPaymentAmount(populated);
-    if (isCommercial || discountApprovedNow || bestPromo || downPaymentOnFile) {
+    // The amount of a down payment on file is recorded when it is verified or received, never from a submission nobody
+    // has checked.
+    if (isCommercial || discountApprovedNow || bestPromo) {
       await populated.save();
     }
 
@@ -554,11 +597,29 @@ clientSuppliedUnit: isClientSuppliedUnit,
       { booking: populated }
     );
 
-    res.status(201).json(withWarranty(populated));
+    // The system proposes who will do it: the technician the customer asked for if they are free, otherwise the usual
+    // choice. It is only a proposal: hidden from the customer and from the technicians until the admin approves. A
+    // failure here never fails the booking, it just stays unassigned for the admin to assign by hand.
+    if (!isAdminWalkIn) {
+      await notifyAdmins(
+        NOTIFICATION_TYPE.BOOKING_NEW,
+        `New booking ${populated.bookingId} for ${populated.service?.name || 'a service'} on ${populated.date}, ${populated.time}${bookingCustomer?.name ? ` from ${bookingCustomer.name}` : ''}.`,
+        { booking: populated }
+      );
+    }
+
+    const auto = await autoAssignNewBooking(populated);
+
+    // an admin booking for a walk-in sees everything, and the dates when someone is free if nobody was free that day; a
+    // customer only what is theirs to see
+    res.status(201).json(req.userRole === ROLE.ADMIN
+      ? { ...withWarranty(populated), ...(auto.suggestedDates.length > 0 ? { suggestedDates: auto.suggestedDates } : {}) }
+      : customerBooking(populated));
   } catch (err) {
-    console.error(err);
-    if (err instanceof BookingIdExhaustedError) return res.status(500).json({ message: err.message });
-    res.status(500).json({ message: 'Server error' });
+    if (err instanceof BookingIdExhaustedError) { console.error(err); return res.status(500).json({ message: err.message }); }
+    if (err instanceof DuplicateBookingError) return res.status(409).json({ message: err.message });
+    if (err instanceof LockBusyError) return res.status(503).json({ message: err.message });
+    sendRouteError(res, err);
   }
 });
 
@@ -575,10 +636,9 @@ router.get('/mine', auth, async (req, res) => {
       obj.warranty = getWarrantyStatus(b);
       return obj;
     });
-    res.json(enriched);
+    res.json(enriched.map(toCustomerView));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -588,6 +648,10 @@ router.get('/mine', auth, async (req, res) => {
 // (this route used to sit after it and always 404'd "Booking not found").
 router.get('/busy-technicians', auth, async (req, res) => {
   try {
+    // The booking form (customer and admin walk-in) uses this. A technician does not need it.
+    if (req.userRole === ROLE.STAFF) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
     const { date, time } = req.query;
     if (!date) return res.status(400).json({ message: 'Date is required' });
 
@@ -600,8 +664,7 @@ router.get('/busy-technicians', auth, async (req, res) => {
 
     res.json({ busyTechIds });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -615,8 +678,7 @@ router.get('/queue', auth, async (req, res) => {
     const queue = await getQueue();
     res.json(queue.map((item) => ({ ...item, booking: withWarranty(item.booking) })));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -631,7 +693,7 @@ router.get('/technician-workload', auth, async (req, res) => {
     }
 
     const today = todayDateString();
-    const technicians = await User.find({ role: ROLE.STAFF, isActive: true }).select('name').sort({ name: 1 });
+    const technicians = (await listFieldTechnicians(User, 'name')).sort((a, b) => String(a.name).localeCompare(String(b.name)));
     const bookings = await Booking.find({
       ...memberFilter(technicians.map((t) => t._id)),
       status: { $in: [BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS] },
@@ -650,8 +712,7 @@ router.get('/technician-workload', auth, async (req, res) => {
 
     res.json(rows);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -667,10 +728,9 @@ router.get('/:bookingId', auth, async (req, res) => {
 
     const obj = booking.toObject();
     obj.warranty = getWarrantyStatus(booking);
-    res.json(obj);
+    res.json(toCustomerView(obj));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -678,7 +738,7 @@ router.get('/:bookingId', auth, async (req, res) => {
 // refund request (Cancellation, Rescheduling, and Refund Module) - same-day
 // cancellations get flagged so the dispatch/transportation cost can be deducted
 // before an admin processes it; pre-service cancellations refund in full.
-router.patch('/:bookingId/cancel', auth, async (req, res) => {
+router.patch('/:bookingId/cancel', auth, auditSpecs.customerCancel, allowRoles(ROLE.CUSTOMER), async (req, res) => {
   try {
     const booking = await Booking.findOne({
       bookingId: req.params.bookingId,
@@ -694,19 +754,29 @@ router.patch('/:bookingId/cancel', auth, async (req, res) => {
       return res.status(400).json({ message: 'This booking can no longer be cancelled.' });
     }
 
-    openRefundIfEligible(booking);
+    const refundOutcome = openRefundIfEligible(booking);
 
+    const statusBeforeCancel = booking.status;
     booking.status = BOOKING_STATUS.CANCELLED;
     booking.cancelledAt = new Date();
     booking.cancelledBy = 'customer';
     await booking.save();
 
+    // the technicians on an Approved job are told it will not happen
+    await notifyMembersOfChange(booking, statusBeforeCancel, NOTIFICATION_TYPE.BOOKING_CANCELLED, `Booking ${booking.bookingId} (${booking.date}, ${booking.time}) was cancelled. You no longer need to attend.`);
+
+    // Every admin is told once: with a refund waiting, the refund notice already says the booking was cancelled; otherwise a
+    // plain cancellation notice.
     if (booking.refund?.status === REFUND_STATUS.PENDING) {
       await notifyAdmins(
         NOTIFICATION_TYPE.REFUND_REQUESTED,
         `Booking ${booking.bookingId} was cancelled by the customer and a refund request is waiting for review${booking.refund.isSameDay ? ' (same-day cancellation, deduction needed)' : ''}.`,
         { booking }
       );
+    } else if (refundOutcome === 'awaiting-check') {
+      await notifyAdmins(NOTIFICATION_TYPE.PAYMENT_SUBMITTED, `Booking ${booking.bookingId} was cancelled by the customer while its down payment proof is still waiting. Verify or reject the proof; a refund opens once it is verified.`, { booking });
+    } else {
+      await notifyAdmins(NOTIFICATION_TYPE.BOOKING_CANCELLED, `Booking ${booking.bookingId} was cancelled by the customer.`, { booking });
     }
 
     const populated = await booking.populate([
@@ -714,62 +784,140 @@ router.patch('/:bookingId/cancel', auth, async (req, res) => {
       { path: 'technician', select: 'name' },
       ...ASSIGNMENT_POPULATE,
     ]);
-    res.json(withWarranty(populated));
+    res.json(customerBooking(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
-// Customer: Submit/upload initial down payment proof
-router.patch('/:bookingId/pay', auth, upload.single('proof'), async (req, res) => {
+// Customer: Submit/upload initial down payment proof. Only for the owner, only while the booking is Pending or
+// Approved, and only while no proof is waiting or verified (nothing yet, or the admin rejected the last one). The
+// status change is one conditional update, so two submissions at once cannot both pass, and a verified proof is
+// never overwritten. The amount on file is not touched here: it is set when the admin verifies the payment.
+router.patch('/:bookingId/pay', auth, allowRoles(ROLE.CUSTOMER), upload.single('proof'), async (req, res) => {
+  const refuse = (problem) => { discardUploads(req); return sendProblem(res, problem); };
   try {
     const proofFile = req.file ? `/uploads/proofs/${req.file.filename}` : undefined;
 
     const booking = await Booking.findOne({ bookingId: req.params.bookingId, customer: req.userId }).populate('service');
-    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    if (!booking) { discardUploads(req); return res.status(404).json({ message: 'Booking not found' }); }
+
+    const stateProblem = downPaymentProblem(booking);
+    if (stateProblem) return refuse(stateProblem);
 
     const submission = readPaymentSubmission({
       mode: booking.paymentMode, reference: req.body.referenceNumber, hasProof: !!proofFile, strict: true,
     });
-    if (submission.problem) return sendProblem(res, submission.problem);
+    if (submission.problem) return refuse(submission.problem);
 
-    booking.paymentStatus = PAYMENT_STATUS.TO_VERIFY;
-    if (proofFile) booking.proofFile = proofFile;
-    if (submission.reference) booking.referenceNumber = submission.reference;
-    // The amount submitted now, from the totals as they are now.
-    if (booking.downPaymentPercent > 0) booking.downPaymentPaidAmount = computeDownPaymentAmount(booking);
-    await booking.save();
+    await storeUploads(req, { kind: KINDS.PROOF, bookingId: booking.bookingId });
+    const updated = await Booking.findOneAndUpdate(
+      {
+        _id: booking._id,
+        customer: req.userId,
+        status: { $in: DOWN_PAYMENT_BOOKING_STATUSES },
+        paymentStatus: { $in: DOWN_PAYMENT_OPEN },
+      },
+      { $set: {
+        paymentStatus: PAYMENT_STATUS.TO_VERIFY,
+        ...(proofFile ? { proofFile } : {}),
+        ...(submission.reference ? { referenceNumber: submission.reference } : {}),
+      } },
+      { new: true }
+    ).populate('service');
+    if (!updated) return refuse(invalid('Your payment could not be saved because the booking just changed. Reload and check its status.', 409));
 
-    res.json(withWarranty(booking));
+    await notifyAdmins(NOTIFICATION_TYPE.PAYMENT_SUBMITTED, `Booking ${updated.bookingId}: the customer sent a down payment proof to verify.`, { booking: updated });
+    res.json(customerBooking(updated));
   } catch (err) {
+    discardUploads(req);
     console.error(err);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Customer: Submit/upload final balance payment proof
-router.patch('/:bookingId/pay-balance', auth, upload.single('proof'), async (req, res) => {
+// Customer: Submit/upload final balance payment proof. Only for the owner, only when a balance is really due (the
+// down payment is verified and the balance is not waiting or verified), on an Approved, In Progress or Completed
+// booking. Same atomic update and same file cleanup as the down payment.
+router.patch('/:bookingId/pay-balance', auth, allowRoles(ROLE.CUSTOMER), upload.single('proof'), async (req, res) => {
+  const refuse = (problem) => { discardUploads(req); return sendProblem(res, problem); };
   try {
     const proofFile = req.file ? `/uploads/proofs/${req.file.filename}` : undefined;
 
     const booking = await Booking.findOne({ bookingId: req.params.bookingId, customer: req.userId }).populate('service');
-    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    if (!booking) { discardUploads(req); return res.status(404).json({ message: 'Booking not found' }); }
+
+    const stateProblem = balanceProblem(booking, getPaymentBreakdown(booking).balance);
+    if (stateProblem) return refuse(stateProblem);
 
     const submission = readPaymentSubmission({
       mode: booking.paymentMode2, reference: req.body.referenceNumber, hasProof: !!proofFile, strict: true,
     });
-    if (submission.problem) return sendProblem(res, submission.problem);
+    if (submission.problem) return refuse(submission.problem);
 
-    booking.balancePaymentStatus = BALANCE_PAYMENT_STATUS.TO_VERIFY;
-    if (proofFile) booking.balanceProofFile = proofFile;
-    if (submission.reference) booking.balanceReferenceNumber = submission.reference;
-    await booking.save();
+    await storeUploads(req, { kind: KINDS.PROOF, bookingId: booking.bookingId });
+    const updated = await Booking.findOneAndUpdate(
+      {
+        _id: booking._id,
+        customer: req.userId,
+        status: { $in: BALANCE_BOOKING_STATUSES },
+        balancePaymentStatus: { $in: BALANCE_OPEN },
+      },
+      { $set: {
+        balancePaymentStatus: BALANCE_PAYMENT_STATUS.TO_VERIFY,
+        ...(proofFile ? { balanceProofFile: proofFile } : {}),
+        ...(submission.reference ? { balanceReferenceNumber: submission.reference } : {}),
+      } },
+      { new: true }
+    ).populate('service');
+    if (!updated) return refuse(invalid('Your payment could not be saved because the booking just changed. Reload and check its status.', 409));
 
-    res.json(withWarranty(booking));
+    await notifyAdmins(NOTIFICATION_TYPE.PAYMENT_SUBMITTED, `Booking ${updated.bookingId}: the customer sent a balance payment proof to verify.`, { booking: updated });
+    res.json(customerBooking(updated));
   } catch (err) {
+    discardUploads(req);
     console.error(err);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: record a payment received in person (cash, cheque, or GCash or a bank transfer shown at the counter). Nothing is
+// verified until the admin says so here: the method, the amount and an optional reference or cheque number are stored with
+// who received it and when (paymentEvents), and the payment becomes Verified because the admin is the one verifying it.
+// Same state rules and the same one-step conditional update as verifying a customer's proof (utils/paymentVerification.js).
+router.patch('/:bookingId/record-payment', auth, auditSpecs.recordPayment, allowRoles(ROLE.ADMIN), async (req, res) => {
+  try {
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId }).populate('service');
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    const planned = planInPersonPayment(booking, {
+      track: req.body.track, method: req.body.method, amount: req.body.amount, reference: req.body.reference,
+      allowedMethods: Object.values(PAYMENT_MODE),
+    });
+    if (planned.problem) return sendProblem(res, planned.problem);
+
+    const actor = { id: req.userId, name: (await User.findById(req.userId).select('name'))?.name || '' };
+    const committed = await commitPayment(Booking, booking, planned.plan, actor);
+    if (!committed) {
+      return res.status(409).json({ message: 'This payment was just changed by someone else, or the booking was cancelled. Reload and check its status.' });
+    }
+
+    await sendNotification(
+      booking.customer,
+      NOTIFICATION_TYPE.PAYMENT_VERIFIED,
+      `Your ${planned.plan.track === 'balance' ? 'balance ' : ''}payment for booking ${booking.bookingId} was received in person and recorded. Thank you!`,
+      { booking }
+    );
+
+    const populated = await committed.populate([
+      { path: 'service' },
+      { path: 'customer', select: 'name email phone clientType companyName representativeName' },
+      { path: 'technician', select: 'name' },
+      ...ASSIGNMENT_POPULATE,
+    ]);
+    res.json(withWarranty(populated));
+  } catch (err) {
+    sendRouteError(res, err);
   }
 });
 
@@ -783,16 +931,18 @@ router.get('/:bookingId/reference-duplicates', auth, async (req, res) => {
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
     res.json({ duplicates: await findSameReference(Booking, booking) });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
 // Customer: ask for the Senior Citizen / PWD discount on a booking they already made. Same ID
 // upload and same admin approval flow as asking at booking time. Allowed while the booking is
 // Pending or Approved, and only if there is no request yet or the last one was rejected.
-router.patch('/:bookingId/discount/request', auth, upload.single('discountId'), async (req, res) => {
+router.patch('/:bookingId/discount/request', auth, allowRoles(ROLE.CUSTOMER), upload.single('discountId'), async (req, res) => {
   try {
+    // A refused request must not leave its uploaded file behind.
+    res.on('finish', () => { if (res.statusCode >= 400) discardUploads(req); });
+
     const { discountType } = req.body;
     if (discountType !== 'Senior' && discountType !== 'PWD') {
       return res.status(400).json({ message: 'Choose either Senior Citizen or PWD for the discount.' });
@@ -811,6 +961,7 @@ router.patch('/:bookingId/discount/request', auth, upload.single('discountId'), 
       return res.status(400).json({ message: 'This booking already has a discount request.' });
     }
 
+    await storeUploads(req, { kind: KINDS.ID_PHOTO, bookingId: booking.bookingId });
     booking.discount = { type: discountType, idFile: `/uploads/proofs/${req.file.filename}`, status: 'Pending', requestedAt: new Date() };
     await booking.save();
 
@@ -825,10 +976,9 @@ router.patch('/:bookingId/discount/request', auth, upload.single('discountId'), 
       { path: 'technician', select: 'name' },
       ...ASSIGNMENT_POPULATE,
     ]);
-    res.json(withWarranty(populated));
+    res.json(customerBooking(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -836,7 +986,7 @@ router.patch('/:bookingId/discount/request', auth, upload.single('discountId'), 
 // Settings at this moment and is frozen on the booking. Nothing is refunded
 // automatically: if a down payment was already verified, it is recorded so the balance
 // is simply lower (see getPaymentBreakdown in utils/pricing.js).
-router.patch('/:bookingId/discount/approve', auth, async (req, res) => {
+router.patch('/:bookingId/discount/approve', auth, auditSpecs.discountApprove, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -848,8 +998,12 @@ router.patch('/:bookingId/discount/approve', auth, async (req, res) => {
     if (booking.discount?.status !== 'Pending') {
       return res.status(400).json({ message: 'There is no pending discount request on this booking.' });
     }
+    // A discount changes what is owed, so it cannot be approved once the job is done or the booking is cancelled.
     if (booking.status === BOOKING_STATUS.CANCELLED) {
-      return res.status(400).json({ message: 'This booking is cancelled.' });
+      return res.status(400).json({ message: 'This booking is cancelled, so a discount cannot be approved on it.' });
+    }
+    if (booking.status === BOOKING_STATUS.COMPLETED) {
+      return res.status(400).json({ message: 'This booking is already completed, so a discount can no longer be approved on it.' });
     }
 
     const settings = await getOrCreateSettings();
@@ -895,14 +1049,13 @@ router.patch('/:bookingId/discount/approve', auth, async (req, res) => {
     ]);
     res.json(withWarranty(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
 // Admin: reject a pending discount request. A short reason is required and is shown to
 // the customer. The booking total stays exactly as it was.
-router.patch('/:bookingId/discount/reject', auth, async (req, res) => {
+router.patch('/:bookingId/discount/reject', auth, auditSpecs.discountReject, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -944,26 +1097,26 @@ router.patch('/:bookingId/discount/reject', auth, async (req, res) => {
     ]);
     res.json(withWarranty(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
 // Admin: move a Pending booking in the queue. Body: { action: 'up' | 'down' | 'top' }.
 // Answers with the whole queue so the screen can replace its list in one step.
-router.patch('/:bookingId/queue', auth, async (req, res) => {
+router.patch('/:bookingId/queue', auth, auditSpecs.queueMove, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
     }
     const result = await reorderQueue(req.params.bookingId, req.body.action);
     if (result.error) return res.status(400).json({ message: result.error });
+    // the proposals for that date and time block follow the new order
+    await reproposeBlock(req.params.bookingId, req.userId);
 
     const queue = await getQueue();
     res.json(queue.map((item) => ({ ...item, booking: withWarranty(item.booking) })));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -971,8 +1124,11 @@ router.patch('/:bookingId/queue', auth, async (req, res) => {
 // backs a future 5yr/1yr Unit Warranty claim, mirrors the client-supplied-unit
 // waiver's role but for the opposite case. Admin-side (not the customer's), since
 // CZA is the one that made the sale and holds the record of it.
-router.patch('/:bookingId/unit-purchase-proof', auth, upload.single('proof'), async (req, res) => {
+router.patch('/:bookingId/unit-purchase-proof', auth, auditSpecs.unitPurchaseProof, allowRoles(ROLE.ADMIN), upload.single('proof'), async (req, res) => {
   try {
+    // A refused request must not leave its uploaded file behind.
+    res.on('finish', () => { if (res.statusCode >= 400) discardUploads(req); });
+
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
     }
@@ -980,6 +1136,9 @@ router.patch('/:bookingId/unit-purchase-proof', auth, upload.single('proof'), as
       return res.status(400).json({ message: 'A proof-of-purchase file is required.' });
     }
 
+    if (!(await Booking.findOne({ bookingId: req.params.bookingId }))) return res.status(404).json({ message: 'Booking not found' });
+
+    await storeUploads(req, { kind: KINDS.PURCHASE_PROOF, bookingId: req.params.bookingId });
     const booking = await Booking.findOneAndUpdate(
       { bookingId: req.params.bookingId },
       { unitPurchaseProof: `/uploads/proofs/${req.file.filename}` },
@@ -989,13 +1148,14 @@ router.patch('/:bookingId/unit-purchase-proof', auth, upload.single('proof'), as
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
     res.json(withWarranty(booking));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
-// Request a reschedule (or apply directly if still Pending)
-router.patch('/:bookingId/reschedule', auth, async (req, res) => {
+// Request a reschedule. Only a Pending booking (the date changes straight away) or an Approved one (the admin must
+// approve the new date) can be moved. An In Progress, Completed or Cancelled booking cannot. A booking has one open
+// request at a time: a second one while the first waits is refused and does not notify the admins again.
+router.patch('/:bookingId/reschedule', auth, allowRoles(ROLE.CUSTOMER), async (req, res) => {
   try {
     const { date, time } = req.body;
 
@@ -1005,82 +1165,86 @@ router.patch('/:bookingId/reschedule', auth, async (req, res) => {
       });
     }
 
-    const closedOnReschedule = await closureProblemFor(Closure, date);
+    const closedOnReschedule = await businessDayProblem(Closure, date);
     if (closedOnReschedule) return sendProblem(res, closedOnReschedule);
 
     if (!TIME_BLOCKS.includes(time)) {
       return res.status(400).json({ message: 'Time must be Morning or Afternoon.' });
     }
 
-    const booking = await Booking.findOne({ 
-      bookingId: req.params.bookingId, 
-      customer: req.userId 
+    const booking = await Booking.findOne({
+      bookingId: req.params.bookingId,
+      customer: req.userId
     });
-    
+
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
-    let needsAdminApproval = false;
-
-    if (booking.status === BOOKING_STATUS.PENDING) {
-      const conflict = await findConflictingBooking(getMemberIds(booking), date, time, booking.bookingId);
-      if (conflict) {
-        return res.status(409).json({
-          message: 'The assigned technician is not available at that date and time. Please choose a different date or time.'
-        });
-      }
-      booking.date = date;
-      booking.time = time;
-      booking.rescheduleRequest = { 
-        requestedDate: null, 
-        requestedTime: null, 
-        status: 'None' 
-      };
-    } else if ([BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status)) {
-      booking.rescheduleRequest = { 
-        requestedDate: date, 
-        requestedTime: time, 
-        status: 'Pending' 
-      };
-      needsAdminApproval = true;
-    } else {
-      return res.status(400).json({ 
-        message: 'This booking can no longer be rescheduled.' 
+    if (![BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED].includes(booking.status)) {
+      return res.status(400).json({
+        message: `A ${booking.status} booking can no longer be rescheduled. Only a Pending or Approved booking can be moved.`
       });
     }
-
-    await booking.save();
-
-    if (needsAdminApproval) {
-      await notifyAdmins(
-        NOTIFICATION_TYPE.RESCHEDULE_REQUESTED,
-        `Booking ${booking.bookingId}: the customer asked to move the service to ${date}, ${time}. Approval needed.`,
-        { booking }
-      );
+    if (booking.date === date && booking.time === time) {
+      return res.status(400).json({ message: 'That is the date and time the booking already has. Choose another.' });
     }
 
-    const populated = await booking.populate([
+    const populateAfter = [
       { path: 'service' },
       { path: 'technician', select: 'name' },
       ...ASSIGNMENT_POPULATE,
-    ]);
-    res.json(withWarranty(populated));
+    ];
+
+    if (booking.status === BOOKING_STATUS.PENDING) {
+      // The date changes straight away. Whoever was proposed for the old date is dropped and proposed again below.
+      booking.date = date;
+      booking.time = time;
+      booking.rescheduleRequest = { requestedDate: null, requestedTime: null, status: 'None' };
+      await booking.save();
+      await booking.populate('service');
+      await repropose(booking, req.userId);
+      const populated = await booking.populate(populateAfter);
+      return res.json(customerBooking(populated));
+    }
+
+    // Approved: one open request per booking. The status check is part of the update, so two requests at once cannot both pass.
+    const updated = await Booking.findOneAndUpdate(
+      { _id: booking._id, customer: req.userId, status: BOOKING_STATUS.APPROVED, 'rescheduleRequest.status': { $ne: 'Pending' } },
+      { $set: { rescheduleRequest: { requestedDate: date, requestedTime: time, status: 'Pending' } } },
+      { new: true }
+    );
+    if (!updated) {
+      return res.status(400).json({ message: 'You already asked to move this booking. Please wait for our team to answer that request.' });
+    }
+
+    await notifyAdmins(
+      NOTIFICATION_TYPE.RESCHEDULE_REQUESTED,
+      `Booking ${updated.bookingId}: the customer asked to move the service to ${date}, ${time}. Approval needed.`,
+      { booking: updated }
+    );
+    // the customer gets a confirmation that the request was received
+    await sendNotification(
+      updated.customer,
+      NOTIFICATION_TYPE.RESCHEDULE_RECEIVED,
+      `We received your request to move booking ${updated.bookingId} to ${date}, ${time}. Our team will confirm it. Until then your booking stays on ${updated.date}, ${updated.time}.`,
+      { booking: updated }
+    );
+
+    const populated = await updated.populate(populateAfter);
+    res.json(customerBooking(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
-// Submit or edit feedback for a completed booking (customer)
+// Submit or edit feedback for a completed booking (customer). The rating is a whole number from 1 to 5 and the comment
+// is at most 500 characters. It can be changed for 24 hours after it was first given; each change keeps the earlier
+// version with the time it was replaced.
 const FEEDBACK_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-router.patch('/:bookingId/feedback', auth, async (req, res) => {
+router.patch('/:bookingId/feedback', auth, allowRoles(ROLE.CUSTOMER), async (req, res) => {
   try {
-    const { rating, text } = req.body;
-    const parsedRating = Number(rating);
-
-    if (!parsedRating || parsedRating < 1 || parsedRating > 5) {
-      return res.status(400).json({ message: 'A rating from 1 to 5 is required.' });
-    }
+    const input = readFeedback(req.body);
+    if (input.problem) return sendProblem(res, input.problem);
 
     const booking = await Booking.findOne({
       bookingId: req.params.bookingId,
@@ -1093,15 +1257,23 @@ router.patch('/:bookingId/feedback', auth, async (req, res) => {
       return res.status(400).json({ message: 'Feedback can only be left once the service is completed.' });
     }
 
-    const previouslySubmittedAt = booking.feedback?.createdAt;
+    const previousFeedback = booking.feedback;
+    const previouslySubmittedAt = previousFeedback?.createdAt;
     if (previouslySubmittedAt && Date.now() - new Date(previouslySubmittedAt).getTime() > FEEDBACK_EDIT_WINDOW_MS) {
       return res.status(400).json({ message: 'Feedback can no longer be edited (24-hour window has passed).' });
     }
 
+    const now = new Date();
     booking.feedback = {
-      text: text?.trim() || '',
-      rating: parsedRating,
-      createdAt: previouslySubmittedAt || new Date(),
+      text: input.values.text,
+      rating: input.values.rating,
+      createdAt: previouslySubmittedAt || now,
+      ...(previouslySubmittedAt
+        ? {
+          editedAt: now,
+          edits: [...(previousFeedback.edits || []), { text: previousFeedback.text || '', rating: previousFeedback.rating, replacedAt: now }],
+        }
+        : {}),
     };
 
     await booking.save();
@@ -1110,10 +1282,9 @@ router.patch('/:bookingId/feedback', auth, async (req, res) => {
       { path: 'technician', select: 'name' },
       ...ASSIGNMENT_POPULATE,
     ]);
-    res.json(withWarranty(populated));
+    res.json(customerBooking(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -1125,16 +1296,21 @@ router.patch('/:bookingId/feedback', auth, async (req, res) => {
 router.get('/technician/mine', auth, async (req, res) => {
   try {
     // Every job where this technician is the lead or the helper, labelled with their role.
-    const jobs = await Booking.find(memberFilter(req.userId))
+    const jobs = await Booking.find({ ...memberFilter(req.userId), ...TECHNICIAN_BOOKING_FILTER })
       .populate('service')
       .populate('customer', 'name phone')
       .populate('technician', 'name')
       .populate(ASSIGNMENT_POPULATE)
       .sort({ date: -1 });
-    res.json(jobs.map((j) => ({ ...j.toObject(), myRole: getRoleFor(j, req.userId) })));
+    // A back job visit also carries what it follows (original booking, date, technicians, original report summary).
+    const backJobs = await loadBackJobContexts(jobs, { BackJob, Booking, Report, User });
+    // A whitelist, never the whole booking: no payments, proofs, discount ID or refund data.
+    res.json(jobs.map((j) => toTechnicianView(j.toObject(), {
+      myRole: getRoleFor(j, req.userId), isPrimaryLead: getPrimaryLeadId(j) === req.userId,
+      ...(backJobs.has(j.bookingId) ? { backJob: backJobs.get(j.bookingId) } : {}),
+    })));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -1142,38 +1318,32 @@ router.get('/technician/mine', auth, async (req, res) => {
 router.get('/technician/mine/stats', auth, async (req, res) => {
   try {
     // Jobs count for the lead and the helper alike.
-    const jobs = await Booking.find(memberFilter(req.userId))
-      .populate('customer', 'name');
-    
-    const ongoing = jobs.filter(j => [BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(j.status)).length;
-    const completed = jobs.filter(j => j.status === BOOKING_STATUS.COMPLETED).length;
+    const jobs = await Booking.find({ ...memberFilter(req.userId), ...TECHNICIAN_BOOKING_FILTER });
+
+    // Back job visits (free repairs after a warranty claim) are counted on their own, not in the regular totals.
+    const regular = jobs.filter((j) => !j.isBackJob);
+    const backJobVisits = jobs.filter((j) => j.isBackJob);
+    const backJobs = {
+      ongoing: backJobVisits.filter((j) => [BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(j.status)).length,
+      completed: backJobVisits.filter((j) => j.status === BOOKING_STATUS.COMPLETED).length,
+    };
+
+    const ongoing = regular.filter(j => [BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(j.status)).length;
+    const completed = regular.filter(j => j.status === BOOKING_STATUS.COMPLETED).length;
     // A completed job is waiting on a report when no Report document exists for it
     // (reports live in their own collection; booking.report is a legacy field that
     // is never filled any more).
     // Only the lead files the report, so only the lead's jobs wait on one.
-    const leadJobs = jobs.filter(j => getRoleFor(j, req.userId) === 'Lead');
+    const leadJobs = regular.filter(j => getRoleFor(j, req.userId) === 'Lead');
     const completedIds = leadJobs.filter(j => j.status === BOOKING_STATUS.COMPLETED).map(j => j.bookingId);
     const reportedIds = new Set(await Report.find({ bookingId: { $in: completedIds } }).distinct('bookingId'));
     const completedWithoutReport = completedIds.filter(id => !reportedIds.has(id)).length;
     // An In Progress job is waiting for its report (submitting it is what completes the job).
     const pendingReports = leadJobs.filter(j => j.status === BOOKING_STATUS.IN_PROGRESS).length + completedWithoutReport;
-    const feedbacks = jobs
-      .filter(j => j.feedback?.text)
-      .map(j => ({
-        name: j.customer?.name || 'Customer',
-        text: j.feedback.text,
-        rating: j.feedback.rating,
-        // A handful of older feedback docs were written before the schema had
-        // `createdAt` and only have the earlier field name `submittedAt` - not
-        // missing data, just an older shape. Fall back to it so those don't
-        // show as undated.
-        createdAt: j.feedback.createdAt || j.feedback.submittedAt,
-      }));
-
-    res.json({ ongoing, completed, pendingReports, feedbacks });
+    // No ratings or customer feedback here: technicians do not receive them. Admins read them in the Performance Review.
+    res.json({ ongoing, completed, pendingReports, backJobs });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -1189,13 +1359,13 @@ router.patch('/:bookingId/disruption/report', auth, async (req, res) => {
     }
 
     const booking = await Booking.findOne({ bookingId: req.params.bookingId });
-    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    if (!booking || isHiddenFromTechnicians(booking)) return res.status(404).json({ message: 'Booking not found' });
 
     if (!getMemberIds(booking).includes(req.userId)) {
       return res.status(403).json({ message: 'Not your booking' });
     }
     if (!getLeadIds(booking).includes(req.userId)) {
-      return res.status(403).json({ message: 'Only the team lead can report a disruption. Please tell your lead.' });
+      return res.status(403).json({ message: 'Only the lead technician can report a disruption. Please tell your lead.' });
     }
 
     if (booking.status !== BOOKING_STATUS.IN_PROGRESS) {
@@ -1206,27 +1376,59 @@ router.patch('/:bookingId/disruption/report', auth, async (req, res) => {
       return res.status(400).json({ message: 'A disruption has already been reported for this booking.' });
     }
 
-    booking.disruption = {
-      status: 'Reported',
-      reason: reason.trim(),
-      reportedAt: new Date(),
-      reportedBy: req.userId,
-    };
-
-    await booking.save();
+    // One report at a time: the check is part of the update, so two reports at once cannot both be saved or both notify.
+    const reported = await Booking.findOneAndUpdate(
+      { _id: booking._id, status: BOOKING_STATUS.IN_PROGRESS, 'disruption.status': { $ne: 'Reported' } },
+      { $set: { disruption: { status: 'Reported', reason: reason.trim(), reportedAt: new Date(), reportedBy: req.userId } } },
+      { new: true }
+    );
+    if (!reported) {
+      return res.status(400).json({ message: 'A disruption has already been reported for this booking.' });
+    }
 
     await notifyAdmins(
       NOTIFICATION_TYPE.DISRUPTION_REPORTED,
-      `A technician reported a disruption on booking ${booking.bookingId}: "${reason.trim().slice(0, 100)}". Reschedule needed.`,
-      { booking }
+      `A technician reported a disruption on booking ${reported.bookingId}: "${reason.trim().slice(0, 100)}". Reschedule needed.`,
+      { booking: reported }
     );
-    const populated = await booking.populate(['service', 'technician', ...ASSIGNMENT_POPULATE]);
-    res.json(withWarranty(populated));
+    // The customer is told the job was interrupted and a new schedule is being arranged: no reason, no technician details.
+    try {
+      await sendNotification(
+        reported.customer,
+        NOTIFICATION_TYPE.DISRUPTION_NOTICE,
+        `Your service for booking ${reported.bookingId} was interrupted. We are arranging a new schedule and will tell you as soon as it is set.`,
+        { booking: reported }
+      );
+    } catch (notifyError) {
+      console.error(`Could not notify the customer about the disruption on booking ${reported.bookingId}:`, notifyError);
+    }
+    const populated = await reported.populate(['service', 'technician', 'customer', ...ASSIGNMENT_POPULATE]);
+    res.json(toTechnicianView(populated.toObject(), { myRole: getRoleFor(populated, req.userId), isPrimaryLead: getPrimaryLeadId(populated) === req.userId }));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
+
+// The extra day (a date and a time block) for an extension, from what was asked or the default: the next working
+// day after the job's date (or today, if the job is older), in the same time block. Returns { date, time } or
+// { error: { status, message } }. It refuses a Sunday, a closed shop date, a day before the job or in the past, the
+// job's own block, and a day that is already approved.
+async function resolveExtensionSlot(booking, { date, time }) {
+  const today = manilaTodayKey();
+  const base = booking.date && booking.date > today ? booking.date : today;
+  let chosenDate = typeof date === 'string' && date.trim() ? date.trim() : null;
+  if (!chosenDate) {
+    // skip the shop's closure dates when picking the default
+    const closed = new Set((await Closure.find({ date: { $gte: addDays(base, 1), $lte: addDays(base, 31) } }).select('date').lean()).map((c) => c.date));
+    chosenDate = nextWorkingDayKey(base, closed);
+  }
+  const chosenTime = typeof time === 'string' && time.trim() ? time.trim() : booking.time;
+  const problem = extensionSlotProblem({ date: chosenDate, time: chosenTime }, booking, today);
+  if (problem) return { error: { status: 400, message: problem } };
+  const closedProblem = await businessDayProblem(Closure, chosenDate);
+  if (closedProblem) return { error: { status: closedProblem.status || 400, message: closedProblem.message } };
+  return { date: chosenDate, time: chosenTime };
+}
 
 // Technician: request an extra day to finish a job that's underway - this isn't
 // automatic, admin has to approve it (see /:bookingId/extension/approve|deny below).
@@ -1238,13 +1440,13 @@ router.patch('/:bookingId/extension/request', auth, async (req, res) => {
     }
 
     const booking = await Booking.findOne({ bookingId: req.params.bookingId });
-    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    if (!booking || isHiddenFromTechnicians(booking)) return res.status(404).json({ message: 'Booking not found' });
 
     if (!getMemberIds(booking).includes(req.userId)) {
       return res.status(403).json({ message: 'Not your booking' });
     }
     if (!getLeadIds(booking).includes(req.userId)) {
-      return res.status(403).json({ message: 'Only the team lead can request an extension. Please tell your lead.' });
+      return res.status(403).json({ message: 'Only the lead technician can request an extension. Please tell your lead.' });
     }
 
     if (booking.status !== BOOKING_STATUS.IN_PROGRESS) {
@@ -1255,9 +1457,14 @@ router.patch('/:bookingId/extension/request', auth, async (req, res) => {
       return res.status(400).json({ message: 'An extension request is already pending for this booking.' });
     }
 
+    const slot = await resolveExtensionSlot(booking, { date: req.body.date, time: req.body.time });
+    if (slot.error) return res.status(slot.error.status).json({ message: slot.error.message });
+
     booking.extensionRequest = {
       status: 'Pending',
       reason: reason.trim(),
+      requestedDate: slot.date,
+      requestedTime: slot.time,
       requestedAt: new Date(),
       requestedBy: req.userId,
     };
@@ -1266,14 +1473,13 @@ router.patch('/:bookingId/extension/request', auth, async (req, res) => {
 
     await notifyAdmins(
       NOTIFICATION_TYPE.EXTENSION_REQUESTED,
-      `A technician asked for an extra day on booking ${booking.bookingId}: "${reason.trim().slice(0, 100)}". Approval needed.`,
+      `A technician asked for an extra day (${slot.date}, ${slot.time}) on booking ${booking.bookingId}: "${reason.trim().slice(0, 100)}". Approval needed.`,
       { booking }
     );
-    const populated = await booking.populate(['service', 'technician', ...ASSIGNMENT_POPULATE]);
-    res.json(withWarranty(populated));
+    const populated = await booking.populate(['service', 'technician', 'customer', ...ASSIGNMENT_POPULATE]);
+    res.json(toTechnicianView(populated.toObject(), { myRole: getRoleFor(populated, req.userId), isPrimaryLead: getPrimaryLeadId(populated) === req.userId }));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -1288,11 +1494,20 @@ router.get('/', auth, async (req, res) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const bookings = await Booking.find()
+    // Optional paging: ?limit=&page= (at most 1000 a page). With neither, the whole list comes back as before.
+    const read = readPaging(req.query);
+    if (read.problem) return sendProblem(res, read.problem);
+
+    let query = Booking.find()
       .populate('service')
       .populate('customer', 'name email phone clientType companyName representativeName')
       .populate('technician', 'name').populate(ASSIGNMENT_POPULATE)
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1, _id: -1 });
+    if (read.paging) {
+      query = query.skip((read.paging.page - 1) * read.paging.limit).limit(read.paging.limit);
+      res.set({ 'X-Total-Count': String(await Booking.countDocuments({})), 'X-Page': String(read.paging.page), 'X-Limit': String(read.paging.limit) });
+    }
+    const bookings = await query;
 
     const enriched = bookings.map((b) => {
       const obj = b.toObject();
@@ -1301,76 +1516,127 @@ router.get('/', auth, async (req, res) => {
     });
     res.json(enriched);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
+// Moves a booking to a new date and time as an approved reschedule: the date must be a business day (no Sunday while they
+// are closed, no closure date), and the technicians on it must be free then (a Pending booking has only a proposal, so it is
+// proposed again afterwards instead). The customer and the technicians are told. Returns { error: { status, message,
+// suggestedDates? } } or { ok: true }. Shared by approving a customer's request and by the admin's one-click "use this date".
+async function approveRescheduleTo(booking, date, time, { by }) {
+  // The shop may have been closed on that date after the customer asked.
+  const closed = await businessDayProblem(Closure, date);
+  if (closed) return { error: { status: closed.status || 400, message: closed.message } };
+
+  const pending = booking.status === BOOKING_STATUS.PENDING;
+  if (!pending) {
+    const conflict = await findConflictingBooking(getMemberIds(booking), date, time, booking.bookingId);
+    if (conflict) {
+      return {
+        error: {
+          status: 409,
+          message: `The assigned technician is already booked ${date} (${time}) on ${conflict.bookingId}. Reassign the technician, deny this request, or choose a date when enough technicians are free.`,
+          suggestedDates: await suggestionsFor({ ...booking.toObject(), service: booking.service, date, time }),
+        },
+      };
+    }
+  }
+
+  // Extra days approved against the old schedule no longer fit the job, so they stop holding the technicians (the same rule as
+  // the disruption reschedule). A pending request for another extra day is dropped with them. The 3-day rule is not checked
+  // here: it applies when the customer asks, not when the admin answers.
+  const releasedDays = (booking.extensionDays || []).length;
+  booking.extensionDays = [];
+  if (booking.extensionRequest?.status === 'Pending') booking.extensionRequest.status = 'Denied';
+
+  booking.date = date;
+  booking.time = time;
+  booking.rescheduleRequest = { requestedDate: null, requestedTime: null, status: 'Approved' };
+  await booking.save();
+
+  const who = by === 'admin' ? 'our team' : 'the customer';
+  await sendNotification(
+    booking.customer,
+    NOTIFICATION_TYPE.RESCHEDULE_APPROVED,
+    by === 'admin'
+      ? `Your booking ${booking.bookingId} was moved by our team. New schedule: ${booking.date}, ${booking.time}.`
+      : `Your reschedule request for booking ${booking.bookingId} was approved. New schedule: ${booking.date}, ${booking.time}.`,
+    { booking }
+  );
+  await notifyMembersOfChange(booking, booking.status, NOTIFICATION_TYPE.RESCHEDULE_APPROVED, `Booking ${booking.bookingId} was rescheduled by ${who}. New schedule: ${booking.date}, ${booking.time}.${releasedDays > 0 ? ` The extra ${releasedDays === 1 ? 'day' : 'days'} approved for the old schedule no longer apply, so you are free on ${releasedDays === 1 ? 'it' : 'them'}.` : ''}`);
+  return { ok: true };
+}
+
+const RESCHEDULE_RESPONSE_POPULATE = [
+  { path: 'service' },
+  { path: 'customer', select: 'name email phone clientType companyName representativeName' },
+  { path: 'technician', select: 'name' },
+  ...ASSIGNMENT_POPULATE,
+];
+
 // Admin: approve a pending reschedule request
-router.patch('/:bookingId/reschedule/approve', auth, async (req, res) => {
+router.patch('/:bookingId/reschedule/approve', auth, auditSpecs.rescheduleApprove, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const booking = await Booking.findOne({ 
-      bookingId: req.params.bookingId 
-    });
-    
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId });
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
-    
+
     if (booking.rescheduleRequest?.status !== 'Pending') {
       return res.status(400).json({ message: 'No pending reschedule request.' });
     }
 
-    // The shop may have been closed on that date after the customer asked.
-    const closedOnApprove = await closureProblemFor(Closure, booking.rescheduleRequest.requestedDate);
-    if (closedOnApprove) return sendProblem(res, closedOnApprove);
-
-    const conflict = await findConflictingBooking(
-      getMemberIds(booking),
-      booking.rescheduleRequest.requestedDate,
-      booking.rescheduleRequest.requestedTime,
-      booking.bookingId
-    );
-    if (conflict) {
-      return res.status(409).json({
-        message: `The assigned technician is already booked ${booking.rescheduleRequest.requestedDate} (${booking.rescheduleRequest.requestedTime}) on ${conflict.bookingId}. Reassign the technician or deny this request.`
-      });
+    await booking.populate('service');
+    const moved = await approveRescheduleTo(booking, booking.rescheduleRequest.requestedDate, booking.rescheduleRequest.requestedTime, { by: 'customer' });
+    if (moved.error) {
+      return res.status(moved.error.status).json({ message: moved.error.message, ...(moved.error.suggestedDates ? { suggestedDates: moved.error.suggestedDates } : {}) });
     }
-    
-    booking.date = booking.rescheduleRequest.requestedDate;
-    booking.time = booking.rescheduleRequest.requestedTime;
-    booking.rescheduleRequest = { 
-      requestedDate: null, 
-      requestedTime: null, 
-      status: 'Approved' 
-    };
-    
-    await booking.save();
 
-    await sendNotification(
-      booking.customer,
-      NOTIFICATION_TYPE.RESCHEDULE_APPROVED,
-      `Your reschedule request for booking ${booking.bookingId} was approved. New schedule: ${booking.date}, ${booking.time}.`,
-      { booking }
-    );
-
-    const populated = await booking.populate([
-      { path: 'service' },
-      { path: 'customer', select: 'name email phone clientType companyName representativeName' },
-      { path: 'technician', select: 'name' },
-      ...ASSIGNMENT_POPULATE,
-    ]);
-    res.json(withWarranty(populated));
+    res.json(withWarranty(await booking.populate(RESCHEDULE_RESPONSE_POPULATE)));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
+  }
+});
+
+// Admin: move a Pending or Approved booking to one of the suggested dates (or any date the rules allow) in one step. It goes
+// through the same approval as a customer's request: closed days and Sundays are refused, the technicians must be free,
+// and the customer and technicians are told. A Pending booking has its proposal made again for the new date.
+router.patch('/:bookingId/reschedule/use-date', auth, auditSpecs.rescheduleUseDate, async (req, res) => {
+  try {
+    if (req.userRole !== ROLE.ADMIN) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    const { date, time } = req.body || {};
+    if (typeof date !== 'string' || !isRealDateKey(date) || date < manilaTodayKey()) {
+      return res.status(400).json({ message: 'Choose a real date that is not in the past.' });
+    }
+    if (!TIME_BLOCKS.includes(time)) return res.status(400).json({ message: 'Time must be Morning or Afternoon.' });
+
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId });
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    if (![BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED].includes(booking.status)) {
+      return res.status(400).json({ message: `A ${booking.status} booking cannot be moved this way. Only a Pending or Approved booking can.` });
+    }
+    if (booking.date === date && booking.time === time) return res.status(400).json({ message: 'The booking already has that date and time.' });
+
+    await booking.populate('service');
+    const moved = await approveRescheduleTo(booking, date, time, { by: 'admin' });
+    if (moved.error) {
+      return res.status(moved.error.status).json({ message: moved.error.message, ...(moved.error.suggestedDates ? { suggestedDates: moved.error.suggestedDates } : {}) });
+    }
+    if (booking.status === BOOKING_STATUS.PENDING) await repropose(booking, req.userId);
+
+    res.json(withWarranty(await booking.populate(RESCHEDULE_RESPONSE_POPULATE)));
+  } catch (err) {
+    sendRouteError(res, err);
   }
 });
 
 // Admin: deny a pending reschedule request
-router.patch('/:bookingId/reschedule/deny', auth, async (req, res) => {
+router.patch('/:bookingId/reschedule/deny', auth, auditSpecs.rescheduleDeny, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -1395,6 +1661,7 @@ router.patch('/:bookingId/reschedule/deny', auth, async (req, res) => {
       `Your reschedule request for booking ${booking.bookingId} was not approved. Your original schedule (${booking.date}, ${booking.time}) stands.`,
       { booking }
     );
+    await notifyMembersOfChange(booking, booking.status, NOTIFICATION_TYPE.RESCHEDULE_DENIED, `The customer's reschedule request for booking ${booking.bookingId} was not approved. The schedule stays ${booking.date}, ${booking.time}.`);
 
     const populated = await booking.populate([
       { path: 'service' },
@@ -1404,52 +1671,38 @@ router.patch('/:bookingId/reschedule/deny', auth, async (req, res) => {
     ]);
     res.json(withWarranty(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
 // Validates a requested assignment and saves it on the booking. Shared by the manual assign
-// route and auto-assign so both obey exactly the same rules. `requested` is
-// [{ teamId } or { technicianId }]; the first entry is the primary assignment (its lead
-// becomes booking.technician), extra entries are additional teams for a big job. It replaces
-// the previous assignment, so it is also how a booking is reassigned. Every member of every
-// team must be free in the booking's date and time block, and a single technician is only
-// allowed for a service that needs just one. Returns { error: { status, message } } or { ok: true }.
+// route and the automatic assignment so both obey exactly the same rules. `requested` is
+// [{ technicianId, helperId? }]: the technician is the lead (and becomes booking.technician),
+// the optional helper is a second technician. It replaces the previous assignment, so it is
+// also how a booking is reassigned. Everyone must be free in the booking's date and time block.
+// One technician is enough to save; approval is what requires enough people for the service.
+// Returns { error: { status, message } } or { ok: true }.
 async function performAssignment(booking, requested, { changedBy, reason } = {}) {
   if ([BOOKING_STATUS.COMPLETED, BOOKING_STATUS.CANCELLED].includes(booking.status)) {
     return { error: { status: 400, message: 'A completed or cancelled booking cannot be reassigned.' } };
   }
 
-  const needed = getMinTechnicians(booking.service);
   const resolved = [];
   const seen = new Set();
 
   for (const item of requested) {
-    let entry;
-    if (item.teamId) {
-      const team = await Team.findById(item.teamId).populate([{ path: 'lead', select: 'isActive' }, { path: 'helper', select: 'isActive' }]);
-      if (!team || !team.isActive) {
-        return { error: { status: 400, message: 'That team is not available. Choose an active team.' } };
-      }
-      if (team.lead.isActive === false || team.helper.isActive === false) {
-        return { error: { status: 400, message: `Team "${team.name}" has a deactivated member. Edit the team first.` } };
-      }
-      entry = { team: team._id, lead: team.lead._id, helper: team.helper._id };
-    } else if (item.technicianId) {
-      if (needed > 1) {
-        return {
-          error: { status: 400, message: `${booking.service?.name || 'This service'} needs a team of two. Choose a team, not a single technician.` },
-        };
-      }
-      const tech = await User.findOne({ _id: item.technicianId, role: ROLE.STAFF, isActive: true }).select('_id');
-      if (!tech) return { error: { status: 400, message: 'That technician is not available.' } };
-      entry = { team: null, lead: tech._id, helper: null };
-    } else {
-      return { error: { status: 400, message: 'Each assignment needs a team or a technician.' } };
+    if (!item.technicianId) {
+      return { error: { status: 400, message: 'Each assignment needs a technician.' } };
     }
+    const ids = [item.technicianId, item.helperId].filter(Boolean);
+    // only an active field technician can be put on a job (not a secretary or a cashier)
+    const techs = (await User.find({ _id: { $in: ids }, role: ROLE.STAFF, isActive: true }).select('_id position')).filter((u) => hasFieldPosition(u.position));
+    if (techs.length !== new Set(ids).size) {
+      return { error: { status: 400, message: 'That technician is not available.' } };
+    }
+    const entry = { team: null, lead: item.technicianId, helper: item.helperId || null };
 
-    for (const id of [entry.lead, entry.helper].filter(Boolean)) {
+    for (const id of ids) {
       if (seen.has(id)) {
         return { error: { status: 400, message: 'The same technician cannot be assigned twice to one booking.' } };
       }
@@ -1458,33 +1711,50 @@ async function performAssignment(booking, requested, { changedBy, reason } = {})
     resolved.push(entry);
   }
 
-  // Hard block, per member, so the message can name who is the problem.
-  for (const id of seen) {
-    const conflict = await findConflictingBooking([id], booking.date, booking.time, booking.bookingId);
-    if (conflict) {
-      const who = await User.findById(id).select('name');
-      return {
-        error: {
-          status: 409,
-          message: `${who?.name || 'A technician'} is already booked ${booking.date} (${booking.time}) on ${conflict.bookingId}. Choose a different team.`,
-        },
-      };
-    }
+  // An Approved or In Progress booking must stay staffed: removing its helper (or leaving it with a lead only)
+  // when the service needs a pair is refused. A Pending booking may be half assigned while the admin works.
+  if ([BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status)) {
+    const staffing = staffingProblem(resolved, booking.service, 'saving');
+    if (staffing) return { error: { status: 400, message: staffing } };
   }
 
+  // Hard block, per member, so the message can name who is the problem. The check and the save happen while holding a lock for each
+  // technician in this slot (utils/slotLock.js): two requests for the same technician at the same moment take turns, so the second one
+  // sees the first one's booking and is refused instead of double booking the slot.
   const before = new Set(getMemberIds(booking));
   const previousAssignments = getAssignments(booking);
-  booking.assignments = resolved;
-  booking.technician = resolved[0].lead;
-  await booking.save();
+  let blocked = null;
+  await withLocks([...seen].map((id) => `tech:${id}|${booking.date}|${booking.time}`), async () => {
+    for (const id of seen) {
+      const conflict = await findConflictingBooking([id], booking.date, booking.time, booking.bookingId);
+      if (conflict) {
+        const who = await User.findById(id).select('name');
+        blocked = {
+          error: {
+            status: 409,
+            message: `${who?.name || 'A technician'} is already booked ${booking.date} (${booking.time}) on ${conflict.bookingId}. Choose a different technician, or move the booking to a date when enough technicians are free.`,
+            suggestedDates: await suggestionsFor(booking),
+          },
+        };
+        return;
+      }
+    }
+    booking.assignments = resolved;
+    booking.technician = resolved[0].lead;
+    booking.needsReassignment = false; // whoever is on it now is active (only active field technicians can be assigned)
+    await booking.save();
 
-  // The trail of who was on the job. Appended on the first assignment and on every change after.
-  await Booking.updateOne(
-    { _id: booking._id },
-    { $push: { assignmentHistory: buildHistoryEntry({ before: previousAssignments, after: resolved, changedBy, reason }) } }
-  );
+    // The trail of who was on the job. Appended on the first assignment and on every change after.
+    await Booking.updateOne(
+      { _id: booking._id },
+      { $push: { assignmentHistory: buildHistoryEntry({ before: previousAssignments, after: resolved, changedBy, reason }) } }
+    );
+  });
+  if (blocked) return blocked;
 
-  // Tell technicians who are newly on the job, and those who were taken off it.
+  // Tell technicians who are newly on the job, and those who were taken off it. Nothing is sent while the
+  // booking is Pending: technicians hear about the job when the admin approves it (notifyAssignedTechnicians).
+  if (isHiddenFromTechnicians(booking)) return { ok: true };
   const after = new Set(getMemberIds(booking));
   const when = `${booking.date}, ${booking.time}`;
   for (const id of after) {
@@ -1501,6 +1771,107 @@ async function performAssignment(booking, requested, { changedBy, reason } = {})
   return { ok: true };
 }
 
+// The assignment notification, sent to everyone on the job when it is approved. Until then the technicians
+// proposed for a Pending booking are not told. Never throws: the approval has already been saved.
+async function notifyAssignedTechnicians(booking) {
+  const when = `${booking.date}, ${booking.time}`;
+  for (const id of getMemberIds(booking)) {
+    try {
+      const role = getRoleFor(booking, id);
+      await sendNotification(id, NOTIFICATION_TYPE.JOB_ASSIGNED, `You were assigned as ${role === 'Helper' ? 'helper' : 'lead'} on booking ${booking.bookingId} (${booking.service?.name || 'service'}) for ${when}.`, { booking });
+    } catch (err) {
+      console.error(`Could not notify ${id} about booking ${booking.bookingId}:`, err);
+    }
+  }
+}
+
+// Called when a booking is created without a requested technician: picks who should do it
+// (utils/autoAssign.js) and assigns them. The admin can still change it by hand. It never
+// throws, so a failure just leaves the booking unassigned.
+async function autoAssignNewBooking(booking, reason = 'Assigned automatically by the system') {
+  try {
+    // If someone else took the technicians between the proposal and the save (two bookings made at the same moment), propose again: the
+    // second look sees the first booking and chooses someone who is still free, or nobody.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const proposal = await proposeAssignment(booking);
+      if (!proposal.assignment) return { suggestedDates: proposal.suggestedDates || [] };
+      const result = await performAssignment(booking, [proposal.assignment], { reason });
+      if (!result || !result.error) {
+        await booking.populate(ASSIGNMENT_POPULATE);
+        return { suggestedDates: [] };
+      }
+      if (result.error.status !== 409) break;
+      if (attempt === 2) return { suggestedDates: result.error.suggestedDates || [] };
+    }
+  } catch (err) {
+    console.error('Auto-assign on create failed:', err);
+  }
+  return { suggestedDates: [] };
+}
+
+// A Pending booking's technicians are only a proposal. When the customer moves it to another date the old proposal no
+// longer fits, so it is dropped (with a line in the assignment history) and the system proposes again for the new date,
+// or leaves the booking unassigned when nobody is free. It never throws.
+async function repropose(booking, changedBy) {
+  try {
+    const previous = getAssignments(booking);
+    if (previous.length > 0) {
+      booking.assignments = [];
+      booking.technician = undefined;
+      await booking.save();
+      await Booking.updateOne(
+        { _id: booking._id },
+        { $push: { assignmentHistory: buildHistoryEntry({ before: previous, after: [], changedBy, reason: 'The customer moved the date, so the proposed technicians were dropped' }) } }
+      );
+    }
+    await autoAssignNewBooking(booking, 'Proposed again after the customer moved the date');
+  } catch (err) {
+    console.error('Could not propose technicians again after a reschedule:', err);
+  }
+}
+
+// Whether a Pending booking's technicians were chosen by the system (so the system may choose again) rather than by an admin by
+// hand. The last line of the assignment history says which. A Pending booking with nobody is also the system's to propose for.
+function isSystemProposal(booking) {
+  if (getMemberIds(booking).length === 0) return true;
+  const history = booking.assignmentHistory || [];
+  const last = history[history.length - 1];
+  return !!last && /^(Assigned automatically|Proposed again)/.test(last.reason || '');
+}
+
+// After the admin moves a request in the Pending queue, the proposals for the requests that share its date and time block are made
+// again in queue order: a request higher in the queue keeps (or gets) its pair, a lower one is proposed whoever is left. Only the
+// system's own proposals on Pending bookings are touched: an Approved booking, and a Pending one an admin assigned by hand, never
+// change. When Pending bookings do not hold technicians (PENDING_HOLDS_SLOT off) the order has no effect on who is proposed, so
+// nothing is redone. Returns the booking ids whose proposal was made again.
+async function reproposeBlock(movedBookingId, changedBy) {
+  if (!scheduling.PENDING_HOLDS_SLOT) return [];
+  const moved = await Booking.findOne({ bookingId: movedBookingId }).select('date time');
+  if (!moved) return [];
+  const block = (await Booking.find({ status: BOOKING_STATUS.PENDING, date: moved.date, time: moved.time })
+    .select('+queueRank +assignmentHistory')
+    .populate('service'))
+    .sort((a, b) => (a.queueRank || 0) - (b.queueRank || 0));
+  const mine = block.filter(isSystemProposal);
+
+  // Everyone's old proposal goes first, so that the order decides who gets whom.
+  for (const booking of mine) {
+    const previous = getAssignments(booking);
+    if (previous.length === 0) continue;
+    booking.assignments = [];
+    booking.technician = undefined;
+    await booking.save();
+    await Booking.updateOne(
+      { _id: booking._id },
+      { $push: { assignmentHistory: buildHistoryEntry({ before: previous, after: [], changedBy, reason: 'The queue order changed, so the proposal was made again' }) } }
+    );
+  }
+  for (const booking of mine) {
+    await autoAssignNewBooking(booking, 'Proposed again after the queue order changed');
+  }
+  return mine.map((b) => b.bookingId);
+}
+
 const ASSIGN_RESPONSE_POPULATE = [
   { path: 'service' },
   { path: 'customer', select: 'name email phone clientType companyName representativeName' },
@@ -1508,8 +1879,8 @@ const ASSIGN_RESPONSE_POPULATE = [
   ...ASSIGNMENT_POPULATE,
 ];
 
-// Admin: assign who does the job. Body: { assignments: [{ teamId } or { technicianId }] }.
-router.patch('/:bookingId/assign', auth, async (req, res) => {
+// Admin: assign who does the job. Body: { assignments: [{ technicianId, helperId? }] }.
+router.patch('/:bookingId/assign', auth, auditSpecs.assign, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -1517,7 +1888,7 @@ router.patch('/:bookingId/assign', auth, async (req, res) => {
 
     const requested = req.body.assignments;
     if (!Array.isArray(requested) || requested.length === 0) {
-      return res.status(400).json({ message: 'Choose at least one team or technician.' });
+      return res.status(400).json({ message: 'Choose a technician.' });
     }
 
     const reasonInput = readReason(req.body.reason);
@@ -1527,13 +1898,17 @@ router.patch('/:bookingId/assign', auth, async (req, res) => {
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
     const result = await performAssignment(booking, requested, { changedBy: req.userId, reason: reasonInput.reason });
-    if (result.error) return res.status(result.error.status).json({ message: result.error.message });
+    if (result.error) {
+      return res.status(result.error.status).json({
+        message: result.error.message,
+        ...(result.error.suggestedDates ? { suggestedDates: result.error.suggestedDates } : {}),
+      });
+    }
 
     const populated = await booking.populate(ASSIGN_RESPONSE_POPULATE);
     res.json(withWarranty(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -1545,6 +1920,9 @@ router.get('/:bookingId/assignment-history', auth, async (req, res) => {
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
     const isAdmin = req.userRole === ROLE.ADMIN;
+    if (!isAdmin && isHiddenFromTechnicians(booking)) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
     if (!isAdmin && !getMemberIds(booking).includes(req.userId)) {
       return res.status(403).json({ message: 'Forbidden' });
     }
@@ -1554,52 +1932,12 @@ router.get('/:bookingId/assignment-history', auth, async (req, res) => {
     const names = new Map(users.map((u) => [String(u._id), u.name]));
     res.json({ history: viewHistory(entries, names, { admin: isAdmin }) });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Admin: auto-assign. Picks a team (or a single technician for a service that needs one)
-// with the logic in utils/autoAssign.js and assigns it. It only assigns: the admin still
-// presses Approve, and can reassign by hand at any time. When nobody is free it assigns
-// nothing and answers 409 with up to 3 later dates where someone is.
-router.post('/:bookingId/auto-assign', auth, async (req, res) => {
-  try {
-    if (req.userRole !== ROLE.ADMIN) {
-      return res.status(403).json({ message: 'Forbidden' });
-    }
-
-    const booking = await Booking.findOne({ bookingId: req.params.bookingId }).populate('service');
-    if (!booking) return res.status(404).json({ message: 'Booking not found' });
-    if ([BOOKING_STATUS.COMPLETED, BOOKING_STATUS.CANCELLED].includes(booking.status)) {
-      return res.status(400).json({ message: 'A completed or cancelled booking cannot be assigned.' });
-    }
-    if (!booking.date || !TIME_BLOCKS.includes(booking.time)) {
-      return res.status(400).json({ message: 'This booking has no valid date and time block to assign against.' });
-    }
-
-    const proposal = await proposeAssignment(booking);
-
-    if (!proposal.assignment) {
-      return res.status(409).json({
-        message: proposal.reason,
-        suggestedDates: proposal.suggestedDates,
-      });
-    }
-
-    const result = await performAssignment(booking, [proposal.assignment], { changedBy: req.userId, reason: 'Auto-assigned' });
-    if (result.error) return res.status(result.error.status).json({ message: result.error.message });
-
-    const populated = await booking.populate(ASSIGN_RESPONSE_POPULATE);
-    res.json({ ...withWarranty(populated), autoAssignNote: proposal.reason });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
 // Admin: assign technician and/or review payment verification
-router.patch('/:bookingId/admin-update', auth, async (req, res) => {
+router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -1621,7 +1959,12 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
 
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
-    if (booking.status === BOOKING_STATUS.CANCELLED) {
+    // A cancelled booking cannot be edited, with one exception: it was cancelled while its down payment proof was still waiting, so the
+    // admin may verify or reject that proof (and nothing else). A refund opens once the proof is verified.
+    const checkingAfterCancel = booking.status === BOOKING_STATUS.CANCELLED && booking.paymentCheckAfterCancel === true
+      && req.body.paymentStatus !== undefined
+      && Object.keys(req.body).every((key) => ['paymentStatus', 'reason'].includes(key));
+    if (booking.status === BOOKING_STATUS.CANCELLED && !checkingAfterCancel) {
       return res.status(400).json({
         message: 'This booking is cancelled and can no longer be edited.'
       });
@@ -1634,22 +1977,28 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
       balancePaymentStatus: booking.balancePaymentStatus,
     };
 
+    // The payment part of the request, checked before anything is changed: allowed values only, a proof to verify, a reason to
+    // reject or reverse, the down payment before the balance (utils/paymentVerification.js).
+    const paymentPlan = planPaymentChange(booking, { paymentStatus, balancePaymentStatus, balancePaid, reverse: req.body.reverse, reason: req.body.reason });
+    if (paymentPlan.problem) return sendProblem(res, paymentPlan.problem);
+
     // Status rules. Admin can only approve a Pending booking or cancel one. In Progress
     // and Completed are set by the system alone: In Progress by the status job when the
     // time block starts, Completed when the technician submits the service report.
     const statusProblem = validateAdminStatusChange(booking.status, status);
     if (statusProblem) return sendProblem(res, statusProblem);
 
-    // Technicians are assigned as teams through PATCH /:bookingId/assign, which checks every
+    // Technicians are assigned through PATCH /:bookingId/assign, which checks every
     // member for conflicts. This route no longer takes a single technician.
     if (technician !== undefined) {
-      return res.status(400).json({ message: 'Assign a team from the assignment panel instead.' });
+      return res.status(400).json({ message: 'Assign technicians from the assignment panel instead.' });
     }
 
     // Distance/Mobilization Charges - admin-entered, not system-computed. Tracked
     // separately from the assignment below so we only notify the customer when the
     // saved amount actually changes, not on every admin-update touching this route.
     let chargeChanged = false;
+    const chargesBefore = { distanceAdjustment: booking.distanceAdjustment || 0, mobilizationFee: booking.mobilizationFee || 0 };
     if (distanceAdjustment !== undefined) {
       const parsed = Number(distanceAdjustment);
       if (isNaN(parsed) || parsed < 0) {
@@ -1668,32 +2017,39 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
     }
 
     // Pre-service technician instructions (Service Report Module)
+    const instructionsBefore = booking.technicianInstructions || '';
     if (technicianInstructions !== undefined) {
       booking.technicianInstructions = technicianInstructions;
     }
 
-    // Staffing rule: approval needs enough technicians for this service.
-    if (status === BOOKING_STATUS.APPROVED && prev.status !== BOOKING_STATUS.APPROVED) {
-      const assigned = getMemberIds(booking).length;
-      const needed = getMinTechnicians(booking.service);
-      if (assigned === 0) {
-        return res.status(400).json({ message: 'Assign a team before approving.' });
-      }
-      if (assigned < needed) {
-        return res.status(400).json({
-          message: `${booking.service?.name || 'This service'} needs at least ${needed} technicians (a team with a lead and a helper). Assign a team before approving.`
+    // When a Pending booking does not hold its technicians' time (constants/scheduling.js), two Pending
+    // bookings can name the same technician, so the clash is checked at the moment of approval.
+    if (!scheduling.PENDING_HOLDS_SLOT && status === BOOKING_STATUS.APPROVED && prev.status !== BOOKING_STATUS.APPROVED) {
+      const clash = await findConflictingBooking(getMemberIds(booking), booking.date, booking.time, booking.bookingId);
+      if (clash) {
+        return res.status(409).json({
+          message: `A technician on this job is already booked ${booking.date} (${booking.time}) on ${clash.bookingId}. Change the assignment before approving, or move the booking to a date when enough technicians are free.`,
+          suggestedDates: await suggestionsFor(booking),
         });
       }
+    }
+
+    // Staffing rule from the paper: a booking cannot be approved until the technicians the service needs are
+    // assigned. A Cleaning (or any pair service) needs a lead and a helper; only a check-up or survey may be solo.
+    if (status === BOOKING_STATUS.APPROVED && prev.status !== BOOKING_STATUS.APPROVED) {
+      const staffing = staffingProblem(getAssignments(booking), booking.service, 'approving');
+      if (staffing) return res.status(400).json({ message: staffing, suggestedDates: await suggestionsFor(booking) });
     }
 
     // Admin-initiated cancellation opens the same refund request the customer's own
     // /cancel route would, and is bound by the same rule: only bookings still
     // Pending/Approved/In Progress can be cancelled (never a Completed one).
+    let adminCancelOutcome = 'none';
     if (status === BOOKING_STATUS.CANCELLED) {
       if (![BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status)) {
         return res.status(400).json({ message: 'This booking can no longer be cancelled.' });
       }
-      openRefundIfEligible(booking);
+      adminCancelOutcome = openRefundIfEligible(booking);
     }
 
     // Admin Dashboard + Analytics Module: capture the first time this booking is
@@ -1710,47 +2066,56 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
       booking.cancelledBy = 'admin';
     }
 
-    // ── Down payment track ──
-    if (paymentStatus === PAYMENT_STATUS.REJECTED) {
-      booking.paymentStatus = PAYMENT_STATUS.REJECTED;
-      booking.proofFile = undefined;
-      booking.referenceNumber = undefined;
-    } else if (paymentStatus) {
-      booking.paymentStatus = paymentStatus;
-    }
-
-    // ── Balance payment track ──
-    if (balancePaymentStatus === BALANCE_PAYMENT_STATUS.REJECTED) {
-      booking.balancePaymentStatus = BALANCE_PAYMENT_STATUS.REJECTED;
-      booking.balanceProofFile = undefined;
-      booking.balanceReferenceNumber = undefined;
-    } else if (balancePaymentStatus) {
-      booking.balancePaymentStatus = balancePaymentStatus;
-    }
-
-    // Handle balance payment
-    if (balancePaid !== undefined) {
-      booking.balancePaid = balancePaid;
-      if (balancePaid) {
-        booking.balancePaymentStatus = BALANCE_PAYMENT_STATUS.PAID;
-        booking.paymentStatus = PAYMENT_STATUS.FULLY_PAID;
+    // ── Payments ── (verify, reject or reverse, one at a time). One conditional update with the expected old status in
+    // the filter: if another admin got there first this one is refused and nothing else is saved or announced.
+    if (paymentPlan.plan) {
+      const actor = { id: req.userId, name: (await User.findById(req.userId).select('name'))?.name || '' };
+      const committed = await commitPayment(
+        Booking, booking,
+        checkingAfterCancel ? { ...paymentPlan.plan, expect: { ...paymentPlan.plan.expect, paymentCheckAfterCancel: true } } : paymentPlan.plan,
+        actor, new Date(), { allowCancelled: checkingAfterCancel }
+      );
+      if (!committed) {
+        return res.status(409).json({ message: 'This payment was just changed by someone else, or the booking was cancelled. Reload and check its status.' });
       }
+      // bring the document in step with what was saved, without writing it a second time
+      [...Object.keys(paymentPlan.plan.set), ...paymentPlan.plan.unset, 'paymentEvents'].forEach((key) => {
+        booking.set(key, committed.get(key));
+        booking.unmarkModified(key);
+      });
     }
 
-    // Down payment amount on file (see Booking.downPaymentPaidAmount). A rejected proof means no
-    // money is on file. A payment an admin marks received with no submission before it (cash at
-    // the door) is recorded at the totals of this moment. Bookings paid long ago keep no snapshot.
-    if (booking.paymentStatus === PAYMENT_STATUS.REJECTED) {
-      booking.downPaymentPaidAmount = undefined;
-    } else if (paymentStatus && booking.downPaymentPercent > 0 && typeof booking.downPaymentPaidAmount !== 'number'
-      && [PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(booking.paymentStatus)) {
-      booking.downPaymentPaidAmount = computeDownPaymentAmount(booking);
+    // The proof a cancelled booking was waiting on has been checked: a verified one opens the refund, a rejected one means nothing was
+    // paid. Either way the booking no longer waits.
+    let refundOpenedAfterCheck = false;
+    if (checkingAfterCancel) {
+      booking.paymentCheckAfterCancel = false;
+      if (paymentPlan.plan && paymentPlan.plan.action === 'verify') refundOpenedAfterCheck = openRefundIfEligible(booking) === 'opened';
     }
 
     await booking.save();
 
+    if (refundOpenedAfterCheck) {
+      await notifyAdmins(
+        NOTIFICATION_TYPE.REFUND_REQUESTED,
+        `Booking ${booking.bookingId}: the down payment was verified after the booking was cancelled, so a refund request is waiting for review${booking.refund.isSameDay ? ' (same-day cancellation, deduction needed)' : ''}.`,
+        { booking }
+      );
+    }
+
+    // Technicians: the admin cancelled the booking, or edited the instructions (without repeating what they say).
+    if (status === BOOKING_STATUS.CANCELLED && prev.status !== BOOKING_STATUS.CANCELLED) {
+      await notifyMembersOfChange(booking, prev.status, NOTIFICATION_TYPE.BOOKING_CANCELLED, `Booking ${booking.bookingId} (${booking.date}, ${booking.time}) was cancelled. You no longer need to attend.`);
+    } else if (technicianInstructions !== undefined
+      && String(technicianInstructions || '').trim() !== String(instructionsBefore).trim()
+      && [BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status)) {
+      await notifyMembersOfChange(booking, prev.status, NOTIFICATION_TYPE.INSTRUCTIONS_UPDATED, `The instructions for booking ${booking.bookingId} (${booking.date}, ${booking.time}) were updated. Open the job to read them.`);
+    }
+
     // Customer notifications for what admin just did. Only on an actual change.
     if (status === BOOKING_STATUS.APPROVED && prev.status !== BOOKING_STATUS.APPROVED) {
+      // The technicians on the job hear about it now, once, because it is only now visible to them.
+      await notifyAssignedTechnicians(booking);
       await sendNotification(
         booking.customer,
         NOTIFICATION_TYPE.BOOKING_APPROVED,
@@ -1775,6 +2140,9 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
           { booking }
         );
       }
+      if (adminCancelOutcome === 'awaiting-check') {
+        await notifyAdmins(NOTIFICATION_TYPE.PAYMENT_SUBMITTED, `Booking ${booking.bookingId} was cancelled while its down payment proof is still waiting. Verify or reject the proof; a refund opens once it is verified.`, { booking });
+      }
     }
     const downPaymentNowVerified = [PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(booking.paymentStatus)
       && ![PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(prev.paymentStatus);
@@ -1793,21 +2161,20 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
       await sendNotification(
         booking.customer,
         NOTIFICATION_TYPE.PAYMENT_REJECTED,
-        `Your ${balanceNowRejected && !downPaymentNowRejected ? 'balance ' : ''}payment proof for booking ${booking.bookingId} could not be verified. Please upload a new proof.`,
+        `Your ${balanceNowRejected && !downPaymentNowRejected ? 'balance ' : ''}payment proof for booking ${booking.bookingId} could not be verified: ${String(req.body.reason || '').trim()}.${booking.status === BOOKING_STATUS.CANCELLED ? '' : ' Please upload a new proof.'}`,
         { booking }
       );
     }
 
+    // One message for the charges that changed, saying what happened to each (added, increased, lowered or removed).
     if (chargeChanged) {
-      const isInstallation = booking.service?.serviceType === SERVICE_TYPE.INSTALLATION;
-      const amount = isInstallation ? booking.mobilizationFee : booking.distanceAdjustment;
-      const label = isInstallation ? 'mobilization fee' : 'distance-based charge';
-      await sendNotification(
-        booking.customer,
-        NOTIFICATION_TYPE.CHARGE_UPDATED,
-        `A ${label} of ₱${amount.toLocaleString()} was added to booking ${booking.bookingId} for an address outside Quezon City. This has been reflected in your total.`,
-        { booking }
-      );
+      const message = describeChargeChanges({
+        bookingId: booking.bookingId,
+        before: chargesBefore,
+        after: { distanceAdjustment: booking.distanceAdjustment || 0, mobilizationFee: booking.mobilizationFee || 0 },
+        outsideArea: !isWithinServiceArea(booking.address),
+      });
+      if (message) await sendNotification(booking.customer, NOTIFICATION_TYPE.CHARGE_UPDATED, message, { booking });
     }
 
     const populated = await booking.populate([
@@ -1819,8 +2186,7 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
 
     res.json(withWarranty(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
@@ -1829,8 +2195,11 @@ router.patch('/:bookingId/admin-update', auth, async (req, res) => {
 // Processed. Same-day cancellations also require a dispatch/transportation
 // deduction before the refundable amount is finalized; pre-service cancellations
 // refund the down payment in full.
-router.patch('/:bookingId/refund', auth, upload.single('proof'), async (req, res) => {
+router.patch('/:bookingId/refund', auth, auditSpecs.refundProcess, allowRoles(ROLE.ADMIN), upload.single('proof'), async (req, res) => {
   try {
+    // A refused request must not leave its uploaded file behind.
+    res.on('finish', () => { if (res.statusCode >= 400) discardUploads(req); });
+
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
     }
@@ -1865,6 +2234,7 @@ router.patch('/:bookingId/refund', auth, upload.single('proof'), async (req, res
       booking.refund.adjustedAt = new Date();
     }
 
+    await storeUploads(req, { kind: KINDS.REFUND_PROOF, bookingId: booking.bookingId });
     booking.refund.proofFile = `/uploads/proofs/${req.file.filename}`;
     booking.refund.status = REFUND_STATUS.PROCESSED;
     booking.refund.processedAt = new Date();
@@ -1888,14 +2258,13 @@ router.patch('/:bookingId/refund', auth, upload.single('proof'), async (req, res
 
     res.json(withWarranty(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
 // Customer: confirm the refund money arrived. Once only; it never blocks the admin and does not
 // touch a dispute flag.
-router.patch('/:bookingId/refund/received', auth, async (req, res) => {
+router.patch('/:bookingId/refund/received', auth, allowRoles(ROLE.CUSTOMER), async (req, res) => {
   try {
     const booking = await Booking.findOne({ bookingId: req.params.bookingId, customer: req.userId });
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
@@ -1922,17 +2291,16 @@ router.patch('/:bookingId/refund/received', auth, async (req, res) => {
       ...ASSIGNMENT_POPULATE,
     ]);
 
-    res.json(withWarranty(populated));
+    res.json(customerBooking(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
 // Customer: flag a refund that hasn't come through (e.g. marked Processed but
 // never actually received). Single message + status, not a ticketing thread -
 // admin just needs to see it and mark it addressed once followed up outside the system.
-router.patch('/:bookingId/refund/flag', auth, async (req, res) => {
+router.patch('/:bookingId/refund/flag', auth, allowRoles(ROLE.CUSTOMER), async (req, res) => {
   try {
     const { message } = req.body;
     if (!message?.trim()) {
@@ -1948,6 +2316,10 @@ router.patch('/:bookingId/refund/flag', auth, async (req, res) => {
     if (!booking.refund || booking.refund.status === REFUND_STATUS.NONE) {
       return res.status(400).json({ message: 'There is no refund on this booking to flag.' });
     }
+    // A refund that has not been sent yet cannot have failed to arrive: it is still waiting for the admin.
+    if (booking.refund.status !== REFUND_STATUS.PROCESSED) {
+      return res.status(400).json({ message: 'This refund has not been sent yet, so there is nothing to flag. We will tell you as soon as it is processed.' });
+    }
 
     if (booking.refund.customerFlag?.flagged && !booking.refund.customerFlag?.resolved) {
       return res.status(400).json({ message: "You've already flagged this refund - our team will follow up." });
@@ -1962,22 +2334,23 @@ router.patch('/:bookingId/refund/flag', auth, async (req, res) => {
 
     await booking.save();
 
+    await notifyAdmins(NOTIFICATION_TYPE.REFUND_FLAGGED, `Booking ${booking.bookingId}: the customer says the refund has not come through: "${message.trim().slice(0, 100)}".`, { booking });
+
     const populated = await booking.populate([
       { path: 'service' },
       { path: 'technician', select: 'name' },
       ...ASSIGNMENT_POPULATE,
     ]);
 
-    res.json(withWarranty(populated));
+    res.json(customerBooking(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
 // Admin: mark a customer's refund flag as addressed (followed up outside the
 // system - a phone call, etc.) so it stops showing as needing attention.
-router.patch('/:bookingId/refund/flag/resolve', auth, async (req, res) => {
+router.patch('/:bookingId/refund/flag/resolve', auth, auditSpecs.refundFlagResolve, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -2005,15 +2378,14 @@ router.patch('/:bookingId/refund/flag/resolve', auth, async (req, res) => {
 
     res.json(withWarranty(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
 // Admin: reschedule a booking that had a disruption reported on it. This is the
 // exact hook point Notification Sender was built for - both the client and the
 // assigned technician are notified right away as part of this action.
-router.patch('/:bookingId/disruption/reschedule', auth, async (req, res) => {
+router.patch('/:bookingId/disruption/reschedule', auth, auditSpecs.disruptionReschedule, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -2027,15 +2399,24 @@ router.patch('/:bookingId/disruption/reschedule', auth, async (req, res) => {
     const booking = await Booking.findOne({ bookingId: req.params.bookingId }).populate('service');
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
-    if (booking.disruption?.status !== 'Reported') {
-      return res.status(400).json({ message: 'No reported disruption for this booking.' });
+    // Two ways in: the lead already reported a disruption (its reason is on the booking), or the admin starts the
+    // reschedule directly on an Approved or In Progress booking, without waiting for a report. The admin then gives the
+    // reason, so the record says why the job moved.
+    const technicianReported = booking.disruption?.status === 'Reported';
+    const adminReason = typeof req.body.reason === 'string' ? req.body.reason.trim() : '';
+    if (!technicianReported) {
+      if (![BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status)) {
+        return res.status(400).json({ message: 'A disruption reschedule can only be started for an Approved or In Progress booking.' });
+      }
+      if (!adminReason) return res.status(400).json({ message: 'Say what happened: a reason is required to reschedule a disrupted job.' });
+      if (adminReason.length > 300) return res.status(400).json({ message: 'The reason must be 300 characters or fewer.' });
     }
 
     if (!TIME_BLOCKS.includes(time)) {
       return res.status(400).json({ message: 'Time must be Morning or Afternoon.' });
     }
 
-    const closedOnDisruption = await closureProblemFor(Closure, date);
+    const closedOnDisruption = await businessDayProblem(Closure, date);
     if (closedOnDisruption) return sendProblem(res, closedOnDisruption);
 
     const conflict = await findConflictingBooking(getMemberIds(booking), date, time, booking.bookingId);
@@ -2050,8 +2431,17 @@ router.patch('/:bookingId/disruption/reschedule', auth, async (req, res) => {
     // Nobody is actively working on it during the gap until the new date - back to
     // 'Approved' (scheduled, not in progress) rather than leaving it looking active.
     booking.status = BOOKING_STATUS.APPROVED;
-    booking.disruption.status = 'Rescheduled';
-    booking.disruption.rescheduledAt = new Date();
+    const movedAt = new Date();
+    if (technicianReported) {
+      booking.disruption.status = 'Rescheduled';
+      booking.disruption.initiatedBy = 'technician';
+      booking.disruption.rescheduledAt = movedAt;
+    } else {
+      booking.disruption = { status: 'Rescheduled', reason: adminReason, reportedAt: movedAt, reportedBy: req.userId, initiatedBy: 'admin', rescheduledAt: movedAt };
+    }
+    // Extra days approved against the old schedule no longer fit the job, so they stop holding the technicians.
+    booking.extensionDays = [];
+    if (booking.extensionRequest?.status === 'Pending') booking.extensionRequest.status = 'Denied';
 
     await booking.save();
 
@@ -2068,14 +2458,13 @@ router.patch('/:bookingId/disruption/reschedule', auth, async (req, res) => {
 
     res.json(withWarranty(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
 // Admin: approve a pending extension request - grants the extra day. Notifies the
 // requesting technician and the client, whose completion timeline just changed.
-router.patch('/:bookingId/extension/approve', auth, async (req, res) => {
+router.patch('/:bookingId/extension/approve', auth, auditSpecs.extensionApprove, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -2087,18 +2476,41 @@ router.patch('/:bookingId/extension/approve', auth, async (req, res) => {
     if (booking.extensionRequest?.status !== 'Pending') {
       return res.status(400).json({ message: 'No pending extension request for this booking.' });
     }
+    if ([BOOKING_STATUS.COMPLETED, BOOKING_STATUS.CANCELLED].includes(booking.status)) {
+      return res.status(400).json({ message: 'This booking is already finished, so it cannot be extended.' });
+    }
 
+    // The day that was asked for, unless the admin picks another (a date and a time block in the body).
+    const slot = await resolveExtensionSlot(booking, {
+      date: req.body?.date || booking.extensionRequest.requestedDate,
+      time: req.body?.time || booking.extensionRequest.requestedTime,
+    });
+    if (slot.error) return res.status(slot.error.status).json({ message: slot.error.message });
+
+    // The extra day holds every technician on the job, so approving it must not double-book anyone. The clash
+    // is returned so the admin can pick another date, move the other booking, or deny the request.
+    const clash = await findConflictingBooking(getMemberIds(booking), slot.date, slot.time, booking.bookingId);
+    if (clash) {
+      return res.status(409).json({
+        message: `A technician on this job is already booked ${slot.date} (${slot.time}) on ${clash.bookingId}. Choose another date for the extra day, change that booking, or deny the request.`,
+        conflict: { bookingId: clash.bookingId, date: slot.date, time: slot.time },
+      });
+    }
+
+    booking.extensionDays = [...(booking.extensionDays || []), { date: slot.date, time: slot.time, approvedBy: req.userId, approvedAt: new Date() }];
     booking.extensionRequest.status = 'Approved';
+    booking.extensionRequest.requestedDate = slot.date;
+    booking.extensionRequest.requestedTime = slot.time;
     booking.extensionRequest.decidedAt = new Date();
     booking.extensionRequest.decidedBy = req.userId;
 
     await booking.save();
 
-    await notifyMembers(booking, NOTIFICATION_TYPE.EXTENSION_APPROVED, `The extension request for booking ${booking.bookingId} has been approved.`);
+    await notifyMembers(booking, NOTIFICATION_TYPE.EXTENSION_APPROVED, `The extension request for booking ${booking.bookingId} has been approved: you have an extra day on ${slot.date} (${slot.time}).`);
     await sendNotification(
       booking.customer,
       NOTIFICATION_TYPE.EXTENSION_APPROVED,
-      `Your technician requested an extra day to finish booking ${booking.bookingId} - this has been approved, so completion will take a bit longer than originally scheduled.`,
+      `Your technician requested an extra day to finish booking ${booking.bookingId}. This has been approved for ${slot.date} (${slot.time}), so completion will take a bit longer than originally scheduled.`,
       { booking }
     );
 
@@ -2111,13 +2523,12 @@ router.patch('/:bookingId/extension/approve', auth, async (req, res) => {
 
     res.json(withWarranty(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
 // Admin: deny a pending extension request. Notifies the requesting technician and the client.
-router.patch('/:bookingId/extension/deny', auth, async (req, res) => {
+router.patch('/:bookingId/extension/deny', auth, auditSpecs.extensionDeny, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -2153,8 +2564,7 @@ router.patch('/:bookingId/extension/deny', auth, async (req, res) => {
 
     res.json(withWarranty(populated));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 

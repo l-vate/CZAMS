@@ -236,15 +236,15 @@
 
 .tech-announcement-card--holiday { border-left-color: var(--warning); }
 .tech-announcement-card--holiday .tech-announcement-icon { background: rgba(245, 158, 11, 0.14); }
-.tech-announcement-card--holiday .tech-announcement-badge { background: rgba(245, 158, 11, 0.14); color: var(--warning-hover); }
+.tech-announcement-card--holiday .tech-announcement-badge { background: rgba(245, 158, 11, 0.14); color: #a75c05; }
 
 .tech-announcement-card--closure { border-left-color: var(--danger); }
 .tech-announcement-card--closure .tech-announcement-icon { background: rgba(239, 68, 68, 0.12); }
-.tech-announcement-card--closure .tech-announcement-badge { background: rgba(239, 68, 68, 0.12); color: var(--danger); }
+.tech-announcement-card--closure .tech-announcement-badge { background: rgba(239, 68, 68, 0.12); color: #d12222; }
 
 .tech-announcement-card--maintenance { border-left-color: var(--primary); }
 .tech-announcement-card--maintenance .tech-announcement-icon { background: rgba(37, 99, 235, 0.12); }
-.tech-announcement-card--maintenance .tech-announcement-badge { background: rgba(37, 99, 235, 0.12); color: var(--primary); }
+.tech-announcement-card--maintenance .tech-announcement-badge { background: rgba(37, 99, 235, 0.12); color: #2361eb; }
 
 .tech-announcement-card--general { border-left-color: var(--navy-soft); }
 
@@ -486,6 +486,7 @@
 
 .tech-status-pending {
   background: var(--warning);
+  color: #0f172a; /* dark text on the amber: white on it was 2.15:1 */
 }
 
 .tech-status-confirmed {
@@ -498,6 +499,7 @@
 
 .tech-status-completed {
   background: var(--success);
+  color: #0f172a; /* dark text on the green: white on it was 2.28:1 */
 }
 
 .tech-status-cancelled {
@@ -1213,8 +1215,12 @@
   cursor: pointer;
 }
 
-/* A card for something inactive or cancelled. */
-.tech-job-card.tech-job-card--dimmed {
+/* A card for something inactive or cancelled: its text is dimmed, the status badge and the buttons are not (a badge dimmed with the whole card
+   fell to 2.87:1 white on red). */
+.tech-job-card.tech-job-card--dimmed .tech-job-date-label,
+.tech-job-card.tech-job-card--dimmed .tech-job-service,
+.tech-job-card.tech-job-card--dimmed .tech-job-booking,
+.tech-job-card.tech-job-card--dimmed .tech-job-meta {
   opacity: 0.6;
 }
 

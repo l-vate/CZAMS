@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getBookingLineItems, getPaymentBreakdown, formatPeso } from '../utils/bookingPricing';
 import AssignmentPanel from './assignment_panel';
+import SuggestedDates from './suggested_dates';
 import PaymentReference from './payment_reference';
 import ClosureDateInput from './closure_date_input';
 import ReceiptModal from './receipt_modal';
@@ -8,15 +9,16 @@ import AssignmentHistory from './assignment_history';
 import { buildReceiptForm } from '../utils/receiptData';
 import { getMemberIds } from '../utils/assignments';
 import { isWithinQuezonCity } from '../utils/serviceArea';
-import { API_BASE } from '../config/api';
-import { attempt, orFallback } from '../services/apiClient';
+import { ApiError, attempt, orFallback } from '../services/apiClient';
 import { getReportForBooking } from '../services/reportService';
 import {
-    adminUpdateBooking, uploadUnitPurchaseProof, rescheduleAfterDisruption, decideDiscount, decideReschedule, decideExtension,
+    adminUpdateBooking, recordPayment, moveToDate, uploadUnitPurchaseProof, rescheduleAfterDisruption, decideDiscount, decideReschedule, decideExtension,
 } from '../services/bookingService';
 import { BOOKING_STATUS } from '../constants/bookingStatus';
 import { TIME_BLOCK } from '../constants/timeBlocks';
 import { SERVICE_TYPE } from '../constants/serviceTypes';
+import { ProofLink, ProofImage } from './proof_file';
+import { customerLabel } from '../utils/customerLabel';
 
 // Admin only approves (and cancels). A booking becomes In Progress by itself when its
 // time block starts and Completed when the technician submits the service report.
@@ -61,10 +63,16 @@ function Icon({ name }) {
 function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
     
     const [saving, setSaving] = useState(false);
+    const [offeredDates, setOfferedDates] = useState([]); // dates offered after an approval is refused because nobody is free
+    const [recordDraft, setRecordDraft] = useState(null); // a payment being recorded: received in person
     const [error, setError] = useState('');
     const [disruptionDate, setDisruptionDate] = useState('');
     const [disruptionTime, setDisruptionTime] = useState('');
+    const [disruptionReason, setDisruptionReason] = useState('');
     const [instructionsDraft, setInstructionsDraft] = useState(booking?.technicianInstructions || '');
+    // the extra day to approve: what the lead asked for, which the admin can change
+    const [extraDate, setExtraDate] = useState(booking?.extensionRequest?.requestedDate || '');
+    const [extraTime, setExtraTime] = useState(booking?.extensionRequest?.requestedTime || booking?.time || 'Morning');
     const [editingInstructions, setEditingInstructions] = useState(false);
     const [editingCharges, setEditingCharges] = useState(false);
     const [distanceDraft, setDistanceDraft] = useState(booking?.distanceAdjustment || 0);
@@ -114,18 +122,43 @@ const [report, setReport] = useState(null);
     const patchBooking = async (body) => {
         setSaving(true);
         setError('');
+        setOfferedDates([]);
         try {
-            const updated = await attempt(adminUpdateBooking(booking.bookingId, body), 'Something went wrong.');
-            if (updated.error) {
-                setError(updated.error);
+            let data;
+            try {
+                data = await adminUpdateBooking(booking.bookingId, body);
+            } catch (err) {
+                if (!(err instanceof ApiError)) throw err;
+                setError(err.message || 'Something went wrong.');
+                setOfferedDates((err.data && err.data.suggestedDates) || []); // when nobody is free, the dates that work
                 return false;
             }
-            onUpdated?.(updated.data);
+            onUpdated?.(data);
             return true;
         } catch (err) {
             console.error('Error updating booking:', err);
             setError('Network error. Please try again.');
             return false;
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // A payment received in person: method, amount and an optional reference, recorded with who received it.
+    const handleRecordPayment = async () => {
+        setSaving(true);
+        setError('');
+        try {
+            const recorded = await attempt(recordPayment(booking.bookingId, recordDraft), 'Could not record the payment.');
+            if (recorded.error) {
+                setError(recorded.error);
+                return;
+            }
+            setRecordDraft(null);
+            onUpdated?.(recorded.data);
+        } catch (err) {
+            console.error('Error recording payment:', err);
+            setError('Network error. Please try again.');
         } finally {
             setSaving(false);
         }
@@ -181,11 +214,17 @@ const [report, setReport] = useState(null);
 
     const handleDisruptionReschedule = async () => {
         if (!disruptionDate || !disruptionTime) return;
+        // With no report from the lead, the admin starts it and says why.
+        const startedByAdmin = booking.disruption?.status !== 'Reported';
+        if (startedByAdmin && !disruptionReason.trim()) {
+            setError('Say what happened: a reason is required to reschedule a disrupted job.');
+            return;
+        }
         setSaving(true);
         setError('');
         try {
             const moved = await attempt(
-                rescheduleAfterDisruption(booking.bookingId, { date: disruptionDate, time: disruptionTime }),
+                rescheduleAfterDisruption(booking.bookingId, { date: disruptionDate, time: disruptionTime, reason: startedByAdmin ? disruptionReason.trim() : undefined }),
                 'Failed to reschedule.'
             );
             if (moved.error) {
@@ -254,7 +293,9 @@ const [report, setReport] = useState(null);
         setSaving(true);
         setError('');
         try {
-            const decided = await attempt(decideExtension(booking.bookingId, decision), 'Failed to update extension request.');
+            // on approve, the day asked for, or the one the admin picked here
+            const slot = decision === 'approve' && extraDate ? { date: extraDate, time: extraTime } : undefined;
+            const decided = await attempt(decideExtension(booking.bookingId, decision, slot), 'Failed to update extension request.');
             if (decided.error) {
                 setError(decided.error);
                 return;
@@ -309,10 +350,27 @@ const [report, setReport] = useState(null);
                     )}
 
                     {error && <div className="sdm-error">{error}</div>}
+                    <SuggestedDates
+                        dates={offeredDates}
+                        time={booking.time}
+                        disabled={saving}
+                        onUse={async (date, block) => {
+                            setSaving(true);
+                            try {
+                                const moved = await attempt(moveToDate(booking.bookingId, { date, time: block }), 'Could not move the booking.');
+                                if (moved.error) { setError(moved.error); return; }
+                                setOfferedDates([]);
+                                setError('');
+                                onUpdated?.(moved.data);
+                            } finally {
+                                setSaving(false);
+                            }
+                        }}
+                    />
 
                     <div className="sdm-customer-line">
                         <Icon name="user" />
-                        <span>{booking.customer?.name || 'N/A'}</span>
+                        <span>{customerLabel(booking.customer)}</span>
                         {booking.customer?.email && <span className="sdm-muted">· {booking.customer.email}</span>}
                         <span className="sdm-muted">· Contact: {booking.contactNumber || booking.customer?.phone || 'N/A'}</span>
                         {booking.customer?.companyName && <span className="sdm-muted">· Company: {booking.customer.companyName}</span>}
@@ -471,6 +529,42 @@ const [report, setReport] = useState(null);
                                 </div>
                             )}
 
+                            {['Approved', 'In Progress'].includes(booking.status) && booking.disruption?.status !== 'Reported' && (
+                                <div className="sdm-notice">
+                                    <p className="admin-service-details-modal-x5">Job disrupted? Reschedule it now, without waiting for a report:</p>
+                                    <textarea
+                                        className="sdm-tech-select"
+                                        rows={2}
+                                        maxLength={300}
+                                        aria-label="What happened"
+                                        placeholder="What happened (required, the technicians see it)"
+                                        value={disruptionReason}
+                                        onChange={(e) => setDisruptionReason(e.target.value)}
+                                    />
+                                    <div className="admin-service-details-modal-x9">
+                                        <div>
+                                            <label className="sdm-row-label admin-service-details-modal-x10">New Date</label>
+                                            <ClosureDateInput className="ma-input" value={disruptionDate} onChange={setDisruptionDate} />
+                                        </div>
+                                        <div>
+                                            <label className="sdm-row-label admin-service-details-modal-x10">New Time</label>
+                                            <select className="sdm-tech-select" value={disruptionTime} onChange={(e) => setDisruptionTime(e.target.value)}>
+                                                <option value="">Select</option>
+                                                <option value={TIME_BLOCK.MORNING}>{TIME_BLOCK.MORNING}</option>
+                                                <option value={TIME_BLOCK.AFTERNOON}>{TIME_BLOCK.AFTERNOON}</option>
+                                            </select>
+                                        </div>
+                                        <button
+                                            className="sdm-btn sdm-btn-primary"
+                                            onClick={handleDisruptionReschedule}
+                                            disabled={saving || !disruptionDate || !disruptionTime || !disruptionReason.trim()}
+                                        >
+                                            Reschedule &amp; Notify
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
                             {booking.disruption?.status === 'Rescheduled' && (
                                 <div className="sdm-notice">
                                     Disruption resolved - rescheduled on{' '}
@@ -515,15 +609,15 @@ const [report, setReport] = useState(null);
                                             <span>Valid ID</span>
                                             {booking.discount.idFile ? (
                                                 discountIdIsPdf ? (
-                                                    <a className="sdm-link" href={`${API_BASE}${booking.discount.idFile}`} target="_blank" rel="noreferrer">Open ID (PDF)</a>
+                                                    <ProofLink path={booking.discount.idFile} className="sdm-link">Open ID (PDF)</ProofLink>
                                                 ) : (
-                                                    <a href={`${API_BASE}${booking.discount.idFile}`} target="_blank" rel="noreferrer">
-                                                        <img
-                                                            src={`${API_BASE}${booking.discount.idFile}`}
+                                                    <ProofLink path={booking.discount.idFile}>
+                                                        <ProofImage
+                                                            path={booking.discount.idFile}
                                                             alt="Uploaded valid ID"
                                                             className="admin-service-details-modal-x12"
                                                         />
-                                                    </a>
+                                                    </ProofLink>
                                                 )
                                             ) : (
                                                 <p className="sdm-list-value">None uploaded (checked in person)</p>
@@ -725,14 +819,7 @@ const [report, setReport] = useState(null);
                                     <span>Proof of Payment</span>
                                     <span className="sdm-list-value">
                                         {booking.proofFile ? (
-                                            <a
-                                                href={`${API_BASE}${booking.proofFile}`}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="sdm-link"
-                                            >
-                                                View File
-                                            </a>
+                                            <ProofLink path={booking.proofFile} className="sdm-link">View File</ProofLink>
                                         ) : (
                                             'N/A'
                                         )}
@@ -752,6 +839,48 @@ const [report, setReport] = useState(null);
                                         </button>
                                     </span>
                                 </div>
+                                {Array.isArray(booking.paymentEvents) && booking.paymentEvents.length > 0 && (
+                                    <div className="sdm-list-row">
+                                        <span>Payment history</span>
+                                        <span className="sdm-list-value">
+                                            <ul className="assignment-list">
+                                                {booking.paymentEvents.map((e, i) => (
+                                                    <li key={i}>
+                                                        {new Date(e.at).toLocaleString('en-US', { timeZone: 'Asia/Manila' })}: {e.track === 'balance' ? 'Balance' : 'Down payment'} {e.status}
+                                                        {e.amount ? `, ${formatPeso(e.amount)}` : ''}{e.method ? ` by ${e.method}` : ''}{e.reference ? ` (${e.reference})` : ''}
+                                                        {' '}by {e.by?.name || 'an admin'}{e.reason ? `. Reason: ${e.reason}` : ''}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </span>
+                                    </div>
+                                )}
+                                {booking.status !== 'Cancelled' && (
+                                    <div className="sdm-list-row">
+                                        <span>Received in person</span>
+                                        <span className="sdm-list-value">
+                                            {recordDraft ? (
+                                                <span>
+                                                    <select className="sdm-tech-select" aria-label="Which payment" value={recordDraft.track} onChange={(e) => setRecordDraft({ ...recordDraft, track: e.target.value })}>
+                                                        <option value="down">Down payment</option>
+                                                        <option value="balance">Balance</option>
+                                                    </select>
+                                                    <select className="sdm-tech-select" aria-label="Method" value={recordDraft.method} onChange={(e) => setRecordDraft({ ...recordDraft, method: e.target.value })}>
+                                                        {['Cash', 'Cheque', 'GCash', 'Bank Transfer'].map((m) => <option key={m} value={m}>{m}</option>)}
+                                                    </select>
+                                                    <input className="ma-input" type="number" min="1" step="0.01" aria-label="Amount received" placeholder="Amount received" value={recordDraft.amount} onChange={(e) => setRecordDraft({ ...recordDraft, amount: e.target.value })} />
+                                                    <input className="ma-input" type="text" maxLength={60} aria-label="Reference or cheque number" placeholder="Reference or cheque no. (optional)" value={recordDraft.reference} onChange={(e) => setRecordDraft({ ...recordDraft, reference: e.target.value })} />
+                                                    <button type="button" className="sdm-btn sdm-btn-primary" onClick={handleRecordPayment} disabled={saving || !recordDraft.amount}>Record payment</button>
+                                                    <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setRecordDraft(null)} disabled={saving}>Cancel</button>
+                                                </span>
+                                            ) : (
+                                                <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setRecordDraft({ track: 'down', method: 'Cash', amount: '', reference: '' })}>
+                                                    Record a payment
+                                                </button>
+                                            )}
+                                        </span>
+                                    </div>
+                                )}
                                 <div className="sdm-list-row">
                                     <span>Balance Paid</span>
                                     <span className="sdm-list-value">{booking.balancePaid ? 'Yes' : 'No'}</span>
@@ -760,14 +889,7 @@ const [report, setReport] = useState(null);
                                     <div className="sdm-list-row">
                                         <span>Balance Proof</span>
                                         <span className="sdm-list-value">
-                                            <a
-                                                href={`${API_BASE}${booking.balanceProofFile}`}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="sdm-link"
-                                            >
-                                                View File
-                                            </a>
+                                            <ProofLink path={booking.balanceProofFile} className="sdm-link">View File</ProofLink>
                                         </span>
                                     </div>
                                 )}
@@ -787,17 +909,12 @@ const [report, setReport] = useState(null);
                                             <span>Proof of Purchase</span>
                                             <span className="sdm-list-value admin-service-details-modal-x23">
                                                 {booking.unitPurchaseProof ? (
-                                                    <a
-                                                        href={`${API_BASE}${booking.unitPurchaseProof}`}
-                                                        target="_blank" rel="noreferrer" className="sdm-link"
-                                                    >
-                                                        View File
-                                                    </a>
+                                                    <ProofLink path={booking.unitPurchaseProof} className="sdm-link">View File</ProofLink>
                                                 ) : 'Not uploaded'}
                                                 <label className="sdm-btn sdm-btn-outline admin-service-details-modal-x24">
                                                     {uploadingProof ? 'Uploading...' : booking.unitPurchaseProof ? 'Replace' : 'Upload'}
                                                     <input
-                                                        type="file" accept="image/*,.pdf" className="admin-service-details-modal-x25"
+                                                        type="file" accept="image/jpeg,image/png,image/webp,.pdf" className="admin-service-details-modal-x25"
                                                         onChange={handleUnitPurchaseProofUpload}
                                                         disabled={uploadingProof}
                                                     />
@@ -895,6 +1012,18 @@ const [report, setReport] = useState(null);
                                     </h5>
                                     <div className="sdm-notice">
                                         <p className="admin-service-details-modal-x7">"{booking.extensionRequest.reason}"</p>
+                                        <div className="sdm-list-row">
+                                            <span>Extra day</span>
+                                            <span className="sdm-list-value">
+                                                <input type="date" aria-label="Extra day" value={extraDate} onChange={(e) => setExtraDate(e.target.value)} />
+                                                {' '}
+                                                <select aria-label="Time block for the extra day" value={extraTime} onChange={(e) => setExtraTime(e.target.value)}>
+                                                    <option value="Morning">Morning</option>
+                                                    <option value="Afternoon">Afternoon</option>
+                                                </select>
+                                            </span>
+                                        </div>
+                                        <p className="sdm-muted">Approving holds every technician on this job for that day and block. If one of them is already booked, it is refused and you can pick another day.</p>
                                         <div className="admin-service-details-modal-x8">
                                             <button
                                                 className="sdm-btn sdm-btn-danger"
@@ -925,6 +1054,12 @@ const [report, setReport] = useState(null);
                                             <span>"{booking.extensionRequest.reason}"</span>
                                             <p className="sdm-list-value">{booking.extensionRequest.status}</p>
                                         </div>
+                                        {(booking.extensionDays || []).map((d) => (
+                                            <div className="sdm-list-row" key={`${d.date}-${d.time}`}>
+                                                <span>Extra day approved</span>
+                                                <span className="sdm-list-value">{d.date}, {d.time}</span>
+                                            </div>
+                                        ))}
                                     </div>
                                 </>
                             )}

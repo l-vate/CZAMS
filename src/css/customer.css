@@ -14,7 +14,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: linear-gradient(110deg, #1a7cbf 0%, #57c4f4 100%);
+  background: linear-gradient(110deg, #044c7f 0%, #57c4f4 100%); /* the start is darker so the white title keeps 4.5:1 where it sits */
   border-radius: 14px;
   padding: 22px 28px;
   cursor: pointer;
@@ -96,7 +96,7 @@
 .stats-row .stat-card {
   border-top: 3px solid var(--warning);
 }
-.stats-row .stat-card:nth-child(1) .stat-card-label { color: var(--warning-hover); }
+.stats-row .stat-card:nth-child(1) .stat-card-label { color: #b16105; } /* darker amber: 4.58:1 on white (was 3.19:1) */
 
 .stats-row .stat-card:nth-child(2) {
   border-top-color: var(--status-progress-solid);
@@ -106,7 +106,7 @@
 .stats-row .stat-card:nth-child(3) {
   border-top-color: var(--success);
 }
-.stats-row .stat-card:nth-child(3) .stat-card-label { color: var(--success-hover); }
+.stats-row .stat-card:nth-child(3) .stat-card-label { color: #12883e; } /* darker green: 4.55:1 (was 3.30:1) */
 
 .info-card {
   background: var(--white);
@@ -1623,7 +1623,7 @@
 }
 .customer-billings-x6.customer-billings-x6 {
   margin: 4px 0 0;
-  color: #ef4444;
+  color: var(--danger); /* was #ef4444, 3.76:1; the danger red is 4.83:1 */
   font-size: 13px;
 }
 .customer-billings-x7.customer-billings-x7 {
@@ -1760,7 +1760,7 @@
   align-items: center;
   gap: 10px;
   margin: 8px 0 4px;
-  color: #999;
+  color: #6f6f6f; /* was #999, 2.58:1 on the page; now 4.55:1 */
   font-size: 12px;
   font-weight: 600;
 }

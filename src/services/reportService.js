@@ -5,6 +5,11 @@ export function listReports() {
   return request('/api/reports');
 }
 
+// Technician: every report for the jobs they lead, in one request.
+export function listMyReports() {
+  return request('/api/reports/technician/mine');
+}
+
 // The report filed for one booking (404 when there is none yet).
 export function getReportForBooking(bookingId) {
   return request(`/api/reports/booking/${bookingId}`);

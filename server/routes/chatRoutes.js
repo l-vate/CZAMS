@@ -2,11 +2,13 @@ const { NOTIFICATION_TYPE } = require('../constants/notificationTypes');
 const { ROLE } = require('../constants/roles');
 const express = require('express');
 const router = express.Router();
+const { requireObjectId } = require('../utils/idParam');
+requireObjectId(router, 'id');
 const auth = require('../middleware/auth');
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const User = require('../models/User');
-const { sendNotification } = require('../utils/notifications');
+const { sendNotification, notifyAdmins } = require('../utils/notifications');
 
 // ============================================
 // PARTICIPANT SIDE (customer / staff) - always operates on "their" conversation,
@@ -71,10 +73,8 @@ router.post('/conversations/mine/messages', auth, async (req, res) => {
     conversation.lastMessageBySenderRole = req.userRole;
     await conversation.save();
 
-    const admin = await User.findOne({ role: ROLE.ADMIN }).select('_id');
-    if (admin) {
-      await sendNotification(admin._id, NOTIFICATION_TYPE.CHAT_MESSAGE, `New message from ${req.userRole === ROLE.STAFF ? 'a technician' : 'a customer'}: "${message.text.slice(0, 80)}"`);
-    }
+    // Every active admin is told, once each, and a notification problem never fails the message.
+    await notifyAdmins(NOTIFICATION_TYPE.CHAT_MESSAGE, `New message from ${req.userRole === ROLE.STAFF ? 'a technician' : 'a customer'}: "${message.text.slice(0, 80)}"`);
 
     res.status(201).json(message);
   } catch (err) {
@@ -99,8 +99,8 @@ router.get('/conversations', auth, async (req, res) => {
       const obj = c.toObject();
       const participant = await User.findById(c.participantId).select('name email');
       obj.participant = participant;
-      obj.unread = !!(c.lastMessageBySenderRole && c.lastMessageBySenderRole !== ROLE.ADMIN &&
-        (!c.adminReadAt || c.lastMessageAt > c.adminReadAt));
+      obj.unread = isUnreadFor(c, req.userId);
+      delete obj.adminReadAtBy; // other admins' read times are not for this admin
       return obj;
     }));
     res.json(withParticipants);
@@ -109,6 +109,16 @@ router.get('/conversations', auth, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+// Whether this admin has an unread message in the thread: the last message is from the other person and came after the
+// last time this admin opened it (or, for a thread nobody opened since per-admin tracking began, after the old shared read time).
+function isUnreadFor(conversation, adminId) {
+  if (!conversation.lastMessageBySenderRole || conversation.lastMessageBySenderRole === ROLE.ADMIN) return false;
+  const reads = conversation.adminReadAtBy;
+  const mine = reads && (typeof reads.get === 'function' ? reads.get(adminId) : reads[adminId]);
+  const readAt = mine || conversation.adminReadAt;
+  return !readAt || conversation.lastMessageAt > readAt;
+}
 
 async function assertConversationAccess(req, res) {
   const conversation = await Conversation.findById(req.params.id);
@@ -128,9 +138,9 @@ router.get('/conversations/:id/messages', auth, async (req, res) => {
     const conversation = await assertConversationAccess(req, res);
     if (!conversation) return;
 
+    // Opening a thread marks it read for THIS admin only.
     if (req.userRole === ROLE.ADMIN) {
-      conversation.adminReadAt = new Date();
-      await conversation.save();
+      await Conversation.updateOne({ _id: conversation._id }, { $set: { [`adminReadAtBy.${req.userId}`]: new Date() } });
     }
 
     const messages = await Message.find({ conversationId: conversation._id }).sort({ createdAt: 1 });

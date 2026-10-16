@@ -4,6 +4,8 @@ import CalendarView from "../../components/calendar_view";
 import { mapBookingStatusToCalendarStatus, getTimeBlockHours } from "../../utils/calendar";
 import { getUnitsSummary } from "../../utils/bookingPricing";
 import { listTechnicianJobs } from '../../services/bookingService';
+import { useRefreshOnFocus } from '../../hooks/useRefreshOnFocus';
+import LoadError from '../../components/load_error';
 
 
 // Map backend DB response to the structure required by CalendarView
@@ -14,9 +16,9 @@ function toCalendarJob(booking) {
   const unitsSummary = getUnitsSummary(booking);
   const unitTypesLabel = unitsSummary ? ` - ${unitsSummary}` : "";
 
-  return {
+  const main = {
     id: booking._id || booking.bookingId,
-    title: `${booking.service?.name || "Service"}${unitTypesLabel}${booking.myRole ? ` (${booking.myRole})` : ""}`,
+    title: `${booking.isBackJob ? "Back job: " : ""}${booking.service?.name || "Service"}${unitTypesLabel}${booking.myRole ? ` (${booking.myRole})` : ""}`,
     customer: booking.customer?.name || booking.customerName || "Customer",
     assignedTo: "Me", // Current logged-in technician
     date: booking.date,
@@ -24,32 +26,69 @@ function toCalendarJob(booking) {
     endHour,
     status: mapBookingStatusToCalendarStatus(booking.status),
   };
+
+  // Each extra day the admin approved is shown on its own day and block, so the technician sees where they are needed.
+  const extras = (booking.extensionDays || []).map((day, i) => {
+    const hours = getTimeBlockHours(day.time);
+    return {
+      ...main,
+      id: `${main.id}-extra-${i}`,
+      title: `${main.title} (extra day)`,
+      date: day.date,
+      startHour: hours.startHour,
+      endHour: hours.endHour,
+    };
+  });
+
+  return [main, ...extras];
 }
 
 function Calendar() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchTechnicianJobs();
-  }, []);
+  const [failed, setFailed] = useState(false);
 
   const fetchTechnicianJobs = async () => {
     try {
       const data = await listTechnicianJobs();
-      setJobs(Array.isArray(data) ? data.map(toCalendarJob) : []);
+      if (!Array.isArray(data)) throw new Error("Unexpected jobs reply");
+      setJobs(data.flatMap(toCalendarJob));
     } catch (err) {
+      // a failed load is an error state with a Retry, never an empty calendar
       console.error("Failed to load technician schedule:", err);
-      setJobs([]);
+      setFailed(true);
     } finally {
       setLoading(false);
     }
   };
 
+  const retry = () => {
+    setFailed(false);
+    setLoading(true);
+    fetchTechnicianJobs();
+  };
+
+  useEffect(() => {
+    fetchTechnicianJobs();
+  }, []);
+
+  // A quiet refresh when the tab is shown again and every 2 minutes, so a reassignment appears by itself.
+  // If it fails the calendar already on screen stays.
+  useRefreshOnFocus(async () => {
+    try {
+      const data = await listTechnicianJobs();
+      if (Array.isArray(data)) setJobs(data.flatMap(toCalendarJob));
+    } catch (err) {
+      console.error("Could not refresh the schedule:", err);
+    }
+  });
+
   return (
     <StaffLayout title="Calendar">
       {loading ? (
         <p className="tech-job-empty">Loading your schedule…</p>
+      ) : failed ? (
+        <LoadError message="Could not load your schedule." onRetry={retry} />
       ) : (
         <div className="staff-calendar-x1">
           <CalendarView jobs={jobs} title="My Schedule" />

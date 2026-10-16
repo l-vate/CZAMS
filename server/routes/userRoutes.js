@@ -1,16 +1,26 @@
 const { ROLE } = require('../constants/roles');
+const auditSpecs = require('../utils/auditSpecs');
 const express = require('express');
 const router = express.Router();
-const crypto = require('crypto');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 const { resolveClassification } = require('../utils/classification');
 const { hashPassword, generateTemporaryPassword } = require('../utils/password');
 const { invalid, sendProblem } = require('../utils/validation');
-const { readProfileFields } = require('../utils/profileFields');
+const { readProfileFields, readAgreedTerms } = require('../utils/profileFields');
 const Booking = require('../models/Booking');
 const BackJob = require('../models/BackJob');
 const { summarizeHistory } = require('../utils/customerHistory');
+const { clearAuthCache } = require('../utils/authCache');
+const { userInputProblem } = require('../utils/adminInput');
+const { findUserByEmail, normalizeEmail } = require('../utils/accountInput');
+const { generateUserId, createWithUniqueUserId } = require('../utils/uniqueUserId');
+const { sendRouteError } = require('../utils/routeErrors');
+const { isFieldTechnician } = require('../utils/technicians');
+const { memberFilter } = require('../utils/assignments');
+const { notifyAdmins } = require('../utils/notifications');
+const { NOTIFICATION_TYPE } = require('../constants/notificationTypes');
+const { BOOKING_STATUS } = require('../constants/bookingStatus');
 
 const CLIENT_TYPES = ['Residential', 'Commercial'];
 const clientTypeProblem = (value) => (CLIENT_TYPES.includes(value) ? null : invalid('Client type must be Residential or Commercial.'));
@@ -121,7 +131,7 @@ router.get('/:id/history', auth, async (req, res) => {
 });
 
 // POST create user (Technician or Client)
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, auditSpecs.userCreate, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -129,14 +139,14 @@ router.post('/', auth, async (req, res) => {
 
     const { name, email, phone, address, role, password, clientType } = req.body;
 
-    if (!email || !email.trim()) {
-      return res.status(400).json({ message: 'Email is required' });
-    }
+    // Types, a real email, a known role, a password of at least 8 characters when one is typed: a 400 that names the field.
+    const inputProblem = userInputProblem(req.body, { creating: true });
+    if (inputProblem) return sendProblem(res, inputProblem);
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email: email.trim().toLowerCase() });
+    // Found without regard to letter case, so Ana@Mail.com and ana@mail.com are the same account.
+    const existingUser = await findUserByEmail(User, email);
     if (existingUser) {
-      return res.status(400).json({ message: 'Email already exists' });
+      return res.status(409).json({ message: 'Email already exists' });
     }
 
     const accountRole = role || ROLE.CUSTOMER;
@@ -156,11 +166,13 @@ router.post('/', auth, async (req, res) => {
     const typedPassword = typeof password === 'string' && password.length > 0 ? password : null;
     const plainPassword = typedPassword || generateTemporaryPassword();
 
-    const newUser = await User.create({
-      _id: crypto.randomUUID(),
+    const hashedPassword = await hashPassword(plainPassword);
+    // the same kind of public id as a registered account (CUS1234, STF1234, ADM1234), retried when two accounts draw the same one
+    const newUser = await createWithUniqueUserId((id) => User.create({
+      _id: id,
       name: name ? name.trim() : '',
       email: email.trim().toLowerCase(),
-      password: await hashPassword(plainPassword),
+      password: hashedPassword,
       phone: phone ? phone.trim() : '',
       address: address ? address.trim() : '',
       role: accountRole,
@@ -168,17 +180,16 @@ router.post('/', auth, async (req, res) => {
       // Only customers have a client type.
       ...(clientType !== undefined && accountRole === ROLE.CUSTOMER ? { clientType } : {}),
       ...profile.values,
-    });
+    }), () => generateUserId(accountRole));
 
     res.status(201).json({ ...newUser.toObject(), ...(typedPassword ? {} : { generatedPassword: plainPassword }) });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
 // PUT update user profile or status
-router.put('/:id', auth, async (req, res) => {
+router.put('/:id', auth, auditSpecs.userUpdate, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -186,8 +197,19 @@ router.put('/:id', auth, async (req, res) => {
 
     const { name, email, phone, address, role, isActive, clientType } = req.body;
 
+    // Checked before anything else, so a wrong type is a clear 400. isActive must be a real true or false: the text
+    // "false" is refused, not treated as something else, so the last-admin and self-deactivate guards below always see
+    // the true value.
+    const inputProblem = userInputProblem(req.body, { creating: false });
+    if (inputProblem) return sendProblem(res, inputProblem);
+
     const target = await User.findById(req.params.id);
     if (!target) return res.status(404).json({ message: 'User not found' });
+
+    if (email !== undefined && normalizeEmail(email) !== String(target.email).toLowerCase()) {
+      const clash = await findUserByEmail(User, email, req.params.id);
+      if (clash) return res.status(409).json({ message: 'Email already exists' });
+    }
 
     // Checked first so that the last admin gets the clearer "last active admin" message.
     const adminProblem = await validateAdminSafety(target, { role, isActive }, req.userId);
@@ -196,6 +218,24 @@ router.put('/:id', auth, async (req, res) => {
     // An admin who deactivates their own account would lock themselves out.
     if (isActive === false && req.params.id === req.userId) {
       return res.status(400).json({ message: 'You cannot deactivate your own account.' });
+    }
+
+    // Deactivating a field technician who still has open jobs (Pending, Approved or In Progress) is refused with the list
+    // of those jobs, unless the admin confirms. With the confirmation the jobs are flagged "needs reassignment" and every
+    // admin is told, below.
+    let openJobs = [];
+    if (isActive === false && target.isActive !== false && isFieldTechnician(target)) {
+      openJobs = await Booking.find({
+        ...memberFilter(target._id),
+        status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS] },
+      }).select('bookingId date time status');
+      if (openJobs.length > 0 && req.body.confirmReassign !== true) {
+        return res.status(409).json({
+          message: `${target.name || 'This technician'} still has ${openJobs.length} open job${openJobs.length === 1 ? '' : 's'}. Deactivating will flag ${openJobs.length === 1 ? 'it' : 'them'} as needing a new technician. Confirm to go ahead.`,
+          openBookings: openJobs.map((j) => ({ bookingId: j.bookingId, date: j.date, time: j.time, status: j.status })),
+          needsConfirmation: true,
+        });
+      }
     }
 
     const finalRole = role !== undefined ? role : target.role;
@@ -211,7 +251,16 @@ router.put('/:id', auth, async (req, res) => {
     });
     if (profile.problem) return sendProblem(res, profile.problem);
 
+    // Payment terms agreed with a Commercial client: only an admin sets them, and only on a Commercial customer.
+    const terms = readAgreedTerms({
+      role: finalRole,
+      clientType: clientType !== undefined ? clientType : target.clientType,
+      body: req.body,
+    });
+    if (terms.problem) return sendProblem(res, terms.problem);
+
     const update = { ...profile.values };
+    if (terms.value !== undefined && finalRole === ROLE.CUSTOMER) update.agreedPaymentTermsDays = terms.value;
     if (name !== undefined) update.name = name.trim();
     if (email !== undefined) update.email = email.trim().toLowerCase();
     if (phone !== undefined) update.phone = phone.trim();
@@ -229,20 +278,30 @@ router.put('/:id', auth, async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    // A role change or a deactivation applies to the very next request, not after the cache expires.
+    clearAuthCache(updatedUser._id);
+
+    if (openJobs.length > 0) {
+      await Booking.updateMany({ _id: { $in: openJobs.map((j) => j._id) } }, { $set: { needsReassignment: true } });
+      await notifyAdmins(
+        NOTIFICATION_TYPE.TECHNICIAN_DEACTIVATED,
+        `${updatedUser.name || 'A technician'} was deactivated and is still on ${openJobs.length} open job${openJobs.length === 1 ? '' : 's'}: ${openJobs.map((j) => j.bookingId).slice(0, 8).join(', ')}. Assign someone else.`
+      );
+    }
+
     const userObj = updatedUser.toObject();
     if (updatedUser.role === ROLE.CUSTOMER) {
       userObj.classification = await resolveClassification(updatedUser);
     }
     res.json(userObj);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    sendRouteError(res, err);
   }
 });
 
 // Admin: manually set a customer's classification, or pass null to clear the
 // override and go back to the auto-computed value.
-router.patch('/:id/classification', auth, async (req, res) => {
+router.patch('/:id/classification', auth, auditSpecs.userClassification, async (req, res) => {
   try {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });

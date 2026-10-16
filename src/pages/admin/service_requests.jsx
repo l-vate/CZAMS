@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AdminLayout from './admin_layout';
 import AdminServiceDetailsModal from '../../components/admin_service_details_modal';
 import PersonFilterBanner from '../../components/person_filter_banner';
-import { getStatusColor, getFilterPillStyle } from '../../utils/statusColors';
+import { getStatusColor, getFilterPillStyle, textOnFill } from '../../utils/statusColors';
 import { FiEye } from 'react-icons/fi';
 import { orFallback } from '../../services/apiClient';
 import { listBookings } from '../../services/bookingService';
@@ -28,6 +29,16 @@ function ServiceRequests() {
     const [personFilter, setPersonFilter] = useState(location.state?.personFilter || null);
 
     const filters = ['All', ...BOOKING_STATUS_VALUES];
+
+    // A notification links here with ?booking=<id>: open that booking once the list has loaded.
+    const [searchParams, setSearchParams] = useSearchParams();
+    const bookingFromLink = searchParams.get('booking');
+    useEffect(() => {
+        if (!bookingFromLink || loading) return;
+        const found = requests.find((r) => r.bookingId === bookingFromLink);
+        if (found) setSelectedBooking(found);
+        setSearchParams({}, { replace: true });
+    }, [bookingFromLink, loading, requests, setSearchParams]);
 
     useEffect(() => {
         fetchRequests();
@@ -143,7 +154,7 @@ function ServiceRequests() {
                                     </span>
                                     <span
                                         className="req-status-badge"
-                                        style={{ background: getStatusColor(req.status) }}
+                                        style={{ background: getStatusColor(req.status), color: textOnFill(getStatusColor(req.status)) }}
                                     >
                                         {req.status}
                                     </span>
@@ -153,7 +164,7 @@ function ServiceRequests() {
                                     <p className="req-title">{req.service?.name || 'N/A'}</p>
                                     <p className="req-id">{req.bookingId}</p>
                                     <p className="req-tech">
-                                        Team: {getMemberNames(req, 'Not Assigned')}
+                                        Technicians: {getMemberNames(req, 'Not Assigned')}{req.needsReassignment ? ' (needs a new technician)' : ''}
                                     </p>
                                     
                                     <div className="req-info-item">

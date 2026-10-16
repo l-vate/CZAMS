@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
 import { FiThermometer, FiArrowRight, FiEye, FiCalendar, FiClock, FiMapPin } from 'react-icons/fi';
-import { orFallback } from '../../services/apiClient';
 import { listMyBookings } from '../../services/bookingService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
 
+import LoadError from '../../components/load_error';
 // Same badge/accent classes as the technician dashboard's "Upcoming jobs" card
 // (staff.css) - this section is styled to match that one directly.
 const NEXT_SERVICE_BADGE_CLASS = {
@@ -35,25 +35,37 @@ const ACTIVITY_ACCENT_CLASS = {
 function Dashboard() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
 
   const storedUser = localStorage.getItem('user');
   const firstName = storedUser
     ? (JSON.parse(storedUser).name || '').split(' ')[0]
     : 'User';
 
+  // A failed load is an error with a Retry, never zeros and "No upcoming bookings".
+  const fetchBookings = async () => {
+    try {
+      const data = await listMyBookings();
+      if (!Array.isArray(data)) throw new Error('Unexpected bookings reply');
+      setBookings(data);
+      setFailed(false);
+    } catch (err) {
+      console.error('Failed to load bookings:', err);
+      setFailed(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchBookings = async () => {
-      try {
-        const data = await orFallback(listMyBookings(), []);
-        setBookings(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error('Failed to load bookings:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchBookings();
   }, []);
+
+  const retry = () => {
+    setFailed(false);
+    setLoading(true);
+    fetchBookings();
+  };
 
   // ---- Derived stats ----
   const stats = {
@@ -108,6 +120,8 @@ function Dashboard() {
     <CustomerLayout title="Dashboard">
       <h1 className="dashboard-welcome">Welcome, {firstName}!</h1>
 
+      {failed && <LoadError message="Could not load your bookings." onRetry={retry} />}
+
       <Link to="/customer/book_service" className="book-banner">
         <div className="book-banner-left">
           <div className="book-banner-icon"><FiThermometer /></div>
@@ -123,15 +137,15 @@ function Dashboard() {
       <div className="stats-row">
         <div className="stat-card">
           <p className="stat-card-label">Pending Requests</p>
-          <p className="stat-card-value">{loading ? '–' : stats.pending}</p>
+          <p className="stat-card-value">{loading || failed ? '-' : stats.pending}</p>
         </div>
         <div className="stat-card">
           <p className="stat-card-label">Ongoing Service</p>
-          <p className="stat-card-value">{loading ? '–' : stats.ongoing}</p>
+          <p className="stat-card-value">{loading || failed ? '-' : stats.ongoing}</p>
         </div>
         <div className="stat-card">
           <p className="stat-card-label">Completed</p>
-          <p className="stat-card-value">{loading ? '–' : stats.completed}</p>
+          <p className="stat-card-value">{loading || failed ? '-' : stats.completed}</p>
         </div>
       </div>
 

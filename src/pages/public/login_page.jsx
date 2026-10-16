@@ -12,7 +12,7 @@ import { ApiError } from '../../services/apiClient';
 import { login } from '../../services/authService';
 import { ROLE } from '../../constants/roles';
 import { takeSessionNotice } from '../../utils/session';
-import { BRAND_SHORT, BRAND_SUB } from '../../config/company';
+import { BRAND_NAME, BRAND_SHORT, BRAND_SUB } from '../../config/company';
 
 /* ── Static Content ─────────────────────────────────────── */
 const FEATURES = [
@@ -63,7 +63,7 @@ function LoginPage() {
         <Link to="/" className="auth-split-back">← Back to site</Link>
 
         <div className="auth-split-brand">
-          <img src="/images/logo.png" alt="CZAMS Logo" className="auth-split-logo" />
+          <img src="/images/logo.png" alt={`${BRAND_NAME} logo`} className="auth-split-logo" />
           <span className="auth-split-brand-name">{BRAND_SHORT.toUpperCase()}</span>
           <span className="auth-split-brand-sub">{BRAND_SUB}</span>
         </div>

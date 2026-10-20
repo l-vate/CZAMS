@@ -169,7 +169,10 @@ function openRefundIfEligible(booking) {
   const downPaymentAmount = typeof booking.downPaymentPaidAmount === 'number'
     ? booking.downPaymentPaidAmount
     : computeDownPaymentAmount(booking);
-  const isSameDay = booking.date === todayDateString();
+  // Decided on the server, from the Manila calendar day the booking was cancelled on (not the day an admin gets round to verifying
+  // the proof): the booked date itself is the same-day case, any earlier day is a full refund.
+  const cancelledOn = booking.cancelledAt ? manilaTodayKey(new Date(booking.cancelledAt)) : todayDateString();
+  const isSameDay = booking.date === cancelledOn;
 
   booking.refund = {
     status: 'Pending',
@@ -2239,12 +2242,16 @@ router.patch('/:bookingId/refund', auth, auditSpecs.refundProcess, allowRoles(RO
       amountPaid: booking.refund.downPaymentAmount,
       isSameDay: booking.refund.isSameDay,
       dispatchDeduction: req.body.dispatchDeduction,
+      dispatchReason: req.body.dispatchReason,
       finalAmount: req.body.finalAmount,
       reason: req.body.adjustmentReason,
     });
     if (amounts.problem) return sendProblem(res, amounts.problem);
 
-    if (booking.refund.isSameDay) booking.refund.dispatchDeduction = Number(req.body.dispatchDeduction);
+    if (booking.refund.isSameDay) {
+      booking.refund.dispatchDeduction = Number(req.body.dispatchDeduction);
+      booking.refund.dispatchReason = amounts.values.dispatchReason;
+    }
     booking.refund.refundableAmount = amounts.values.finalAmount;
     booking.refund.computedAmount = amounts.values.computedAmount;
     booking.refund.finalAmount = amounts.values.finalAmount;

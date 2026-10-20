@@ -203,6 +203,7 @@ function RefundStatusMessage({ refund }) {
         {refund.adjustmentReason && (
           <>
             {' '}It was adjusted from ₱{refund.computedAmount?.toLocaleString()}. Reason: {refund.adjustmentReason}
+            {refund.dispatchReason ? `. Note on the transportation fee: ${refund.dispatchReason}` : ''}
           </>
         )}
       </p>

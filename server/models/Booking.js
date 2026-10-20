@@ -208,7 +208,9 @@ const bookingSchema = new mongoose.Schema({
         status: { type: String, enum: REFUND_STATUS_VALUES, default: REFUND_STATUS.NONE },
         isSameDay: { type: Boolean, default: false },
         downPaymentAmount: Number,
+        // The transportation fee the owner deducted for a cancellation on the booked date (0 up to the down payment), and why.
         dispatchDeduction: Number,
+        dispatchReason: String,
         // refundableAmount is what is actually refunded (the final figure). When the admin processes
         // the refund, computedAmount keeps the system's figure so any change is visible, with who
         // changed it, when and why. Refunds processed before these fields existed have none of them.

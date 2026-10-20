@@ -6,6 +6,7 @@ import { ApiError } from '../../services/apiClient';
 import { COMPANY_NAME_MAX, REPRESENTATIVE_NAME_MAX } from '../../constants/profileFields';
 import { register } from '../../services/authService';
 import { BRAND_NAME, BRAND_SHORT, BRAND_SUB } from '../../config/company';
+import { passwordChecks, passwordIsAcceptable } from '../../utils/passwordChecks';
 
 /* ── Static Content ─────────────────────────────────────── */
 const FEATURES = [
@@ -38,6 +39,10 @@ const handleSubmit = async (e) => {
   e.preventDefault();
   if (formData.password !== formData.confirmPassword) {
     alert('Passwords do not match.');
+    return;
+  }
+  if (!passwordIsAcceptable(formData.password)) {
+    alert('Use a password of at least 8 characters with at least 1 number and 1 special character.');
     return;
   }
 
@@ -197,7 +202,7 @@ const handleSubmit = async (e) => {
                   type={showPassword ? 'text' : 'password'}
                   id="password"
                   name="password"
-                  placeholder="Min. 8 characters"
+                  placeholder="Create a password"
                   value={formData.password}
                   onChange={handleChange}
                   required
@@ -211,6 +216,13 @@ const handleSubmit = async (e) => {
                   {showPassword ? <FiEyeOff /> : <FiEye />}
                 </button>
               </div>
+              <ul className="password-rules" aria-live="polite">
+                {passwordChecks(formData.password).map((check) => (
+                  <li key={check.id} className={check.met ? 'password-rule password-rule--met' : 'password-rule'}>
+                    {check.met ? '✓' : '•'} {check.label}
+                  </li>
+                ))}
+              </ul>
             </div>
 
             <div className="form-group">

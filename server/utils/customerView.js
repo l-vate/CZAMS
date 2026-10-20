@@ -71,7 +71,7 @@ function toCustomerView(booking) {
 
   if (b.refund) {
     out.refund = pick(b.refund, [
-      'status', 'isSameDay', 'downPaymentAmount', 'dispatchDeduction', 'refundableAmount', 'computedAmount', 'finalAmount',
+      'status', 'isSameDay', 'downPaymentAmount', 'dispatchDeduction', 'dispatchReason', 'refundableAmount', 'computedAmount', 'finalAmount',
       'adjustmentReason', 'receivedConfirmedAt', 'requestedAt', 'processedAt', 'proofFile',
     ]);
     if (b.refund.customerFlag) {

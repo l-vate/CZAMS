@@ -555,6 +555,7 @@ const REFUND_STATUS_META = {
 /* ── Refund Review Modal ──────────────────────────────── */
 function RefundReviewModal({ refund, onClose, onSuccess }) {
   const [dispatchDeduction, setDispatchDeduction] = useState('');
+  const [dispatchReason, setDispatchReason] = useState('');
   const [finalAmount, setFinalAmount] = useState('');
   const [adjustmentReason, setAdjustmentReason] = useState('');
   const [proof, setProof] = useState(null);
@@ -584,8 +585,8 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
       setError('Give a reason of 3 to 300 characters for changing the refund amount.');
       return;
     }
-    if (refund.isSameDay && (dispatchDeduction === '' || isNaN(Number(dispatchDeduction)) || Number(dispatchDeduction) < 0)) {
-      setError('Enter a valid dispatch/transportation deduction amount.');
+    if (refund.isSameDay && (dispatchDeduction === '' || isNaN(Number(dispatchDeduction)) || Number(dispatchDeduction) < 0 || Number(dispatchDeduction) > refund.downPaymentAmount)) {
+      setError(`Enter the transportation fee, from 0 up to the ₱${refund.downPaymentAmount?.toLocaleString()} down payment.`);
       return;
     }
     if (!proof) {
@@ -599,6 +600,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
       await processRefund(refund.bookingId, {
         proof,
         dispatchDeduction: refund.isSameDay ? deductionNum : undefined,
+        dispatchReason: refund.isSameDay ? dispatchReason.trim() : undefined,
         finalAmount: isAdjusted ? finalNum : undefined,
         adjustmentReason: isAdjusted ? adjustmentReasonText : undefined,
 }).catch(withFallback('Failed to process refund.'));
@@ -659,7 +661,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
 
           <div className="payment-review-cell">
             <span className="confirmation-detail-label">Cancellation Type</span>
-            <span className="confirmation-detail-value">{refund.isSameDay ? 'Same-day' : 'Pre-service'}</span>
+            <span className="confirmation-detail-value">{refund.isSameDay ? 'On the booked date' : 'Before the booked date'}</span>
           </div>
 
           <div className="payment-review-cell">
@@ -675,23 +677,35 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
 
         {refund.isSameDay && isPending && (
           <div className="bs-field-group">
-            <label className="bs-label">Dispatch / Transportation Deduction (₱)</label>
+            <label className="bs-label" htmlFor="refund-transport-fee">Transportation fee (₱) <span className="bs-label-hint">(0 if the crew had not left, up to the down payment)</span></label>
             <input
+              id="refund-transport-fee"
               type="number"
               min="0"
+              max={refund.downPaymentAmount}
               step="0.01"
               className="bs-input"
               placeholder="0.00"
               value={dispatchDeduction}
               onChange={(e) => setDispatchDeduction(e.target.value)}
             />
+            <label className="bs-label" htmlFor="refund-transport-reason">Reason for the fee <span className="bs-label-hint">(Optional, up to 200 characters)</span></label>
+            <input
+              id="refund-transport-reason"
+              type="text"
+              maxLength={200}
+              className="bs-input"
+              placeholder="e.g. The crew was already on the way"
+              value={dispatchReason}
+              onChange={(e) => setDispatchReason(e.target.value)}
+            />
           </div>
         )}
 
         {refund.isSameDay && !isPending && (
           <div className="payment-review-cell admin-payments-x14">
-            <span className="confirmation-detail-label">Dispatch / Transportation Deduction</span>
-            <span className="confirmation-detail-value">₱{refund.dispatchDeduction?.toLocaleString()}</span>
+            <span className="confirmation-detail-label">Transportation fee</span>
+            <span className="confirmation-detail-value">₱{refund.dispatchDeduction?.toLocaleString()}{refund.dispatchReason ? ` (${refund.dispatchReason})` : ''}</span>
           </div>
         )}
 

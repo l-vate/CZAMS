@@ -31,7 +31,7 @@ router.post('/register', registerLimiter, async (req, res) => {
   try {
     const { firstName, lastName, email, phone, password, clientType } = req.body;
 
-    // Names, a real email, a contact number and a password of at least 8 characters, checked here as well as in the form.
+    // Names, a real email, a contact number and a password of at least 8 characters with a number and a special character, checked here as well as in the form.
     const inputProblem = validateRegistration({ firstName, lastName, email, phone, password });
     if (inputProblem) return sendProblem(res, inputProblem);
 

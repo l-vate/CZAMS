@@ -45,7 +45,9 @@ test('the same-day warning uses the same rule as the confirmation, and shows onl
   const c = await load('config/cancellation.js');
   assert.ok(c.SAME_DAY_CANCEL_WARNING.includes(c.SAME_DAY_DEDUCTION_CLAUSE));
   assert.ok(c.sameDayCancelledMessage('₱300').includes(c.SAME_DAY_DEDUCTION_CLAUSE.replace('your down payment', 'your down payment of ₱300')));
-  assert.match(c.sameDayCancelledMessage('₱300'), /down payment of ₱300 before it's refunded\.$/);
+  assert.match(c.sameDayCancelledMessage('₱300'), /down payment of ₱300 before it is refunded\.$/);
+  assert.match(c.SAME_DAY_CANCEL_WARNING, /transportation fee may be deducted from your down payment/);
+  assert.match(c.SAME_DAY_CANCEL_WARNING, /earlier day, your down payment is refunded in full/);
   const today = '2026-10-14';
   assert.equal(c.showsSameDayWarning({ date: today, paymentStatus: 'partially_paid' }, today), true);
   assert.equal(c.showsSameDayWarning({ date: today, paymentStatus: 'to_verify' }, today), true);

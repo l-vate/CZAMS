@@ -41,7 +41,11 @@ const assign = audited1('booking.assign', 'Booking', bookingId, 'Changed who is 
 const discountApprove = audited1('discount.approve', 'Booking', bookingId, 'Approved the Senior/PWD discount');
 const discountReject = audited1('discount.reject', 'Booking', bookingId, 'Rejected the Senior/PWD discount', (req) => ({ reason: req.body && req.body.reason }));
 const refundProcess = audited1('refund.process', 'Booking', bookingId, 'Marked the refund as sent',
-  (req) => ({ dispatchDeduction: num(req.body && req.body.dispatchDeduction), finalAmount: num(req.body && req.body.finalAmount) }));
+  (req) => ({
+    transportationFee: num(req.body && req.body.dispatchDeduction),
+    feeReason: req.body && typeof req.body.dispatchReason === 'string' ? req.body.dispatchReason.trim().slice(0, 200) || undefined : undefined,
+    finalAmount: num(req.body && req.body.finalAmount),
+  }));
 const refundFlagResolve = audited1('refund.flag.resolve', 'Booking', bookingId, 'Resolved the customer\'s refund flag');
 const disruptionReschedule = audited1('disruption.reschedule', 'Booking', bookingId, 'Rescheduled a disrupted job',
   (req) => ({ date: req.body && req.body.date, time: req.body && req.body.time }));

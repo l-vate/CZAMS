@@ -1267,3 +1267,14 @@
   color: inherit;
   text-decoration: underline;
 }
+
+/* the password rules under the register field: red until the typed password meets them, then green */
+.password-rules {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.password-rule { color: #c62828; }
+.password-rule--met { color: #2e7d32; }

@@ -2,7 +2,7 @@
 // form can be skipped). Pure apart from findUserByEmail, which takes the User model, so the rules are tested without
 // a database.
 const { invalid } = require('./validation');
-const { validateNewPassword } = require('./passwordRules');
+const { validateRegistrationPassword } = require('./passwordRules');
 const { normalizeContactNumber } = require('./contactNumber');
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -50,7 +50,7 @@ function validateRegistration({ firstName, lastName, email, phone, password }) {
   return nameProblem(firstName, lastName)
     || emailProblem(email)
     || phoneProblem(phone, { required: true })
-    || validateNewPassword({ newPassword: password });
+    || validateRegistrationPassword(password);
 }
 
 // null when an edited profile is acceptable. A blank phone or address keeps what is saved.

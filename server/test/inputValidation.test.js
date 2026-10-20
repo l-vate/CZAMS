@@ -20,7 +20,7 @@ const { hashPassword } = require('../utils/password');
 const { chain } = require('./helpers/memoryQueries');
 const harness = require('./helpers/createBooking');
 
-const GOOD = { firstName: 'Ana', lastName: 'Cruz', email: 'ana@example.com', phone: '0917 123 4567', password: 'longenough1' };
+const GOOD = { firstName: 'Ana', lastName: 'Cruz', email: 'ana@example.com', phone: '0917 123 4567', password: 'longenough1!' };
 
 // ---- the rules on their own
 test('a good registration passes', () => {
@@ -190,4 +190,28 @@ test('a booking with a missing address is a 400 that says so, and every other fa
   } finally {
     harness.close();
   }
+});
+
+// ---- the password rule for a new account: 8 or more characters, a number and a special character (registration only)
+test('registration needs a number and a special character as well as 8 characters', () => {
+  const msg = (password) => validateRegistration({ ...GOOD, password });
+  assert.equal(msg('longenough1!'), null);
+  assert.equal(msg('Abcdef1!'), null, 'exactly 8 characters is enough');
+  ['longenough1', 'longenough!', 'longenough', '12345678', '!!!!!!!!', 'a1!'].forEach((password) => {
+    assert.equal(msg(password).status, 400, password);
+  });
+  assert.match(msg('longenough1').message, /1 number and 1 special character/);
+});
+
+test('the form hint and the server agree, and signing in or changing a password is not held to the new rule', async () => {
+  const { pathToFileURL } = require('node:url');
+  const path = require('node:path');
+  const checks = await import(pathToFileURL(path.join(__dirname, '..', '..', 'src', 'utils', 'passwordChecks.js')).href);
+  ['longenough1!', 'longenough1', 'longenough!', 'short1!', ''].forEach((password) => {
+    assert.equal(checks.passwordIsAcceptable(password), validateRegistration({ ...GOOD, password }) === null, password);
+  });
+  assert.deepEqual(checks.passwordChecks('abc').map((c) => c.met), [false, false, false]);
+  assert.deepEqual(checks.passwordChecks('abcdefg1!').map((c) => c.met), [true, true, true]);
+  const { validateNewPassword } = require('../utils/passwordRules');
+  assert.equal(validateNewPassword({ newPassword: 'longenough1' }), null, 'changing a password keeps its old rule');
 });

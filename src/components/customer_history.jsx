@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import { getCustomerHistory, getMyHistory } from '../services/userService';
 import { formatPeso } from '../utils/bookingPricing';
 import CustomerHistorySummary from './customer_history_summary';
+import { historyScreenState } from '../utils/historyState';
 
 // A customer's history. `userId` set: the admin view (latest bookings, counts, total paid and the
 // feedback the customer gave). Left out: the customer's own short summary for the profile page.
 function CustomerHistory({ userId }) {
   const [history, setHistory] = useState(null);
   const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0); // bumped by "Try again"
   const admin = Boolean(userId);
 
   useEffect(() => {
@@ -16,12 +18,21 @@ function CustomerHistory({ userId }) {
       .then((data) => { if (!cancelled) { setHistory(data); setFailed(false); } })
       .catch(() => { if (!cancelled) setFailed(true); });
     return () => { cancelled = true; };
-  }, [userId, admin]);
+  }, [userId, admin, attempt]);
 
-  // A new customer's own card says there is no history yet (the same wording as the summary); an admin looking at an account still gets the error.
-  if (failed && !admin) return <p className="customer-history-empty">You have no booking history yet.</p>;
-  if (failed) return <p className="sdm-error">The history could not be loaded.</p>;
-  if (!history) return <p className="sdm-muted">Loading history...</p>;
+  const retry = () => { setFailed(false); setHistory(null); setAttempt((n) => n + 1); };
+
+  const screen = historyScreenState({ failed, history });
+  // A failed request is an error with a way to try again. "No history yet" is only for a successful answer with no bookings.
+  if (screen === 'error') {
+    return (
+      <div className="customer-history-error" role="alert">
+        <p className="sdm-error">We could not load the booking history.</p>
+        <button type="button" className="bs-back-btn" onClick={retry}>Try again</button>
+      </div>
+    );
+  }
+  if (screen === 'loading') return <p className="sdm-muted">Loading history...</p>;
 
   const { counts } = history;
 

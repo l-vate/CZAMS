@@ -2797,3 +2797,29 @@
 .analytics-range { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin: 12px 0; }
 .analytics-range input, .analytics-range select { padding: 6px 8px; border: 1px solid var(--mist); border-radius: 8px; }
 .analytics-callout { font-weight: 700; margin: 12px 0 4px; }
+
+/* ============ PAYMENTS PAGE AT PHONE WIDTH ============
+   The card is a five-column grid on desktop (unchanged above 768px). On a phone it becomes one stacked card: nothing is clipped, no
+   horizontal page scroll, and every tap target is 40px or more. */
+@media (max-width: 768px) {
+  .payments-toolbar { align-items: stretch; }
+  .payments-filters { flex-wrap: wrap; }
+  .payments-filters .filter-pill { min-height: 40px; }
+  .payments-search { width: 100%; box-sizing: border-box; }
+
+  .payment-card {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 16px;
+  }
+  .payment-card > * { min-width: 0; }
+  .payment-card__header { flex-wrap: wrap; }
+  .payment-card__client,
+  .payment-card__detail,
+  .payment-card__booking { overflow-wrap: anywhere; }
+  .payment-card__service { display: flex; flex-wrap: wrap; gap: 4px 6px; }
+  .payment-card__datetime,
+  .payment-card__attachment { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #64748b; }
+  .payment-card__action { display: flex; flex-wrap: wrap; gap: 8px; }
+  .payment-card__review-btn { flex: 1 1 120px; min-height: 40px; }
+}

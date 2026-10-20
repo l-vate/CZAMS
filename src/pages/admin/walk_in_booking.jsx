@@ -191,7 +191,7 @@ function CustomerStep({ customers, loadingCustomers, selectedCustomer, onSelectC
             <input
               type="tel"
               className="bs-input"
-              placeholder="e.g. +63 917 000 0000"
+              placeholder="e.g. 0917 123 4567"
               value={newCustomer.phone}
               onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
             />

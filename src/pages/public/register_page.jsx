@@ -142,7 +142,7 @@ const handleSubmit = async (e) => {
                 type="tel"
                 id="phone"
                 name="phone"
-                placeholder="+63 900 000 0000"
+                placeholder="e.g. 0917 123 4567"
                 value={formData.phone}
                 onChange={handleChange}
                 required

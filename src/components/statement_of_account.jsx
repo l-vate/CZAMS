@@ -5,7 +5,7 @@ import { DATE_BASES, formatRange, formatGeneratedAt } from '../utils/reportBuild
 import { downloadCsv } from '../utils/csvExport';
 
 import { manilaTodayKey } from '../utils/manilaTime';
-import { BRAND_NAME } from '../config/company';
+import { BRAND_NAME, COMPANY_PHONE } from '../config/company';
 const slug = (text) => String(text || 'customer').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'customer';
 
 // The CSV carries the same table: header, rows, totals row, then the outstanding balance.
@@ -104,6 +104,7 @@ function StatementSheet({ customer, statement, meta }) {
           <img src="/images/logo.png" alt={`${BRAND_NAME} logo`} className="report-logo" />
           <div>
             <p className="report-company">{BRAND_NAME}</p>
+            <p className="report-company-phone">Tel. {COMPANY_PHONE}</p>
             <h1 className="report-title">Statement of Account</h1>
           </div>
         </div>

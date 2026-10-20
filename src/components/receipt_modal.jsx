@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { getMe } from '../services/userService';
 import { documentTitle } from '../utils/receiptStatus';
 import { ProofLink } from './proof_file';
-import { BRAND_NAME } from '../config/company';
+import { BRAND_NAME, COMPANY_PHONE } from '../config/company';
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -81,6 +81,7 @@ function ReceiptModal({ form, booking, billTo, onClose }) {
               <img src="/images/logo.png" alt={`${BRAND_NAME} logo`} className="receipt-logo" />
               <div>
                 <p className="receipt-brand-name">{BRAND_NAME}</p>
+                <p className="receipt-brand-phone">Tel. {COMPANY_PHONE}</p>
               </div>
             </div>
             <div className="receipt-invoice-meta">

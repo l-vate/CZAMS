@@ -1,6 +1,6 @@
 import { BarChart, DonutChart, HorizontalBarChart, ChartCard } from './charts';
 import { pluralize } from '../utils/pluralize';
-import { BRAND_NAME } from '../config/company';
+import { BRAND_NAME, COMPANY_PHONE } from '../config/company';
 
 function Chart({ chart }) {
   if (chart.kind === 'bar') {
@@ -23,6 +23,7 @@ function ReportSheet({ report, meta }) {
           <img src="/images/logo.png" alt={`${BRAND_NAME} logo`} className="report-logo" />
           <div>
             <p className="report-company">{BRAND_NAME}</p>
+            <p className="report-company-phone">Tel. {COMPANY_PHONE}</p>
             <h1 className="report-title">{report.title}</h1>
           </div>
         </div>

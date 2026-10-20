@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { ProofImage } from './proof_file';
-import { BRAND_NAME } from '../config/company';
+import { BRAND_NAME, COMPANY_PHONE } from '../config/company';
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -44,6 +44,7 @@ function ServiceReportPdfModal({ report, reportItem, onClose }) {
               <div>
                 <p className="report-pdf-brand-name">{BRAND_NAME}</p>
                 <p className="report-pdf-brand-sub">Service Report</p>
+                <p className="report-pdf-brand-sub">Tel. {COMPANY_PHONE}</p>
               </div>
             </div>
             <div className="report-pdf-meta">

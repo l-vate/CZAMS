@@ -51,7 +51,7 @@ const { describeChargeChanges } = require('../utils/chargeNotice');
 const { buildPriceSnapshot } = require('../utils/priceSnapshot');
 const { readPaging } = require('../utils/adminInput');
 const { serviceProblem, unitsProblem } = require('../utils/bookingValidation');
-const { downPaymentProblem, balanceProblem, firstPaymentModeProblem, DOWN_PAYMENT_BOOKING_STATUSES, DOWN_PAYMENT_OPEN, BALANCE_BOOKING_STATUSES, BALANCE_OPEN } = require('../utils/paymentGuards');
+const { downPaymentProblem, balanceProblem, onlinePaymentModeProblem, DOWN_PAYMENT_BOOKING_STATUSES, DOWN_PAYMENT_OPEN, BALANCE_BOOKING_STATUSES, BALANCE_OPEN } = require('../utils/paymentGuards');
 const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/queue');
 const { generateBookingId, createWithUniqueBookingId, BookingIdExhaustedError } = require('../utils/bookingId');
 const { invalid, sendProblem } = require('../utils/validation');
@@ -451,10 +451,11 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
         });
       }
     }
-    // A customer's first payment cannot be cash or cheque, whatever the form offers. An admin walk-in may record them.
+    // A customer pays online by GCash or Bank Transfer only, for the first and the second payment, whatever the form offers. An admin
+    // walk-in may record any mode.
     if (req.userRole !== ROLE.ADMIN) {
-      const firstModeProblem = firstPaymentModeProblem(paymentMode);
-      if (firstModeProblem) return sendProblem(res, firstModeProblem);
+      const modeProblem = onlinePaymentModeProblem(paymentMode) || onlinePaymentModeProblem(paymentMode2);
+      if (modeProblem) return sendProblem(res, modeProblem);
     }
     if (dpPercent > 0 && !allowedModes.includes(paymentMode)) {
       return res.status(400).json({ message: 'Choose a valid payment mode.' });

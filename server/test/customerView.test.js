@@ -17,6 +17,7 @@ const Closure = require('../models/Closure');
 const { authCache } = require('../utils/authCache');
 const { toCustomerView, toCustomerBackJob, PASS_THROUGH, SHAPED, HIDDEN } = require('../utils/customerView');
 const { matches, chain } = require('./helpers/memoryQueries');
+const { PNG_DATA_URL } = require('./helpers/signature');
 
 // ---- the whitelist itself
 const SECRET_TEXT = 'INTERNAL: gate code 4821, owner is difficult, do not mention the discount';
@@ -139,7 +140,7 @@ test.before(async () => {
   User.findById = (id) => chain(accounts[id] ? { _id: id, role: accounts[id], isActive: true } : null);
   require('./helpers/stubLocks').installLockStub(); // moving a Pending booking now takes the slot's lock
   // two free pairs of technicians, so the new slot is open
-  User.find = (f) => chain(f && f.role === 'staff' ? ['TA', 'TB', 'TC', 'TD'].map((id) => ({ _id: id, role: 'staff', isActive: true, position: 'Technician' })) : []);
+  User.find = (f) => chain(f && f.role === 'staff' ? ['TA', 'TB', 'TC', 'TD'].map((id) => ({ _id: id, name: id, role: 'staff', isActive: true, position: 'Technician' })) : []);
   User.findOne = () => chain({ _id: 'ADM1' });
   Booking.find = (f) => chain(DB.filter((d) => matches(d, f)));
   Booking.findOne = (f) => chain(DB.find((d) => matches(d, f)) || null);
@@ -224,13 +225,26 @@ test('PATCH refund flag and refund received return the customer view', async () 
   assertClean(received.body, 'PATCH /refund/received');
 });
 
+// a payment submission the way the form sends it: a proof file and a reference number
+const callPay = async (path, as) => {
+  const token = jwt.sign({ id: as, role: accounts[as] }, process.env.JWT_SECRET, { expiresIn: '5m' });
+  const png = Buffer.from(PNG_DATA_URL.split(',')[1], 'base64');
+  const form = new FormData();
+  form.append('referenceNumber', 'GC123456');
+  form.append('proof', new Blob([png], { type: 'image/png' }), 'proof.png');
+  const res = await fetch(`${base}${path}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form });
+  return { status: res.status, body: await res.json().catch(() => ({})) };
+};
+
 test('PATCH pay and pay-balance return the customer view', async () => {
-  DB = [doc({ status: 'Pending', paymentMode: 'Maya', paymentMode2: 'Cash', paymentStatus: 'Unpaid', balancePaymentStatus: 'None' })];
-  const pay = await call('PATCH', '/api/bookings/CZ-1/pay', 'CUS1');
+  const fileStore = require('../storage/fileStore');
+  fileStore.setStore(fileStore.createMemoryStore());
+  DB = [doc({ status: 'Pending', paymentMode: 'GCash', paymentMode2: 'Bank Transfer', paymentStatus: 'Unpaid', balancePaymentStatus: 'None' })];
+  const pay = await callPay('/api/bookings/CZ-1/pay', 'CUS1');
   assert.equal(pay.status, 200, JSON.stringify(pay.body));
   assertClean(pay.body, 'PATCH /pay');
   Object.assign(DB[0], { paymentStatus: 'partially_paid', status: 'Approved' }); // approved and the down payment verified, so a balance is due
-  const balance = await call('PATCH', '/api/bookings/CZ-1/pay-balance', 'CUS1');
+  const balance = await callPay('/api/bookings/CZ-1/pay-balance', 'CUS1');
   assert.equal(balance.status, 200, JSON.stringify(balance.body));
   assertClean(balance.body, 'PATCH /pay-balance');
 });

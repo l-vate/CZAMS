@@ -31,6 +31,7 @@ import { ApiError, orFallback } from '../../services/apiClient';
 import PaymentSettingsUnavailable from '../../components/payment_settings_unavailable';
 import { getBusyTechnicians, createBooking } from '../../services/bookingService';
 import { PAYMENT_STATUS } from '../../constants/paymentStatus';
+import { ONLINE_PAYMENT_MODES } from '../../constants/paymentModes';
 import { TIME_BLOCK_VALUES, TIME_BLOCK } from '../../constants/timeBlocks';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
 
@@ -551,10 +552,8 @@ function Step4({ form, setForm, services, isReturnCustomer, onAgreedTerms, payme
   const [showModal, setShowModal] = useState(false);
   const { lineItems, basePrice, discountAmount, discountLabel, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages), 0, promos);
   const isNoDownPayment = dpPercent === 0;
-  // The very first, remote payment can't reasonably be Cash or Cheque - both need
-  // a physical handoff that hasn't happened yet at this point in the flow.
-  // Everything else the admin has configured (GCash, Bank Transfer, ...) is fair game.
-  const firstPaymentMethods = paymentMethods.filter((m) => !['Cash', 'Cheque'].includes(m.name));
+  // A customer pays online by GCash or Bank Transfer only, for both payments. Cash and cheque are recorded by our team on site.
+  const onlineMethods = paymentMethods.filter((m) => ONLINE_PAYMENT_MODES.includes(m.name));
 
 const handleSubmitPayment = ({ proof, referenceNumber }) => {
     setForm({ ...form, paymentStatus: PAYMENT_STATUS.TO_VERIFY, proofFile: proof?.name || null, proofFileObj: proof || null, referenceNumber: referenceNumber || '' });
@@ -625,7 +624,7 @@ const handleSubmitPayment = ({ proof, referenceNumber }) => {
                   onChange={(e) => setForm({ ...form, paymentMode: e.target.value })}
                 >
                   <option value="">Select mode</option>
-                  {firstPaymentMethods.map((m) => (
+                  {onlineMethods.map((m) => (
                     <option key={m.name} value={m.name}>{m.name}</option>
                   ))}
                 </select>
@@ -641,7 +640,7 @@ const handleSubmitPayment = ({ proof, referenceNumber }) => {
                     onChange={(e) => setForm({ ...form, paymentMode2: e.target.value })}
                   >
                     <option value="">Select mode</option>
-                    {paymentMethods.map((m) => (
+                    {onlineMethods.map((m) => (
                       <option key={m.name} value={m.name}>{m.name}</option>
                     ))}
                   </select>

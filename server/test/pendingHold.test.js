@@ -109,3 +109,22 @@ test('an admin booking a walk-in decides for themselves: neither the hold nor th
   const walkIn = await post({ date: D(), time: 'Morning', customer: 'CUS2' }, 'ADM1', { role: 'admin' });
   assert.equal(walkIn.status, 201, JSON.stringify(walkIn.body));
 });
+
+// ---- capacity with a flat technician list (no pairs): the free technicians are counted one by one, two make a pair
+test('capacity counts flat technician entries one by one: two technicians on a booking use one pair, a check-up with one technician uses one person', () => {
+  const { blockIsOpen } = require('../utils/availability');
+  const crew = ['T1', 'T2', 'T3', 'T4'].map((_id) => ({ _id }));
+  const slot = { date: '2026-12-01', time: 'Morning' };
+  const booking = (status, ids) => ({ ...slot, status, assignments: ids.map((lead) => ({ lead, helper: null })), extensionDays: [] });
+  const open = (bookings) => blockIsOpen({ technicians: crew, bookings, ...slot });
+  assert.equal(open([]), true);
+  assert.equal(open([booking('Approved', ['T1', 'T2'])]), true, 'one pair is still free');
+  assert.equal(open([booking('Approved', ['T1', 'T2']), booking('Pending', ['T3', 'T4'])]), false, 'a Pending booking holds its technicians too');
+  assert.equal(open([booking('Approved', ['T1'])]), true, 'a check-up with one technician leaves three: one pair');
+  assert.equal(open([booking('Approved', ['T1', 'T2', 'T3'])]), false, 'three technicians on one booking leave one person, no pair');
+  const { activeStatuses } = require('../utils/assignments');
+  assert.deepEqual(activeStatuses(), ['Pending', 'Approved', 'In Progress'], 'only these hold technicians, so a cancelled booking frees them');
+  // an older booking that holds a lead and a helper counts the same two people
+  const legacy = { ...slot, status: 'Approved', assignments: [{ lead: 'T1', helper: 'T2' }], extensionDays: [] };
+  assert.equal(open([legacy, booking('Pending', ['T3', 'T4'])]), false);
+});

@@ -182,3 +182,46 @@ test('technicians picked one by one: only the first is a lead, the rest have the
   // a single technician (a check-up) is the lead
   assert.deepEqual(getLeadIds({ assignments: [{ lead: 'T1' }] }), ['T1']);
 });
+
+// ---- the same, through the routes, on a booking whose technicians were picked one by one (three entries, no helpers)
+const FLAT = [{ lead: 'T1' }, { lead: 'T2' }, { lead: 'T3' }];
+
+test('flat list: only the first technician can file the service report; the others are refused and nothing is saved', async () => {
+  booking = makeBooking(FLAT);
+  DB = [booking];
+  for (const other of ['T2', 'T3']) {
+    const res = await file(other);
+    assert.equal(res.status, 403, other);
+    assert.match(res.body.message, /primary technician/);
+  }
+  assert.equal(saved, null);
+  assert.equal((await file('T1')).status, 201);
+  assert.equal(saved.technicianId, 'T1');
+});
+
+test('flat list: only the first technician can report a disruption or ask for an extra day; the others are refused', async () => {
+  booking = makeBooking(FLAT);
+  DB = [booking];
+  for (const other of ['T2', 'T3']) {
+    const disruption = await call(other, 'PATCH', '/api/bookings/CZ-1/disruption/report', { reason: 'Rain' });
+    assert.equal(disruption.status, 403, other);
+    assert.match(disruption.body.message, /primary technician/);
+    const extension = await call(other, 'PATCH', '/api/bookings/CZ-1/extension/request', { reason: 'More work', requestedDate: addDays(manilaTodayKey(), 2), requestedTime: 'Morning' });
+    assert.equal(extension.status, 403, other);
+    assert.match(extension.body.message, /primary technician/);
+  }
+  const first = await call('T1', 'PATCH', '/api/bookings/CZ-1/disruption/report', { reason: 'Rain' });
+  assert.notEqual(first.status, 403, 'the first technician is not refused by the role rule');
+});
+
+test('flat list: every technician sees the job in their list, and the list says who is primary', async () => {
+  booking = makeBooking(FLAT);
+  DB = [booking];
+  const mine = async (as) => (await call(as, 'GET', '/api/bookings/technician/mine')).body[0];
+  assert.deepEqual([await mine('T1')].map((j) => [j.myRole, j.isPrimaryLead]), [['Lead', true]]);
+  for (const other of ['T2', 'T3']) {
+    const job = await mine(other);
+    assert.ok(job, `${other} sees the job`);
+    assert.deepEqual([job.myRole, job.isPrimaryLead], ['Helper', false]);
+  }
+});

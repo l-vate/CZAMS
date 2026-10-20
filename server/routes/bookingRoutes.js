@@ -2118,7 +2118,7 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
     }
 
     // Staffing rule from the paper: a booking cannot be approved until the technicians the service needs are
-    // assigned. A Cleaning (or any pair service) needs a lead and a helper; only a check-up or survey may be solo.
+    // assigned. A Cleaning (or any other service that needs two) needs at least two technicians; only a check-up or survey may have one.
     if (status === BOOKING_STATUS.APPROVED && prev.status !== BOOKING_STATUS.APPROVED) {
       const staffing = staffingProblem(getAssignments(booking), booking.service, 'approving');
       if (staffing) return res.status(400).json({ message: staffing, suggestedDates: await suggestionsFor(booking) });

@@ -38,7 +38,11 @@ const rescheduleApprove = audited1('reschedule.approve', 'Booking', bookingId, '
 const rescheduleUseDate = audited1('reschedule.admin_move', 'Booking', bookingId, 'Moved the booking to another date', (req) => ({ date: req.body && req.body.date, time: req.body && req.body.time }));
 const rescheduleDeny = audited1('reschedule.deny', 'Booking', bookingId, 'Denied the reschedule request');
 const assign = audited1('booking.assign', 'Booking', bookingId, 'Changed who is assigned (see the assignment history)',
-  (req) => ({ pairs: Array.isArray(req.body && req.body.assignments) ? req.body.assignments.length : undefined }));
+  (req) => {
+    // how many technicians were named: one per entry, plus the helper of an entry that still has one (a request in the older pair shape)
+    const list = Array.isArray(req.body && req.body.assignments) ? req.body.assignments : undefined;
+    return { technicians: list ? list.reduce((n, a) => n + (a && a.helperId ? 2 : 1), 0) : undefined };
+  });
 const discountApprove = audited1('discount.approve', 'Booking', bookingId, 'Approved the Senior/PWD discount');
 const discountReject = audited1('discount.reject', 'Booking', bookingId, 'Rejected the Senior/PWD discount', (req) => ({ reason: req.body && req.body.reason }));
 const refundProcess = audited1('refund.process', 'Booking', bookingId, 'Marked the refund as sent',

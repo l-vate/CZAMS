@@ -144,7 +144,7 @@ function AssignmentPanel({ booking, onUpdated }) {
               type="text"
               className="ma-input"
               aria-label="Reason for the change"
-              placeholder="Reason for the change (optional, kept in the assignment history)"
+              placeholder="Reason for the change (optional)"
               maxLength={200}
               value={reason}
               onChange={(e) => setReason(e.target.value)}

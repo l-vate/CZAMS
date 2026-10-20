@@ -31,3 +31,10 @@
 .assignment-panel-x8.assignment-panel-x8 {
   margin-top: 8px;
 }
+
+/* One technician per row: the dropdown takes what is left and the Remove button keeps its own width, so on a phone the button is never
+   pushed past the edge of the panel. */
+.assignment-panel-x5.assignment-panel-x5 { align-items: center; }
+.assignment-panel-x5 .sdm-tech-select { flex: 1 1 0; min-width: 0; }
+.assignment-panel-x5 .sdm-btn { flex: 0 0 auto; }
+.assignment-panel-x1 .ma-input { width: 100%; box-sizing: border-box; }

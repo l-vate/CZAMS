@@ -35,6 +35,8 @@ const { loadBackJobContexts } = require('../utils/backJobContext');
 const BackJob = require('../models/BackJob');
 const { TECHNICIAN_BOOKING_FILTER, isHiddenFromTechnicians } = require('../utils/technicianVisibility');
 const scheduling = require('../constants/scheduling');
+const { SENIOR_PWD_DISCOUNT_RATE, SENIOR_PWD_DISCOUNT_PERCENT } = require('../constants/discount');
+const { amountPaid } = require('../utils/customerHistory');
 const { createUploader, discardUploads, storeUploads, PROOF_TYPES } = require('../utils/uploadSafety');
 const { KINDS } = require('../storage/fileStore');
 const { withLocks, LockBusyError } = require('../utils/slotLock');
@@ -286,7 +288,7 @@ router.get('/technicians/:id/feedback', auth, async (req, res) => {
 router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) => {
   req.generatedBookingId = generateBookingId();
   next();
-}, upload.fields([{ name: 'proof', maxCount: 1 }, { name: 'discountId', maxCount: 1 }]), async (req, res) => {
+}, upload.fields([{ name: 'proof', maxCount: 1 }]), async (req, res) => {
   try {
     // A refused request must not leave its uploaded file behind.
     res.on('finish', () => { if (res.statusCode >= 400) discardUploads(req); });
@@ -477,32 +479,23 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
     });
     if (paymentSubmission.problem) return sendProblem(res, paymentSubmission.problem);
 
-    // Senior Citizen / PWD discount request. A customer must attach a photo of a valid
-    // ID and the discount stays Pending until an admin approves it. An admin booking on
-    // someone's behalf (walk-in) has seen the ID in person: it is approved on the spot
-    // and the ID upload is optional.
-    const discountIdFile = req.files?.discountId?.[0];
-    const discountIdPath = discountIdFile ? `/uploads/proofs/${discountIdFile.filename}` : undefined;
+    // Senior Citizen / PWD discount request. The customer only says they ask for it and which kind; no ID number or photo is collected,
+    // the owner checks the ID in person. It stays Pending until an admin applies it. An admin booking on someone's behalf (walk-in) has
+    // seen the ID in person: it is applied on the spot.
     const isDiscountRequested = discountType === 'Senior' || discountType === 'PWD';
     if (discountType && !isDiscountRequested) {
       return res.status(400).json({ message: 'Choose either Senior Citizen or PWD for the discount.' });
-    }
-    if (discountIdFile && !isDiscountRequested) {
-      return res.status(400).json({ message: 'Choose Senior Citizen or PWD to go with the ID you uploaded.' });
-    }
-    if (isDiscountRequested && !isAdminWalkIn && !discountIdFile) {
-      return res.status(400).json({ message: 'Upload a photo of a valid ID to request the Senior Citizen / PWD discount.' });
     }
     const now = new Date();
     let discount;
     if (isDiscountRequested) {
       discount = isAdminWalkIn
         ? {
-            type: discountType, idFile: discountIdPath, status: 'Approved',
-            percent: Number(paymentSettings.seniorPwdDiscountPercent ?? 20),
+            type: discountType, status: 'Approved',
+            percent: SENIOR_PWD_DISCOUNT_PERCENT, rate: SENIOR_PWD_DISCOUNT_RATE,
             dpPaidBeforeApproval: 0, requestedAt: now, reviewedAt: now, reviewedBy: req.userId,
           }
-        : { type: discountType, idFile: discountIdPath, status: 'Pending', requestedAt: now };
+        : { type: discountType, status: 'Pending', requestedAt: now };
     }
 
     // A booking is never marked paid just because an admin made it. Money received in person is recorded afterwards, on
@@ -530,7 +523,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
         await assertUnderPendingLimit(Booking, bookingCustomerId);
         await assertSlotOpen(date, time);
       }
-      await storeUploads(req, { kind: (file) => (file.fieldname === 'discountId' ? KINDS.ID_PHOTO : KINDS.PROOF), bookingId: req.generatedBookingId });
+      await storeUploads(req, { kind: KINDS.PROOF, bookingId: req.generatedBookingId });
       const queueRank = await nextQueueRank(); // last in line: first come, first served
       return createWithUniqueBookingId((bookingId) => Booking.create({
         bookingId,
@@ -604,7 +597,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
     if (populated.discount?.status === 'Pending') {
       await notifyAdmins(
         NOTIFICATION_TYPE.DISCOUNT_REQUESTED,
-        `Booking ${populated.bookingId}: the customer requested the ${populated.discount.type === 'PWD' ? 'PWD' : 'Senior Citizen'} discount. Review the uploaded ID.`,
+        `Booking ${populated.bookingId}: the customer requested the ${populated.discount.type === 'PWD' ? 'PWD' : 'Senior Citizen'} discount. Check the ID in person, then apply or decline it.`,
         { booking: populated }
       );
     }
@@ -959,17 +952,11 @@ router.get('/:bookingId/reference-duplicates', auth, async (req, res) => {
 // Customer: ask for the Senior Citizen / PWD discount on a booking they already made. Same ID
 // upload and same admin approval flow as asking at booking time. Allowed while the booking is
 // Pending or Approved, and only if there is no request yet or the last one was rejected.
-router.patch('/:bookingId/discount/request', auth, allowRoles(ROLE.CUSTOMER), upload.single('discountId'), async (req, res) => {
+router.patch('/:bookingId/discount/request', auth, allowRoles(ROLE.CUSTOMER), async (req, res) => {
   try {
-    // A refused request must not leave its uploaded file behind.
-    res.on('finish', () => { if (res.statusCode >= 400) discardUploads(req); });
-
     const { discountType } = req.body;
     if (discountType !== 'Senior' && discountType !== 'PWD') {
       return res.status(400).json({ message: 'Choose either Senior Citizen or PWD for the discount.' });
-    }
-    if (!req.file) {
-      return res.status(400).json({ message: 'Upload a photo of a valid ID to request the Senior Citizen / PWD discount.' });
     }
 
     const booking = await Booking.findOne({ bookingId: req.params.bookingId, customer: req.userId }).populate('service');
@@ -982,13 +969,12 @@ router.patch('/:bookingId/discount/request', auth, allowRoles(ROLE.CUSTOMER), up
       return res.status(400).json({ message: 'This booking already has a discount request.' });
     }
 
-    await storeUploads(req, { kind: KINDS.ID_PHOTO, bookingId: booking.bookingId });
-    booking.discount = { type: discountType, idFile: `/uploads/proofs/${req.file.filename}`, status: 'Pending', requestedAt: new Date() };
+    booking.discount = { type: discountType, status: 'Pending', requestedAt: new Date() };
     await booking.save();
 
     await notifyAdmins(
       NOTIFICATION_TYPE.DISCOUNT_REQUESTED,
-      `Booking ${booking.bookingId}: the customer requested the ${discountType === 'PWD' ? 'PWD' : 'Senior Citizen'} discount. Review the uploaded ID.`,
+      `Booking ${booking.bookingId}: the customer requested the ${discountType === 'PWD' ? 'PWD' : 'Senior Citizen'} discount. Check the ID in person, then apply or decline it.`,
       { booking }
     );
 
@@ -1027,22 +1013,45 @@ router.patch('/:bookingId/discount/approve', auth, auditSpecs.discountApprove, a
       return res.status(400).json({ message: 'This booking is already completed, so a discount can no longer be approved on it.' });
     }
 
-    const settings = await getOrCreateSettings();
-    const percent = Number(settings.seniorPwdDiscountPercent ?? 20);
+    // The rate is the owner's fixed answer (constants/discount.js), frozen on the booking.
+    const percent = SENIOR_PWD_DISCOUNT_PERCENT;
 
-    // Computed before the discount is switched on, so this is the full-price down payment.
+    // What the customer has already paid and an admin verified, at full price (computed before the discount is switched on). The paid
+    // amount is never touched: only the balance goes down. A verified down payment on file is what was really paid; an older booking
+    // without one falls back to the percentage of the full price.
     const downPaymentVerified = [PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(booking.paymentStatus);
     const dpPaid = downPaymentVerified
-      ? Math.round(getBookingUnitsSubtotal(booking) * ((booking.downPaymentPercent || 0) / 100))
+      ? (typeof booking.downPaymentPaidAmount === 'number'
+        ? booking.downPaymentPaidAmount
+        : Math.round(getBookingUnitsSubtotal(booking) * ((booking.downPaymentPercent || 0) / 100)))
       : 0;
+    const alreadyPaid = Math.max(dpPaid, amountPaid(booking));
 
     booking.discount.status = 'Approved';
     booking.discount.percent = percent;
+    booking.discount.rate = SENIOR_PWD_DISCOUNT_RATE;
     booking.discount.dpPaidBeforeApproval = dpPaid;
     booking.discount.rejectionReason = undefined;
     booking.discount.reviewedAt = new Date();
     booking.discount.reviewedBy = req.userId;
     booking.discount.amount = getSeniorDiscountAmount(booking);
+
+    // The new total may not fall below what was already paid: that difference is money to give back, which goes through the refund
+    // flow, not through a discount. Nothing has been saved yet.
+    if (alreadyPaid > 0 && getBookingBasePrice(booking) < alreadyPaid) {
+      const discountedTotal = getBookingBasePrice(booking);
+      // put the request back as it was, so nothing half-applied is left on the document
+      booking.discount.status = 'Pending';
+      booking.discount.percent = undefined;
+      booking.discount.rate = undefined;
+      booking.discount.amount = undefined;
+      booking.discount.dpPaidBeforeApproval = undefined;
+      booking.discount.reviewedAt = undefined;
+      booking.discount.reviewedBy = undefined;
+      return res.status(400).json({
+        message: `The customer has already paid ₱${alreadyPaid.toLocaleString()}, which is more than the discounted total of ₱${discountedTotal.toLocaleString()}. The discount cannot be applied. Handle the difference through the refund flow instead.`,
+      });
+    }
 
     if (booking.isCommercial) {
       booking.vatAmount = Math.round(getBookingUnitsSubtotal(booking) * 0.12);

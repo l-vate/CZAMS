@@ -7,6 +7,10 @@ const { sendRouteError } = require('../utils/routeErrors');
 const PaymentSettings = require('../models/PaymentSettings');
 
 const { SETTINGS_ID, getOrCreateSettings } = require('../utils/paymentSettings');
+const { SENIOR_PWD_DISCOUNT_PERCENT } = require('../constants/discount');
+
+// The discount percent is the owner's fixed answer (constants/discount.js), whatever an older saved settings document says.
+const withDiscountPercent = (settings) => ({ ...(typeof settings.toObject === 'function' ? settings.toObject() : settings), seniorPwdDiscountPercent: SENIOR_PWD_DISCOUNT_PERCENT });
 
 // Customers and admins: the booking flows need this to render payment mode options and down payment
 // choices. It holds the company's GCash and bank account details, which a technician never needs.
@@ -16,7 +20,7 @@ router.get('/', auth, async (req, res) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
     const settings = await getOrCreateSettings();
-    res.json(settings);
+    res.json(withDiscountPercent(settings));
   } catch (err) {
     sendRouteError(res, err);
   }
@@ -32,7 +36,7 @@ router.put('/', auth, auditSpecs.settingsUpdate, async (req, res) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const { paymentMethods, downPaymentPercentages, seniorPwdDiscountPercent } = req.body;
+    const { paymentMethods, downPaymentPercentages } = req.body;
 
     if (!Array.isArray(paymentMethods) || paymentMethods.length === 0) {
       return res.status(400).json({ message: 'At least one payment method is required.' });
@@ -66,13 +70,6 @@ router.put('/', auth, auditSpecs.settingsUpdate, async (req, res) => {
     }
 
     const update = { paymentMethods: cleanedMethods, downPaymentPercentages: cleanedPercentages };
-    if (seniorPwdDiscountPercent !== undefined) {
-      const rate = Number(seniorPwdDiscountPercent);
-      if (seniorPwdDiscountPercent === '' || seniorPwdDiscountPercent === null || !Number.isFinite(rate) || rate < 0 || rate > 100) {
-        return res.status(400).json({ message: 'The Senior/PWD discount must be a number from 0 to 100.' });
-      }
-      update.seniorPwdDiscountPercent = rate;
-    }
 
     const settings = await PaymentSettings.findByIdAndUpdate(
       SETTINGS_ID,
@@ -80,7 +77,7 @@ router.put('/', auth, auditSpecs.settingsUpdate, async (req, res) => {
       { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
     );
 
-    res.json(settings);
+    res.json(withDiscountPercent(settings));
   } catch (err) {
     sendRouteError(res, err);
   }

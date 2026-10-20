@@ -53,7 +53,7 @@ export function getAppliedDiscount(booking, grossUnitsSubtotal) {
   return {
     amount: senior,
     kind: 'senior',
-    label: 'Senior/PWD Discount',
+    label: `${booking.discount.type === 'PWD' ? 'PWD' : 'Senior Citizen'} discount (${booking.discount.percent || 0}%)`,
     note: promo > 0 ? `The promo "${booking.promo.name}" is not applied: your Senior/PWD discount gives you more.` : '',
   };
 }

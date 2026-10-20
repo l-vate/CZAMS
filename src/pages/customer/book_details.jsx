@@ -9,7 +9,7 @@ import { getBookingLineItems, getPaymentBreakdown, formatPeso } from '../../util
 import { getMemberNames } from '../../utils/assignments';
 import { earliestBookingKey, manilaTodayKey } from '../../utils/manilaTime';
 import { bookingHeading } from '../../utils/bookingHeading';
-import { SAME_DAY_CANCEL_WARNING, sameDayCancelledMessage, showsSameDayWarning } from '../../config/cancellation';
+import { SAME_DAY_CANCEL_WARNING, CANCEL_POLICY_NOTE, sameDayCancelledMessage, showsSameDayWarning } from '../../config/cancellation';
 import { usePaymentSettings, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
 import {
   FiCheck, FiBell, FiPrinter,
@@ -63,22 +63,22 @@ function formatDate(dateStr) {
 // booking is Pending or Approved and has no request yet, or the last one was rejected.
 function DiscountRequestForm({ bookingId, onRequested }) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ discountType: '', discountIdFileObj: null });
+  const [form, setForm] = useState({ discountType: '' });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async () => {
-    if (!form.discountType || !form.discountIdFileObj) {
-      setError('Choose Senior Citizen or PWD and upload a photo of a valid ID.');
+    if (!form.discountType) {
+      setError('Tick the box and choose Senior Citizen or PWD.');
       return;
     }
     setSubmitting(true);
     setError('');
     try {
-      const data = await requestDiscount(bookingId, { type: form.discountType, idFile: form.discountIdFileObj });
+      const data = await requestDiscount(bookingId, { type: form.discountType });
       onRequested(data);
       setOpen(false);
-      setForm({ discountType: '', discountIdFileObj: null });
+      setForm({ discountType: '' });
     } catch (err) {
       setError(err instanceof ApiError ? err.message || 'Failed to send the discount request.' : 'Could not connect to server.');
     } finally {
@@ -96,7 +96,7 @@ function DiscountRequestForm({ bookingId, onRequested }) {
 
   return (
     <div className="bs-field-group customer-book-details-x3">
-      <DiscountOption form={form} setForm={setForm} idRequired appliesNow={false} optional={false} />
+      <DiscountOption form={form} setForm={setForm} appliesNow={false} optional={false} />
       {error && <p className="customer-book-details-x4">{error}</p>}
       <div className="cancel-confirm-actions">
         <button type="button" className="bs-back-btn" onClick={() => setOpen(false)} disabled={submitting}>Cancel</button>
@@ -127,6 +127,8 @@ function RescheduleModal({ booking, onClose, onSubmit, submitting }) {
             will need admin approval before it's confirmed.
           </p>
         )}
+
+        <p className="cancel-confirm-text">A new service date must be at least <strong>3 days</strong> from today.</p>
 
         <div className="bs-field-group">
           <label className="bs-label">New Date</label>
@@ -173,7 +175,9 @@ function CancelConfirmDialog({ onKeep, onConfirmCancel, sameDayWarning = false }
         <p className="cancel-confirm-text">
           This action can't be undone. Your technician assignment and scheduled slot will be released.
         </p>
-        {sameDayWarning && <p className="cancel-confirm-text" role="note"><strong>{SAME_DAY_CANCEL_WARNING}</strong></p>}
+        {sameDayWarning
+          ? <p className="cancel-confirm-text" role="note"><strong>{SAME_DAY_CANCEL_WARNING}</strong></p>
+          : <p className="cancel-confirm-text" role="note">{CANCEL_POLICY_NOTE}</p>}
         <div className="cancel-confirm-actions">
           <button className="bs-back-btn" onClick={onKeep}>Keep booking</button>
           <button className="cancel-booking-btn" onClick={onConfirmCancel}>Yes, cancel it</button>

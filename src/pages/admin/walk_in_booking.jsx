@@ -456,7 +456,6 @@ function WalkInBooking() {
     address: '',
     contactNumber: '',
     discountType: '',
-    discountIdFileObj: null,
     downPaymentPercent: null,
     paymentMode: '',
     paymentMode2: '',
@@ -527,7 +526,6 @@ function WalkInBooking() {
       formData.append('contactNumber', form.contactNumber || '');
       if (form.discountType) {
         formData.append('discountType', form.discountType);
-        if (form.discountIdFileObj) formData.append('discountId', form.discountIdFileObj);
       }
       formData.append('clientSuppliedUnit', form.clientSuppliedUnit || false);
       if (form.clientSuppliedUnit) {

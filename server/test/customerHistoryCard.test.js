@@ -57,7 +57,7 @@ test('the card: empty state, one booking, many bookings, and where the links go'
 
   // no bookings: the message and the My Bookings link only
   const empty = render(history({}));
-  assert.match(empty, /Wala pang history./);
+  assert.match(empty, /You have no booking history yet./);
   assert.doesNotMatch(empty, /Completed|Cancelled|Total paid|<dl/);
   assert.deepEqual(linkTargets(empty), [['/customer/bookings', 'My Bookings']]);
 
@@ -68,7 +68,7 @@ test('the card: empty state, one booking, many bookings, and where the links go'
   for (const label of ['Total', 'Completed', 'Open', 'Cancelled', 'Total paid']) assert.match(one, new RegExp(`<dt>${label}</dt>`));
   assert.match(one, /<dt>Open<\/dt><dd>1<\/dd>/);
   assert.match(one, /<dt>Total paid<\/dt><dd>₱0<\/dd>/);
-  assert.doesNotMatch(one, /Wala pang history/);
+  assert.doesNotMatch(one, /You have no booking history yet/);
 
   // many bookings: counts, the open figure adds Pending, Approved and In Progress, money through formatPeso
   const many = render(history(

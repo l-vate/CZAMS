@@ -15,6 +15,8 @@ const discountSchema = new mongoose.Schema({
     // Rate frozen at approval time (from PaymentSettings.seniorPwdDiscountPercent), so a
     // later settings change never rewrites an already approved booking.
     percent: Number,
+    // The same rate as a fraction (0.20), frozen with the percent.
+    rate: Number,
     // Snapshot of the discount in pesos at approval time. The live total is always
     // recomputed from `percent` (see utils/pricing.js), the same way every other
     // price follows the current service price.

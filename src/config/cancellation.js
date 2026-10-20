@@ -9,6 +9,9 @@ export const SAME_DAY_DEDUCTION_CLAUSE = 'a transportation fee may be deducted f
 // Shown in the "Cancel this booking?" dialog, before the customer confirms.
 export const SAME_DAY_CANCEL_WARNING = `You are cancelling on the booked day, so ${SAME_DAY_DEDUCTION_CLAUSE}. If you cancel on an earlier day, your down payment is refunded in full.`;
 
+// Shown in the same dialog when the booking is not for today: the rule for both cases, so the customer knows it before confirming.
+export const CANCEL_POLICY_NOTE = 'You can cancel before the service starts. If you cancel before the booked day, your down payment is refunded in full. Cancelling on the booked day may result in a transportation fee deducted from the down payment.';
+
 // Shown after cancelling, with the down payment amount on file (text such as "₱300").
 export const sameDayCancelledMessage = (amountText) => `Since this was cancelled on the booked day, a transportation fee may be deducted from your down payment of ${amountText} before it is refunded.`;
 

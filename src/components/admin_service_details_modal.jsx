@@ -623,7 +623,7 @@ const [report, setReport] = useState(null);
                                                     </ProofLink>
                                                 )
                                             ) : (
-                                                <p className="sdm-list-value">None uploaded (checked in person)</p>
+                                                <p className="sdm-list-value">No ID is stored. Check a valid ID in person before applying the discount.</p>
                                             )}
                                         </div>
                                     </div>

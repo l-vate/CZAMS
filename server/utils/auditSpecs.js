@@ -79,7 +79,6 @@ const settingsUpdate = audited1('settings.update', 'PaymentSettings', () => 'def
     return {
       downPaymentPercentages: Array.isArray(b.downPaymentPercentages) ? b.downPaymentPercentages.map(Number) : undefined,
       methods: Array.isArray(b.paymentMethods) ? b.paymentMethods.map((m) => String((m && m.name) || '')) : undefined,
-      seniorPwdDiscountPercent: num(b.seniorPwdDiscountPercent),
     };
   });
 const promoCreate = audited1('promo.create', 'Promo', idOfBody, 'Created a promotion', (req) => ({ name: req.body && req.body.name }));

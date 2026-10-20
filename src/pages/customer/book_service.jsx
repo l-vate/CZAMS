@@ -610,7 +610,7 @@ const handleSubmitPayment = ({ proof, referenceNumber }) => {
             </div>
           </div>
 
-          <DiscountOption form={form} setForm={setForm} idRequired />
+          <DiscountOption form={form} setForm={setForm} />
 
           {/* Nothing is due right now for a 0% down payment - no payment mode or
               proof to collect until the customer settles the balance later. */}
@@ -778,8 +778,7 @@ export function Step5({ form, services, technicians, downPaymentPercentages, dis
         </div>
       </div>
       <p className="summary-note">
-        <FiClock /> Service is typically completed within <strong>1–3 days</strong> after confirmation.<br />
-        You can cancel before the service starts. Cancelling on the day of the service may include a dispatch charge deduction from your refund. A new service date must be at least <strong>3 days</strong> from today.
+        <FiClock /> Service is typically completed within <strong>1–3 days</strong> after confirmation.
       </p>
     </div>
   );
@@ -809,7 +808,6 @@ function BookService() {
     address: '',
     contactNumber: getAccountPhone(),
     discountType: '',
-    discountIdFileObj: null,
     downPaymentPercent: null,
     paymentMode: '',
     paymentMode2: '',
@@ -845,7 +843,6 @@ const canNext = () => {
     }
     if (step === 4) {
       const { dpPercent } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages));
-      if (form.discountType && !form.discountIdFileObj) return false;
       if (dpPercent === 0) return true;
       return form.paymentStatus === PAYMENT_STATUS.TO_VERIFY || form.paymentStatus === PAYMENT_STATUS.FULLY_PAID;
     }
@@ -886,7 +883,6 @@ const canNext = () => {
       if (form.referenceNumber) formData.append('referenceNumber', form.referenceNumber);
       if (form.discountType) {
         formData.append('discountType', form.discountType);
-        if (form.discountIdFileObj) formData.append('discountId', form.discountIdFileObj);
       }
 
       const data = await createBooking(formData);

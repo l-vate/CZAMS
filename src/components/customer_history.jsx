@@ -18,8 +18,8 @@ function CustomerHistory({ userId }) {
     return () => { cancelled = true; };
   }, [userId, admin]);
 
-  // A new customer's own card says there is no history yet (in Filipino, as the owner asked); an admin looking at an account still gets the error.
-  if (failed && !admin) return <p className="customer-history-empty">Wala pang history.</p>;
+  // A new customer's own card says there is no history yet (the same wording as the summary); an admin looking at an account still gets the error.
+  if (failed && !admin) return <p className="customer-history-empty">You have no booking history yet.</p>;
   if (failed) return <p className="sdm-error">The history could not be loaded.</p>;
   if (!history) return <p className="sdm-muted">Loading history...</p>;
 

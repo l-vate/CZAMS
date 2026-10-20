@@ -65,9 +65,8 @@
 .avail-day:focus-visible { outline: 3px solid var(--navy); outline-offset: 2px; }
 
 /* a normal shop day that is not bookable (too soon, or already gone): quiet grey */
-.avail-day--too-soon,
-.avail-day--past { background: var(--bg-main); color: #5b6b7d; }
-.avail-day--past { opacity: 0.55; }
+.avail-day--too-soon { background: #eaeff5; color: #475569; }
+.avail-day--past { background: #f8fafc; color: #64748b; }
 
 /* a Sunday: hatched, so it reads as "the shop is simply closed" and not as an error */
 .avail-day--closed {

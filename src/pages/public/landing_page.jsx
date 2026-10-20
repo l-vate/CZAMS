@@ -7,6 +7,7 @@ import { usePublicPromos, describeDiscount } from '../../utils/promos';
 import AvailabilityCalendar from '../../components/availability_calendar';
 import '../../css/public.css';
 import '../../css/landing.css';
+import '../../css/landing_extras.css';
 import { orFallback } from '../../services/apiClient';
 import { listPublicTechnicians } from '../../services/authService';
 import { getPublicFeedbackSummary } from '../../services/bookingService';

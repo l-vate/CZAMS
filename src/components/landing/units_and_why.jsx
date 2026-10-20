@@ -32,7 +32,7 @@ export function WhySection() {
   return (
     <section id="why" data-nav="services" className="lp-section lp-why" aria-labelledby="why-title">
       <SectionHeading eyebrow={WHY.eyebrow} title={WHY.title} id="why-title" />
-      <ul className="lp-card-grid lp-card-grid--four">
+      <ul className="lp-card-grid lp-card-grid--three">
         {WHY.items.map((item, i) => (
           <li className="lp-card lp-why-card" key={item.title} data-reveal style={{ '--reveal-i': i }}>
             <span className="lp-card-icon"><LandingIcon name={item.icon} /></span>

@@ -1,4 +1,4 @@
-import { TRUST_ITEMS, ABOUT } from '../../config/landingContent';
+import { TRUST_ITEMS, ABOUT, BRAND_NAME } from '../../config/landingContent';
 import LandingIcon from './icons';
 import PhotoSlot from './photo_slot';
 import SectionHeading from './section_heading';
@@ -22,22 +22,12 @@ export function TrustStrip() {
   );
 }
 
-// A small branded picture shown while there is no real team photo.
-function TeamIllustration() {
+// Shown while there is no real team photo: just the company logo, large, with no panel or caption around it.
+function LogoPanel() {
   return (
-    <svg className="lp-about-art" viewBox="0 0 400 300" width="400" height="300" role="img" aria-label="Aircon service illustration">
-      <rect width="400" height="300" rx="20" fill="#ddeef0" />
-      <rect x="60" y="56" width="280" height="84" rx="18" fill="#ffffff" />
-      <rect x="82" y="112" width="236" height="10" rx="5" fill="#b7d2dc" />
-      <circle cx="292" cy="90" r="5" fill="#ff6b4a" />
-      <circle cx="310" cy="90" r="5" fill="#0e8c8c" />
-      <g fill="none" stroke="#0e8c8c" strokeWidth="3" strokeLinecap="round" opacity="0.7">
-        <path d="M110 150 C 100 190, 130 210, 108 250" />
-        <path d="M180 150 C 172 190, 204 214, 184 258" />
-        <path d="M250 150 C 258 192, 226 212, 252 254" />
-        <path d="M312 150 C 326 188, 294 210, 316 248" />
-      </g>
-    </svg>
+    <div className="lp-about-logo">
+      <img src="/images/logo.png" alt={`${BRAND_NAME} logo`} width="484" height="251" decoding="async" />
+    </div>
   );
 }
 
@@ -50,7 +40,7 @@ export function AboutSection() {
           {ABOUT.paragraphs.map((text) => <p key={text} data-reveal>{text}</p>)}
         </div>
         <div className="lp-about-visual" data-reveal>
-          <PhotoSlot photo={ABOUT.photo} className="lp-about-photo" fallback={<TeamIllustration />} />
+          <PhotoSlot photo={ABOUT.photo} className="lp-about-photo" fallback={<LogoPanel />} />
         </div>
       </div>
     </section>

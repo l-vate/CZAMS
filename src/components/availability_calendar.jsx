@@ -93,7 +93,7 @@ function AvailabilityCalendar() {
           <button type="button" className="lp-btn lp-btn--primary" onClick={retry}>{AVAILABILITY.retry}</button>
         </div>
       ) : (
-        <div className="avail-grid" role="grid" aria-label={`Availability for ${monthLabel}`} aria-busy={status === 'loading'}>
+        <div className="avail-grid" role="group" aria-label={`Availability for ${monthLabel}`} aria-busy={status === 'loading'}>
           {WEEKDAYS.map((w) => <span className="avail-weekday" key={w}>{w}</span>)}
           {Array.from({ length: leadingBlanks }, (_, i) => <span key={`blank-${i}`} />)}
           {dayKeys.map((key) => {
@@ -106,7 +106,7 @@ function AvailabilityCalendar() {
                 className={`avail-day avail-day--${look}${selected === key ? ' avail-day--selected' : ''}`}
                 onClick={() => setSelected(key)}
                 disabled={status !== 'ready'}
-                aria-label={status === 'ready' ? `${key}: ${STATUS_LABEL[dayStatus]}${days[key]?.reason ? `, ${days[key].reason}` : ''}` : `${key}: loading`}
+                aria-label={status === 'ready' ? `${Number(key.slice(8))} ${monthLabel}: ${STATUS_LABEL[dayStatus]}${days[key]?.reason ? `, ${days[key].reason}` : ''}` : `${Number(key.slice(8))} ${monthLabel}: loading`}
               >
                 {Number(key.slice(8))}
               </button>

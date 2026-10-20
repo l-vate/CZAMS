@@ -1,7 +1,7 @@
 /* ==========================================================================
    1. FONTS & ROOT DESIGN SYSTEM
    ========================================================================== */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+/* The Outfit and Inter fonts are loaded by <link> tags in index.html, so they download in parallel with this file instead of after it. */
 
 :root {
   /* Brand Colors */

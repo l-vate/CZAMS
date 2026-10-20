@@ -3,6 +3,7 @@ import { FiChevronDown, FiPhone } from 'react-icons/fi';
 import { HOW, FAQ, CTA_BAND, COMPANY_PHONE, COMPANY_PHONE_TEL } from '../../config/landingContent';
 import LandingIcon from './icons';
 import SectionHeading from './section_heading';
+import Snowfall from './snowfall';
 
 export function HowSection() {
   return (
@@ -13,7 +14,7 @@ export function HowSection() {
           <li className="lp-step" key={step.title} data-reveal style={{ '--reveal-i': i }}>
             <span className="lp-step-marker"><LandingIcon name={step.icon} /><span className="lp-step-number" aria-hidden="true">{i + 1}</span></span>
             <div className="lp-step-body">
-              <h3>{`${i + 1}. ${step.title}`}</h3>
+              <h3>{step.title}</h3>
               <p>{step.text}</p>
             </div>
           </li>
@@ -68,12 +69,13 @@ export function FaqSection() {
 export function CtaBand({ onBook }) {
   return (
     <section className="lp-cta-band" aria-labelledby="cta-title" data-nav="availability">
+      <Snowfall className="lp-snow--soft" />
       <div className="lp-cta-inner" data-reveal>
         <h2 id="cta-title">{CTA_BAND.title}</h2>
         <p>{CTA_BAND.text}</p>
         <div className="lp-hero-actions">
           <button type="button" className="lp-btn lp-btn--primary" onClick={onBook}>{CTA_BAND.primary}</button>
-          <a className="lp-btn lp-btn--outline" href={COMPANY_PHONE_TEL} aria-label={`${CTA_BAND.callLabel}`}>
+          <a className="lp-btn lp-btn--outline" href={COMPANY_PHONE_TEL}>
             <FiPhone aria-hidden="true" /> {COMPANY_PHONE}
           </a>
           <a className="lp-btn lp-btn--ghost" href="#availability">{CTA_BAND.secondary}</a>

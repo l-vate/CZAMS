@@ -71,7 +71,7 @@ export const ABOUT = {
   title: 'About Us',
   paragraphs: [
     `${BRAND_NAME} has been serving ${AREA_SERVED} since ${SINCE_YEAR}.`,
-    'We clean, repair, install and check aircon units for homes and businesses, and every job comes with a written service report.',
+    'We clean, repair, install and check aircon units for homes and businesses.',
   ],
   // A real photo of the team at work: { src: '/images/landing/team.webp', alt: '...', width: 800, height: 600 }. null shows an illustration.
   photo: null,
@@ -85,7 +85,7 @@ export const SERVICES = {
   items: [
     { key: 'cleaning', icon: 'sparkle', serviceType: 'Cleaning', title: 'Aircon Cleaning', text: 'Cleaning for healthier, more efficient air circulation.' },
     { key: 'repair', icon: 'wrench', serviceType: 'Repair', title: 'Repair & Diagnostics', text: 'Diagnosis and repair for aircon units.' },
-    { key: 'installation', icon: 'install', serviceType: 'Installation', title: 'New Installation', text: 'Installation of a new unit, with a service report when the job is done.' },
+    { key: 'installation', icon: 'install', serviceType: 'Installation', title: 'New Installation', text: 'Installation of a new unit, set up for your home or business.' },
     { key: 'checkup', icon: 'check', serviceType: 'Check-up', title: 'Preventive Check-Up', text: 'A scheduled check-up to catch problems early.' },
   ],
   linkLabel: 'Book this service',
@@ -119,9 +119,8 @@ export const WHY = {
   title: 'What you can count on',
   items: [
     { icon: 'shield', title: 'A workmanship warranty', text: `Cleaning is covered ${WARRANTY.cleaning}. Installation is covered for ${months(warranty.installationCompanyUnit.months)} (${months(warranty.installationCustomerUnit.months)} if you supply the unit).` },
-    { icon: 'report', title: 'A written service report', text: 'After each job the technicians file a service report with the work done, the parts used and their recommendations, and you can read it.' },
     { icon: 'calendar', title: 'Clear booking rules', text: `Book at least ${BOOKING_LEAD_DAYS} days ahead. Morning and Afternoon are booked separately, and you can see the open dates before you book.` },
-    { icon: 'home', title: 'Homes and businesses', text: 'Residential and commercial clients are both welcome. Business accounts can book with a purchase order number.' },
+    { icon: 'home', title: 'Homes and businesses', text: 'Residential and commercial clients are both welcome. Commercial accounts can add a purchase order number to a booking.' },
   ],
 };
 
@@ -152,7 +151,7 @@ export const HOW = {
   steps: [
     { icon: 'calendar', title: 'Book an Appointment', text: 'Log in, then choose your service, date and time block. You can also ask for a technician you prefer.' },
     { icon: 'check', title: 'We Confirm Your Booking', text: 'Our team reviews your request, verifies your down payment and confirms your schedule. You are notified in the app.' },
-    { icon: 'wrench', title: 'Service Day', text: 'Our technicians arrive in your booked time block, do the work and file a service report with the work done and their recommendations.' },
+    { icon: 'wrench', title: 'Service Day', text: 'Our technicians arrive in your booked time block and do the work.' },
     { icon: 'shield', title: 'After-Service Support', text: 'If something is wrong after the job, report it from your booking. Work inside the warranty period gets a free repair visit.' },
   ],
 };
@@ -199,7 +198,6 @@ export const CTA_BAND = {
   text: 'Book online, or call us during opening hours.',
   primary: 'Book a Service',
   secondary: 'Check Available Dates',
-  callLabel: `Call ${COMPANY_PHONE}`,
 };
 
 // ---- footer ----------------------------------------------------------------------------------------------------------------------------

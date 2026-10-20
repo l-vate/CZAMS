@@ -31,7 +31,7 @@ test('no frontend file keeps an old placeholder number, and no file types the co
 });
 
 test('the invoice and receipt, the Statement of Account, the report sheets and the landing footer all read COMPANY_PHONE', () => {
-  ['components/receipt_modal.jsx', 'components/statement_of_account.jsx', 'components/report_sheet.jsx', 'components/service_report_pdf_modal.jsx', 'pages/public/landing_page.jsx']
+  ['components/receipt_modal.jsx', 'components/statement_of_account.jsx', 'components/report_sheet.jsx', 'components/service_report_pdf_modal.jsx', 'components/landing/landing_footer.jsx']
     .forEach((file) => {
       assert.match(fs.readFileSync(path.join(root, 'src', file), 'utf8'), /COMPANY_PHONE/, file);
     });

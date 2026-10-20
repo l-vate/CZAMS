@@ -661,7 +661,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
 
           <div className="payment-review-cell">
             <span className="confirmation-detail-label">Cancellation Type</span>
-            <span className="confirmation-detail-value">{refund.isSameDay ? 'On the booked date' : 'Before the booked date'}</span>
+            <span className="confirmation-detail-value">{refund.isSameDay ? 'On or after the booked date' : 'Before the booked date'}</span>
           </div>
 
           <div className="payment-review-cell">

@@ -140,7 +140,7 @@ async function notifyMembersOfChange(booking, wasStatus, type, message) {
   }
 }
 
-// Today's date in Manila as YYYY-MM-DD, for same-day-cancellation comparisons against booking.date.
+// Today's date in Manila as YYYY-MM-DD, for comparing the day of a cancellation against booking.date.
 const todayDateString = () => manilaToday();
 
 // Opens a refund request on a booking that's about to be cancelled, but only if a
@@ -173,15 +173,17 @@ function openRefundIfEligible(booking) {
     ? booking.downPaymentPaidAmount
     : computeDownPaymentAmount(booking);
   // Decided on the server, from the Manila calendar day the booking was cancelled on (not the day an admin gets round to verifying
-  // the proof): the booked date itself is the same-day case, any earlier day is a full refund.
+  // the proof). On or after the booked date a transportation fee applies (the stored flag is still called isSameDay, and it is true for
+  // the booked day and for every day after it: a late cancellation or a no-show). Any earlier day is a full refund. Both dates are YYYY-MM-DD
+  // Manila days, so comparing the text compares the days.
   const cancelledOn = booking.cancelledAt ? manilaTodayKey(new Date(booking.cancelledAt)) : todayDateString();
-  const isSameDay = booking.date === cancelledOn;
+  const isSameDay = cancelledOn >= booking.date;
 
   booking.refund = {
     status: 'Pending',
     isSameDay,
     downPaymentAmount,
-    // Same-day: the dispatch/transportation deduction isn't known until admin
+    // On or after the booked date: the transportation fee isn't known until admin
     // reviews it, so the refundable amount stays unset until then.
     dispatchDeduction: isSameDay ? undefined : 0,
     refundableAmount: isSameDay ? undefined : downPaymentAmount,
@@ -793,7 +795,7 @@ router.patch('/:bookingId/cancel', auth, auditSpecs.customerCancel, allowRoles(R
     if (booking.refund?.status === REFUND_STATUS.PENDING) {
       await notifyAdmins(
         NOTIFICATION_TYPE.REFUND_REQUESTED,
-        `Booking ${booking.bookingId} was cancelled by the customer and a refund request is waiting for review${booking.refund.isSameDay ? ' (same-day cancellation, deduction needed)' : ''}.`,
+        `Booking ${booking.bookingId} was cancelled by the customer and a refund request is waiting for review${booking.refund.isSameDay ? ' (cancelled on or after the booked date, transportation fee needed)' : ''}.`,
         { booking }
       );
     } else if (refundOutcome === 'awaiting-check') {
@@ -2162,7 +2164,7 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
     if (refundOpenedAfterCheck) {
       await notifyAdmins(
         NOTIFICATION_TYPE.REFUND_REQUESTED,
-        `Booking ${booking.bookingId}: the down payment was verified after the booking was cancelled, so a refund request is waiting for review${booking.refund.isSameDay ? ' (same-day cancellation, deduction needed)' : ''}.`,
+        `Booking ${booking.bookingId}: the down payment was verified after the booking was cancelled, so a refund request is waiting for review${booking.refund.isSameDay ? ' (cancelled on or after the booked date, transportation fee needed)' : ''}.`,
         { booking }
       );
     }
@@ -2200,7 +2202,7 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
       if (booking.refund?.status === REFUND_STATUS.PENDING) {
         await notifyAdmins(
           NOTIFICATION_TYPE.REFUND_REQUESTED,
-          `Booking ${booking.bookingId} was cancelled and a refund request is waiting for review${booking.refund.isSameDay ? ' (same-day cancellation, deduction needed)' : ''}.`,
+          `Booking ${booking.bookingId} was cancelled and a refund request is waiting for review${booking.refund.isSameDay ? ' (cancelled on or after the booked date, transportation fee needed)' : ''}.`,
           { booking }
         );
       }
@@ -2256,7 +2258,7 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
 
 // Admin: process a pending refund. Requires proof the money was actually sent back
 // (same upload mechanism as customer proof-of-payment) before it can be marked
-// Processed. Same-day cancellations also require a dispatch/transportation
+// Processed. A cancellation on or after the booked date also requires a transportation
 // deduction before the refundable amount is finalized; pre-service cancellations
 // refund the down payment in full.
 router.patch('/:bookingId/refund', auth, auditSpecs.refundProcess, allowRoles(ROLE.ADMIN), upload.single('proof'), async (req, res) => {

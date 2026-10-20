@@ -49,7 +49,7 @@ test('same-day: a 200 deduction feeds the same fields with no admin reason neede
   assert.equal(r.problem, null);
   assert.equal(r.values.computedAmount, 1200);
   assert.equal(r.values.finalAmount, 1000);
-  assert.equal(r.values.adjustmentReason, 'Transportation fee of ₱200 for cancelling on the booked date');
+  assert.equal(r.values.adjustmentReason, 'Transportation fee of ₱200 for cancelling on or after the booked date');
   assert.equal(r.values.adjusted, true);
 });
 
@@ -65,5 +65,5 @@ test('same-day with an extra admin change needs a reason and keeps both texts', 
   assert.equal(refund({ isSameDay: true, dispatchDeduction: 200, finalAmount: 900 }).problem.status, 400);
   const r = refund({ isSameDay: true, dispatchDeduction: 200, finalAmount: 900, reason: 'Parts used' });
   assert.equal(r.values.finalAmount, 900);
-  assert.equal(r.values.adjustmentReason, 'Transportation fee of ₱200 for cancelling on the booked date. Parts used');
+  assert.equal(r.values.adjustmentReason, 'Transportation fee of ₱200 for cancelling on or after the booked date. Parts used');
 });

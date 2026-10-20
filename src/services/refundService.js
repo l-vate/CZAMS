@@ -15,7 +15,7 @@ export function confirmRefundReceived(bookingId) {
   return request(`/api/bookings/${bookingId}/refund/received`, { method: 'PATCH' });
 }
 
-// Admin: record the refund. `dispatchDeduction` is only sent for a same-day cancellation.
+// Admin: record the refund. `dispatchDeduction` is only sent for a cancellation on or after the booked date.
 // `finalAmount` and `adjustmentReason` are sent only when the admin changes the computed amount.
 export function processRefund(bookingId, { proof, dispatchDeduction, dispatchReason, finalAmount, adjustmentReason }) {
   const formData = new FormData();

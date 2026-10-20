@@ -210,9 +210,10 @@ const bookingSchema = new mongoose.Schema({
     // cleaning booking with no down payment simply stays 'None'.
     refund: {
         status: { type: String, enum: REFUND_STATUS_VALUES, default: REFUND_STATUS.NONE },
+        // true when the cancellation was on or after the booked date (a transportation fee applies); the name is from when only the booked day counted
         isSameDay: { type: Boolean, default: false },
         downPaymentAmount: Number,
-        // The transportation fee the owner deducted for a cancellation on the booked date (0 up to the down payment), and why.
+        // The transportation fee the owner deducted for a cancellation on or after the booked date (0 up to the down payment), and why.
         dispatchDeduction: Number,
         dispatchReason: String,
         // refundableAmount is what is actually refunded (the final figure). When the admin processes

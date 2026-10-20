@@ -13,12 +13,9 @@ const { effectiveCompletedAt } = require('./completion');
 //   service type Installation, unit supplied by the customer  -> installationCustomerUnit (workmanship only; no warranty on the unit)
 //   service type Leak Repair (system reprocess)            -> leakRepair
 // Repair, Maintenance, Check-up and Other have no window (the owner has not set one), so they are never "in warranty".
-const WARRANTY_WINDOWS = Object.freeze({
-  cleaning: Object.freeze({ days: 7, scope: 'Water leaks only' }),
-  installationCompanyUnit: Object.freeze({ months: 6 }),
-  installationCustomerUnit: Object.freeze({ months: 3 }),
-  leakRepair: Object.freeze({ months: 1 }),
-});
+// The numbers live in shared/warrantyWindows.json, which the public landing page reads too, so there is one copy of them.
+const windows = require('../../shared/warrantyWindows.json');
+const WARRANTY_WINDOWS = Object.freeze(Object.fromEntries(Object.entries(windows).map(([key, value]) => [key, Object.freeze({ ...value })])));
 
 // The warranty on the physical unit, only for a unit bought from Cooling Zone (kept from the client interview; not part of the owner's answers).
 const UNIT_WARRANTY_YEARS = Object.freeze({ compressor: 5, minorParts: 1 });

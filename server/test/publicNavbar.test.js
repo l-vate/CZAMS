@@ -7,7 +7,6 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const { createRequire } = require('node:module');
 const { startSsrServer } = require('./helpers/viteSsr');
-const { pathToFileURL } = require('node:url');
 
 const root = path.join(__dirname, '..', '..');
 const fromRoot = createRequire(path.join(root, 'package.json'));

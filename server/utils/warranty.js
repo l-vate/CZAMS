@@ -6,16 +6,43 @@ const { SERVICE_TYPE } = require('../constants/serviceTypes');
 const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const { effectiveCompletedAt } = require('./completion');
 
-// Coverage periods, from the client interview / CZAMS_Feature_Requirements.md
-// section 8. Named constants so a period change later is a one-line edit.
+// The warranty windows, the owner's answers, in one place. Each runs from the day the job was completed (Manila calendar day) and is
+// counted in calendar days or calendar months (never 30-day approximations). Which window a booking gets:
+//   service type Cleaning                                  -> cleaning (water leaks only)
+//   service type Installation, unit bought from Cooling Zone  -> installationCompanyUnit
+//   service type Installation, unit supplied by the customer  -> installationCustomerUnit (workmanship only; no warranty on the unit)
+//   service type Leak Repair (system reprocess)            -> leakRepair
+// Repair, Maintenance, Check-up and Other have no window (the owner has not set one), so they are never "in warranty".
+const WARRANTY_WINDOWS = Object.freeze({
+  cleaning: Object.freeze({ days: 7, scope: 'Water leaks only' }),
+  installationCompanyUnit: Object.freeze({ months: 6 }),
+  installationCustomerUnit: Object.freeze({ months: 3 }),
+  leakRepair: Object.freeze({ months: 1 }),
+});
+
+// The warranty on the physical unit, only for a unit bought from Cooling Zone (kept from the client interview; not part of the owner's answers).
+const UNIT_WARRANTY_YEARS = Object.freeze({ compressor: 5, minorParts: 1 });
+
+// Kept under their old names for the code and tests that read them.
 const WARRANTY_PERIODS = {
-  CLEANING_DAYS: 7, // 1 week, water leaks only
-  INSTALLATION_CZA_UNIT_WORKMANSHIP_MONTHS: 6,
-  INSTALLATION_CLIENT_UNIT_WORKMANSHIP_MONTHS: 3,
-  UNIT_COMPRESSOR_YEARS: 5,
-  UNIT_MINOR_PARTS_YEARS: 1,
-  LEAK_REPAIR_MONTHS: 1, // client-confirmed, own category distinct from Cleaning/Installation
+  CLEANING_DAYS: WARRANTY_WINDOWS.cleaning.days,
+  INSTALLATION_CZA_UNIT_WORKMANSHIP_MONTHS: WARRANTY_WINDOWS.installationCompanyUnit.months,
+  INSTALLATION_CLIENT_UNIT_WORKMANSHIP_MONTHS: WARRANTY_WINDOWS.installationCustomerUnit.months,
+  UNIT_COMPRESSOR_YEARS: UNIT_WARRANTY_YEARS.compressor,
+  UNIT_MINOR_PARTS_YEARS: UNIT_WARRANTY_YEARS.minorParts,
+  LEAK_REPAIR_MONTHS: WARRANTY_WINDOWS.leakRepair.months,
 };
+
+// 'company' or 'customer' for an Installation booking (where the unit came from), null for any other service.
+function unitSourceOf(booking) {
+  if (booking?.service?.serviceType !== SERVICE_TYPE.INSTALLATION) return null;
+  return booking.clientSuppliedUnit ? 'customer' : 'company';
+}
+
+// The end of the window for a job completed at `completedAt`: the end of the last Manila day.
+function windowEnd(completedAt, window) {
+  return window.days !== undefined ? addDays(completedAt, window.days) : addMonths(completedAt, window.months);
+}
 
 // All of the warranty date math is done in Philippine time (Asia/Manila, UTC+8, no daylight saving), whatever time
 // zone the server runs in. The rule used, for every period:
@@ -64,7 +91,7 @@ const NOT_APPLICABLE = { applicable: false, type: null, scope: null, workmanship
 // than a single flag, since a CZA-supplied-unit installation carries two separate
 // coverages (workmanship on the job, and a longer warranty on the physical unit)
 // that a warranty claim needs to be checked against independently.
-function getWarrantyStatus(booking) {
+function getWarrantyStatus(booking, now = new Date()) {
   const serviceType = booking?.service?.serviceType;
 
   // Nothing is "covered" until the job is actually done.
@@ -73,14 +100,12 @@ function getWarrantyStatus(booking) {
     return NOT_APPLICABLE;
   }
 
-  const now = new Date();
-
   if (serviceType === SERVICE_TYPE.CLEANING) {
-    const expiresAt = addDays(completedAt, WARRANTY_PERIODS.CLEANING_DAYS);
+    const expiresAt = windowEnd(completedAt, WARRANTY_WINDOWS.cleaning);
     return {
       applicable: true,
       type: 'Cleaning',
-      scope: 'Water leaks only',
+      scope: WARRANTY_WINDOWS.cleaning.scope,
       workmanship: { expiresAt, active: now <= expiresAt },
       unit: null,
     };
@@ -88,19 +113,16 @@ function getWarrantyStatus(booking) {
 
   if (serviceType === SERVICE_TYPE.INSTALLATION) {
     const clientSupplied = !!booking.clientSuppliedUnit;
-    const workmanshipMonths = clientSupplied
-      ? WARRANTY_PERIODS.INSTALLATION_CLIENT_UNIT_WORKMANSHIP_MONTHS
-      : WARRANTY_PERIODS.INSTALLATION_CZA_UNIT_WORKMANSHIP_MONTHS;
-    const workmanshipExpiresAt = addMonths(completedAt, workmanshipMonths);
+    const workmanshipExpiresAt = windowEnd(completedAt, clientSupplied ? WARRANTY_WINDOWS.installationCustomerUnit : WARRANTY_WINDOWS.installationCompanyUnit);
 
     // Unit warranty (compressor/minor parts) only exists for a unit CZA actually
     // supplied - a client-supplied unit has no unit warranty at all (that's what
     // the waiver acknowledges).
     const unit = clientSupplied ? null : {
-      compressorExpiresAt: addYears(completedAt, WARRANTY_PERIODS.UNIT_COMPRESSOR_YEARS),
-      minorPartsExpiresAt: addYears(completedAt, WARRANTY_PERIODS.UNIT_MINOR_PARTS_YEARS),
-      compressorActive: now <= addYears(completedAt, WARRANTY_PERIODS.UNIT_COMPRESSOR_YEARS),
-      minorPartsActive: now <= addYears(completedAt, WARRANTY_PERIODS.UNIT_MINOR_PARTS_YEARS),
+      compressorExpiresAt: addYears(completedAt, UNIT_WARRANTY_YEARS.compressor),
+      minorPartsExpiresAt: addYears(completedAt, UNIT_WARRANTY_YEARS.minorParts),
+      compressorActive: now <= addYears(completedAt, UNIT_WARRANTY_YEARS.compressor),
+      minorPartsActive: now <= addYears(completedAt, UNIT_WARRANTY_YEARS.minorParts),
       excludes: 'Remote control',
     };
 
@@ -108,6 +130,7 @@ function getWarrantyStatus(booking) {
       applicable: true,
       type: clientSupplied ? 'Installation (client-supplied unit)' : 'Installation (CZA-supplied unit)',
       scope: 'Workmanship (e.g. leaking refrigerant pipes)',
+      unitSource: clientSupplied ? 'customer' : 'company',
       workmanship: { expiresAt: workmanshipExpiresAt, active: now <= workmanshipExpiresAt },
       unit,
     };
@@ -118,7 +141,7 @@ function getWarrantyStatus(booking) {
   // undercharge found during Cleaning or a paid check-up, distinct from the
   // Cleaning/Installation warranties above.
   if (serviceType === SERVICE_TYPE.LEAK_REPAIR) {
-    const expiresAt = addMonths(completedAt, WARRANTY_PERIODS.LEAK_REPAIR_MONTHS);
+    const expiresAt = windowEnd(completedAt, WARRANTY_WINDOWS.leakRepair);
     return {
       applicable: true,
       type: 'Leak Repair',
@@ -132,4 +155,4 @@ function getWarrantyStatus(booking) {
   return NOT_APPLICABLE;
 }
 
-module.exports = { getWarrantyStatus, WARRANTY_PERIODS, addDays, addMonths, addYears, manilaDay };
+module.exports = { getWarrantyStatus, WARRANTY_WINDOWS, UNIT_WARRANTY_YEARS, unitSourceOf, WARRANTY_PERIODS, addDays, addMonths, addYears, manilaDay };

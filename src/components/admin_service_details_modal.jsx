@@ -4,6 +4,8 @@ import AssignmentPanel from './assignment_panel';
 import SuggestedDates from './suggested_dates';
 import PaymentReference from './payment_reference';
 import ClosureDateInput from './closure_date_input';
+import { warrantyStatusText } from '../utils/warrantyText';
+import { BRAND_SHORT } from '../config/company';
 import ReceiptModal from './receipt_modal';
 import AssignmentHistory from './assignment_history';
 import { buildReceiptForm } from '../utils/receiptData';
@@ -384,6 +386,7 @@ const [report, setReport] = useState(null);
                                 <p className="sdm-unit-line" key={i}>
                                     Unit: {li.quantity}× {li.type}
                                     {li.brandModel ? ` · ${li.brandModel}` : ''}
+                                    {li.hp ? ` · ${li.hp} HP` : ''}
                                 </p>
                             ))}
 
@@ -895,6 +898,30 @@ const [report, setReport] = useState(null);
                                 )}
                             </div>
 
+                            {/* Where the unit of an Installation came from. The admin can correct it; the warranty window follows it
+                                (6 months for a company unit, 3 months for the customer's own). */}
+                            {booking.service?.serviceType === SERVICE_TYPE.INSTALLATION && (
+                                <>
+                                    <h5 className="sdm-col-heading sdm-col-heading-spaced">
+                                        <Icon name="info" /> UNIT SOURCE
+                                    </h5>
+                                    <div className="sdm-list">
+                                        <div className="sdm-list-row">
+                                            <span>Unit supplied by</span>
+                                            <select
+                                                className="sdm-tech-select"
+                                                aria-label="Unit supplied by"
+                                                value={booking.unitSource || (booking.clientSuppliedUnit ? 'customer' : 'company')}
+                                                onChange={(e) => patchBooking({ unitSource: e.target.value })}
+                                            >
+                                                <option value="company">{BRAND_SHORT}</option>
+                                                <option value="customer">Customer (own unit)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+
                             {/* Proof of purchase for a CZA-supplied unit - mirrors the client-supplied-
                                 unit waiver's role but for the opposite case, backing a future 5yr/1yr
                                 Unit Warranty claim. Not gated on completion, unlike Warranty Status below
@@ -974,7 +1001,7 @@ const [report, setReport] = useState(null);
                                         <div className="sdm-list-row">
                                             <span>Workmanship</span>
                                             <span className={`sdm-list-value ${booking.warranty.workmanship.active ? 'sdm-state-ok' : 'sdm-state-bad'}`}>
-                                                {booking.warranty.workmanship.active ? 'Active' : 'Expired'} - until {new Date(booking.warranty.workmanship.expiresAt).toLocaleDateString()}
+                                                {warrantyStatusText(booking.warranty.workmanship.active, booking.warranty.workmanship.expiresAt)}
                                             </span>
                                         </div>
                                         {booking.warranty.unit && (
@@ -982,13 +1009,13 @@ const [report, setReport] = useState(null);
                                                 <div className="sdm-list-row">
                                                     <span>Compressor</span>
                                                     <span className={`sdm-list-value ${booking.warranty.unit.compressorActive ? 'sdm-state-ok' : 'sdm-state-bad'}`}>
-                                                        {booking.warranty.unit.compressorActive ? 'Active' : 'Expired'} - until {new Date(booking.warranty.unit.compressorExpiresAt).toLocaleDateString()}
+                                                        {warrantyStatusText(booking.warranty.unit.compressorActive, booking.warranty.unit.compressorExpiresAt)}
                                                     </span>
                                                 </div>
                                                 <div className="sdm-list-row">
                                                     <span>Minor Parts</span>
                                                     <span className={`sdm-list-value ${booking.warranty.unit.minorPartsActive ? 'sdm-state-ok' : 'sdm-state-bad'}`}>
-                                                        {booking.warranty.unit.minorPartsActive ? 'Active' : 'Expired'} - until {new Date(booking.warranty.unit.minorPartsExpiresAt).toLocaleDateString()}
+                                                        {warrantyStatusText(booking.warranty.unit.minorPartsActive, booking.warranty.unit.minorPartsExpiresAt)}
                                                     </span>
                                                 </div>
                                             </>

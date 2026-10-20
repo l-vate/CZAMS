@@ -127,3 +127,12 @@ test('every unit type in the list is accepted', async () => {
   const res = await post({ units: rules.UNIT_TYPES.map((type) => ({ type, quantity: 2 })) });
   assert.equal(res.status, 201, JSON.stringify(res.body));
 });
+
+test('a unit may carry its horsepower: kept as typed, trimmed to 10 characters, optional', async () => {
+  const { state, post } = harness;
+  const res = await post({ units: [{ type: 'Split Type', quantity: 1, brandModel: 'Carrier', hp: ' 1.5 ' }, { type: 'Split Type', quantity: 1 }] });
+  assert.equal(res.status, 201, JSON.stringify(res.body));
+  assert.equal(state.bookings[0].units[0].hp, '1.5');
+  assert.equal(state.bookings[0].units[1].hp, '');
+  assert.equal(res.body.units[0].hp, '1.5', 'the customer sees it too');
+});

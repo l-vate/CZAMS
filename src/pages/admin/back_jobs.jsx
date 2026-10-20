@@ -6,6 +6,7 @@ import { withFallback } from '../../services/apiClient';
 import { listBackJobs, markBackJobReviewed } from '../../services/backJobService';
 import { BACK_JOB_STATUS } from '../../constants/backJobStatus';
 import { customerLabel } from '../../utils/customerLabel';
+import { warrantyStatusText, CLEANING_WARRANTY_NOTE } from '../../utils/warrantyText';
 
 // Same badge/left-accent classes as the customer's My Bookings and technician's
 // My Jobs cards (staff.css) - .tech-job-card colors its left border automatically
@@ -116,6 +117,19 @@ function BackJobDetailModal({ backJob, onClose, onSuccess }) {
           <p className="confirmation-detail-value admin-back-jobs-x4">{backJob.issueDescription}</p>
         </div>
 
+        {backJob.warranty?.applicable && (
+          <div className="payment-review-cell admin-back-jobs-x3">
+            <span className="confirmation-detail-label">Warranty Status</span>
+            <span className="confirmation-detail-value">{warrantyStatusText(backJob.warranty.workmanship.active, backJob.warranty.workmanship.expiresAt)}</span>
+          </div>
+        )}
+
+        {backJob.coverageType === 'Cleaning' && (
+          <div className="refund-flag-notice admin-back-jobs-x3" role="note">
+            <strong>{CLEANING_WARRANTY_NOTE}.</strong> Check the issue above. You decide edge cases, for example a dirty evaporator coil the customer did not ask to be cleaned.
+          </div>
+        )}
+
         {backJob.originalReportPreExistingIssue?.flagged && (
           <div className="refund-flag-notice admin-back-jobs-x3">
             <strong>Technician flagged a pre-existing issue at time of original service:</strong>
@@ -217,6 +231,7 @@ function BackJobs() {
         issueDescription: bj.issueDescription,
         status: bj.status,
         coverageType: bj.warrantyCheck?.coverageType,
+        warranty: bj.warranty,
         resultingBookingId: bj.resultingBookingId,
         resultingBookingDate: bj.resultingBooking?.date,
         reportedAt: bj.reportedAt,

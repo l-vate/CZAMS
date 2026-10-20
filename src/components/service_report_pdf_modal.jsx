@@ -59,6 +59,7 @@ function ServiceReportPdfModal({ report, reportItem, onClose }) {
             <div className="report-pdf-row"><span>Customer</span><span>{reportItem.customer}</span></div>
             <div className="report-pdf-row"><span>Address</span><span>{reportItem.address}</span></div>
             <div className="report-pdf-row"><span>Service Date</span><span>{reportItem.bookingDate}</span></div>
+            {reportItem.unitSource && <div className="report-pdf-row"><span>Unit supplied by</span><span>{reportItem.unitSource}</span></div>}
           </div>
 
           <div className="report-pdf-section">

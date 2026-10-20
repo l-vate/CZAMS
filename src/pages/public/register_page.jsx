@@ -47,12 +47,10 @@ const handleSubmit = async (e) => {
   }
 
   try {
-    const data = await register(formData);
+    await register(formData);
 
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('user', JSON.stringify(data.user));
-
-    navigate('/customer/dashboard');
+    // The new customer is not signed in by registering: they sign in with the account they just made.
+    navigate('/login', { state: { registered: true } });
 
   } catch (err) {
     alert(err instanceof ApiError ? err.message || 'Registration failed' : 'Could not connect to server. Is the backend running?');

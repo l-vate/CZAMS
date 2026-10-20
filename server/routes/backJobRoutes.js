@@ -96,7 +96,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER), async (req, res) => {
           queueRank,
           customer: originalBooking.customer,
           service: originalBooking.service._id,
-          units: (originalBooking.units || []).map(({ type, quantity, brandModel }) => ({ type, quantity, brandModel })),
+          units: (originalBooking.units || []).map(({ type, quantity, brandModel, hp }) => ({ type, quantity, brandModel, hp })),
           unitTypes: originalBooking.unitTypes,
           brandModel: originalBooking.brandModel,
           problemDescription: issueDescription.trim(),
@@ -184,6 +184,7 @@ router.get('/', auth, async (req, res) => {
       const originalReport = await Report.findOne({ bookingId: bj.originalBookingId })
         .select('preExistingIssue');
       obj.originalReportPreExistingIssue = originalReport?.preExistingIssue || null;
+      obj.warranty = bj.originalBooking ? getWarrantyStatus(bj.originalBooking) : null;
       return obj;
     }));
 

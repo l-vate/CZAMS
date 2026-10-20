@@ -1278,3 +1278,9 @@
 }
 .password-rule { color: #c62828; }
 .password-rule--met { color: #2e7d32; }
+
+.auth-success {
+  color: #2e7d32;
+  font-size: 14px;
+  margin: 0 0 12px;
+}

@@ -78,6 +78,8 @@ const bookingSchema = new mongoose.Schema({
       type: { type: String, required: true },
       quantity: { type: Number, required: true, min: 1, default: 1 },
       brandModel: String,
+      // The unit's horsepower as the customer wrote it, for example "1.5" or "2" (optional, at most 10 characters).
+      hp: String,
     }],
     // Legacy: kept for existing data
     unitTypes: [String],

@@ -7,7 +7,7 @@ import BackJobModal from '../../components/back_job_modal';
 import ServiceReportViewer from '../../components/service_report_viewer';
 import { getBookingLineItems, getPaymentBreakdown, formatPeso } from '../../utils/bookingPricing';
 import { getMemberNames } from '../../utils/assignments';
-import { earliestBookingKey, formatManilaDay, manilaTodayKey } from '../../utils/manilaTime';
+import { earliestBookingKey, manilaTodayKey } from '../../utils/manilaTime';
 import { bookingHeading } from '../../utils/bookingHeading';
 import { SAME_DAY_CANCEL_WARNING, sameDayCancelledMessage, showsSameDayWarning } from '../../config/cancellation';
 import { usePaymentSettings, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
@@ -29,6 +29,7 @@ import { REFUND_STATUS } from '../../constants/refundStatus';
 import { TIME_BLOCK_VALUES } from '../../constants/timeBlocks';
 import { NOTIFICATION_TYPE } from '../../constants/notificationTypes';
 import { ProofLink } from '../../components/proof_file';
+import { warrantyStatusText } from '../../utils/warrantyText';
 
 import Notice from '../../components/notice';
 import { useNotice } from '../../hooks/useNotice';
@@ -129,10 +130,7 @@ function RescheduleModal({ booking, onClose, onSubmit, submitting }) {
 
         <div className="bs-field-group">
           <label className="bs-label">New Date</label>
-          <ClosureDateInput min={minDate} value={date} onChange={setDate} />
-          <p className="customer-book-details-x1">
-            Earliest available date is {formatManilaDay(minDate, { month: 'long', day: 'numeric', year: 'numeric' })}.
-          </p>
+          <ClosureDateInput min={minDate} value={date} onChange={setDate} showEarliest />
         </div>
 
         <div className="bs-field-group">
@@ -635,7 +633,7 @@ function BookDetails() {
               ) : (
                 lineItems.filter((li) => !li.isCharge).map((li, i) => (
                   <p className="confirmation-detail-line" key={i}>
-                    Unit: {li.quantity}× {li.type}{li.brandModel ? ` - ${li.brandModel}` : ''}
+                    Unit: {li.quantity}× {li.type}{li.brandModel ? ` - ${li.brandModel}` : ''}{li.hp ? ` - ${li.hp} HP` : ''}
                   </p>
                 ))
               )}
@@ -754,7 +752,7 @@ function BookDetails() {
               <div className="summary-row">
                 <span>Workmanship Warranty</span>
                 <span className={booking.warranty.workmanship.active ? 'cost-status-paid' : 'cost-status-unpaid'}>
-                  {booking.warranty.workmanship.active ? 'Active' : 'Expired'} - until {formatDate(booking.warranty.workmanship.expiresAt)}
+                  {warrantyStatusText(booking.warranty.workmanship.active, booking.warranty.workmanship.expiresAt)}
                 </span>
               </div>
               {booking.warranty.unit && (
@@ -762,13 +760,13 @@ function BookDetails() {
                   <div className="summary-row">
                     <span>Compressor Warranty</span>
                     <span className={booking.warranty.unit.compressorActive ? 'cost-status-paid' : 'cost-status-unpaid'}>
-                      {booking.warranty.unit.compressorActive ? 'Active' : 'Expired'} - until {formatDate(booking.warranty.unit.compressorExpiresAt)}
+                      {warrantyStatusText(booking.warranty.unit.compressorActive, booking.warranty.unit.compressorExpiresAt)}
                     </span>
                   </div>
                   <div className="summary-row">
                     <span>Minor Parts Warranty</span>
                     <span className={booking.warranty.unit.minorPartsActive ? 'cost-status-paid' : 'cost-status-unpaid'}>
-                      {booking.warranty.unit.minorPartsActive ? 'Active' : 'Expired'} - until {formatDate(booking.warranty.unit.minorPartsExpiresAt)}
+                      {warrantyStatusText(booking.warranty.unit.minorPartsActive, booking.warranty.unit.minorPartsExpiresAt)}
                     </span>
                   </div>
                   <p className="customer-book-details-x8">Excludes: {booking.warranty.unit.excludes}</p>

@@ -215,3 +215,13 @@ test('the form hint and the server agree, and signing in or changing a password 
   const { validateNewPassword } = require('../utils/passwordRules');
   assert.equal(validateNewPassword({ newPassword: 'longenough1' }), null, 'changing a password keeps its old rule');
 });
+
+test('registering does not sign the customer in: the form sends them to the login page, and the login page says why', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const page = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'pages', 'public', 'register_page.jsx'), 'utf8');
+  assert.doesNotMatch(page, /localStorage\.setItem\('token'/);
+  assert.match(page, /navigate\('\/login'/);
+  const login = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'pages', 'public', 'login_page.jsx'), 'utf8');
+  assert.match(login, /Please sign in to continue/);
+});

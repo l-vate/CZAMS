@@ -25,6 +25,7 @@ const adminUpdate = audited({
     if (b.distanceAdjustment !== undefined || b.mobilizationFee !== undefined) {
       lines.push({ action: 'booking.charges', summary: 'Changed the distance or mobilization charge', meta: { distanceAdjustment: num(b.distanceAdjustment), mobilizationFee: num(b.mobilizationFee) } });
     }
+    if (b.unitSource !== undefined) lines.push({ action: 'booking.unit_source', summary: 'Changed where the unit came from', meta: { unitSource: b.unitSource } });
     if (b.technicianInstructions !== undefined) lines.push({ action: 'booking.instructions', summary: 'Changed the instructions for the technicians' });
     return lines;
   },

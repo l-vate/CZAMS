@@ -13,7 +13,7 @@ import { useServices } from '../../hooks/useServices';
 import { useTechnicians } from '../../hooks/useTechnicians';
 import { useMyClassification, useMyAgreedTerms } from '../../hooks/useMyClassification';
 import { getUnitPrice } from '../../utils/bookingPricing';
-import { earliestBookingKey, formatManilaDay } from '../../utils/manilaTime';
+import { earliestBookingKey } from '../../utils/manilaTime';
 import { isValidContactNumber, getAccountPhone } from '../../utils/contact';
 import { usePaymentSettings, getDownPaymentOptions, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
 import { isWithinQuezonCity } from '../../utils/serviceArea';
@@ -37,7 +37,9 @@ import { SERVICE_TYPE } from '../../constants/serviceTypes';
 import Notice from '../../components/notice';
 import { useNotice } from '../../hooks/useNotice';
 import { pluralize } from '../../utils/pluralize';
-import { BRAND_NAME, BRAND_SHORT } from '../../config/company';
+import { CUSTOMER_UNIT_NOTE } from '../../utils/warrantyText';
+import { AC_BRANDS, OTHER_BRAND, HP_OPTIONS } from '../../constants/unitOptions';
+import { BRAND_NAME } from '../../config/company';
 // System Configuration Module: payment methods and down payment percentages used
 // to be hardcoded here (DOWN_PAYMENT_OPTIONS / PAYMENT_MODES / getDownPaymentOptions).
 // Both are now admin-managed - see src/utils/paymentSettings.js (usePaymentSettings,
@@ -209,7 +211,7 @@ export function Step1({ form, setForm, services }) {
 }
 
 /* ── Step 2: Unit Details ─────────────────────────────────── */
-const EMPTY_UNIT_ENTRY = { type: '', quantity: 1, brandModel: '' };
+const EMPTY_UNIT_ENTRY = { type: '', quantity: 1, brandModel: '', hp: '' };
 
 function getAccountName() {
   const storedUser = localStorage.getItem('user');
@@ -283,13 +285,41 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
                 onChange={(e) => updateUnit(index, { quantity: Math.min(MAX_UNIT_QUANTITY, Math.max(1, Math.floor(Number(e.target.value)) || 1)) })}
               />
 
-              <input
-                type="text"
-                className="bs-input unit-entry-brand"
-                placeholder="Brand & model (e.g. Carrier 1HP)"
-                value={unit.brandModel}
-                onChange={(e) => updateUnit(index, { brandModel: e.target.value })}
-              />
+              <div className="unit-entry-brand">
+                <select
+                  className="bs-select"
+                  aria-label="Brand"
+                  value={unit.brandOther ? OTHER_BRAND : (AC_BRANDS.includes(unit.brandModel) ? unit.brandModel : '')}
+                  onChange={(e) => (e.target.value === OTHER_BRAND
+                    ? updateUnit(index, { brandOther: true, brandModel: '' })
+                    : updateUnit(index, { brandOther: false, brandModel: e.target.value }))}
+                >
+                  <option value="">Brand</option>
+                  {AC_BRANDS.map((brand) => <option key={brand} value={brand}>{brand}</option>)}
+                  <option value={OTHER_BRAND}>{OTHER_BRAND}</option>
+                </select>
+                {unit.brandOther && (
+                  <input
+                    type="text"
+                    className="bs-input"
+                    placeholder="Type the brand"
+                    aria-label="Other brand"
+                    maxLength={60}
+                    value={unit.brandModel}
+                    onChange={(e) => updateUnit(index, { brandModel: e.target.value })}
+                  />
+                )}
+              </div>
+
+              <select
+                className="bs-select unit-entry-hp"
+                aria-label="Horsepower (HP)"
+                value={unit.hp || ''}
+                onChange={(e) => updateUnit(index, { hp: e.target.value })}
+              >
+                <option value="">HP</option>
+                {HP_OPTIONS.map((hp) => <option key={hp} value={hp}>{hp} HP</option>)}
+              </select>
 
               {selectedService && unit.type && (
                 <span className="unit-entry-subtotal">
@@ -340,11 +370,7 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
       {isInstallation && form.clientSuppliedUnit && (
         <div className="bs-field-group waiver-box">
           <label className="bs-label">Unit Warranty Waiver</label>
-          <p className="bs-card-sub">
-            Since this unit wasn't purchased through {BRAND_SHORT}, our Unit Warranty (compressor
-            and parts coverage) does not apply to it. Installation workmanship is still covered
-            for 3 months.
-          </p>
+          <p className="bs-card-sub">{CUSTOMER_UNIT_NOTE}</p>
           <label className="waiver-checkbox-label">
             <input
               type="checkbox"
@@ -425,10 +451,8 @@ export function Step3({ form, setForm, technicians }) {
             min={minDate}
             value={form.date}
             onChange={(date) => setForm({ ...form, date })}
+            showEarliest
           />
-          <p className="customer-book-service-x2">
-            Earliest available date is {formatManilaDay(minDate, { month: 'long', day: 'numeric', year: 'numeric' })}.
-          </p>
         </div>
 
         <div className="bs-field-group">
@@ -715,7 +739,7 @@ export function Step5({ form, services, technicians, downPaymentPercentages, dis
           {lineItems.map((li, i) => (
             <div className="summary-row" key={i}>
               <span>Unit {i + 1}</span>
-              <span>{li.quantity}× {li.type || '-'}{li.brandModel ? ` - ${li.brandModel}` : ''}</span>
+              <span>{li.quantity}× {li.type || '-'}{li.brandModel ? ` - ${li.brandModel}` : ''}{li.hp ? ` - ${li.hp} HP` : ''}</span>
             </div>
           ))}
           <div className="summary-row"><span>Date &amp; Time</span><span>{form.date ? `${form.date}, ${form.time || ''}` : '-'}</span></div>

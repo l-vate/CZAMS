@@ -13,7 +13,7 @@ const auth = require('../middleware/auth');
 const Booking = require('../models/Booking');
 const User = require('../models/User');
 const Service = require('../models/Service');
-const { getWarrantyStatus } = require('../utils/warranty');
+const { getWarrantyStatus, unitSourceOf } = require('../utils/warranty');
 const { sendNotification, notifyAdmins } = require('../utils/notifications');
 const Report = require('../models/Report');
 const {
@@ -74,6 +74,7 @@ const { TIME_BLOCKS } = require('../utils/timeBlocks');
 function withWarranty(booking) {
   const obj = booking.toObject();
   obj.warranty = getWarrantyStatus(booking);
+  obj.unitSource = unitSourceOf(booking); // where an Installation unit came from: 'company' or 'customer'
   return obj;
 }
 
@@ -358,6 +359,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
       type: u.type,
       quantity: Number(u.quantity),
       brandModel: u.brandModel || '',
+      hp: typeof u.hp === 'string' || typeof u.hp === 'number' ? String(u.hp).trim().slice(0, 10) : '',
     }));
 
     // The booking must fit its service: the service exists and is open for booking, a cleaning booking uses the tier its
@@ -377,6 +379,11 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
 
     // Warranty Tracking Module: a client-supplied unit on an installation booking
     // has no Unit Warranty, so a signed waiver acknowledging that is required.
+    // Where the unit comes from must be stated for an Installation (it sets the warranty: 6 months for a Cooling Zone unit, 3 for the customer's own).
+    const isInstallationService = serviceDoc?.serviceType === SERVICE_TYPE.INSTALLATION;
+    if (isInstallationService && !['true', 'false', true, false].includes(clientSuppliedUnit)) {
+      return res.status(400).json({ message: 'Choose where the unit comes from: bought from Cooling Zone, or your own unit.' });
+    }
     const isClientSuppliedUnit = clientSuppliedUnit === 'true' || clientSuppliedUnit === true;
     const isWaiverAcknowledged = unitWaiverAcknowledged === 'true' || unitWaiverAcknowledged === true;
     if (isClientSuppliedUnit && (!isWaiverAcknowledged || !unitWaiverName?.trim())) {
@@ -1968,7 +1975,7 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
 
     const {
       technician, status, paymentStatus, balancePaymentStatus, balancePaid, technicianInstructions,
-      distanceAdjustment, mobilizationFee,
+      distanceAdjustment, mobilizationFee, unitSource,
     } = req.body;
     const allowedStatuses = BOOKING_STATUS_VALUES;
 
@@ -2037,6 +2044,17 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
       }
       if (parsed !== (booking.mobilizationFee || 0)) chargeChanged = true;
       booking.mobilizationFee = parsed;
+    }
+
+    // Where an Installation unit came from. Admin only, and only on an Installation; the warranty window follows it.
+    if (unitSource !== undefined) {
+      if (!['company', 'customer'].includes(unitSource)) {
+        return res.status(400).json({ message: 'The unit source must be company or customer.' });
+      }
+      if (booking.service?.serviceType !== SERVICE_TYPE.INSTALLATION) {
+        return res.status(400).json({ message: 'The unit source only applies to an Installation booking.' });
+      }
+      booking.clientSuppliedUnit = unitSource === 'customer';
     }
 
     // Pre-service technician instructions (Service Report Module)

@@ -12,6 +12,7 @@ import { customerLabel } from '../../utils/customerLabel';
 
 
 import { clientGroupOf } from '../../utils/clientGroup';
+import { unitSourceLabel } from '../../utils/warrantyText';
 // Filter options
 const FILTERS = [
   { key: 'all', label: 'All Reports' },
@@ -283,6 +284,7 @@ function ViewReportModal({ report, onClose }) {
             customer: customerLabel(report.bookingDetails?.customer, 'Customer'),
             address: report.bookingDetails?.address || '-',
             bookingDate: formatDate(report.bookingDetails?.date),
+            unitSource: unitSourceLabel(report.bookingDetails),
           }}
           onClose={() => setShowPdf(false)}
         />

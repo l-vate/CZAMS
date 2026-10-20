@@ -119,7 +119,7 @@ function ReceiptModal({ form, booking, billTo, onClose }) {
                 {form.lineItems?.length > 0 ? (
                   form.lineItems.filter((li) => !li.isDiscount).map((li, i) => (
                     <tr key={i}>
-                      <td>{form.service || '-'} - {li.type || '-'}{li.brandModel ? ` (${li.brandModel})` : ''}</td>
+                      <td>{form.service || '-'} - {li.type || '-'}{li.brandModel ? ` (${li.brandModel})` : ''}{li.hp ? ` ${li.hp} HP` : ''}</td>
                       <td>{li.quantity}</td>
                       <td>₱{li.subtotal.toLocaleString()}</td>
                     </tr>

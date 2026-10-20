@@ -17,7 +17,7 @@ const pick = (source, keys) => {
 
 const person = (p) => (p && typeof p === 'object' ? { _id: idOf(p), name: p.name } : p ? { _id: idOf(p) } : null);
 
-const unitList = (units) => (units || []).map((u) => pick(u, ['type', 'quantity', 'brandModel']));
+const unitList = (units) => (units || []).map((u) => pick(u, ['type', 'quantity', 'brandModel', 'hp']));
 
 // `booking` is a plain object (toObject()) with service, customer and assignments populated.
 // `extra` carries values computed for this technician, such as { myRole }.

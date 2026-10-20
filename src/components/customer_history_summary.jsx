@@ -19,7 +19,7 @@ function CustomerHistorySummary({ history }) {
   return (
     <div className="customer-history">
       {counts.total === 0 ? (
-        <p className="customer-history-empty">No bookings yet.</p>
+        <p className="customer-history-empty">Wala pang history.</p>
       ) : (
         <dl className="customer-history-stats" aria-label={`${counts.total} ${pluralize(counts.total, 'booking')}`}>
           {stats.map(([label, value]) => (

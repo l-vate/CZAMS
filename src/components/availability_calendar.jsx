@@ -3,21 +3,25 @@ import { useNavigate } from 'react-router-dom';
 import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import { getAvailability } from '../services/availabilityService';
 import { toLocalDateKey } from '../utils/date';
+import { AVAILABILITY, BOOKING_LEAD_DAYS } from '../config/landingContent';
 
 const MONTHS_AHEAD = 3;
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+// What each status from GET /api/availability/public means (server/utils/availability.js):
+//   open / limited / full  a normal shop day, with both blocks, one block or no block left
+//   closed                 a Sunday (the shop is closed on Sundays)
+//   shop-closed            a date the admin closed, with a reason (a holiday, for example)
+//   too-soon / past        a date that cannot be booked: it is earlier than the lead time, or already gone
 const STATUS_LABEL = {
   open: 'Available',
   limited: 'Limited',
   full: 'Fully booked',
-  closed: 'Closed',
-  'shop-closed': 'Shop closed',
-'too-soon': 'Too soon to book',
-  past: 'Past',
+  closed: 'Closed on Sundays',
+  'shop-closed': 'Closed by the shop',
+  'too-soon': 'Not available (under the notice period)',
+  past: 'Not available (past)',
 };
-
-const LEGEND = ['open', 'limited', 'full', 'closed', 'shop-closed'];
 
 const monthStart = (date) => new Date(date.getFullYear(), date.getMonth(), 1);
 const monthEnd = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0);
@@ -31,6 +35,7 @@ function AvailabilityCalendar() {
   const [days, setDays] = useState({});
   const [status, setStatus] = useState('loading');
   const [selected, setSelected] = useState(null);
+  const [attempt, setAttempt] = useState(0); // bumped by "Try again" to load the month once more
 
   const firstMonth = monthStart(new Date());
   const lastMonth = new Date(firstMonth.getFullYear(), firstMonth.getMonth() + MONTHS_AHEAD, 1);
@@ -48,6 +53,7 @@ function AvailabilityCalendar() {
     getAvailability(toLocalDateKey(month), toLocalDateKey(monthEnd(month)))
       .then((list) => {
         if (cancelled) return;
+        if (!Array.isArray(list)) throw new Error('Unexpected availability reply');
         setDays(Object.fromEntries(list.map((d) => [d.date, d])));
         setStatus('ready');
       })
@@ -55,12 +61,17 @@ function AvailabilityCalendar() {
         if (!cancelled) setStatus('error');
       });
     return () => { cancelled = true; };
-  }, [month]);
+  }, [month, attempt]);
 
   const changeMonth = (offset) => {
     setStatus('loading');
     setSelected(null);
     setMonth(new Date(month.getFullYear(), month.getMonth() + offset, 1));
+  };
+
+  const retry = () => {
+    setStatus('loading');
+    setAttempt((n) => n + 1);
   };
 
   return (
@@ -75,36 +86,42 @@ function AvailabilityCalendar() {
         </button>
       </div>
 
-      {status === 'error' && <p className="avail-message">Availability could not be loaded right now. Please try again later.</p>}
-
-      <div className="avail-grid" role="grid" aria-label={`Availability for ${monthLabel}`}>
-        {WEEKDAYS.map((w) => <span className="avail-weekday" key={w}>{w}</span>)}
-        {Array.from({ length: leadingBlanks }, (_, i) => <span key={`blank-${i}`} />)}
-        {dayKeys.map((key) => {
-          const dayStatus = days[key]?.status || 'past';
-          const look = status === 'ready' ? dayStatus : 'loading';
-          return (
-            <button
-              type="button"
-              key={key}
-              className={`avail-day avail-day--${look}${selected === key ? ' avail-day--selected' : ''}`}
-              onClick={() => setSelected(key)}
-              disabled={status !== 'ready'}
-              aria-label={`${key}: ${STATUS_LABEL[dayStatus]}${days[key]?.reason ? `, ${days[key].reason}` : ''}`}
-            >
-              {Number(key.slice(8))}
-            </button>
-          );
-        })}
-      </div>
+      {status === 'error' ? (
+        <div className="avail-error" role="alert">
+          <strong>{AVAILABILITY.errorTitle}</strong>
+          <p>{AVAILABILITY.errorText}</p>
+          <button type="button" className="lp-btn lp-btn--primary" onClick={retry}>{AVAILABILITY.retry}</button>
+        </div>
+      ) : (
+        <div className="avail-grid" role="grid" aria-label={`Availability for ${monthLabel}`} aria-busy={status === 'loading'}>
+          {WEEKDAYS.map((w) => <span className="avail-weekday" key={w}>{w}</span>)}
+          {Array.from({ length: leadingBlanks }, (_, i) => <span key={`blank-${i}`} />)}
+          {dayKeys.map((key) => {
+            const dayStatus = days[key]?.status || 'past';
+            const look = status === 'ready' ? dayStatus : 'loading';
+            return (
+              <button
+                type="button"
+                key={key}
+                className={`avail-day avail-day--${look}${selected === key ? ' avail-day--selected' : ''}`}
+                onClick={() => setSelected(key)}
+                disabled={status !== 'ready'}
+                aria-label={status === 'ready' ? `${key}: ${STATUS_LABEL[dayStatus]}${days[key]?.reason ? `, ${days[key].reason}` : ''}` : `${key}: loading`}
+              >
+                {Number(key.slice(8))}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <ul className="avail-legend">
-        {LEGEND.map((s) => (
-          <li key={s}><span className={`avail-swatch avail-day--${s}`} />{STATUS_LABEL[s]}</li>
+        {AVAILABILITY.legend.map((item) => (
+          <li key={item.status}><span className={`avail-swatch avail-day--${item.status}`} />{item.label}</li>
         ))}
       </ul>
 
-      {selectedDay && (
+      {status === 'ready' && selectedDay && (
         <div className="avail-detail">
           <strong>{new Date(`${selected}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</strong>
           {selectedDay.morning !== undefined ? (
@@ -114,12 +131,12 @@ function AvailabilityCalendar() {
           ) : (
             <p>
               {STATUS_LABEL[selectedDay.status]}.
-              {selectedDay.status === 'too-soon' ? ' Bookings need at least 3 days notice.' : ''}
-              {selectedDay.status === 'shop-closed' ? ` ${selectedDay.reason}` : ''}
+              {selectedDay.status === 'too-soon' ? ` Bookings need at least ${BOOKING_LEAD_DAYS} days notice.` : ''}
+              {selectedDay.status === 'shop-closed' && selectedDay.reason ? ` ${selectedDay.reason}` : ''}
             </p>
           )}
           {(selectedDay.status === 'open' || selectedDay.status === 'limited') && (
-            <button type="button" className="cta" onClick={() => navigate('/login')}>Log In to Book</button>
+            <button type="button" className="lp-btn lp-btn--primary" onClick={() => navigate('/login')}>Log In to Book</button>
           )}
         </div>
       )}

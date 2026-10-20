@@ -1,12 +1,13 @@
 /* Public availability calendar (components/availability_calendar.jsx). */
 
 .avail {
-  max-width: 460px;
+  max-width: 540px;
   margin: 24px auto 0;
   background: var(--white);
   border: 1px solid var(--card-border);
-  border-radius: var(--radius-lg);
-  padding: 20px;
+  border-radius: 20px;
+  padding: 22px;
+  box-shadow: 0 12px 36px rgba(11, 37, 69, 0.09);
 }
 
 .avail-header {
@@ -22,8 +23,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
   border: 1px solid var(--card-border);
   border-radius: var(--radius-full);
   background: var(--white);
@@ -47,7 +48,7 @@
 }
 
 .avail-day {
-  aspect-ratio: 1;
+  min-height: 44px;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   font-size: 14px;
@@ -61,21 +62,53 @@
 .avail-day--open { background: var(--status-complete-bg); color: var(--status-complete-txt); }
 .avail-day--limited { background: var(--status-pending-bg); color: var(--status-pending-txt); }
 .avail-day--full { background: var(--status-cancel-bg); color: var(--status-cancel-txt); }
-.avail-day--closed,
-.avail-day--shop-closed,
+.avail-day:focus-visible { outline: 3px solid var(--navy); outline-offset: 2px; }
+
+/* a normal shop day that is not bookable (too soon, or already gone): quiet grey */
 .avail-day--too-soon,
-.avail-day--past,
-.avail-day--loading { background: var(--bg-main); color: var(--ink-soft); }
-.avail-day--past { opacity: 0.5; }
+.avail-day--past { background: var(--bg-main); color: #5b6b7d; }
+.avail-day--past { opacity: 0.55; }
+
+/* a Sunday: hatched, so it reads as "the shop is simply closed" and not as an error */
+.avail-day--closed {
+  background: repeating-linear-gradient(135deg, #eef2f6 0 6px, #dbe3ec 6px 8px);
+  color: #475569;
+}
+
+/* a date the shop closed for a reason (a holiday, for example): its own color */
+.avail-day--shop-closed { background: #f3e8ff; color: #6b21a8; border-color: #d8b4fe; }
+
+/* loading: quiet shimmering cells, so the grid never shows as a wall of dead grey boxes */
+.avail-day--loading {
+  background: linear-gradient(90deg, #eef2f6 25%, #f8fafc 50%, #eef2f6 75%);
+  background-size: 200% 100%;
+  color: transparent;
+  animation: avail-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes avail-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .avail-day--loading { animation: none; } }
+
+.avail-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 28px 12px;
+  text-align: center;
+  background: var(--bg-main);
+  border-radius: 14px;
+}
+.avail-error strong { color: var(--navy); font-family: 'Outfit', sans-serif; font-size: 17px; }
+.avail-error p { margin: 0 0 10px; color: var(--ink-soft); font-size: 14px; }
 
 .avail-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 16px;
+  gap: 8px 18px;
   list-style: none;
-  margin: 14px 0 0;
+  margin: 16px 0 0;
   padding: 0;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--ink-soft);
 }
 
@@ -83,8 +116,9 @@
 
 .avail-swatch {
   display: inline-block;
-  width: 14px;
-  height: 14px;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
   border-radius: 4px;
 }
 
@@ -97,3 +131,9 @@
 
 .avail-detail p { margin: 4px 0 10px; font-size: 14px; color: var(--ink-soft); }
 .avail-message { margin: 0 0 10px; font-size: 13px; color: var(--danger); }
+
+/* a phone: tighter padding so seven columns stay as wide as they can */
+@media (max-width: 420px) {
+  .avail { padding: 14px 8px; }
+  .avail-grid { gap: 3px; }
+}

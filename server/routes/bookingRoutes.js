@@ -1813,8 +1813,7 @@ async function performAssignment(booking, requested, { changedBy, reason } = {})
   const when = `${booking.date}, ${booking.time}`;
   for (const id of after) {
     if (!before.has(id)) {
-      const role = getRoleFor(booking, id);
-      await sendNotification(id, NOTIFICATION_TYPE.JOB_ASSIGNED, `You were assigned as ${role === 'Helper' ? 'helper' : 'lead'} on booking ${booking.bookingId} (${booking.service?.name || 'service'}) for ${when}.`, { booking });
+      await sendNotification(id, NOTIFICATION_TYPE.JOB_ASSIGNED, `You were assigned to booking ${booking.bookingId} (${booking.service?.name || 'service'}) for ${when}.`, { booking });
     }
   }
   for (const id of before) {
@@ -1831,8 +1830,7 @@ async function notifyAssignedTechnicians(booking) {
   const when = `${booking.date}, ${booking.time}`;
   for (const id of getMemberIds(booking)) {
     try {
-      const role = getRoleFor(booking, id);
-      await sendNotification(id, NOTIFICATION_TYPE.JOB_ASSIGNED, `You were assigned as ${role === 'Helper' ? 'helper' : 'lead'} on booking ${booking.bookingId} (${booking.service?.name || 'service'}) for ${when}.`, { booking });
+      await sendNotification(id, NOTIFICATION_TYPE.JOB_ASSIGNED, `You were assigned to booking ${booking.bookingId} (${booking.service?.name || 'service'}) for ${when}.`, { booking });
     } catch (err) {
       console.error(`Could not notify ${id} about booking ${booking.bookingId}:`, err);
     }

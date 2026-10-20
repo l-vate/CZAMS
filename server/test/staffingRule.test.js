@@ -89,11 +89,12 @@ test('flag 2 always needs a pair; flag 1 is honored only on a check-up or a surv
   assert.equal(getMinTechnicians('S1'), 2);
 });
 
-test('staffed means a lead and a helper together for a pair service; two leads alone are not a pair', () => {
+test('staffed means at least two different technicians for a pair service, however they were added', () => {
   const cleaning = svc('Cleaning');
   assert.equal(isStaffed(none, cleaning), false);
   assert.equal(isStaffed(lead, cleaning), false);
-  assert.equal(isStaffed([{ lead: 'T1', helper: null }, { lead: 'T3', helper: null }], cleaning), false);
+  assert.equal(isStaffed([{ lead: 'T1', helper: null }, { lead: 'T3', helper: null }], cleaning), true, 'two technicians added one by one');
+  assert.equal(isStaffed([{ lead: 'T1', helper: null }, { lead: 'T1', helper: null }], cleaning), false, 'the same technician twice is one');
   assert.equal(isStaffed(pair, cleaning), true);
   assert.equal(isStaffed([{ lead: 'T1', helper: null }, { lead: 'T3', helper: 'T4' }], cleaning), true);
   assert.equal(isStaffed(lead, svc('Check-up')), true);
@@ -102,9 +103,9 @@ test('staffed means a lead and a helper together for a pair service; two leads a
 
 test('the messages name the service and say what to do', () => {
   assert.equal(staffingProblem(pair, svc('Cleaning')), null);
-  assert.equal(staffingProblem(lead, svc('Cleaning')), 'Cleaning needs a lead technician and a helper. Add a helper before approving.');
-  assert.equal(staffingProblem(none, svc('Cleaning')), 'Cleaning needs a lead technician and a helper. Assign them before approving.');
-  assert.match(staffingProblem(lead, svc('Cleaning'), 'saving'), /helper cannot be removed/);
+  assert.equal(staffingProblem(lead, svc('Cleaning')), 'Cleaning needs at least two technicians. Add another technician before approving.');
+  assert.equal(staffingProblem(none, svc('Cleaning')), 'Cleaning needs at least two technicians. Assign them before approving.');
+  assert.match(staffingProblem(lead, svc('Cleaning'), 'saving'), /technician cannot be removed/);
   assert.equal(staffingProblem(none, svc('Check-up')), 'Assign a technician before approving.');
 });
 
@@ -118,13 +119,13 @@ TYPES.forEach((type) => {
     assert.equal(DB[0].status, 'Pending');
   });
 
-  test(`${type}: approving with one technician is ${solo ? 'allowed (solo)' : 'a 400 that says a helper is needed'}`, async () => {
+  test(`${type}: approving with one technician is ${solo ? 'allowed (solo)' : 'a 400 that says another technician is needed'}`, async () => {
     const res = await approve(booking(svc(type), 'Pending', lead));
     if (solo) {
       assert.equal(res.status, 200, JSON.stringify(res.body));
     } else {
       assert.equal(res.status, 400);
-      assert.equal(res.body.message, `${type} needs a lead technician and a helper. Add a helper before approving.`);
+      assert.equal(res.body.message, `${type} needs at least two technicians. Add another technician before approving.`);
       assert.equal(DB[0].status, 'Pending', 'the booking is not approved');
     }
   });
@@ -135,9 +136,9 @@ TYPES.forEach((type) => {
   });
 });
 
-test('two leads and no helper is not enough to approve a Cleaning', async () => {
+test('two technicians added one by one are enough to approve a Cleaning', async () => {
   const res = await approve(booking(svc('Cleaning'), 'Pending', [{ lead: 'T1', helper: null }, { lead: 'T3', helper: null }]));
-  assert.equal(res.status, 400);
+  assert.equal(res.status, 200, JSON.stringify(res.body));
 });
 
 test('a survey marked solo (type Other, minTechnicians 1) can be approved with one technician', async () => {
@@ -153,11 +154,11 @@ test('a Cleaning flagged solo by mistake still needs a pair', async () => {
 // ---- changing the assignment after approval
 ['Approved', 'In Progress'].forEach((status) => {
   PAIR_TYPES.concat(['Other']).forEach((type) => {
-    test(`${type} ${status}: removing the helper is refused with a clear 400, and the assignment is unchanged`, async () => {
+    test(`${type} ${status}: removing a technician is refused with a clear 400, and the assignment is unchanged`, async () => {
       const b = booking(svc(type), status, pair);
       const res = await assign(b, [{ technicianId: 'T1' }]);
       assert.equal(res.status, 400);
-      assert.match(res.body.message, new RegExp(`^${type} needs a lead technician and a helper`));
+      assert.match(res.body.message, new RegExp(`^${type} needs at least two technicians`));
       assert.deepEqual(b.assignments, pair);
     });
   });
@@ -189,4 +190,14 @@ test('an existing Approved booking that is already understaffed is not changed b
   assert.deepEqual(b.assignments, lead);
   const fix = await assign(b, [{ technicianId: 'T1', helperId: 'T2' }]);
   assert.equal(fix.status, 200, JSON.stringify(fix.body));
+});
+
+test('technicians are picked one by one: two entries without helpers are saved in order, the first is the primary, and the booking can be approved', async () => {
+  const b = booking(svc('Cleaning'), 'Pending', none);
+  const saved = await assign(b, [{ technicianId: 'T1' }, { technicianId: 'T2' }]);
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+  assert.deepEqual(b.assignments.map((a) => [a.lead, a.helper || null]), [['T1', null], ['T2', null]]);
+  assert.equal(b.technician, 'T1', 'the first technician is the primary one');
+  const approved = await approve(b);
+  assert.equal(approved.status, 200, JSON.stringify(approved.body));
 });

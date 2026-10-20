@@ -44,7 +44,7 @@ test('approving a booking nobody can staff on its date returns the next free dat
   addBooking({ bookingId: 'CZ-1', customer: 'CUS1', service: cleaning, status: 'Pending', date: D, time: 'Morning', assignments: [] });
   const res = await admin('PATCH', '/CZ-1/admin-update', { status: 'Approved' });
   assert.equal(res.status, 400);
-  assert.match(res.body.message, /needs a lead technician and a helper/);
+  assert.match(res.body.message, /needs at least two technicians/);
   assert.equal(res.body.suggestedDates.length, 3);
   res.body.suggestedDates.forEach((d) => { assert.ok(d > D); assert.equal(isSunday(d), false); });
   assert.deepEqual([...res.body.suggestedDates].sort(), res.body.suggestedDates, 'soonest first');

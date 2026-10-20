@@ -2,11 +2,12 @@
 // Rules for this file:
 //   - only facts that are true and checked against the system: no customer counts, ratings, reviews, awards, licenses, client names,
 //     response-time promises, discounts or statistics;
-//   - the warranty numbers are NOT typed here: they are read from shared/warrantyWindows.json, the same file the server uses;
+//   - the warranty numbers are NOT typed here: they are read from server/constants/warrantyWindows.json, the same file the server uses;
 //   - the phone and the business name come from config/company.js.
 import { BRAND_NAME, BRAND_SHORT, COMPANY_PHONE, COMPANY_PHONE_TEL } from './company';
 import { getBusinessHoursText } from './timeBlocks';
-import warranty from '../../shared/warrantyWindows.json';
+import { CANCEL_POLICY_NOTE } from './cancellation';
+import warranty from '../../server/constants/warrantyWindows.json';
 import { UNIT_TYPE } from '../constants/unitTypes';
 import { UNIT_TYPE_IMAGES } from '../utils/unitTypeImages';
 
@@ -148,7 +149,7 @@ export const HOW = {
   title: 'How It Works',
   subtitle: 'From booking to after-service support, in four steps.',
   steps: [
-    { icon: 'calendar', title: 'Book an Appointment', text: 'Log in, then choose your service, date and time block. You can also ask for a technician you prefer.' },
+    { icon: 'calendar', title: 'Book an Appointment', text: 'Log in, then choose your service, date and time block. You can also ask for a preferred technician, subject to availability.' },
     { icon: 'check', title: 'We Confirm Your Booking', text: 'Our team reviews your request, verifies your down payment and confirms your schedule. You are notified in the app.' },
     { icon: 'wrench', title: 'Service Day', text: 'Our technicians arrive in your booked time block and do the work.' },
     { icon: 'shield', title: 'After-Service Support', text: 'If something is wrong after the job, report it from your booking. Work inside the warranty period gets a free repair visit.' },
@@ -174,7 +175,7 @@ export const FAQ = {
     },
     {
       q: 'What happens if I cancel?',
-      a: 'You can cancel before the service starts. If you cancel before the booked date, your verified down payment is refunded in full. If you cancel on the booked date, a transportation fee may be deducted from the down payment.',
+      a: CANCEL_POLICY_NOTE, // the same words the customer sees when they press Cancel (config/cancellation.js)
     },
     {
       q: 'Is there a warranty?',

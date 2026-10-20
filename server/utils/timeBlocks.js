@@ -1,9 +1,9 @@
 // Time blocks (Morning / Afternoon) and the clock they run on. The hours live in
-// shared/timeBlocks.json so the status job, the calendar and the landing page footer all read
+// constants/timeBlocks.json (inside server/, so the server deploys on its own) so the status job, the calendar and the landing page footer all read
 // the same numbers. Bookings store a plain "YYYY-MM-DD" date plus the block name, and
 // every comparison is made in Philippine time (Asia/Manila, UTC+8, no daylight saving)
 // whatever timezone the server happens to run in.
-const config = require('../../shared/timeBlocks.json');
+const config = require('../constants/timeBlocks.json');
 
 const TIME_BLOCKS = Object.keys(config.blocks);
 

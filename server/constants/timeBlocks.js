@@ -1,4 +1,4 @@
-// Booking.time values (the names used in shared/timeBlocks.json), exactly as stored.
+// Booking.time values (the names used in constants/timeBlocks.json), exactly as stored.
 const TIME_BLOCK = Object.freeze({
   MORNING: 'Morning',
   AFTERNOON: 'Afternoon',

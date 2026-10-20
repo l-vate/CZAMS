@@ -1,5 +1,5 @@
 // Booking rules that the booking form and the server must agree on, kept in ONE place. The form imports this file;
-// the server loads it with import() (server/utils/sharedRules.js). Plain functions and constants only: no framework,
+// the server loads it with import() (server/utils/bookingValidation.js). It is a .mjs file because server/ is CommonJS. Plain functions and constants only: no framework,
 // no database, no browser or Node specifics.
 
 // Aircon unit types a booking can list, as stored on each unit entry.

@@ -11,12 +11,12 @@ const read = (...parts) => fs.readFileSync(path.join(root, ...parts), 'utf8');
 const content = read('src', 'config', 'landingContent.js');
 // the words the page shows, without the comment lines that explain the rules
 const copy = content.split(String.fromCharCode(10)).filter((line) => !line.trim().startsWith('//')).join(' ');
-const warranty = require('../../shared/warrantyWindows.json');
+const warranty = require('../constants/warrantyWindows.json');
 
 test('the warranty windows are one shared file: the server and the landing page read the same numbers', () => {
   const { WARRANTY_WINDOWS } = require('../utils/warranty');
   assert.deepEqual(JSON.parse(JSON.stringify(WARRANTY_WINDOWS)), warranty);
-  assert.match(content, /shared\/warrantyWindows\.json/);
+  assert.match(content, /server\/constants\/warrantyWindows\.json/);
   assert.doesNotMatch(content, /\b(7|6|3|1) (days|months)\b/, 'no second copy of a warranty number typed into the content file');
 });
 
@@ -59,4 +59,16 @@ test('every optional photo slot is hidden or replaced when no image is set, neve
   const slot = read('src', 'components', 'landing', 'photo_slot.jsx');
   assert.match(slot, /if \(!photo \|\| !photo\.src \|\| failed\) return fallback;/);
   assert.match(slot, /onError=/);
+});
+
+test('the FAQ cancellation answer is the customer cancel note from config/cancellation.js: on or after the booked date', () => {
+  assert.match(content, /import \{ CANCEL_POLICY_NOTE \} from '\.\/cancellation';/);
+  assert.match(content, /a: CANCEL_POLICY_NOTE,/);
+  assert.doesNotMatch(copy, /on the booked date/);
+  const note = read('src', 'config', 'cancellation.js');
+  assert.match(note, /Cancelling on or after the booked date may result in a transportation fee/);
+});
+
+test('How It Works step 1 says a preferred technician is subject to availability', () => {
+  assert.match(content, /preferred technician, subject to availability/);
 });

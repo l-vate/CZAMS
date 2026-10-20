@@ -26,7 +26,7 @@ export function mapBookingStatusToCalendarStatus(status) {
 // Morning-only booking visually reads as busy 8–12 and free in the afternoon,
 // not "busy all day" or an arbitrary slot unrelated to which block was actually booked.
 // Exported so both admin/calendar.jsx and staff/calendar.jsx derive this the same way.
-// The hours come from shared/timeBlocks.json, the same file the server's status job reads.
+// The hours come from server/constants/timeBlocks.json, the same file the server's status job reads.
 export function getTimeBlockHours(time) {
   return TIME_BLOCKS[time] || { startHour: 8, endHour: 10 };
 }

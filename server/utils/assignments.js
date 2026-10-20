@@ -53,8 +53,14 @@ function getMemberIds(booking) {
   return [...new Set(ids)];
 }
 
+// The admin picks technicians one by one, and each is saved as its own entry with no helper. The first entry is the primary technician (the
+// "lead"); an entry after the first that has no helper is a technician added to the list, who has the helper's rights on the job (they see it,
+// they are held in their slot, but they do not file the service report or report a disruption). An entry with a helper is a pair, as on
+// bookings made before the flat list: its lead is a lead.
+const isAddedTechnician = (assignment, index) => index > 0 && !assignment.helper;
+
 function getLeadIds(booking) {
-  return [...new Set(getAssignments(booking).map((a) => a.lead))];
+  return [...new Set(getAssignments(booking).filter((a, i) => !isAddedTechnician(a, i)).map((a) => a.lead))];
 }
 
 // The primary lead is the lead of the first pair. On a job with several pairs only the primary lead files the
@@ -67,7 +73,7 @@ function getPrimaryLeadId(booking) {
 function getRoleFor(booking, userId) {
   const id = idOf(userId);
   if (getLeadIds(booking).includes(id)) return 'Lead';
-  if (getAssignments(booking).some((a) => a.helper === id)) return 'Helper';
+  if (getAssignments(booking).some((a, i) => a.helper === id || (isAddedTechnician(a, i) && a.lead === id))) return 'Helper';
   return null;
 }
 

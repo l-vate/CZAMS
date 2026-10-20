@@ -89,7 +89,7 @@ test('on a two-pair job the primary lead can file the report', async () => {
 test('the lead of the second pair is refused with a clear message and nothing is saved', async () => {
   const res = await file('T3');
   assert.equal(res.status, 403);
-  assert.match(res.body.message, /primary lead/);
+  assert.match(res.body.message, /primary technician/);
   assert.equal(saved, null);
   assert.equal(booking.status, 'In Progress');
 });
@@ -98,7 +98,7 @@ test('a helper in either pair is refused', async () => {
   for (const helper of ['T2', 'T4']) {
     const res = await file(helper);
     assert.equal(res.status, 403, helper);
-    assert.match(res.body.message, /lead technician/);
+    assert.match(res.body.message, /primary technician/);
   }
   assert.equal(saved, null);
 });
@@ -161,4 +161,24 @@ test('the admin can save two pairs, a repeated technician is refused, and the fi
     Booking.findOne = realFindOne;
     Booking.updateOne = realUpdateOne;
   }
+});
+
+// ---- the flat technician list: the first technician is the lead, the others are read-only technicians
+test('technicians picked one by one: only the first is a lead, the rest have the helper rights (they cannot file a report or report a disruption)', () => {
+  const { getLeadIds, getRoleFor, getPrimaryLeadId, getMemberIds } = require('../utils/assignments');
+  const flat = { assignments: [{ lead: 'T1' }, { lead: 'T2' }, { lead: 'T3' }], technician: 'T1' };
+  assert.deepEqual(getMemberIds(flat), ['T1', 'T2', 'T3']);
+  assert.deepEqual(getLeadIds(flat), ['T1']);
+  assert.equal(getPrimaryLeadId(flat), 'T1');
+  assert.equal(getRoleFor(flat, 'T1'), 'Lead');
+  assert.equal(getRoleFor(flat, 'T2'), 'Helper');
+  assert.equal(getRoleFor(flat, 'T3'), 'Helper');
+  assert.equal(getRoleFor(flat, 'T9'), null);
+  // a booking made before the flat list still reads as it did: two pairs, two leads, two helpers
+  const pairs = { assignments: [{ lead: 'L1', helper: 'H1' }, { lead: 'L2', helper: 'H2' }] };
+  assert.deepEqual(getLeadIds(pairs), ['L1', 'L2']);
+  assert.equal(getRoleFor(pairs, 'H2'), 'Helper');
+  assert.equal(getPrimaryLeadId(pairs), 'L1');
+  // a single technician (a check-up) is the lead
+  assert.deepEqual(getLeadIds({ assignments: [{ lead: 'T1' }] }), ['T1']);
 });

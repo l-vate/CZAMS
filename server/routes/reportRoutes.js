@@ -138,13 +138,12 @@ router.post('/', auth, receivePhoto, async (req, res) => {
         if (!getMemberIds(booking).includes(req.userId)) {
             return res.status(403).json({ message: 'You are not assigned to this booking' });
         }
-        // A helper can see the job but cannot file. On a job with several pairs only the primary lead (the lead of
-        // the first pair) files the one report; the other leads read it.
+        // Only the primary technician (the first one on the job) files the one report; every other technician on it reads it.
         if (!getLeadIds(booking).includes(req.userId)) {
-            return res.status(403).json({ message: 'Only the lead technician can submit the service report.' });
+            return res.status(403).json({ message: 'Only the primary technician of this job files the service report. You can read it once it is filed.' });
         }
         if (getPrimaryLeadId(booking) !== req.userId) {
-            return res.status(403).json({ message: 'Only the primary lead of this job files the service report. You can read it once it is filed.' });
+            return res.status(403).json({ message: 'Only the primary technician of this job files the service report. You can read it once it is filed.' });
         }
 
         // Create the report with string IDs

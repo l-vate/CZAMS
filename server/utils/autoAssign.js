@@ -67,7 +67,7 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 /**
  * @param {object} input
- * @param {number} input.minTechnicians  1 (a single technician will do) or 2 (a lead and a helper)
+ * @param {number} input.minTechnicians  1 (a single technician will do) or 2 (two technicians)
  * @param {{_id,name}[]} input.technicians                active technicians
  * @param {Iterable<string>} input.busyIds                technicians busy in this date and block
  * @param {string} [input.requestedTechnicianId]
@@ -102,10 +102,10 @@ function pickAssignment({
   const lead = preferred || candidates[0];
   const helper = needed === 2 ? candidates.find((c) => c.id !== lead.id) : null;
   const assignment = helper ? { technicianId: lead.id, helperId: helper.id } : { technicianId: lead.id };
-  const withHelper = helper ? ` with ${helper.name} as helper` : '';
+  const withHelper = helper ? ` together with ${helper.name}` : '';
 
   if (preferred) {
-    return { assignment, reason: `${preferred.name}, the technician the customer asked for, is free, so they were chosen${helper ? ` as lead${withHelper}` : ''}.` };
+    return { assignment, reason: `${preferred.name}, the technician the customer asked for, is free, so they were chosen${withHelper}.` };
   }
 
   // 3. lightest week, then fewest upcoming, then name

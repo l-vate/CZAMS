@@ -1,3 +1,4 @@
+import { jobRoleLabel } from '../../utils/jobRole';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import StaffLayout from './staff_layout';
@@ -44,12 +45,12 @@ function JobDetailsModal({ job, onClose }) {
           <span className={`tech-job-status-badge ${statusClass[job.status] || ''}`}>{job.status}</span>
         </div>
         <p className="tech-job-detail-booking">Booking ID: {job.bookingId}{job.isBackJob ? ' (back job)' : ''}</p>
-        <p className="tech-job-detail-booking">Your role: <strong>{job.myRole}</strong>{job.assigned ? ` · Assigned: ${job.assigned}` : ''}</p>
+        <p className="tech-job-detail-booking">Your role: <strong>{jobRoleLabel(job.myRole, job.isPrimaryLead)}</strong>{job.assigned ? ` · Assigned: ${job.assigned}` : ''}</p>
         {job.myRole === 'Lead' && !job.isPrimaryLead && (
-          <p className="tech-job-detail-booking">Primary lead files the report. You lead a pair on this job, so the service report is read-only for you.</p>
+          <p className="tech-job-detail-booking">The primary technician files the service report. It is read-only for you.</p>
         )}
         {job.myRole === 'Helper' && (
-          <p className="tech-job-detail-booking">You are the helper on this job, so it is read-only for you. The lead technician reports disruptions, asks for extensions and submits the service report.</p>
+          <p className="tech-job-detail-booking">You are a technician on this job, so it is read-only for you. The primary technician reports disruptions, asks for extensions and submits the service report.</p>
         )}
 
         <div className="tech-job-detail-grid">
@@ -491,7 +492,7 @@ function MyJobs() {
                 <div className="tech-job-top-row">
                   <small className="tech-job-date-label">{job.date}</small>
                   <span className={`tech-job-status-badge ${statusClass[job.status] || ''}`}>{job.status}</span>
-                  <span className={`tech-job-status-badge ${job.myRole === 'Helper' ? 'tech-role-helper' : 'tech-role-lead'}`}>{job.myRole}</span>
+                  <span className={`tech-job-status-badge ${job.myRole === 'Helper' ? 'tech-role-helper' : 'tech-role-lead'}`}>{jobRoleLabel(job.myRole, job.isPrimaryLead)}</span>
                   {job.isBackJob && <BackJobBadge />}
                 </div>
                 <div className="tech-job-service">{job.service}</div>

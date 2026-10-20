@@ -58,7 +58,7 @@ function CustomerLayout({ title, children, searchValue, onSearchChange, searchPl
             >
               <FiMessageCircle />
             </button>
-            <NotificationBell onNotificationClick={handleNotificationClick} />
+            <NotificationBell onNotificationClick={handleNotificationClick} viewAllRoute="/customer/notifications" />
           </div>
         </div>
 

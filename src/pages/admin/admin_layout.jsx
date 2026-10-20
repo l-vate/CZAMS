@@ -58,7 +58,7 @@ function AdminLayout({ title, children, searchValue, onSearchChange, searchPlace
             >
               <FiMessageCircle />
             </button>
-            <NotificationBell onNotificationClick={handleNotificationClick} />
+            <NotificationBell onNotificationClick={handleNotificationClick} viewAllRoute="/admin/notifications" />
           </div>
         </div>
 

@@ -610,7 +610,7 @@ const handleSubmitPayment = ({ proof, referenceNumber }) => {
             </div>
           </div>
 
-          <DiscountOption form={form} setForm={setForm} />
+          <DiscountOption form={form} setForm={setForm} idRequired />
 
           {/* Nothing is due right now for a 0% down payment - no payment mode or
               proof to collect until the customer settles the balance later. */}
@@ -808,6 +808,7 @@ function BookService() {
     address: '',
     contactNumber: getAccountPhone(),
     discountType: '',
+    discountIdFileObj: null,
     downPaymentPercent: null,
     paymentMode: '',
     paymentMode2: '',
@@ -843,6 +844,7 @@ const canNext = () => {
     }
     if (step === 4) {
       const { dpPercent } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages));
+      if (form.discountType && !form.discountIdFileObj) return false; // a customer always attaches the ID photo
       if (dpPercent === 0) return true;
       return form.paymentStatus === PAYMENT_STATUS.TO_VERIFY || form.paymentStatus === PAYMENT_STATUS.FULLY_PAID;
     }
@@ -883,6 +885,7 @@ const canNext = () => {
       if (form.referenceNumber) formData.append('referenceNumber', form.referenceNumber);
       if (form.discountType) {
         formData.append('discountType', form.discountType);
+        if (form.discountIdFileObj) formData.append('discountId', form.discountIdFileObj);
       }
 
       const data = await createBooking(formData);

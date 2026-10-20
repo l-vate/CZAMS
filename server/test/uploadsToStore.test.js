@@ -46,16 +46,15 @@ test.beforeEach(() => harness.reset({
   services: [cleaning],
 }));
 
-test('a customer booking with a payment proof stores it, with its kind, uploader and booking id; a discount request keeps no ID photo', async () => {
-  const res = await send('POST', '', bookingFields({ discountType: 'Senior' }), [{ field: 'proof' }]);
+test('a customer booking with a payment proof and an ID photo stores both, with their kinds, uploader and booking id', async () => {
+  const res = await send('POST', '', bookingFields({ discountType: 'Senior' }), [{ field: 'proof' }, { field: 'discountId' }]);
   assert.equal(res.status, 201, JSON.stringify(res.body));
   const saved = state.bookings[0];
   const listed = await files();
-  assert.equal(listed.length, 1);
+  assert.equal(listed.length, 2);
   const byKind = Object.fromEntries(listed.map((f) => [f.metadata.kind, f]));
   assert.equal(saved.proofFile, `/uploads/proofs/${byKind.proof.name}`);
-  assert.equal(saved.discount.status, 'Pending');
-  assert.equal(saved.discount.idFile, undefined, 'no ID photo is collected');
+  assert.equal(saved.discount.idFile, `/uploads/proofs/${byKind.id_photo.name}`);
   listed.forEach((f) => {
     assert.match(f.name, /^[0-9a-f]{32}\.png$/);
     assert.equal(f.metadata.uploadedBy, 'CUS1');
@@ -84,14 +83,14 @@ test('a balance proof is stored as a proof for that booking', async () => {
   assert.equal(state.bookings[0].balanceProofFile, `/uploads/proofs/${file.name}`);
 });
 
-test('a discount request stores no file at all: no ID photo and no ID number are collected', async () => {
+test('a discount request stores the ID photo as an id photo for that booking', async () => {
   existing({ paymentStatus: 'Unpaid', status: 'Pending' });
-  const discount = await harness.call('PATCH', '/CZ-1/discount/request', 'CUS1', { discountType: 'PWD' });
+  const discount = await send('PATCH', '/CZ-1/discount/request', { discountType: 'PWD' }, [{ field: 'discountId' }]);
   assert.equal(discount.status, 200, JSON.stringify(discount.body));
-  assert.equal((await files()).length, 0);
-  assert.equal(state.bookings[0].discount.status, 'Pending');
-  assert.equal(state.bookings[0].discount.type, 'PWD');
-  assert.equal(state.bookings[0].discount.idFile, undefined);
+  const [file] = await files();
+  assert.equal(file.metadata.kind, 'id_photo');
+  assert.equal(file.metadata.bookingId, 'CZ-1');
+  assert.equal(state.bookings[0].discount.idFile, `/uploads/proofs/${file.name}`);
 });
 
 test('a file that is not what it says it is is refused before anything is stored', async () => {
@@ -110,10 +109,10 @@ test('a booking that cannot be saved removes the files it stored', async () => {
   const real = Booking.create;
   Booking.create = async () => { throw new Error('the database is down'); };
   try {
-    const res = await send('POST', '', bookingFields({ discountType: 'Senior' }), [{ field: 'proof' }]);
+    const res = await send('POST', '', bookingFields({ discountType: 'Senior' }), [{ field: 'proof' }, { field: 'discountId' }]);
     assert.equal(res.status, 500);
     await settle();
-    assert.equal((await files()).length, 0, 'the rollback removed the file');
+    assert.equal((await files()).length, 0, 'the rollback removed both files');
   } finally {
     Booking.create = real;
   }

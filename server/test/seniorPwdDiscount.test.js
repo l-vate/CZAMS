@@ -1,8 +1,9 @@
-// Run with: npm test (inside server/). The Senior Citizen / PWD discount: 20% (one named constant), only when the customer asks, only an
-// admin can apply or decline it, no ID is collected, it comes off the service charge only, a payment already verified is never touched,
+// Run with: npm test (inside server/). The Senior Citizen / PWD discount: 20% (one named constant), only when the customer asks (always
+// with a photo of a valid ID), only an admin can apply or decline it, it comes off the service charge only, a payment already verified is never touched,
 // and a discount that would take the total below what was paid is blocked. The real routes run; only the database is replaced.
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const jwt = require('jsonwebtoken');
 const harness = require('./helpers/createBooking');
 const { SENIOR_PWD_DISCOUNT_RATE, SENIOR_PWD_DISCOUNT_PERCENT } = require('../constants/discount');
 const { getPaymentBreakdown, getBookingBasePrice } = require('../utils/pricing');
@@ -31,13 +32,34 @@ test('the rate is one named constant: 20%', () => {
   assert.equal(SENIOR_PWD_DISCOUNT_PERCENT, 20);
 });
 
+// the customer's request is a form with the ID photo, the way the screen sends it
+async function ask(fields, withId = true, as = 'CUS1') {
+  const token = jwt.sign({ id: as, role: 'customer' }, process.env.JWT_SECRET, { expiresIn: '5m' });
+  const form = new FormData();
+  Object.entries(fields).forEach(([k, v]) => form.append(k, v));
+  if (withId) form.append('discountId', new Blob([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.alloc(64)], { type: 'image/png' }), 'id.png');
+  const res = await fetch(`${harness.base()}/api/bookings/CZ-1/discount/request`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form });
+  return { status: res.status, body: await res.json().catch(() => ({})) };
+}
+
+test('a customer must always attach an ID photo: a request without one is refused, at booking time and afterwards', async () => {
+  const b = booking({ discount: undefined });
+  const noId = await ask({ discountType: 'PWD' }, false);
+  assert.equal(noId.status, 400);
+  assert.match(noId.body.message, /photo of a valid ID/);
+  assert.equal(b.discount, undefined);
+  const made = await harness.post({ discountType: 'Senior', date: goodDate(9) });
+  assert.equal(made.status, 400, 'at booking time too');
+  assert.match(made.body.message, /photo of a valid ID/);
+});
+
 test('a customer can only ask: they cannot apply or decline it, and asking does not change the price', async () => {
   const b = booking({ discount: undefined });
-  const asked = await call('PATCH', '/CZ-1/discount/request', 'CUS1', { discountType: 'PWD' });
+  const asked = await ask({ discountType: 'PWD' });
   assert.equal(asked.status, 200, JSON.stringify(asked.body));
   assert.equal(b.discount.status, 'Pending');
   assert.equal(b.discount.type, 'PWD');
-  assert.equal(b.discount.idFile, undefined, 'no ID photo');
+  assert.ok(b.discount.idFile, 'the ID photo is kept');
   assert.equal(b.discount.amount, undefined, 'nothing taken off yet');
   assert.equal((await call('PATCH', '/CZ-1/discount/approve', 'CUS1', {})).status, 403);
   assert.equal((await call('PATCH', '/CZ-1/discount/reject', 'CUS1', { reason: 'x' })).status, 403);
@@ -46,7 +68,7 @@ test('a customer can only ask: they cannot apply or decline it, and asking does 
 
 test('a customer cannot ask for a kind that does not exist', async () => {
   booking({ discount: undefined });
-  assert.equal((await call('PATCH', '/CZ-1/discount/request', 'CUS1', { discountType: 'Student' })).status, 400);
+  assert.equal((await ask({ discountType: 'Student' })).status, 400);
 });
 
 test('staff cannot apply or decline it', async () => {
@@ -127,5 +149,4 @@ test('an admin walk-in with the discount applies the constant rate on the spot',
   const saved = state.bookings[0];
   assert.equal(saved.discount.status, 'Approved');
   assert.equal(saved.discount.rate, 0.2);
-  assert.equal(saved.discount.idFile, undefined);
 });

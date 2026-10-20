@@ -288,7 +288,7 @@ router.get('/technicians/:id/feedback', auth, async (req, res) => {
 router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) => {
   req.generatedBookingId = generateBookingId();
   next();
-}, upload.fields([{ name: 'proof', maxCount: 1 }]), async (req, res) => {
+}, upload.fields([{ name: 'proof', maxCount: 1 }, { name: 'discountId', maxCount: 1 }]), async (req, res) => {
   try {
     // A refused request must not leave its uploaded file behind.
     res.on('finish', () => { if (res.statusCode >= 400) discardUploads(req); });
@@ -479,23 +479,31 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
     });
     if (paymentSubmission.problem) return sendProblem(res, paymentSubmission.problem);
 
-    // Senior Citizen / PWD discount request. The customer only says they ask for it and which kind; no ID number or photo is collected,
-    // the owner checks the ID in person. It stays Pending until an admin applies it. An admin booking on someone's behalf (walk-in) has
-    // seen the ID in person: it is applied on the spot.
+    // Senior Citizen / PWD discount request. A customer must always attach a photo of a valid ID, and the discount stays Pending until
+    // an admin approves it. An admin booking on someone's behalf (walk-in) has seen the ID in person: it is applied on the spot and the
+    // ID upload is optional.
+    const discountIdFile = req.files?.discountId?.[0];
+    const discountIdPath = discountIdFile ? `/uploads/proofs/${discountIdFile.filename}` : undefined;
     const isDiscountRequested = discountType === 'Senior' || discountType === 'PWD';
     if (discountType && !isDiscountRequested) {
       return res.status(400).json({ message: 'Choose either Senior Citizen or PWD for the discount.' });
+    }
+    if (discountIdFile && !isDiscountRequested) {
+      return res.status(400).json({ message: 'Choose Senior Citizen or PWD to go with the ID you uploaded.' });
+    }
+    if (isDiscountRequested && !isAdminWalkIn && !discountIdFile) {
+      return res.status(400).json({ message: 'Upload a photo of a valid ID to request the Senior Citizen / PWD discount.' });
     }
     const now = new Date();
     let discount;
     if (isDiscountRequested) {
       discount = isAdminWalkIn
         ? {
-            type: discountType, status: 'Approved',
+            type: discountType, idFile: discountIdPath, status: 'Approved',
             percent: SENIOR_PWD_DISCOUNT_PERCENT, rate: SENIOR_PWD_DISCOUNT_RATE,
             dpPaidBeforeApproval: 0, requestedAt: now, reviewedAt: now, reviewedBy: req.userId,
           }
-        : { type: discountType, status: 'Pending', requestedAt: now };
+        : { type: discountType, idFile: discountIdPath, status: 'Pending', requestedAt: now };
     }
 
     // A booking is never marked paid just because an admin made it. Money received in person is recorded afterwards, on
@@ -523,7 +531,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
         await assertUnderPendingLimit(Booking, bookingCustomerId);
         await assertSlotOpen(date, time);
       }
-      await storeUploads(req, { kind: KINDS.PROOF, bookingId: req.generatedBookingId });
+      await storeUploads(req, { kind: (file) => (file.fieldname === 'discountId' ? KINDS.ID_PHOTO : KINDS.PROOF), bookingId: req.generatedBookingId });
       const queueRank = await nextQueueRank(); // last in line: first come, first served
       return createWithUniqueBookingId((bookingId) => Booking.create({
         bookingId,
@@ -597,7 +605,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
     if (populated.discount?.status === 'Pending') {
       await notifyAdmins(
         NOTIFICATION_TYPE.DISCOUNT_REQUESTED,
-        `Booking ${populated.bookingId}: the customer requested the ${populated.discount.type === 'PWD' ? 'PWD' : 'Senior Citizen'} discount. Check the ID in person, then apply or decline it.`,
+        `Booking ${populated.bookingId}: the customer requested the ${populated.discount.type === 'PWD' ? 'PWD' : 'Senior Citizen'} discount. Review the uploaded ID.`,
         { booking: populated }
       );
     }
@@ -952,11 +960,17 @@ router.get('/:bookingId/reference-duplicates', auth, async (req, res) => {
 // Customer: ask for the Senior Citizen / PWD discount on a booking they already made. Same ID
 // upload and same admin approval flow as asking at booking time. Allowed while the booking is
 // Pending or Approved, and only if there is no request yet or the last one was rejected.
-router.patch('/:bookingId/discount/request', auth, allowRoles(ROLE.CUSTOMER), async (req, res) => {
+router.patch('/:bookingId/discount/request', auth, allowRoles(ROLE.CUSTOMER), upload.single('discountId'), async (req, res) => {
   try {
+    // A refused request must not leave its uploaded file behind.
+    res.on('finish', () => { if (res.statusCode >= 400) discardUploads(req); });
+
     const { discountType } = req.body;
     if (discountType !== 'Senior' && discountType !== 'PWD') {
       return res.status(400).json({ message: 'Choose either Senior Citizen or PWD for the discount.' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ message: 'Upload a photo of a valid ID to request the Senior Citizen / PWD discount.' });
     }
 
     const booking = await Booking.findOne({ bookingId: req.params.bookingId, customer: req.userId }).populate('service');
@@ -969,12 +983,13 @@ router.patch('/:bookingId/discount/request', auth, allowRoles(ROLE.CUSTOMER), as
       return res.status(400).json({ message: 'This booking already has a discount request.' });
     }
 
-    booking.discount = { type: discountType, status: 'Pending', requestedAt: new Date() };
+    await storeUploads(req, { kind: KINDS.ID_PHOTO, bookingId: booking.bookingId });
+    booking.discount = { type: discountType, idFile: `/uploads/proofs/${req.file.filename}`, status: 'Pending', requestedAt: new Date() };
     await booking.save();
 
     await notifyAdmins(
       NOTIFICATION_TYPE.DISCOUNT_REQUESTED,
-      `Booking ${booking.bookingId}: the customer requested the ${discountType === 'PWD' ? 'PWD' : 'Senior Citizen'} discount. Check the ID in person, then apply or decline it.`,
+      `Booking ${booking.bookingId}: the customer requested the ${discountType === 'PWD' ? 'PWD' : 'Senior Citizen'} discount. Review the uploaded ID.`,
       { booking }
     );
 

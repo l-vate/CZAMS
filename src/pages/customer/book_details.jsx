@@ -63,22 +63,22 @@ function formatDate(dateStr) {
 // booking is Pending or Approved and has no request yet, or the last one was rejected.
 function DiscountRequestForm({ bookingId, onRequested }) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ discountType: '' });
+  const [form, setForm] = useState({ discountType: '', discountIdFileObj: null });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async () => {
-    if (!form.discountType) {
-      setError('Tick the box and choose Senior Citizen or PWD.');
+    if (!form.discountType || !form.discountIdFileObj) {
+      setError('Choose Senior Citizen or PWD and upload a photo of a valid ID.');
       return;
     }
     setSubmitting(true);
     setError('');
     try {
-      const data = await requestDiscount(bookingId, { type: form.discountType });
+      const data = await requestDiscount(bookingId, { type: form.discountType, idFile: form.discountIdFileObj });
       onRequested(data);
       setOpen(false);
-      setForm({ discountType: '' });
+      setForm({ discountType: '', discountIdFileObj: null });
     } catch (err) {
       setError(err instanceof ApiError ? err.message || 'Failed to send the discount request.' : 'Could not connect to server.');
     } finally {
@@ -96,7 +96,7 @@ function DiscountRequestForm({ bookingId, onRequested }) {
 
   return (
     <div className="bs-field-group customer-book-details-x3">
-      <DiscountOption form={form} setForm={setForm} appliesNow={false} optional={false} />
+      <DiscountOption form={form} setForm={setForm} idRequired appliesNow={false} optional={false} />
       {error && <p className="customer-book-details-x4">{error}</p>}
       <div className="cancel-confirm-actions">
         <button type="button" className="bs-back-btn" onClick={() => setOpen(false)} disabled={submitting}>Cancel</button>

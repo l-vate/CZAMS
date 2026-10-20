@@ -72,10 +72,13 @@ export function rescheduleBooking(bookingId, { date, time }) {
   return request(`${booking(bookingId)}/reschedule`, { method: 'PATCH', body: { date, time } });
 }
 
-// Ask for the Senior Citizen / PWD discount on an existing booking. `type` is 'Senior' | 'PWD'. No ID number or photo is sent: the
-// owner checks the ID in person.
-export function requestDiscount(bookingId, { type }) {
-  return request(`${booking(bookingId)}/discount/request`, { method: 'PATCH', body: { discountType: type } });
+// Ask for the Senior Citizen / PWD discount on an existing booking. `type` is 'Senior' | 'PWD', `idFile` the photo of a valid ID
+// (always required for a customer).
+export function requestDiscount(bookingId, { type, idFile }) {
+  const formData = new FormData();
+  formData.append('discountType', type);
+  formData.append('discountId', idFile);
+  return upload(`${booking(bookingId)}/discount/request`, formData, { method: 'PATCH' });
 }
 
 export function submitFeedback(bookingId, { rating, text }) {

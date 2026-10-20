@@ -1,13 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { FiSearch, FiTool } from 'react-icons/fi';
+import { FiSearch } from 'react-icons/fi';
 import { UNIT_TYPE_IMAGES } from '../../utils/unitTypeImages';
-import { COMPANY_PHONE, COMPANY_PHONE_TEL } from '../../config/company';
-import { getBusinessHoursText } from '../../config/timeBlocks';
 import { usePublicPromos, describeDiscount } from '../../utils/promos';
 import AvailabilityCalendar from '../../components/availability_calendar';
-import '../../css/public.css'
+import '../../css/public.css';
+import '../../css/landing.css';
 import { orFallback } from '../../services/apiClient';
 import { listPublicTechnicians } from '../../services/authService';
 import { getPublicFeedbackSummary } from '../../services/bookingService';
@@ -17,8 +16,16 @@ import { SERVICE_TYPE } from '../../constants/serviceTypes';
 import { UNIT_TYPES } from '../../constants/unitTypes';
 import PublicNavbar from '../../components/public_navbar';
 import { pluralize } from '../../utils/pluralize';
-import { BRAND_NAME, BRAND_SHORT } from '../../config/company';
-
+import { JSON_LD, AVAILABILITY } from '../../config/landingContent';
+import { useReveal } from '../../hooks/useReveal';
+import { useScrollSpy } from '../../hooks/useScrollSpy';
+import Hero from '../../components/landing/hero';
+import { TrustStrip, AboutSection } from '../../components/landing/trust_and_about';
+import ServicesSection from '../../components/landing/services_section';
+import { UnitTypesSection, WhySection } from '../../components/landing/units_and_why';
+import { HowSection, FaqSection, CtaBand } from '../../components/landing/how_faq_cta';
+import LandingFooter from '../../components/landing/landing_footer';
+import SectionHeading from '../../components/landing/section_heading';
 
 const NAV_SEARCH_RESULTS_LIMIT = 8;
 
@@ -46,28 +53,19 @@ const SERVICE_CATEGORY_ACCENT = {
   Repair: 'nav-search-badge--repair',
 };
 
-const CATEGORY_LABEL = {
-  Holiday: '🎉 Holiday',
-  Closure: '🚧 Closure',
-  Maintenance: '🛠️ Maintenance',
-  General: '📢 Announcement',
-};
-
 /* ── Landing Page Module: public data hooks ─────────────────
    Everything on this page that states a service, a price or a rating comes from
    the database through public (no auth) endpoints; nothing is hardcoded. */
 function usePublicServices() {
   const [services, setServices] = useState([]);
-  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     orFallback(listPublicServices(), [])
       .then((data) => setServices(Array.isArray(data) ? data : []))
-      .catch(() => setServices([]))
-      .finally(() => setLoaded(true));
+      .catch(() => setServices([]));
   }, []);
 
-  return { services, loaded };
+  return { services };
 }
 
 /* ── Landing Page Module: navbar search ─────────────────────
@@ -287,237 +285,65 @@ function useAnnouncements() {
   return announcements;
 }
 
-/* ── Static Content ───────────────────────────────────────── */
-// Shown only if the services API returns nothing (down, or no active services yet):
-// plain cards with no prices, so the page never states a price the database doesn't back.
-const FALLBACK_SERVICE_CARDS = [
-  { title: 'Aircon Cleaning', desc: 'Cleaning for healthier, more efficient air circulation.' },
-  { title: 'Repair & Diagnostics', desc: 'Diagnosis and repair for aircon units.' },
-  { title: 'New Installation', desc: 'Installation with proper setup and testing.' },
-  { title: 'Preventive Check-Up', desc: 'Scheduled maintenance to catch problems early.' },
-];
-
-const HOW_IT_WORKS_STEPS = [
-  {
-    number: '01',
-    title: 'Book an Appointment',
-    desc: 'Schedule online in minutes. Choose your service, date, time, and preferred technician.',
-  },
-  {
-    number: '02',
-    title: 'Onsite Assessment',
-    desc: 'Our technician arrives, inspects your unit, and recommends the right solution.',
-  },
-  {
-    number: '03',
-    title: 'Service & Testing',
-    desc: 'We complete the job professionally and test the unit before we leave.',
-  },
-  {
-    number: '04',
-    title: 'Post-Service Support',
-    desc: 'Warranty coverage on completed work. We stay available after the job is done.',
-  },
-];
-
 function LandingPage() {
   const navigate = useNavigate();
   const announcements = useAnnouncements();
-  const { services, loaded: servicesLoaded } = usePublicServices();
+  const { services } = usePublicServices();
   const { promos } = usePublicPromos();
   // Customer-bookable services only: the hidden cleaning tiers and the admin-only Leak
   // Repair are not something a visitor picks from the menu.
   const serviceCards = services.filter((s) => !s.hiddenFromDirectSelection && s.serviceType !== SERVICE_TYPE.LEAK_REPAIR);
-  const [current, setCurrent] = useState(0);
-  const totalSlides = 1 + announcements.length;
 
-  const nextSlide = () => {
-    setCurrent((prev) => (prev + 1) % totalSlides);
-  };
+  const rootRef = useRef(null);
+  useReveal(rootRef);
+  const activeId = useScrollSpy(rootRef);
+  const goLogin = () => navigate('/login');
 
   return (
-    <>
-      {/* ============ NAVBAR ============ */}
-      <PublicNavbar search={<NavSearch navigate={navigate} services={serviceCards} />} onLogin={() => navigate('/login')} />
+    <div className="lp-root" ref={rootRef}>
+      <a className="lp-skip" href="#main">Skip to content</a>
+      <script type="application/ld+json">{JSON.stringify(JSON_LD)}</script>
 
-      {/* ============ HERO ============ */}
-      <section id="home" className="hero landing-section">
-        <div className="slides">
-          <div className={`slide slide-1 ${current === 0 ? 'active' : ''}`}>
-            <div className="slide-content">
-              <span className="slide-eyebrow">Serving Metro Manila and nearby areas since 2009</span>
-              <h1>Cool comfort, clean air,<br />delivered to your door.</h1>
-              <p>Professional aircon cleaning, repair, and installation.</p>
-              <div className="slide-cta-row">
-                <button className="cta" onClick={() => navigate('/login')}>Book a Service</button>
-              </div>
-            </div>
-          </div>
+      <PublicNavbar search={<NavSearch navigate={navigate} services={serviceCards} />} onLogin={goLogin} activeId={activeId} />
 
-          {announcements.map((a, i) => (
-            <div className={`slide slide-2 ${current === i + 1 ? 'active' : ''}`} key={a._id}>
-              <div className="slide-content">
-                <span className="slide-eyebrow">
-                  {CATEGORY_LABEL[a.category] || a.category}
-                  {a.displayDate ? ` · ${a.displayDate}` : ''}
-                </span>
-                <h2>{a.title}</h2>
-                <p>{a.message}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+      <main id="main" tabIndex={-1}>
+        <Hero announcements={announcements} onBook={goLogin} />
+        <TrustStrip />
+        <AboutSection />
+        <ServicesSection services={serviceCards} />
 
-        {announcements.length > 0 && (
-          <button className="next-btn" onClick={nextSlide}>❯</button>
-        )}
-      </section>
-
-      <div className="vent-divider" />
-
-      {/* ============ ABOUT US ============ */}
-      <section id="about" className="about landing-section">
-        <span className="section-eyebrow">Who We Are</span>
-        <h2 className="section-title">About Us</h2>
-        <p>
-          Serving Metro Manila and nearby areas since 2009. We provide aircon cleaning,
-          repair, installation, and preventive maintenance for homes and businesses.
-        </p>
-      </section>
-
-      <div className="vent-divider" />
-
-      {/* ============ SERVICES ============ */}
-      <section id="services" className="services landing-section">
-        <span className="section-eyebrow">What We Offer</span>
-        <h2 className="section-title">Our Services</h2>
-        <p className="section-subtitle">Base price only - final cost may vary depending on scope and materials.</p>
-
-        <div className="cards">
-          {serviceCards.length > 0
-            ? serviceCards.map((service) => (
-                <div className="card" key={service._id}>
-                  <span className="card-icon"><FiTool /></span>
-                  <h3>{service.name}</h3>
-                  {service.description && <p>{service.description}</p>}
-                  <span className="card-price">From ₱{Number(service.price).toLocaleString()}</span>
-                </div>
-              ))
-            : servicesLoaded && FALLBACK_SERVICE_CARDS.map((service) => (
-                <div className="card" key={service.title}>
-                  <span className="card-icon"><FiTool /></span>
-                  <h3>{service.title}</h3>
-                  <p>{service.desc}</p>
-                </div>
+        {/* current promos: real data from the admin pages, only shown when there are any */}
+        {promos.length > 0 && (
+          <section id="promos" data-nav="services" className="lp-section lp-promos" aria-labelledby="promos-title">
+            <SectionHeading eyebrow="Current Promos" title="Promos right now" id="promos-title" />
+            <ul className="lp-card-grid">
+              {promos.map((promo, i) => (
+                <li className="lp-card" key={promo._id} data-reveal style={{ '--reveal-i': i }}>
+                  <h3>{promo.name}</h3>
+                  <p>{describeDiscount(promo)}{promo.minUnits > 1 ? ` when you book ${promo.minUnits} or more units` : ''}{promo.serviceNames.length > 0 ? ` of ${promo.serviceNames.join(', ')}` : ''}.</p>
+                  {promo.description && <p>{promo.description}</p>}
+                  <span className="lp-price">Until {new Date(`${promo.endDate}T00:00:00`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+                </li>
               ))}
-        </div>
+            </ul>
+          </section>
+        )}
 
-        <div className="services-cta">
-          <button className="cta" onClick={() => navigate('/login')}>Book a Service Now</button>
-        </div>
-      </section>
+        <UnitTypesSection />
+        <WhySection />
 
-      {/* ============ CURRENT PROMOS (real data, only shown when there are any) ============ */}
-      {promos.length > 0 && (
-        <section id="promos" className="services landing-section">
-          <span className="section-eyebrow">Save More</span>
-          <h2 className="section-title">Current Promos</h2>
-          <div className="cards">
-            {promos.map((promo) => (
-              <div className="card" key={promo._id}>
-                <h3>{promo.name}</h3>
-                <p>{describeDiscount(promo)}{promo.minUnits > 1 ? ` when you book ${promo.minUnits} or more units` : ''}{promo.serviceNames.length > 0 ? ` of ${promo.serviceNames.join(', ')}` : ''}.</p>
-                {promo.description && <p>{promo.description}</p>}
-                <span className="card-price">Until {new Date(`${promo.endDate}T00:00:00`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
-              </div>
-            ))}
-          </div>
+        <section id="availability" data-nav="availability" className="lp-section lp-availability" aria-labelledby="availability-title">
+          <SectionHeading eyebrow={AVAILABILITY.eyebrow} title={AVAILABILITY.title} subtitle={AVAILABILITY.subtitle} id="availability-title" />
+          <AvailabilityCalendar />
         </section>
-      )}
 
-      {/* ============ UNIT TYPES ============ */}
-      <section className="units landing-section">
-        <span className="section-eyebrow">Coverage</span>
-        <h2 className="section-title">Unit Types We Service</h2>
+        <HowSection />
+        <FaqSection />
+        <CtaBand onBook={goLogin} />
+      </main>
 
-        <div className="cards">
-          {UNIT_TYPES.map((type) => (
-            <div className="card" key={type}>
-              <img src={UNIT_TYPE_IMAGES[type]} alt={type} className="card-photo card-photo--unit" />
-              <p>{type}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <div className="vent-divider" />
-
-      {/* ============ AVAILABLE DATES ============ */}
-      <section id="availability" className="services landing-section">
-        <span className="section-eyebrow">Plan Ahead</span>
-        <h2 className="section-title">Available Dates</h2>
-        <p className="section-subtitle">Bookings need at least 3 days notice. Morning and Afternoon are booked separately.</p>
-        <AvailabilityCalendar />
-      </section>
-
-
-      <div className="vent-divider" />
-
-      {/* ============ HOW IT WORKS ============ */}
-      <section className="how landing-section">
-        <span className="section-eyebrow">The Process</span>
-        <h2 className="section-title">How It Works</h2>
-        <p className="section-subtitle">From booking to post-service support - we've made it simple.</p>
-
-        <div className="steps">
-          {HOW_IT_WORKS_STEPS.map((step) => (
-            <div className="step" key={step.number}>
-              <div className="step-number">{step.number}</div>
-              <h3>{step.title}</h3>
-              <p>{step.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ============ FOOTER ============ */}
-      <footer className="footer">
-        <div className="footer-grid">
-          <div>
-            <div className="footer-brand-row">
-              <img src="/images/logo.png" alt={`${BRAND_NAME} logo`} className="footer-logo" />
-              <span className="footer-brand-name">{BRAND_SHORT.toUpperCase()}</span>
-            </div>
-            <p className="footer-brand-desc">Serving Metro Manila and nearby areas since 2009.</p>
-          </div>
-
-          <div>
-            <h4>Opening Hours</h4>
-            <p>Mon to Sat: {getBusinessHoursText()}</p>
-            <p>Sunday: Closed</p>
-          </div>
-
-          <div>
-            <h4>Contact Us</h4>
-            <p>📞 <a href={COMPANY_PHONE_TEL}>{COMPANY_PHONE}</a></p>
-            <p>✉️ coolingzoneaircon@yahoo.com</p>
-          </div>
-
-          <div>
-            <h4>Location</h4>
-            <p>N.S. Amoranto corner Cadig St., Quezon City, Metro Manila</p>
-            <iframe
-              src="https://www.google.com/maps?q=N.S.+Amoranto+corner+Cadig+St.,+Quezon+City,+Metro+Manila&output=embed"
-              className="map"
-              loading="lazy"
-              title={`${BRAND_SHORT} Location Map`}
-            ></iframe>
-          </div>
-        </div>
-
-        <p className="copy">© 2009 {BRAND_NAME}. All Rights Reserved.</p>
-      </footer>
-    </>
+      <LandingFooter onLogin={goLogin} />
+    </div>
   );
 }
 

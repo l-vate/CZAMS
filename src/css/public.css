@@ -112,93 +112,7 @@
   transform: translateY(-1px);
 }
 
-/* ============ LANDING - HERO ============ */
-.hero {
-  position: relative;
-  height: 85vh;
-  overflow: hidden;
-  padding: 0;
-}
-
-.slides {
-  width: 100%;
-  height: 100%;
-  position: relative;
-}
-
-.slide {
-  position: absolute;
-  inset: 0;
-  display: none;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-  color: white;
-}
-
-.slide.active {
-  display: flex;
-  animation: fadeIn 0.6s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-.slide-1 {
-  /* Temporary placeholder (free Unsplash stock, aircon-themed) - /images/hero-aircon.jpg
-     never existed on disk. Swap for real CZA photography when available. */
-  background:
-    linear-gradient(155deg, var(--navy) 0%, var(--navy-soft) 55%, var(--navy) 100%),
-    url('https://images.unsplash.com/photo-1718203862467-c33159fdc504?auto=format&fit=crop&w=1600&q=80') center/cover no-repeat;
-}
-
-.slide-2 {
-  background: linear-gradient(135deg, var(--navy), var(--navy));
-}
-
-.slide-content {
-  max-width: 720px;
-  padding: 20px;
-}
-
-.slide-content h1,
-.slide-content h2 {
-  font-size: 52px;
-  font-weight: 800;
-  color: white;
-  margin-bottom: 18px;
-  line-height: 1.12;
-}
-
-.slide-content p {
-  font-size: 19px;
-  color: rgba(255,255,255,0.88);
-  margin-bottom: 12px;
-}
-
-.slide-eyebrow {
-  display: inline-block;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.7);
-  background: rgba(255,255,255,0.12);
-  border-radius: 20px;
-  padding: 5px 14px;
-  margin-bottom: 20px;
-}
-
-.slide-cta-row {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  justify-content: center;
-  margin-top: 24px;
-}
-
+/* ============ LANDING - BUTTONS (.cta is also used by the search popup and the sign-in pages; the landing page itself is styled in landing.css) ============ */
 .cta {
   background: var(--coral);
   color: var(--navy); /* was white on coral, 2.82:1; navy on the same coral is 6.3:1 */
@@ -232,24 +146,6 @@
   color: white;
   border-color: white;
 }
-
-.next-btn {
-  position: absolute;
-  right: 28px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: rgba(255,255,255,0.18);
-  border: 1px solid rgba(255,255,255,0.4);
-  color: white;
-  font-size: 22px;
-  padding: 12px 18px;
-  border-radius: 50%;
-  cursor: pointer;
-  backdrop-filter: blur(4px);
-  transition: background 0.2s ease;
-}
-
-.next-btn:hover { background: rgba(255,255,255,0.32); }
 
 /* Announcements now render as hero slides (.slide-2, above) instead of their own
    section - the .announcement-board/.announcement-card rules that used to style
@@ -538,51 +434,6 @@
   display: block;
   width: 100%;
   margin-top: 20px;
-}
-
-/* ============ LANDING - ABOUT ============ */
-.about {
-  text-align: center;
-  background: var(--white);
-}
-
-.about h2 { margin-bottom: 16px; }
-
-.about p {
-  max-width: 760px;
-  margin: 0 auto 40px;
-  color: var(--ink-soft);
-  font-size: 17px;
-  line-height: 1.75;
-}
-
-.stats {
-  display: flex;
-  justify-content: center;
-  gap: 60px;
-  flex-wrap: wrap;
-  margin-top: 16px;
-}
-
-.stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.stat h3 {
-  font-size: 48px;
-  font-weight: 800;
-  color: var(--navy-soft);
-  line-height: 1;
-}
-
-.stat p {
-  margin: 0;
-  color: var(--ink-soft);
-  font-size: 15px;
-  font-weight: 500;
 }
 
 /* ============ LANDING - SERVICES / UNITS / HOW IT WORKS ============ */

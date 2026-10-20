@@ -10,7 +10,13 @@ const mongoose = require('mongoose');
 // declaration.
 const discountSchema = new mongoose.Schema({
     type: { type: String, enum: ['Senior', 'PWD', null], default: null },
+    // The photo of a valid ID, kept only so the owner can check it. Deleted by the retention job (utils/idPhotoRetention.js) after
+    // ID_PHOTO_RETENTION_DAYS; the path is then cleared and idFileDeletedAt says when. No ID number is ever stored.
     idFile: String,
+    idFileDeletedAt: Date,
+    // The customer ticked the consent next to the upload (a walk-in booked by an admin has none).
+    consentGiven: Boolean,
+    consentAt: Date,
     status: { type: String, enum: ['None', 'Pending', 'Approved', 'Rejected'], default: 'None' },
     // Rate frozen at approval time (from PaymentSettings.seniorPwdDiscountPercent), so a
     // later settings change never rewrites an already approved booking.

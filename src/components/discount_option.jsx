@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { shrinkPhoto } from '../utils/photoShrink';
+import { ID_PHOTO_CONSENT_TEXT } from '../constants/discountConsent';
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB, same rule as every other upload
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
@@ -16,7 +17,7 @@ function DiscountOption({ form, setForm, idRequired, appliesNow, percent, option
 
   const toggle = (checked) => {
     setFileError('');
-    setForm({ ...form, discountType: checked ? 'Senior' : '', discountIdFileObj: null });
+    setForm({ ...form, discountType: checked ? 'Senior' : '', discountIdFileObj: null, discountConsent: false });
   };
 
   const handleFile = async (e) => {
@@ -90,6 +91,18 @@ function DiscountOption({ form, setForm, idRequired, appliesNow, percent, option
           {fileError && <p className="discount-option-x3">{fileError}</p>}
           {idRequired && !form.discountIdFileObj && !fileError && (
             <p className="discount-option-x3">A photo of a valid ID is required to request this discount.</p>
+          )}
+          {idRequired && (
+            <label className="dp-radio-label discount-option-consent">
+              <input
+                type="checkbox"
+                className="dp-radio-input"
+                checked={Boolean(form.discountConsent)}
+                onChange={(e) => setForm({ ...form, discountConsent: e.target.checked })}
+                required
+              />
+              {ID_PHOTO_CONSENT_TEXT}
+            </label>
           )}
           <p className="discount-option-x4">
             {appliesNow

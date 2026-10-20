@@ -63,22 +63,22 @@ function formatDate(dateStr) {
 // booking is Pending or Approved and has no request yet, or the last one was rejected.
 function DiscountRequestForm({ bookingId, onRequested }) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ discountType: '', discountIdFileObj: null });
+  const [form, setForm] = useState({ discountType: '', discountIdFileObj: null, discountConsent: false });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async () => {
-    if (!form.discountType || !form.discountIdFileObj) {
-      setError('Choose Senior Citizen or PWD and upload a photo of a valid ID.');
+    if (!form.discountType || !form.discountIdFileObj || !form.discountConsent) {
+      setError('Choose Senior Citizen or PWD, upload a photo of a valid ID and tick the consent box.');
       return;
     }
     setSubmitting(true);
     setError('');
     try {
-      const data = await requestDiscount(bookingId, { type: form.discountType, idFile: form.discountIdFileObj });
+      const data = await requestDiscount(bookingId, { type: form.discountType, idFile: form.discountIdFileObj, consent: form.discountConsent });
       onRequested(data);
       setOpen(false);
-      setForm({ discountType: '', discountIdFileObj: null });
+      setForm({ discountType: '', discountIdFileObj: null, discountConsent: false });
     } catch (err) {
       setError(err instanceof ApiError ? err.message || 'Failed to send the discount request.' : 'Could not connect to server.');
     } finally {
@@ -817,6 +817,7 @@ function BookDetails() {
             )}
 
             {[BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED].includes(booking.status)
+              && !booking.isCommercial
               && !['Pending', 'Approved'].includes(booking.discount?.status) && (
               <DiscountRequestForm bookingId={booking.bookingId} onRequested={(data) => setBooking(data)} />
             )}

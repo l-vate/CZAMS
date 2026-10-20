@@ -48,8 +48,8 @@ test('an admin may open any file, even one nothing references', () => {
   assert.equal(decideAccess({ role: 'admin', userId: 'ADM1', references: [] }), true);
 });
 
-test('the customer who owns the booking may open every kind of their own file', () => {
-  KINDS.forEach((k) => assert.equal(decideAccess({ role: 'customer', userId: owner, references: refFor(k) }), true, k));
+test('the customer who owns the booking may open every kind of their own file except the Senior/PWD ID photo', () => {
+  KINDS.forEach((k) => assert.equal(decideAccess({ role: 'customer', userId: owner, references: refFor(k) }), k !== FILE_KIND.ID_PHOTO, k));
 });
 
 test('another customer may open none of them', () => {

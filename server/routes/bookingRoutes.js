@@ -36,6 +36,10 @@ const BackJob = require('../models/BackJob');
 const { TECHNICIAN_BOOKING_FILTER, isHiddenFromTechnicians } = require('../utils/technicianVisibility');
 const scheduling = require('../constants/scheduling');
 const { SENIOR_PWD_DISCOUNT_RATE, SENIOR_PWD_DISCOUNT_PERCENT } = require('../constants/discount');
+
+const isTrue = (v) => v === true || v === 'true';
+const COMMERCIAL_DISCOUNT_MESSAGE = 'The Senior Citizen and PWD discount is for residential customers only.';
+const CONSENT_MESSAGE = 'Tick the box to agree that your ID will be viewed only to verify your discount.';
 const { amountPaid } = require('../utils/customerHistory');
 const { createUploader, discardUploads, storeUploads, PROOF_TYPES } = require('../utils/uploadSafety');
 const { KINDS } = require('../storage/fileStore');
@@ -301,7 +305,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
       downPaymentPercent, paymentMode, paymentMode2, referenceNumber,
       customer, clientSuppliedUnit, unitWaiverAcknowledged, unitWaiverName, contactNumber,
       lastCleanedOver6MonthsAgo, isActivelyLeaking,
-      poNumber, paymentTermsDays, discountType,
+      poNumber, paymentTermsDays, discountType, discountConsent,
     } = req.body;
 
     // Payment terms are agreed by an admin, never sent by a customer: a customer's paymentTermsDays is ignored. Only an
@@ -494,8 +498,16 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
     if (discountIdFile && !isDiscountRequested) {
       return res.status(400).json({ message: 'Choose Senior Citizen or PWD to go with the ID you uploaded.' });
     }
+    // Residential customers only: a Commercial account cannot have the discount, whoever asks for it.
+    if (isDiscountRequested && isCommercial) {
+      return res.status(400).json({ message: COMMERCIAL_DISCOUNT_MESSAGE });
+    }
     if (isDiscountRequested && !isAdminWalkIn && !discountIdFile) {
       return res.status(400).json({ message: 'Upload a photo of a valid ID to request the Senior Citizen / PWD discount.' });
+    }
+    // A customer must agree that the ID is viewed only to verify the discount. The agreement is recorded with its time.
+    if (isDiscountRequested && !isAdminWalkIn && !isTrue(discountConsent)) {
+      return res.status(400).json({ message: CONSENT_MESSAGE });
     }
     const now = new Date();
     let discount;
@@ -506,7 +518,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
             percent: SENIOR_PWD_DISCOUNT_PERCENT, rate: SENIOR_PWD_DISCOUNT_RATE,
             dpPaidBeforeApproval: 0, requestedAt: now, reviewedAt: now, reviewedBy: req.userId,
           }
-        : { type: discountType, idFile: discountIdPath, status: 'Pending', requestedAt: now };
+        : { type: discountType, idFile: discountIdPath, status: 'Pending', requestedAt: now, consentGiven: true, consentAt: now };
     }
 
     // A booking is never marked paid just because an admin made it. Money received in person is recorded afterwards, on
@@ -968,16 +980,20 @@ router.patch('/:bookingId/discount/request', auth, allowRoles(ROLE.CUSTOMER), up
     // A refused request must not leave its uploaded file behind.
     res.on('finish', () => { if (res.statusCode >= 400) discardUploads(req); });
 
-    const { discountType } = req.body;
+    const { discountType, discountConsent } = req.body;
     if (discountType !== 'Senior' && discountType !== 'PWD') {
       return res.status(400).json({ message: 'Choose either Senior Citizen or PWD for the discount.' });
     }
     if (!req.file) {
       return res.status(400).json({ message: 'Upload a photo of a valid ID to request the Senior Citizen / PWD discount.' });
     }
+    if (!isTrue(discountConsent)) {
+      return res.status(400).json({ message: CONSENT_MESSAGE });
+    }
 
     const booking = await Booking.findOne({ bookingId: req.params.bookingId, customer: req.userId }).populate('service');
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    if (booking.isCommercial) return res.status(400).json({ message: COMMERCIAL_DISCOUNT_MESSAGE });
 
     if (![BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED].includes(booking.status)) {
       return res.status(400).json({ message: 'A discount can only be requested while the booking is Pending or Approved.' });
@@ -987,7 +1003,8 @@ router.patch('/:bookingId/discount/request', auth, allowRoles(ROLE.CUSTOMER), up
     }
 
     await storeUploads(req, { kind: KINDS.ID_PHOTO, bookingId: booking.bookingId });
-    booking.discount = { type: discountType, idFile: `/uploads/proofs/${req.file.filename}`, status: 'Pending', requestedAt: new Date() };
+    const askedAt = new Date();
+    booking.discount = { type: discountType, idFile: `/uploads/proofs/${req.file.filename}`, status: 'Pending', requestedAt: askedAt, consentGiven: true, consentAt: askedAt };
     await booking.save();
 
     await notifyAdmins(

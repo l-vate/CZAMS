@@ -13,6 +13,7 @@ const { state, call, addBooking, goodDate } = harness;
 const cleaning = { _id: 'S-CLEAN', name: 'Cleaning', serviceType: 'Cleaning', price: 1000, isActive: true };
 const people = () => [
   { _id: 'CUS1', role: 'customer', isActive: true, clientType: 'Residential', name: 'Customer' },
+  { _id: 'COM1', role: 'customer', isActive: true, clientType: 'Commercial', name: 'Company' },
   { _id: 'ADM1', role: 'admin', isActive: true, name: 'Admin' },
   { _id: 'STF1', role: 'staff', isActive: true, name: 'Tech', position: 'Technician' },
 ];
@@ -36,7 +37,7 @@ test('the rate is one named constant: 20%', () => {
 async function ask(fields, withId = true, as = 'CUS1') {
   const token = jwt.sign({ id: as, role: 'customer' }, process.env.JWT_SECRET, { expiresIn: '5m' });
   const form = new FormData();
-  Object.entries(fields).forEach(([k, v]) => form.append(k, v));
+  Object.entries({ discountConsent: 'true', ...fields }).forEach(([k, v]) => { if (v !== undefined) form.append(k, v); });
   if (withId) form.append('discountId', new Blob([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.alloc(64)], { type: 'image/png' }), 'id.png');
   const res = await fetch(`${harness.base()}/api/bookings/CZ-1/discount/request`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form });
   return { status: res.status, body: await res.json().catch(() => ({})) };
@@ -149,4 +150,86 @@ test('an admin walk-in with the discount applies the constant rate on the spot',
   const saved = state.bookings[0];
   assert.equal(saved.discount.status, 'Approved');
   assert.equal(saved.discount.rate, 0.2);
+});
+
+// ---- residential only, consent, and the ID photo's safeguards
+// a new booking sent the way the form sends it, with or without the ID photo
+async function create(fields, { as = 'CUS1', withId = true, role = 'customer' } = {}) {
+  const token = jwt.sign({ id: as, role }, process.env.JWT_SECRET, { expiresIn: '5m' });
+  const form = new FormData();
+  const body = {
+    service: 'S-CLEAN', units: JSON.stringify([{ type: 'Split Type', quantity: 1 }]), date: goodDate(9), time: 'Morning', address: 'Quezon City',
+    contactNumber: '09171234567', downPaymentPercent: '50', paymentMode: 'GCash', lastCleanedOver6MonthsAgo: 'false', isActivelyLeaking: 'false', ...fields,
+  };
+  Object.entries(body).forEach(([k, v]) => { if (v !== undefined) form.append(k, v); });
+  if (withId) form.append('discountId', new Blob([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.alloc(64)], { type: 'image/png' }), 'id.png');
+  const res = await fetch(`${harness.base()}/api/bookings`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+  return { status: res.status, body: await res.json().catch(() => ({})) };
+}
+
+test('a Commercial customer cannot ask for the discount: refused at booking, after booking and when an admin books for them', async () => {
+  harness.reset({ users: [...people(), { _id: 'RET1', role: 'customer', isActive: true, clientType: 'Residential', name: 'Return', manualClassification: 'Return' }], services: [cleaning] });
+  const made = await create({ discountType: 'Senior', discountConsent: 'true' }, { as: 'COM1' });
+  assert.equal(made.status, 400, JSON.stringify(made.body));
+  assert.match(made.body.message, /residential customers only/);
+  assert.equal(state.bookings.length, 0);
+  const walkIn = await create({ discountType: 'Senior', customer: 'COM1' }, { as: 'ADM1', withId: false, role: 'admin' });
+  assert.equal(walkIn.status, 400, 'an admin booking for a Commercial client cannot apply it either');
+  const b = booking({ discount: undefined, isCommercial: true, customer: 'COM1' });
+  const token = jwt.sign({ id: 'COM1', role: 'customer' }, process.env.JWT_SECRET, { expiresIn: '5m' });
+  const form = new FormData();
+  form.append('discountType', 'PWD');
+  form.append('discountConsent', 'true');
+  form.append('discountId', new Blob([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.alloc(64)], { type: 'image/png' }), 'id.png');
+  const res = await fetch(`${harness.base()}/api/bookings/CZ-1/discount/request`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form });
+  assert.equal(res.status, 400);
+  assert.equal(b.discount, undefined);
+});
+
+test('the consent is required with the ID photo, and it is recorded with its time', async () => {
+  harness.reset({ users: people(), services: [cleaning] });
+  const noConsent = await create({ discountType: 'Senior', discountConsent: undefined });
+  assert.equal(noConsent.status, 400);
+  assert.match(noConsent.body.message, /agree/);
+  const unticked = await create({ discountType: 'Senior', discountConsent: 'false' });
+  assert.equal(unticked.status, 400);
+  assert.equal(state.bookings.length, 0);
+  const ok = await create({ discountType: 'Senior', discountConsent: 'true' });
+  assert.equal(ok.status, 201, JSON.stringify(ok.body));
+  const saved = state.bookings[0];
+  assert.equal(saved.discount.consentGiven, true);
+  assert.ok(saved.discount.consentAt);
+  assert.equal(saved.discount.status, 'Pending');
+  assert.ok(saved.discount.idFile, 'the photo is kept for the owner to check');
+  assert.equal(JSON.stringify(saved.discount).toLowerCase().includes('idnumber'), false, 'no ID number is stored');
+
+  // after booking: the same two rules
+  const b = booking({ discount: undefined });
+  assert.equal((await ask({ discountType: 'PWD', discountConsent: undefined })).status, 400);
+  assert.equal(b.discount, undefined);
+  assert.equal((await ask({ discountType: 'PWD' })).status, 200);
+  assert.equal(b.discount.consentGiven, true);
+  assert.ok(b.discount.consentAt);
+});
+
+test('an admin walk-in needs no ID photo and no consent', async () => {
+  harness.reset({ users: [...people()], services: [cleaning] });
+  const res = await create({ discountType: 'Senior', customer: 'CUS1' }, { as: 'ADM1', withId: false, role: 'admin' });
+  assert.equal(res.status, 201, JSON.stringify(res.body));
+  assert.equal(state.bookings[0].discount.status, 'Approved');
+});
+
+test('the customer view of a discount carries the consent flag but never the path of the ID photo', () => {
+  const { toCustomerView } = require('../utils/customerView');
+  const view = toCustomerView({ bookingId: 'CZ-9', status: 'Pending', discount: { type: 'Senior', status: 'Pending', idFile: '/uploads/proofs/abc.png', consentGiven: true, reviewedBy: 'ADM1' } });
+  assert.equal(view.discount.consentGiven, true);
+  assert.equal('idFile' in view.discount, false);
+  assert.equal('reviewedBy' in view.discount, false);
+});
+
+test('the consent line on the form is the one the server defines', () => {
+  const front = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'src', 'constants', 'discountConsent.js'), 'utf8');
+  const server = require('../constants/discount').ID_PHOTO_CONSENT_TEXT;
+  assert.equal(front.includes('${BRAND_SHORT}'), true, 'the company name comes from the one constant');
+  assert.equal(front.includes(server.replace('Cooling Zone', '${BRAND_SHORT}')), true);
 });

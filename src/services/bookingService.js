@@ -74,9 +74,10 @@ export function rescheduleBooking(bookingId, { date, time }) {
 
 // Ask for the Senior Citizen / PWD discount on an existing booking. `type` is 'Senior' | 'PWD', `idFile` the photo of a valid ID
 // (always required for a customer).
-export function requestDiscount(bookingId, { type, idFile }) {
+export function requestDiscount(bookingId, { type, idFile, consent }) {
   const formData = new FormData();
   formData.append('discountType', type);
+  formData.append('discountConsent', consent ? 'true' : 'false');
   formData.append('discountId', idFile);
   return upload(`${booking(bookingId)}/discount/request`, formData, { method: 'PATCH' });
 }

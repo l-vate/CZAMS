@@ -47,7 +47,7 @@ test.beforeEach(() => harness.reset({
 }));
 
 test('a customer booking with a payment proof and an ID photo stores both, with their kinds, uploader and booking id', async () => {
-  const res = await send('POST', '', bookingFields({ discountType: 'Senior' }), [{ field: 'proof' }, { field: 'discountId' }]);
+  const res = await send('POST', '', bookingFields({ discountType: 'Senior', discountConsent: 'true' }), [{ field: 'proof' }, { field: 'discountId' }]);
   assert.equal(res.status, 201, JSON.stringify(res.body));
   const saved = state.bookings[0];
   const listed = await files();
@@ -85,7 +85,7 @@ test('a balance proof is stored as a proof for that booking', async () => {
 
 test('a discount request stores the ID photo as an id photo for that booking', async () => {
   existing({ paymentStatus: 'Unpaid', status: 'Pending' });
-  const discount = await send('PATCH', '/CZ-1/discount/request', { discountType: 'PWD' }, [{ field: 'discountId' }]);
+  const discount = await send('PATCH', '/CZ-1/discount/request', { discountType: 'PWD', discountConsent: 'true' }, [{ field: 'discountId' }]);
   assert.equal(discount.status, 200, JSON.stringify(discount.body));
   const [file] = await files();
   assert.equal(file.metadata.kind, 'id_photo');
@@ -109,7 +109,7 @@ test('a booking that cannot be saved removes the files it stored', async () => {
   const real = Booking.create;
   Booking.create = async () => { throw new Error('the database is down'); };
   try {
-    const res = await send('POST', '', bookingFields({ discountType: 'Senior' }), [{ field: 'proof' }, { field: 'discountId' }]);
+    const res = await send('POST', '', bookingFields({ discountType: 'Senior', discountConsent: 'true' }), [{ field: 'proof' }, { field: 'discountId' }]);
     assert.equal(res.status, 500);
     await settle();
     assert.equal((await files()).length, 0, 'the rollback removed both files');

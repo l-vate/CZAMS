@@ -5,4 +5,11 @@
 const SENIOR_PWD_DISCOUNT_RATE = 0.20;
 const SENIOR_PWD_DISCOUNT_PERCENT = Math.round(SENIOR_PWD_DISCOUNT_RATE * 100);
 
-module.exports = { SENIOR_PWD_DISCOUNT_RATE, SENIOR_PWD_DISCOUNT_PERCENT };
+// The Senior/PWD ID photo is kept only so the owner can check it. The retention job (jobs/idPhotoRetentionJob.js) deletes the file this many
+// days after the booking is completed or cancelled, or after the discount request is rejected. The discount record itself stays.
+const ID_PHOTO_RETENTION_DAYS = 30;
+
+// What the customer agrees to when they upload an ID photo (shown next to the upload).
+const ID_PHOTO_CONSENT_TEXT = 'I agree that Cooling Zone may view my ID only to verify my Senior Citizen or PWD discount.';
+
+module.exports = { SENIOR_PWD_DISCOUNT_RATE, SENIOR_PWD_DISCOUNT_PERCENT, ID_PHOTO_RETENTION_DAYS, ID_PHOTO_CONSENT_TEXT };

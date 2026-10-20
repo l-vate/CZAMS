@@ -11,7 +11,7 @@ import { UNIT_TYPES, MAX_UNIT_QUANTITY } from '../../constants/unitTypes';
 import { resolveCleaningTier } from '../../../shared/bookingRules.js';
 import { useServices } from '../../hooks/useServices';
 import { useTechnicians } from '../../hooks/useTechnicians';
-import { useMyClassification, useMyAgreedTerms } from '../../hooks/useMyClassification';
+import { useMyClassification, useMyAgreedTerms, useIsCommercialClient } from '../../hooks/useMyClassification';
 import { getUnitPrice } from '../../utils/bookingPricing';
 import { earliestBookingKey } from '../../utils/manilaTime';
 import { isValidContactNumber, getAccountPhone } from '../../utils/contact';
@@ -548,7 +548,7 @@ const PAYMENT_STATUS_LABELS = {
   rejected: 'Rejected',
 };
 
-function Step4({ form, setForm, services, isReturnCustomer, onAgreedTerms, paymentMethods, downPaymentPercentages, promos }) {
+function Step4({ form, setForm, services, isReturnCustomer, isCommercial = false, onAgreedTerms, paymentMethods, downPaymentPercentages, promos }) {
   const [showModal, setShowModal] = useState(false);
   const { lineItems, basePrice, discountAmount, discountLabel, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages), 0, promos);
   const isNoDownPayment = dpPercent === 0;
@@ -609,7 +609,8 @@ const handleSubmitPayment = ({ proof, referenceNumber }) => {
             </div>
           </div>
 
-          <DiscountOption form={form} setForm={setForm} idRequired />
+          {/* the Senior/PWD discount is for residential customers only */}
+          {!isCommercial && <DiscountOption form={form} setForm={setForm} idRequired />}
 
           {/* Nothing is due right now for a 0% down payment - no payment mode or
               proof to collect until the customer settles the balance later. */}
@@ -789,6 +790,7 @@ function BookService() {
   const { technicians } = useTechnicians();
   const classification = useMyClassification();
   const isReturnCustomer = classification === 'Return';
+  const isCommercialClient = useIsCommercialClient();
   const onAgreedTerms = useMyAgreedTerms();
   const { paymentMethods, downPaymentPercentages, ready: paymentSettingsReady, failed: paymentSettingsFailed, refetch: refetchPaymentSettings } = usePaymentSettings();
   const { promos } = usePublicPromos();
@@ -808,6 +810,7 @@ function BookService() {
     contactNumber: getAccountPhone(),
     discountType: '',
     discountIdFileObj: null,
+    discountConsent: false,
     downPaymentPercent: null,
     paymentMode: '',
     paymentMode2: '',
@@ -843,7 +846,7 @@ const canNext = () => {
     }
     if (step === 4) {
       const { dpPercent } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages));
-      if (form.discountType && !form.discountIdFileObj) return false; // a customer always attaches the ID photo
+      if (form.discountType && (!form.discountIdFileObj || !form.discountConsent)) return false; // a customer always attaches the ID photo and agrees to its use
       if (dpPercent === 0) return true;
       return form.paymentStatus === PAYMENT_STATUS.TO_VERIFY || form.paymentStatus === PAYMENT_STATUS.FULLY_PAID;
     }
@@ -884,6 +887,7 @@ const canNext = () => {
       if (form.referenceNumber) formData.append('referenceNumber', form.referenceNumber);
       if (form.discountType) {
         formData.append('discountType', form.discountType);
+        formData.append('discountConsent', form.discountConsent ? 'true' : 'false');
         if (form.discountIdFileObj) formData.append('discountId', form.discountIdFileObj);
       }
 
@@ -922,6 +926,7 @@ const canNext = () => {
               setForm={setForm}
               services={services}
               isReturnCustomer={isReturnCustomer}
+              isCommercial={isCommercialClient}
               onAgreedTerms={onAgreedTerms}
               paymentMethods={paymentMethods}
               downPaymentPercentages={downPaymentPercentages}

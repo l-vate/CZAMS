@@ -309,7 +309,8 @@ function WalkInPaymentStep({ form, setForm, services, isReturnCustomer, isCommer
           </div>
         )}
 
-        <DiscountOption form={form} setForm={setForm} appliesNow percent={discountPercent} />
+        {/* the Senior/PWD discount is for residential customers only */}
+        {!isCommercial && <DiscountOption form={form} setForm={setForm} appliesNow percent={discountPercent} />}
 
         {!isBilledOnTerms && (
           <div className="bs-field-group">
@@ -525,7 +526,7 @@ function WalkInBooking() {
       formData.append('technician', form.technician || '');
       formData.append('address', form.address);
       formData.append('contactNumber', form.contactNumber || '');
-      if (form.discountType) {
+      if (form.discountType && !isCommercial) {
         formData.append('discountType', form.discountType);
         if (form.discountIdFileObj) formData.append('discountId', form.discountIdFileObj);
       }

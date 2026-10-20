@@ -66,7 +66,7 @@ function toCustomerView(booking) {
 
   if (b.discount) {
     // reviewedBy (the admin who decided) stays out; the reason shown to the customer stays in
-    out.discount = pick(b.discount, ['type', 'idFile', 'status', 'percent', 'amount', 'dpPaidBeforeApproval', 'rejectionReason', 'requestedAt', 'reviewedAt']);
+    out.discount = pick(b.discount, ['type', 'consentGiven', 'status', 'percent', 'amount', 'dpPaidBeforeApproval', 'rejectionReason', 'requestedAt', 'reviewedAt']);
   }
 
   if (b.refund) {

@@ -91,6 +91,14 @@ test.describe('scheduled jobs on a host that sleeps', () => {
       else if (entry.name.endsWith('.js') && /cron\.schedule|setInterval/.test(fs.readFileSync(full, 'utf8'))) found.push(path.relative(root, full).replace(/\\/g, '/'));
     });
     walk(root);
-    assert.deepEqual(found.sort(), ['jobs/bookingStatusJob.js', 'jobs/serviceReminderJob.js']);
+    assert.deepEqual(found.sort(), ['jobs/bookingStatusJob.js', 'jobs/idPhotoRetentionJob.js', 'jobs/serviceReminderJob.js']);
+  });
+
+  test('the ID photo retention check runs daily on Manila time and once as soon as the server starts', async () => {
+    const { startIdPhotoRetentionSchedule } = require('../jobs/idPhotoRetentionJob');
+    startIdPhotoRetentionSchedule();
+    await tick();
+    assert.deepEqual(scheduled.map((s) => [s.expression, s.options.timezone]), [['30 2 * * *', 'Asia/Manila']]);
+    assert.equal(approvedLookups, 1, 'it ran once right away, looking for bookings that hold an ID photo');
   });
 });

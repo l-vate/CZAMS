@@ -6,6 +6,7 @@ const { before, after } = test;
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { createRequire } = require('node:module');
+const { startSsrServer } = require('./helpers/viteSsr');
 const { pathToFileURL } = require('node:url');
 
 const root = path.join(__dirname, '..', '..');
@@ -13,11 +14,11 @@ const fromRoot = createRequire(path.join(root, 'package.json'));
 const load = (file) => import(pathToFileURL(path.join(root, 'src', file)).href);
 
 let vite;
+let closeVite;
 before(async () => {
-  const { createServer } = await import(pathToFileURL(fromRoot.resolve('vite')).href);
-  vite = await createServer({ root, appType: 'custom', logLevel: 'silent', server: { middlewareMode: true, hmr: false, watch: null } });
+  ({ vite, close: closeVite } = await startSsrServer());
 });
-after(async () => { await vite.close(); });
+after(async () => { await closeVite(); });
 
 test('pluralize picks the singular for exactly one and the plural otherwise', async () => {
   const { pluralize } = await load('utils/pluralize.js');

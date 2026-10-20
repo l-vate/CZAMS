@@ -132,14 +132,13 @@ export const AVAILABILITY = {
   errorTitle: 'We could not load the dates right now.',
   errorText: 'Please check your connection and try again.',
   retry: 'Try again',
-  // Honest legend: what each color means today.
+  // The legend: four entries. Closed covers both Sundays and dates the shop closed (both are hatched); days that cannot be booked
+  // (past, or under the notice period) are plain grey and are explained when tapped.
   legend: [
     { status: 'open', label: 'Available' },
-    { status: 'limited', label: 'Limited (one time block left)' },
+    { status: 'limited', label: 'Limited' },
     { status: 'full', label: 'Fully booked' },
-    { status: 'closed', label: 'Closed on Sundays' },
-    { status: 'shop-closed', label: 'Closed by the shop (holiday or other reason)' },
-    { status: 'too-soon', label: `Not available (past dates or under ${BOOKING_LEAD_DAYS} days notice)` },
+    { status: 'closed', label: 'Closed' },
   ],
 };
 

@@ -68,14 +68,12 @@
 .avail-day--too-soon { background: #eaeff5; color: #475569; }
 .avail-day--past { background: #f8fafc; color: #64748b; }
 
-/* a Sunday: hatched, so it reads as "the shop is simply closed" and not as an error */
-.avail-day--closed {
+/* closed: a Sunday, or a date the shop closed. Hatched, so it reads as "the shop is simply closed" and not as an error. */
+.avail-day--closed,
+.avail-day--shop-closed {
   background: repeating-linear-gradient(135deg, #eef2f6 0 6px, #dbe3ec 6px 8px);
   color: #475569;
 }
-
-/* a date the shop closed for a reason (a holiday, for example): its own color */
-.avail-day--shop-closed { background: #f3e8ff; color: #6b21a8; border-color: #d8b4fe; }
 
 /* loading: quiet shimmering cells, so the grid never shows as a wall of dead grey boxes */
 .avail-day--loading {

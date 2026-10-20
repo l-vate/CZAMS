@@ -137,7 +137,9 @@ const doc = (over = {}) => {
 
 test.before(async () => {
   User.findById = (id) => chain(accounts[id] ? { _id: id, role: accounts[id], isActive: true } : null);
-  User.find = () => chain([]);
+  require('./helpers/stubLocks').installLockStub(); // moving a Pending booking now takes the slot's lock
+  // two free pairs of technicians, so the new slot is open
+  User.find = (f) => chain(f && f.role === 'staff' ? ['TA', 'TB', 'TC', 'TD'].map((id) => ({ _id: id, role: 'staff', isActive: true, position: 'Technician' })) : []);
   User.findOne = () => chain({ _id: 'ADM1' });
   Booking.find = (f) => chain(DB.filter((d) => matches(d, f)));
   Booking.findOne = (f) => chain(DB.find((d) => matches(d, f)) || null);

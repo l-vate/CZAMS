@@ -39,6 +39,7 @@ const { createUploader, discardUploads, storeUploads, PROOF_TYPES } = require('.
 const { KINDS } = require('../storage/fileStore');
 const { withLocks, LockBusyError } = require('../utils/slotLock');
 const { duplicateKey, findActiveDuplicate, DuplicateBookingError } = require('../utils/duplicateBooking');
+const { PendingLimitError, SlotTakenError, slotKey, pendingLimitKey, assertUnderPendingLimit, assertSlotOpen } = require('../utils/pendingHold');
 const { manilaToday, isAtLeastDaysAhead } = require('../utils/manilaDate');
 const { readFeedback } = require('../utils/feedbackInput');
 const { normalizeContactNumber } = require('../utils/contactNumber');
@@ -509,8 +510,16 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
     // Everything has passed. The check for an identical booking and the insert happen while holding one lock (utils/slotLock.js), so
     // two copies sent at the same moment (a double click) take turns: the second sees the first and is refused. The files are written
     // to the store only once the booking is certain to be made, and removed again if it cannot be saved.
-    const booking = await withLocks([duplicateKey({ customer: bookingCustomerId, date, time, service })], async () => {
+    // A customer's Pending bookings hold their slot, first come first served, and are capped. Both checks run under their own lock (one
+    // for the slot, one for the customer) so two requests at the same moment cannot both pass. An admin booking a walk-in decides for
+    // themselves and is not held to either.
+    const holdKeys = isAdminWalkIn || req.userRole === ROLE.ADMIN ? [] : [slotKey(date, time), pendingLimitKey(bookingCustomerId)];
+    const booking = await withLocks([duplicateKey({ customer: bookingCustomerId, date, time, service }), ...holdKeys], async () => {
       if (await findActiveDuplicate(Booking, { customer: bookingCustomerId, date, time, service, units })) throw new DuplicateBookingError();
+      if (holdKeys.length > 0) {
+        await assertUnderPendingLimit(Booking, bookingCustomerId);
+        await assertSlotOpen(date, time);
+      }
       await storeUploads(req, { kind: (file) => (file.fieldname === 'discountId' ? KINDS.ID_PHOTO : KINDS.PROOF), bookingId: req.generatedBookingId });
       const queueRank = await nextQueueRank(); // last in line: first come, first served
       return createWithUniqueBookingId((bookingId) => Booking.create({
@@ -618,6 +627,8 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
   } catch (err) {
     if (err instanceof BookingIdExhaustedError) { console.error(err); return res.status(500).json({ message: err.message }); }
     if (err instanceof DuplicateBookingError) return res.status(409).json({ message: err.message });
+    if (err instanceof PendingLimitError) return res.status(400).json({ message: err.message });
+    if (err instanceof SlotTakenError) return res.status(409).json({ message: err.message });
     if (err instanceof LockBusyError) return res.status(503).json({ message: err.message });
     sendRouteError(res, err);
   }
@@ -1195,18 +1206,25 @@ router.patch('/:bookingId/reschedule', auth, allowRoles(ROLE.CUSTOMER), async (r
     ];
 
     if (booking.status === BOOKING_STATUS.PENDING) {
-      // The date changes straight away. Whoever was proposed for the old date is dropped and proposed again below.
-      booking.date = date;
-      booking.time = time;
-      booking.rescheduleRequest = { requestedDate: null, requestedTime: null, status: 'None' };
-      await booking.save();
+      // The date changes straight away, if the new slot is still free (a Pending booking holds its slot, first come first served; the
+      // check and the save happen under the slot's lock). Whoever was proposed for the old date is dropped and proposed again below.
+      await withLocks([slotKey(date, time)], async () => {
+        await assertSlotOpen(date, time, booking.bookingId);
+        booking.date = date;
+        booking.time = time;
+        booking.rescheduleRequest = { requestedDate: null, requestedTime: null, status: 'None' };
+        await booking.save();
+      });
       await booking.populate('service');
       await repropose(booking, req.userId);
       const populated = await booking.populate(populateAfter);
       return res.json(customerBooking(populated));
     }
 
-    // Approved: one open request per booking. The status check is part of the update, so two requests at once cannot both pass.
+    // Approved: the new slot must be free too, so the admin is not asked about a slot someone else already holds.
+    await assertSlotOpen(date, time, booking.bookingId);
+
+    // One open request per booking. The status check is part of the update, so two requests at once cannot both pass.
     const updated = await Booking.findOneAndUpdate(
       { _id: booking._id, customer: req.userId, status: BOOKING_STATUS.APPROVED, 'rescheduleRequest.status': { $ne: 'Pending' } },
       { $set: { rescheduleRequest: { requestedDate: date, requestedTime: time, status: 'Pending' } } },
@@ -1232,6 +1250,8 @@ router.patch('/:bookingId/reschedule', auth, allowRoles(ROLE.CUSTOMER), async (r
     const populated = await updated.populate(populateAfter);
     res.json(customerBooking(populated));
   } catch (err) {
+    if (err instanceof SlotTakenError) return res.status(409).json({ message: err.message });
+    if (err instanceof LockBusyError) return res.status(503).json({ message: err.message });
     sendRouteError(res, err);
   }
 });

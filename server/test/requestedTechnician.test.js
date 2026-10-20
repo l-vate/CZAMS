@@ -53,13 +53,14 @@ test('a requested technician who is busy that day is not an error: someone else 
   assert.equal(mine.requestedTechnician, 'T1', 'the request is still on the booking, for the admin to see');
 });
 
-test('a requested technician who is busy and nobody else free: the booking is saved unassigned', async () => {
+test('a requested technician who is busy and nobody else free: the slot is full, so the customer is told it is taken', async () => {
   const date = goodDate(9);
   addBooking({ bookingId: 'CZ-B1', customer: 'CUS9', service: cleaning, status: 'Approved', date, time: 'Morning', technician: 'T1', assignments: [{ lead: 'T1', helper: 'T2' }] });
   addBooking({ bookingId: 'CZ-B2', customer: 'CUS9', service: cleaning, status: 'Approved', date, time: 'Morning', technician: 'T3', assignments: [{ lead: 'T3', helper: 'T4' }] });
   const res = await post({ technician: 'T1', date, time: 'Morning' });
-  assert.equal(res.status, 201, JSON.stringify(res.body));
-  assert.deepEqual(members(state.bookings.find((b) => b.bookingId !== 'CZ-B1' && b.bookingId !== 'CZ-B2')), []);
+  assert.equal(res.status, 409, JSON.stringify(res.body));
+  assert.match(res.body.message, /already taken/);
+  assert.equal(state.bookings.length, 2, 'nothing was saved');
 });
 
 test('only an active field technician can be requested', async () => {

@@ -21,6 +21,8 @@ const people = () => [
   { _id: 'ADM1', role: 'admin', isActive: true, name: 'Admin' },
   { _id: 'STF1', role: 'staff', isActive: true, name: 'Lead', position: 'Lead Technician' },
   { _id: 'STF2', role: 'staff', isActive: true, name: 'Helper', position: 'Helper' },
+  // more crew, so several bookings in one slot are not refused as full
+  ...['STF3', 'STF4', 'STF5', 'STF6', 'STF7', 'STF8', 'STF9', 'STF10', 'STF11', 'STF12'].map((id) => ({ _id: id, role: 'staff', isActive: true, name: id, position: 'Technician' })),
 ];
 
 test.before(() => harness.install());
@@ -86,13 +88,12 @@ test('a booking that cannot be saved lets its lock go, so the next try works', a
   assert.equal((await post({ ...SAME }, 'CUS1')).status, 201);
 });
 
-test('two customers booked at the same moment are not proposed the same technicians', async () => {
+test('two customers asking for the last pair at the same moment: only one gets the slot, the other is told it is taken', async () => {
+  harness.reset({ users: people().slice(0, 5), services: [cleaning, repair] }); // exactly one pair of field technicians
   const results = await many(2, (i) => post({ ...SAME, service: 'S-CLEAN' }, i === 0 ? 'CUS1' : 'CUS2'));
-  assert.deepEqual(results.map((r) => r.status), [201, 201]);
-  // there is one pair of field technicians; whoever is on one booking must not also be on the other in the same slot
-  const holders = state.bookings.flatMap((b) => (b.assignments || []).flatMap((a) => [a.lead, a.helper].filter(Boolean)));
-  assert.equal(new Set(holders).size, holders.length, `technicians on more than one booking: ${holders.join(', ')}`);
-  assert.equal(state.bookings.filter((b) => (b.assignments || []).length > 0).length, 1, 'exactly one of the two got the pair');
+  assert.deepEqual(results.map((r) => r.status).sort(), [201, 409], JSON.stringify(results.map((r) => r.body.message)));
+  assert.equal(state.bookings.length, 1);
+  assert.equal(state.bookings[0].assignments.length, 1, 'the winner holds the pair');
   assert.equal(state.locks.size, 0);
 });
 

@@ -66,7 +66,7 @@ test('a walk-in booking nobody can staff comes back with the dates, for the admi
   assert.deepEqual(state.bookings.find((b) => b.bookingId === made.body.bookingId).assignments, []);
 
   const byCustomer = await post({ date: D, time: 'Morning' }, 'CUS1');
-  assert.equal(byCustomer.status, 201);
+  assert.equal(byCustomer.status, 409, 'a customer is refused: the pairs are taken, and Pending requests hold their slot');
   assert.equal(byCustomer.body.suggestedDates, undefined, 'a customer is not given them');
 });
 

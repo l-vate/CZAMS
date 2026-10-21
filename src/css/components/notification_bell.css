@@ -146,6 +146,29 @@
   font-size: 13px;
 }
 
+.notif-dropdown-footer {
+  padding: 10px 14px 12px;
+  border-top: 1px solid var(--mist);
+  background: var(--white);
+}
+
+.notif-view-all-btn {
+  width: 100%;
+  border: none;
+  border-radius: 8px;
+  background: var(--frost);
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 10px 12px;
+  transition: background 0.15s ease;
+}
+
+.notif-view-all-btn:hover {
+  background: rgba(14, 140, 140, 0.12);
+}
+
 .notif-item {
   display: block;
   width: 100%;
@@ -199,4 +222,50 @@
   font-size: 11px;
   color: var(--ink-soft);
   margin-top: 4px;
+}
+
+.notif-page {
+  width: min(900px, 100%);
+  margin: 0 auto;
+  padding: 24px 0 40px;
+}
+
+.notif-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.notif-page-title {
+  margin: 0;
+  font-family: 'Outfit', sans-serif;
+  font-size: clamp(24px, 3vw, 32px);
+  color: var(--navy);
+}
+
+.notif-page-list {
+  background: var(--white);
+  border: 1px solid var(--mist);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.notif-page-item {
+  padding: 16px 18px;
+}
+
+.notif-page-empty {
+  padding: 32px 18px;
+  background: var(--white);
+  border: 1px solid var(--mist);
+  border-radius: 16px;
+  color: var(--ink-soft);
+  font-size: 14px;
+  text-align: center;
+}
+
+.notif-page-retry {
+  margin-left: 8px;
 }

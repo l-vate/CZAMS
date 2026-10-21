@@ -37,6 +37,7 @@ import AdminAuditLog from './pages/admin/audit_log';
 import AdminPromotions from './pages/admin/promotions';
 import AdminAnnouncements from './pages/admin/announcements';
 import AdminChat from './pages/admin/chat';
+import NotificationsPage from './pages/notifications';
 
 import RequireRole from './components/require_role';
 import { ROLE } from './constants/roles';
@@ -67,6 +68,7 @@ function App() {
           <Route path="/customer/profile" element={<CustomerProfile />} />
           <Route path="/customer/book_details/:bookingId" element={<CustomerBookDetails />} />
           <Route path="/customer/chat" element={<CustomerChat />} />
+          <Route path="/customer/notifications" element={<NotificationsPage />} />
         </Route>
 
         {/* Staff Pages */}
@@ -77,6 +79,7 @@ function App() {
           <Route path="/staff/reports" element={<StaffReports />} />
           <Route path="/staff/profile" element={<StaffProfile />} />
           <Route path="/staff/chat" element={<StaffChat />} />
+          <Route path="/staff/notifications" element={<NotificationsPage />} />
         </Route>
 
         {/* Admin Pages */}
@@ -100,6 +103,7 @@ function App() {
           <Route path="/admin/promotions" element={<AdminPromotions />} />
           <Route path="/admin/announcements" element={<AdminAnnouncements />} />
           <Route path="/admin/chat" element={<AdminChat />} />
+          <Route path="/admin/notifications" element={<NotificationsPage />} />
         </Route>
 
       </Routes>

@@ -56,6 +56,17 @@ JWT_SECRET=your_secret_key
 
 > Do not commit `.env` to GitHub.
 
+### Optional email notifications (Brevo)
+
+The backend sends selected booking, payment, reschedule, job, back-job, and service-reminder notifications by email when SMTP is configured. To enable Brevo:
+
+1. In Brevo, verify a sender email address (or authenticate your sending domain).
+2. Open **Settings → SMTP & API → SMTP** and obtain the SMTP login and SMTP key. Use the SMTP key here, not your API key or account password.
+3. Copy `server/.env.example` to `server/.env` and fill `SMTP_USER` with the Brevo SMTP login, `SMTP_PASS` with the SMTP key, and `SMTP_FROM` with the verified sender address (for example, `CZAMS <notifications@yourdomain.com>`).
+4. Keep `SMTP_HOST=smtp-relay.brevo.com`, `SMTP_PORT=587`, and `SMTP_SECURE=false`, then restart the backend.
+
+For deployment, configure the same values in the backend host's environment-variable settings. Email delivery uses a persistent queue and retries temporary failures; in-app notifications continue to work independently of email delivery. Never commit `server/.env` or share the SMTP key.
+
 ## Running the Project
 
 The frontend and backend run separately.

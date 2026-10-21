@@ -32,7 +32,7 @@ function StaffLayout({ title, children }) {
           </button>
           {title}
           <div className="dashboard-topbar-actions">
-            <NotificationBell onNotificationClick={handleNotificationClick} />
+            <NotificationBell onNotificationClick={handleNotificationClick} viewAllRoute="/staff/notifications" />
           </div>
         </div>
 

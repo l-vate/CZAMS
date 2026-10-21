@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FiBell } from 'react-icons/fi';
 import { listNotifications, markNotificationRead, markAllNotificationsRead } from '../services/notificationService';
 
@@ -21,7 +22,8 @@ function timeAgo(dateStr) {
 // portal's routes). Passed by customer_layout.jsx for the "open that booking's
 // details" behavior; staff_layout.jsx doesn't pass it, so staff notifications
 // keep their previous mark-as-read-only behavior.
-function NotificationBell({ onNotificationClick }) {
+function NotificationBell({ onNotificationClick, viewAllRoute }) {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -144,6 +146,21 @@ function NotificationBell({ onNotificationClick }) {
                 </div>
               </button>
             ))
+          )}
+
+          {viewAllRoute && (
+            <div className="notif-dropdown-footer">
+              <button
+                type="button"
+                className="notif-view-all-btn"
+                onClick={() => {
+                  setOpen(false);
+                  navigate(viewAllRoute);
+                }}
+              >
+                View all
+              </button>
+            </div>
           )}
         </div>
       )}

@@ -51,10 +51,12 @@ app.use(errorHandler);
 const { startServiceReminderSchedule } = require('./jobs/serviceReminderJob');
 const { startBookingStatusSchedule } = require('./jobs/bookingStatusJob');
 const { startIdPhotoRetentionSchedule } = require('./jobs/idPhotoRetentionJob');
+const { startEmailDeliverySchedule } = require('./utils/emailDelivery');
 databaseReady.then(() => {
   startServiceReminderSchedule();
   startBookingStatusSchedule();
   startIdPhotoRetentionSchedule();
+  startEmailDeliverySchedule();
   // say once, plainly, if a unique index could not be built (utils/indexWatch.js); the server keeps running
   const mongoose = require('mongoose');
   require('./utils/indexWatch').watchIndexes(mongoose.modelNames().map((name) => mongoose.model(name)));

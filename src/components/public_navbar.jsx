@@ -1,15 +1,18 @@
-import { useEffect, useReducer, useRef } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { FiMenu, FiX } from 'react-icons/fi';
 import { navMenuReducer, isOutsideMenu } from '../utils/navMenu';
 import { BRAND_NAME } from '../config/company';
+import { NAV_LINKS } from '../config/landingContent';
 
 // At this width and below the links, search and LOG IN fold into a menu opened by a hamburger button (public.css uses the same number).
 const DESKTOP_QUERY = '(min-width: 1025px)';
 const MENU_ID = 'public-nav-menu';
 
 // The public top bar: logo, brand, the four section links, the search box and LOG IN. `search` is the search box element.
-function PublicNavbar({ search, onLogin, initialOpen = false }) {
+function PublicNavbar({ search, onLogin, initialOpen = false, activeId = '' }) {
+  // a soft shadow only once the page has been scrolled
+  const [scrolled, setScrolled] = useState(false);
   const [open, dispatch] = useReducer(navMenuReducer, initialOpen);
   const location = useLocation();
   const barRef = useRef(null);
@@ -62,10 +65,17 @@ function PublicNavbar({ search, onLogin, initialOpen = false }) {
     return undefined;
   }, [open]);
 
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   const toggle = () => { closedBy.current = 'toggle'; dispatch('toggle'); };
 
   return (
-    <header className={`navbar${open ? ' nav-open' : ''}`} ref={barRef}>
+    <header className={`navbar${open ? ' nav-open' : ''}${scrolled ? ' navbar--scrolled' : ''}`} ref={barRef}>
       <div className="nav-left">
         <img src="/images/logo.png" alt={`${BRAND_NAME} logo`} className="logo" />
         <span className="brand">{BRAND_NAME.toUpperCase()}</span>
@@ -83,10 +93,17 @@ function PublicNavbar({ search, onLogin, initialOpen = false }) {
       </button>
       <div className="nav-right" id={MENU_ID} ref={menuRef}>
         <nav className="nav-links" aria-label="Sections">
-          <a href="#home" onClick={() => close('link')}>HOME</a>
-          <a href="#about" onClick={() => close('link')}>ABOUT US</a>
-          <a href="#services" onClick={() => close('link')}>SERVICES</a>
-          <a href="#availability" onClick={() => close('link')}>AVAILABLE DATES</a>
+          {NAV_LINKS.map((link) => (
+            <a
+              key={link.id}
+              href={`#${link.id}`}
+              className={activeId === link.id ? 'is-active' : undefined}
+              aria-current={activeId === link.id ? 'location' : undefined}
+              onClick={() => close('link')}
+            >
+              {link.label}
+            </a>
+          ))}
         </nav>
         {search}
         <button type="button" className="login-btn" onClick={onLogin}>LOG IN</button>

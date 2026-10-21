@@ -1,5 +1,5 @@
 // Checks that a booking request fits the service it is for. The rules that the booking form also applies (the
-// cleaning tier, the unit types, the most units) come from shared/bookingRules.js, so the form and the server cannot
+// cleaning tier, the unit types, the most units) come from constants/bookingRules.mjs, so the form and the server cannot
 // drift apart. Pure apart from loading that file, so it is tested without a database.
 const path = require('path');
 const { pathToFileURL } = require('url');
@@ -8,9 +8,9 @@ const { invalid } = require('./validation');
 const { getUnitPrice } = require('./pricing');
 
 let rulesPromise;
-// shared/bookingRules.js is an ES module, so it is loaded once with import().
+// constants/bookingRules.mjs is an ES module (the form imports the same file), so the server loads it once with import().
 const loadRules = () => {
-  if (!rulesPromise) rulesPromise = import(pathToFileURL(path.join(__dirname, '..', '..', 'shared', 'bookingRules.js')).href);
+  if (!rulesPromise) rulesPromise = import(pathToFileURL(path.join(__dirname, '..', 'constants', 'bookingRules.mjs')).href);
   return rulesPromise;
 };
 

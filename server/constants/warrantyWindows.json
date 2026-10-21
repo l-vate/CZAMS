@@ -1,0 +1,6 @@
+{
+  "cleaning": { "days": 7, "scope": "Water leaks only" },
+  "installationCompanyUnit": { "months": 6 },
+  "installationCustomerUnit": { "months": 3 },
+  "leakRepair": { "months": 1 }
+}

@@ -8,7 +8,7 @@ import { usePublicPromos } from '../../utils/promos';
 import { getCostBreakdown } from '../../utils/costBreakdown';
 import { getMe } from '../../services/userService';
 import { UNIT_TYPES, MAX_UNIT_QUANTITY } from '../../constants/unitTypes';
-import { resolveCleaningTier } from '../../../shared/bookingRules.js';
+import { resolveCleaningTier } from '../../../server/constants/bookingRules.mjs';
 import { useServices } from '../../hooks/useServices';
 import { useTechnicians } from '../../hooks/useTechnicians';
 import { useMyClassification, useMyAgreedTerms, useIsCommercialClient } from '../../hooks/useMyClassification';

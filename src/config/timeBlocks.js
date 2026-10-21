@@ -1,7 +1,7 @@
-// Time blocks, read from shared/timeBlocks.json: the same file the server's status job
+// Time blocks, read from server/constants/timeBlocks.json: the same file the server's status job
 // uses, so the calendar, the landing page footer and the Approved -> In Progress job can
 // never disagree about when Morning and Afternoon start.
-import config from '../../shared/timeBlocks.json';
+import config from '../../server/constants/timeBlocks.json';
 
 export const TIME_BLOCKS = config.blocks;
 

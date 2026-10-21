@@ -13,7 +13,6 @@ function Hero({ announcements, onBook }) {
       <Snowfall />
       <div className="lp-hero-inner">
         <div className="lp-hero-copy">
-          <span className="lp-pill">{HERO.eyebrow}</span>
           <h1>{HERO.headline[0]}<br /><span>{HERO.headline[1]}</span></h1>
           <p className="lp-hero-sub">{HERO.subline}</p>
           <div className="lp-hero-actions">

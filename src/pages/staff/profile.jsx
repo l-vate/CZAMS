@@ -1,10 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import StaffLayout from './staff_layout';
 import {
   FiUser,
   FiEdit2,
-  FiCheckCircle,
-  FiFileText,
   FiMail,
   FiPhone,
   FiCamera,
@@ -13,7 +11,6 @@ import {
 import { API_BASE } from '../../config/api';
 import { withFallback } from '../../services/apiClient';
 import { uploadProfilePhoto, updateProfile } from '../../services/authService';
-import { getTechnicianStats } from '../../services/bookingService';
 import ChangePasswordModal from '../../components/change_password_modal';
 
 
@@ -36,35 +33,8 @@ function Profile() {
   const [photoFile, setPhotoFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
-  // The performance numbers come from the server. Until they load, or if loading fails, a dash
-  // is shown, never a made-up number.
-  const [stats, setStats] = useState(null);
-  const [statsFailed, setStatsFailed] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [passwordChanged, setPasswordChanged] = useState(false);
-
-  const fetchStats = () => {
-    getTechnicianStats()
-      .then((data) => {
-        if (typeof data?.completed !== 'number') throw new Error('Unexpected stats reply');
-        setStats(data);
-      })
-      .catch((err) => {
-        console.error('Failed to load stats', err);
-        setStatsFailed(true);
-      });
-  };
-
-  useEffect(() => {
-    fetchStats();
-  }, []);
-
-  const retryStats = () => {
-    setStatsFailed(false);
-    fetchStats();
-  };
-
-  const statsOk = !!stats && !statsFailed;
 
   const handleEditClick = () => {
     setEditForm(profile);
@@ -253,29 +223,6 @@ function Profile() {
         </div>
         {passwordChanged && <p className="sdm-muted">Your password was updated.</p>}
       </div>
-
-      <h2 className="section-title">Performance</h2>
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-label">
-            <FiCheckCircle className="staff-profile-x6" />
-            Completed Jobs
-          </div>
-          <div className="stat-value">{statsOk ? stats.completed : '-'}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">
-            <FiFileText className="staff-profile-x6" />
-            Pending Reports
-          </div>
-          <div className="stat-value">{statsOk ? stats.pendingReports : '-'}</div>
-        </div>
-      </div>
-      {statsFailed && (
-        <p className="sdm-muted" role="alert">
-          Could not load your numbers. <button type="button" className="tech-job-view-link" onClick={retryStats}>Try again</button>
-        </p>
-      )}
 
       {showChangePassword && (
         <ChangePasswordModal

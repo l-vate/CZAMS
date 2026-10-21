@@ -8,7 +8,7 @@ const refund = (over) => resolveRefundAmounts({ amountPaid: 1200, isSameDay: fal
 test('no change: the computed amount is refunded and nothing is recorded as adjusted', () => {
   const r = refund({});
   assert.equal(r.problem, null);
-  assert.deepEqual(r.values, { computedAmount: 1200, finalAmount: 1200, adjustmentReason: undefined, adjusted: false });
+  assert.deepEqual(r.values, { computedAmount: 1200, finalAmount: 1200, adjustmentReason: undefined, dispatchReason: undefined, adjusted: false });
 });
 
 test('a lower final amount with a reason is accepted and recorded', () => {
@@ -49,7 +49,7 @@ test('same-day: a 200 deduction feeds the same fields with no admin reason neede
   assert.equal(r.problem, null);
   assert.equal(r.values.computedAmount, 1200);
   assert.equal(r.values.finalAmount, 1000);
-  assert.equal(r.values.adjustmentReason, 'Same-day dispatch deduction of ₱200');
+  assert.equal(r.values.adjustmentReason, 'Transportation fee of ₱200 for cancelling on or after the booked date');
   assert.equal(r.values.adjusted, true);
 });
 
@@ -65,5 +65,5 @@ test('same-day with an extra admin change needs a reason and keeps both texts', 
   assert.equal(refund({ isSameDay: true, dispatchDeduction: 200, finalAmount: 900 }).problem.status, 400);
   const r = refund({ isSameDay: true, dispatchDeduction: 200, finalAmount: 900, reason: 'Parts used' });
   assert.equal(r.values.finalAmount, 900);
-  assert.equal(r.values.adjustmentReason, 'Same-day dispatch deduction of ₱200. Parts used');
+  assert.equal(r.values.adjustmentReason, 'Transportation fee of ₱200 for cancelling on or after the booked date. Parts used');
 });

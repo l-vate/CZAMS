@@ -191,7 +191,7 @@ function CustomerStep({ customers, loadingCustomers, selectedCustomer, onSelectC
             <input
               type="tel"
               className="bs-input"
-              placeholder="e.g. +63 917 000 0000"
+              placeholder="e.g. 0917 123 4567"
               value={newCustomer.phone}
               onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
             />
@@ -309,7 +309,8 @@ function WalkInPaymentStep({ form, setForm, services, isReturnCustomer, isCommer
           </div>
         )}
 
-        <DiscountOption form={form} setForm={setForm} appliesNow percent={discountPercent} />
+        {/* the Senior/PWD discount is for residential customers only */}
+        {!isCommercial && <DiscountOption form={form} setForm={setForm} appliesNow percent={discountPercent} />}
 
         {!isBilledOnTerms && (
           <div className="bs-field-group">
@@ -525,7 +526,7 @@ function WalkInBooking() {
       formData.append('technician', form.technician || '');
       formData.append('address', form.address);
       formData.append('contactNumber', form.contactNumber || '');
-      if (form.discountType) {
+      if (form.discountType && !isCommercial) {
         formData.append('discountType', form.discountType);
         if (form.discountIdFileObj) formData.append('discountId', form.discountIdFileObj);
       }

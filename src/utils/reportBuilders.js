@@ -176,8 +176,8 @@ export function buildTechnicianReport(data, filters) {
     ]),
     notes: [
       basisNote(filters),
-      'A job counts for every technician on it, the lead and the helper alike, so the rows add up to more than the number of jobs.',
-      'Average service time is the labor hours the lead technician entered on the service report, credited to each technician on the job.',
+      'A job counts for every technician on it, so the rows add up to more than the number of jobs.',
+      'Average service time is the labor hours the primary technician entered on the service report, credited to each technician on the job.',
       'A delay is a booking with a reported disruption or an approved extension request.',
       requests.length !== scopeBookings(data.bookings, filters).length ? BACK_JOB_NOTE : null,
     ].filter(Boolean),

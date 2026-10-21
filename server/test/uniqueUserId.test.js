@@ -72,7 +72,7 @@ test.describe('through the register route', () => {
   const register = async () => {
     const res = await fetch(`${base}/api/auth/register`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ firstName: 'Ana', lastName: 'Cruz', email: 'ana@example.com', phone: '0917 123 4567', password: 'longenough1' }),
+      body: JSON.stringify({ firstName: 'Ana', lastName: 'Cruz', email: 'ana@example.com', phone: '0917 123 4567', password: 'longenough1!' }),
     });
     return { status: res.status, body: await res.json().catch(() => ({})) };
   };

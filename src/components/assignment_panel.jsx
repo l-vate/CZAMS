@@ -4,32 +4,31 @@ import { getTeamAvailability } from '../services/teamService';
 import { ApiError } from '../services/apiClient';
 import { assignBooking, moveToDate } from '../services/bookingService';
 import SuggestedDates from './suggested_dates';
-import { getAssignments } from '../utils/assignments';
+import { getMembers } from '../utils/assignments';
 import { BOOKING_STATUS } from '../constants/bookingStatus';
 
-// The booking's assignment editor: one or more pairs. Each pair has a lead and an optional helper. The lead of the
-// first pair is the primary lead, the only technician who files the service report on a job with several pairs.
-// A technician shows as busy when they are on another booking in the booking's date and time block, and one who is
-// already picked in another slot of this form cannot be picked again. The server re-checks all of this.
-// `helper: null` means the helper dropdown is hidden; `helper: ''` means shown and still empty.
+// The booking's assignment editor: a plain list of technicians. The first one is the primary technician, the only one who files the
+// service report; "Add another technician" adds one more to the list. A technician shows as busy when they are on another booking in
+// the booking's date and time block, and one who is already picked elsewhere in this form cannot be picked again. The server re-checks
+// all of this, and that the service has enough technicians (two for most services) before it can be approved.
 function AssignmentPanel({ booking, onUpdated }) {
   const editable = [BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status);
 
-  // What is saved on the booking, as editable pairs (one empty pair when nobody is assigned yet).
-  const savedPairs = () => {
-    const list = getAssignments(booking).map((a) => ({ lead: a.lead._id, helper: a.helper ? a.helper._id : null }));
-    return list.length > 0 ? list : [{ lead: '', helper: null }];
+  // What is saved on the booking, as a flat list of technician ids (an older lead and helper pair reads as two technicians).
+  const savedIds = () => {
+    const ids = getMembers(booking).map((m) => m._id);
+    return ids.length > 0 ? ids : [''];
   };
 
   const [technicians, setTechnicians] = useState([]);
-  const [pairs, setPairs] = useState(savedPairs());
+  const [picked, setPicked] = useState(savedIds());
   const [saving, setSaving] = useState(false);
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
   const [suggestedDates, setSuggestedDates] = useState([]); // dates offered when nobody is free on the booking's date
 
   useEffect(() => {
-    setPairs(savedPairs());
+    setPicked(savedIds());
     setError('');
     if (!editable || !booking.date || !booking.time) return;
     orFallback(
@@ -41,25 +40,22 @@ function AssignmentPanel({ booking, onUpdated }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [booking]);
 
-  const comparable = (list) => JSON.stringify(list.filter((p) => p.lead).map((p) => [p.lead, p.helper || '']));
-  const dirty = comparable(pairs) !== comparable(getAssignments(booking).map((a) => ({ lead: a.lead._id, helper: a.helper ? a.helper._id : null })));
-  const incomplete = pairs.some((p) => !p.lead || p.helper === '');
+  const members = getMembers(booking);
 
-  const names = getAssignments(booking);
-  const manyPairs = names.length > 1;
+  const comparable = (ids) => JSON.stringify(ids.filter(Boolean));
+  const dirty = comparable(picked) !== comparable(members.map((m) => m._id));
+  const incomplete = picked.some((id) => !id);
 
-  const setPair = (index, change) => setPairs((prev) => prev.map((p, i) => (i === index ? { ...p, ...change } : p)));
+  const setAt = (index, id) => setPicked((prev) => prev.map((x, i) => (i === index ? id : x)));
   // someone picked in any other slot of the form
-  const pickedElsewhere = (index, role) => new Set(pairs.flatMap((p, i) => [
-    i === index && role === 'lead' ? null : p.lead,
-    i === index && role === 'helper' ? null : p.helper,
-  ]).filter(Boolean));
+  const pickedElsewhere = (index) => new Set(picked.filter((id, i) => i !== index && id));
 
   const save = async () => {
     setSaving(true);
     setError('');
     try {
-      const entries = pairs.map((p) => ({ technicianId: p.lead, ...(p.helper ? { helperId: p.helper } : {}) }));
+      // one entry per technician, in the order shown: the first is the primary technician
+      const entries = picked.map((id) => ({ technicianId: id }));
       setSuggestedDates([]);
       let data;
       try {
@@ -80,8 +76,8 @@ function AssignmentPanel({ booking, onUpdated }) {
   };
 
   const optionLabel = (t) => `${t.name}${t.position ? ` (${t.position})` : ''}${t.free ? '' : ' - busy'}`;
-  const optionsFor = (index, role, current) => {
-    const taken = pickedElsewhere(index, role);
+  const optionsFor = (index, current) => {
+    const taken = pickedElsewhere(index);
     return technicians.filter((t) => !taken.has(t._id)).map((t) => (
       <option key={t._id} value={t._id} disabled={!t.free && current !== t._id}>
         {optionLabel(t)}
@@ -95,17 +91,15 @@ function AssignmentPanel({ booking, onUpdated }) {
         {booking.needsReassignment && (
           <p className="sdm-error" role="alert">A technician on this job was deactivated. Assign someone else.</p>
         )}
-        <span className="sdm-row-label">ASSIGNED TECHNICIAN{manyPairs || names[0]?.helper ? 'S' : ''}</span>
+        <span className="sdm-row-label">ASSIGNED TECHNICIAN{members.length > 1 ? 'S' : ''}</span>
 
-        {names.length === 0 ? (
+        {members.length === 0 ? (
           <p className="sdm-muted assignment-panel-x3">Nobody assigned yet.</p>
         ) : (
           <ul className="assignment-list assignment-panel-x4">
-            {names.map((a, i) => (
-              <li key={i}>
-                {manyPairs ? <strong>{i === 0 ? 'Pair 1 (primary, files the report): ' : `Pair ${i + 1}: `}</strong> : null}
-                {a.team ? <strong>{a.team}: </strong> : null}
-                {a.lead.name} (lead){a.helper ? `, ${a.helper.name} (helper)` : ''}
+            {members.map((m, i) => (
+              <li key={m._id}>
+                {m.name}{members.length > 1 && i === 0 ? ' (primary, files the report)' : ''}
               </li>
             ))}
           </ul>
@@ -113,47 +107,21 @@ function AssignmentPanel({ booking, onUpdated }) {
 
         {editable && (
           <>
-            {pairs.map((pair, index) => (
+            {picked.map((id, index) => (
               <div key={index} className="assignment-panel-x5">
-                {pairs.length > 1 && (
-                  <span className="sdm-row-label">{index === 0 ? 'PAIR 1 - PRIMARY LEAD FILES THE REPORT' : `PAIR ${index + 1}`}</span>
-                )}
                 <select
                   className="sdm-tech-select"
-                  value={pair.lead}
-                  onChange={(e) => setPair(index, { lead: e.target.value })}
+                  value={id}
+                  onChange={(e) => setAt(index, e.target.value)}
                   disabled={saving}
-                  aria-label={pairs.length > 1 ? `Lead technician, pair ${index + 1}` : 'Technician'}
+                  aria-label={`Technician ${index + 1}`}
                 >
                   <option value="">Choose a technician</option>
-                  {optionsFor(index, 'lead', pair.lead)}
+                  {optionsFor(index, id)}
                 </select>
-
-                {pair.helper !== null && (
-                  <>
-                    <select
-                      className="sdm-tech-select"
-                      value={pair.helper}
-                      onChange={(e) => setPair(index, { helper: e.target.value })}
-                      disabled={saving}
-                      aria-label={pairs.length > 1 ? `Helper, pair ${index + 1}` : 'Another technician'}
-                    >
-                      <option value="">Choose another technician</option>
-                      {optionsFor(index, 'helper', pair.helper)}
-                    </select>
-                    <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setPair(index, { helper: null })} disabled={saving}>
-                      Remove
-                    </button>
-                  </>
-                )}
-                {pair.helper === null && (
-                  <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setPair(index, { helper: '' })} disabled={saving || !pair.lead}>
-                    Add another technician
-                  </button>
-                )}
-                {pairs.length > 1 && (
-                  <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setPairs((prev) => prev.filter((_, i) => i !== index))} disabled={saving}>
-                    Remove pair
+                {picked.length > 1 && (
+                  <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setPicked((prev) => prev.filter((_, i) => i !== index))} disabled={saving}>
+                    Remove
                   </button>
                 )}
               </div>
@@ -163,10 +131,10 @@ function AssignmentPanel({ booking, onUpdated }) {
               <button
                 type="button"
                 className="sdm-btn sdm-btn-outline"
-                onClick={() => setPairs((prev) => [...prev, { lead: '', helper: null }])}
-                disabled={saving || !pairs[pairs.length - 1].lead}
+                onClick={() => setPicked((prev) => [...prev, ''])}
+                disabled={saving || !picked[picked.length - 1]}
               >
-                Add another pair
+                Add another technician
               </button>
               <button type="button" className="sdm-btn sdm-btn-primary" onClick={save} disabled={saving || !dirty || incomplete}>
                 {saving ? 'Saving...' : 'Save assignment'}
@@ -176,7 +144,7 @@ function AssignmentPanel({ booking, onUpdated }) {
               type="text"
               className="ma-input"
               aria-label="Reason for the change"
-              placeholder="Reason for the change (optional, kept in the assignment history)"
+              placeholder="Reason for the change (optional)"
               maxLength={200}
               value={reason}
               onChange={(e) => setReason(e.target.value)}

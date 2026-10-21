@@ -1,25 +1,23 @@
 import { useState } from 'react';
 import { shrinkPhoto } from '../utils/photoShrink';
+import { ID_PHOTO_CONSENT_TEXT } from '../constants/discountConsent';
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB, same rule as every other upload
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 
-// Optional Senior Citizen / PWD discount picker, shared by the customer booking wizard
-// and the admin walk-in form. One choice at most (ticking the other swaps it, ticking
-// the same one clears it). A customer must attach a photo of a valid ID; an admin
-// booking on someone's behalf has seen the ID in person, so the upload is optional
-// there and the discount is applied straight away.
+// Optional Senior Citizen / PWD discount request, shared by the customer booking wizard, the "request after booking" form and the admin
+// walk-in form. One tick box ("I am a Senior Citizen or PWD and I request the discount"), a choice of Senior Citizen or PWD, and, for a
+// customer (idRequired), a photo of a valid ID that is always required. An admin booking on someone's behalf has seen the ID in person,
+// so the upload is optional there and the discount is applied straight away. The owner checks the ID before approving.
+// The form keeps the choice in form.discountType ('' when not requested, 'Senior' or 'PWD') and the photo in form.discountIdFileObj.
 function DiscountOption({ form, setForm, idRequired, appliesNow, percent, optional = true }) {
   const [fileError, setFileError] = useState('');
   const [preparing, setPreparing] = useState(false);
+  const requested = Boolean(form.discountType);
 
-  const choose = (type) => {
+  const toggle = (checked) => {
     setFileError('');
-    if (form.discountType === type) {
-      setForm({ ...form, discountType: '', discountIdFileObj: null });
-    } else {
-      setForm({ ...form, discountType: type });
-    }
+    setForm({ ...form, discountType: checked ? 'Senior' : '', discountIdFileObj: null, discountConsent: false });
   };
 
   const handleFile = async (e) => {
@@ -53,22 +51,33 @@ function DiscountOption({ form, setForm, idRequired, appliesNow, percent, option
       <label className="bs-label">
         Senior Citizen / PWD Discount {optional && <span className="bs-label-hint">(Optional)</span>}
       </label>
-      <div className="dp-radio-grid">
-        {[['Senior', 'Senior Citizen'], ['PWD', 'PWD']].map(([value, label]) => (
-          <label key={value} className="dp-radio-label">
-            <input
-              type="checkbox"
-              className="dp-radio-input"
-              checked={form.discountType === value}
-              onChange={() => choose(value)}
-            />
-            {label}
-          </label>
-        ))}
-      </div>
+      <label className="dp-radio-label">
+        <input
+          type="checkbox"
+          className="dp-radio-input"
+          checked={requested}
+          onChange={(e) => toggle(e.target.checked)}
+        />
+        I am a Senior Citizen or PWD and I request the discount
+      </label>
 
-      {form.discountType && (
+      {requested && (
         <>
+          <div className="dp-radio-grid" role="radiogroup" aria-label="Discount type">
+            {[['Senior', 'Senior Citizen'], ['PWD', 'PWD']].map(([value, label]) => (
+              <label key={value} className="dp-radio-label">
+                <input
+                  type="radio"
+                  name="discountType"
+                  className="dp-radio-input"
+                  checked={form.discountType === value}
+                  onChange={() => setForm({ ...form, discountType: value })}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+
           <label className="modal-file-btn discount-option-x1">
             {form.discountIdFileObj ? form.discountIdFileObj.name : '[Choose a photo of a valid ID]'}
             <input
@@ -79,18 +88,26 @@ function DiscountOption({ form, setForm, idRequired, appliesNow, percent, option
             />
           </label>
           {preparing && <p className="sdm-muted" role="status">Preparing photo...</p>}
-          {fileError && (
-            <p className="discount-option-x3">{fileError}</p>
-          )}
+          {fileError && <p className="discount-option-x3">{fileError}</p>}
           {idRequired && !form.discountIdFileObj && !fileError && (
-            <p className="discount-option-x3">
-              A photo of a valid ID is required to request this discount.
-            </p>
+            <p className="discount-option-x3">A photo of a valid ID is required to request this discount.</p>
+          )}
+          {idRequired && (
+            <label className="dp-radio-label discount-option-consent">
+              <input
+                type="checkbox"
+                className="dp-radio-input"
+                checked={Boolean(form.discountConsent)}
+                onChange={(e) => setForm({ ...form, discountConsent: e.target.checked })}
+                required
+              />
+              {ID_PHOTO_CONSENT_TEXT}
+            </label>
           )}
           <p className="discount-option-x4">
             {appliesNow
-              ? `${percent}% off the unit price is applied right away.`
-              : 'Our team will check your ID. The discount is taken off your total only after it is approved, and you will be notified.'}
+              ? `${percent}% off the service charge is applied right away.`
+              : 'A valid ID will be checked by the owner. The discount is taken off the service charge only after the owner approves it, and you will be notified.'}
           </p>
         </>
       )}

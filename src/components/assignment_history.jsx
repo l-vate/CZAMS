@@ -5,12 +5,10 @@ const when = (value) => new Date(value).toLocaleString('en-US', {
   month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
 });
 
-// "Anna (lead) + Ben (helper)", or "Anna (solo)" for one technician, or "Nobody" before the first assignment.
+// "Anna, Ben", or "Nobody" before the first assignment. Every technician on the job is named, whether an entry holds one or two.
 function describe(people) {
   if (!people || people.length === 0) return 'Nobody';
-  return people
-    .map((p) => (p.helper ? `${p.lead} (lead) + ${p.helper} (helper)` : `${p.lead} (solo)`))
-    .join(' and ');
+  return people.flatMap((p) => [p.lead, p.helper].filter(Boolean)).join(', ');
 }
 
 // Who was assigned to a booking over time, newest last. `admin` shows who made each change and

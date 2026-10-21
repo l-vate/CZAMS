@@ -57,16 +57,20 @@ function servingRulesFor(name) {
 // `references`: [{ kind, customer, memberIds }], one per booking that points at the file, where
 // customer is the booking's customer id and memberIds is every technician on that booking.
 //   admin: any file (even one nothing points at)
-//   customer: a file referenced by one of their own bookings, of any kind
-//   technician: only the signed form photo of a job they are on (lead or helper)
+//   customer: a file referenced by one of their own bookings, except a Senior/PWD ID photo (those are for the admin only, even the
+//             customer's own: it is kept only so the owner can check it, and is deleted after the retention period)
+//   technician: only the signed form photo of a job they are on (any technician on it)
 //   anyone else: no
 function decideAccess({ role, userId, references }) {
   if (role === 'admin') return true;
   const refs = Array.isArray(references) ? references : [];
-  if (role === 'customer') return refs.some((r) => r.customer === userId);
+  if (role === 'customer') return refs.some((r) => r.customer === userId && r.kind !== FILE_KIND.ID_PHOTO);
   if (role === 'staff') return refs.some((r) => r.kind === FILE_KIND.SIGNED_FORM && (r.memberIds || []).includes(userId));
   return false;
 }
+
+// true when any booking holds this file as a Senior/PWD ID photo. Such a file is opened by the admin role only.
+const isIdPhoto = (references) => (Array.isArray(references) ? references : []).some((r) => r.kind === FILE_KIND.ID_PHOTO);
 
 // Every booking that references this stored path, with the kind of reference.
 // `Booking` and `Report` are the Mongoose models, passed in so tests can substitute them.
@@ -135,6 +139,6 @@ function verifyLinkParts({ name, u, exp, sig, now = Date.now(), secret }) {
 
 module.exports = {
   PROOF_PREFIX, LINK_TTL_SECONDS, FILE_KIND,
-  safeProofName, storedPathFor, servingRulesFor, decideAccess, findReferences,
+  safeProofName, storedPathFor, servingRulesFor, decideAccess, isIdPhoto, findReferences,
   createLinkParts, verifyLinkParts,
 };

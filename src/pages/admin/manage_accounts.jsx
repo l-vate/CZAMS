@@ -90,7 +90,7 @@ function RegisterForm({ type, onCancel, onSubmit }) {
               <input
                 type="tel"
                 className="ma-input"
-                placeholder="e.g. +63 917 000 0000"
+                placeholder="e.g. 0917 123 4567"
                 value={values.phone}
                 onChange={update('phone')}
               />

@@ -224,6 +224,14 @@
   margin-top: 4px;
 }
 
+/* A phone: the search box shrinks to what is left of the bar, so the chat and notification buttons stay on screen (at 390 px the
+   search box used to push them past the right edge). */
+@media (max-width: 600px) {
+  .dashboard-topbar-actions { flex: 1 1 0; min-width: 0; justify-content: flex-end; }
+  .topbar-search { flex: 1 1 0; min-width: 0; margin-right: 4px; padding: 7px 10px; }
+  .topbar-search input { width: 100%; min-width: 0; }
+}
+
 .notif-page {
   width: min(900px, 100%);
   margin: 0 auto;

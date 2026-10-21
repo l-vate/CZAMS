@@ -28,6 +28,31 @@ const { isSunday, sundaysAreClosed } = require('./businessDays');
 
 const KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
+// Whether one date and time block still has a free pair of field technicians. `technicians` are the active field technicians,
+// `bookings` the ones that hold a slot (activeStatuses(): Pending counts, first come first served). A Pending request nobody has been
+// assigned to yet counts as waiting for a pair, so it uses one up before the proposal is even made. Booking creation, the customer
+// reschedule and the public calendar all ask this one function.
+function blockIsOpen({ technicians, bookings, date, time }) {
+  const sameBlock = bookings.filter((b) => slotsOf(b).some((s) => s.date === date && s.time === time));
+  const busy = new Set(sameBlock.flatMap(getMemberIds));
+  const waiting = sameBlock.filter((b) => b.status === BOOKING_STATUS.PENDING && getMemberIds(b).length === 0).length;
+  const freeUnits = Math.floor(technicians.filter((t) => !busy.has(t._id)).length / 2);
+  return freeUnits - waiting > 0;
+}
+
+// The same answer for a single slot, read from the database. `excludeBookingId` leaves one booking out (the one being moved).
+async function isSlotOpen(date, time, excludeBookingId) {
+  const [technicians, bookings] = await Promise.all([
+    listFieldTechnicians(User, '_id'),
+    Booking.find({
+      status: { $in: activeStatuses() },
+      $or: [{ date }, { extensionDays: { $elemMatch: { date } } }],
+      ...(excludeBookingId ? { bookingId: { $ne: excludeBookingId } } : {}),
+    }).select('date time status technician assignments extensionDays'),
+  ]);
+  return blockIsOpen({ technicians, bookings, date, time });
+}
+
 // Returns [{ date, status, morning, afternoon }] for every day from `from` to `to` (inclusive).
 // status: 'open' | 'limited' (one block open) | 'full' | 'closed' (Sunday) | 'shop-closed' (a closure
 // the admin added, with its `reason`) | 'too-soon' | 'past'
@@ -52,11 +77,7 @@ async function getAvailability(from, to) {
 
     const open = {};
     TIME_BLOCKS.forEach((block) => {
-      const sameBlock = bookings.filter((b) => slotsOf(b).some((s) => s.date === key && s.time === block));
-      const busy = new Set(sameBlock.flatMap(getMemberIds));
-      const waiting = sameBlock.filter((b) => b.status === BOOKING_STATUS.PENDING && getMemberIds(b).length === 0).length;
-      const freeUnits = Math.floor(technicians.filter((t) => !busy.has(t._id)).length / 2);
-      open[block] = freeUnits - waiting > 0;
+      open[block] = blockIsOpen({ technicians, bookings, date: key, time: block });
     });
 
     const openCount = Object.values(open).filter(Boolean).length;
@@ -70,4 +91,4 @@ async function getAvailability(from, to) {
   return days;
 }
 
-module.exports = { getAvailability, MIN_LEAD_DAYS, MAX_RANGE_DAYS, KEY_PATTERN, addDays };
+module.exports = { getAvailability, isSlotOpen, blockIsOpen, MIN_LEAD_DAYS, MAX_RANGE_DAYS, KEY_PATTERN, addDays };

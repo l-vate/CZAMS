@@ -45,12 +45,16 @@ test('the same-day warning uses the same rule as the confirmation, and shows onl
   const c = await load('config/cancellation.js');
   assert.ok(c.SAME_DAY_CANCEL_WARNING.includes(c.SAME_DAY_DEDUCTION_CLAUSE));
   assert.ok(c.sameDayCancelledMessage('₱300').includes(c.SAME_DAY_DEDUCTION_CLAUSE.replace('your down payment', 'your down payment of ₱300')));
-  assert.match(c.sameDayCancelledMessage('₱300'), /down payment of ₱300 before it's refunded\.$/);
+  assert.match(c.sameDayCancelledMessage('₱300'), /down payment of ₱300 before it is refunded\.$/);
+  assert.match(c.SAME_DAY_CANCEL_WARNING, /transportation fee may be deducted from your down payment/);
+  assert.match(c.SAME_DAY_CANCEL_WARNING, /before the booked date, your down payment is refunded in full/);
   const today = '2026-10-14';
   assert.equal(c.showsSameDayWarning({ date: today, paymentStatus: 'partially_paid' }, today), true);
   assert.equal(c.showsSameDayWarning({ date: today, paymentStatus: 'to_verify' }, today), true);
   assert.equal(c.showsSameDayWarning({ date: today, paymentStatus: 'Unpaid' }, today), false, 'nothing paid, nothing to deduct from');
-  assert.equal(c.showsSameDayWarning({ date: '2026-10-20', paymentStatus: 'partially_paid' }, today), false, 'another day');
+  assert.equal(c.showsSameDayWarning({ date: '2026-10-20', paymentStatus: 'partially_paid' }, today), false, 'the booked date is still ahead');
+  assert.equal(c.showsSameDayWarning({ date: '2026-10-10', paymentStatus: 'partially_paid' }, today), true, 'the booked date has passed: the fee still applies');
+  assert.match(c.SAME_DAY_CANCEL_WARNING, /on or after the booked date/);
   assert.equal(c.showsSameDayWarning(null, today), false);
 });
 

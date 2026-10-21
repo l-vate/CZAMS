@@ -6,6 +6,7 @@ import { ApiError } from '../../services/apiClient';
 import { COMPANY_NAME_MAX, REPRESENTATIVE_NAME_MAX } from '../../constants/profileFields';
 import { register } from '../../services/authService';
 import { BRAND_NAME, BRAND_SHORT, BRAND_SUB } from '../../config/company';
+import { passwordChecks, passwordIsAcceptable } from '../../utils/passwordChecks';
 
 /* ── Static Content ─────────────────────────────────────── */
 const FEATURES = [
@@ -40,14 +41,16 @@ const handleSubmit = async (e) => {
     alert('Passwords do not match.');
     return;
   }
+  if (!passwordIsAcceptable(formData.password)) {
+    alert('Use a password of at least 8 characters with at least 1 number and 1 special character.');
+    return;
+  }
 
   try {
-    const data = await register(formData);
+    await register(formData);
 
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('user', JSON.stringify(data.user));
-
-    navigate('/customer/dashboard');
+    // The new customer is not signed in by registering: they sign in with the account they just made.
+    navigate('/login', { state: { registered: true } });
 
   } catch (err) {
     alert(err instanceof ApiError ? err.message || 'Registration failed' : 'Could not connect to server. Is the backend running?');
@@ -142,7 +145,7 @@ const handleSubmit = async (e) => {
                 type="tel"
                 id="phone"
                 name="phone"
-                placeholder="+63 900 000 0000"
+                placeholder="e.g. 0917 123 4567"
                 value={formData.phone}
                 onChange={handleChange}
                 required
@@ -197,7 +200,7 @@ const handleSubmit = async (e) => {
                   type={showPassword ? 'text' : 'password'}
                   id="password"
                   name="password"
-                  placeholder="Min. 8 characters"
+                  placeholder="Create a password"
                   value={formData.password}
                   onChange={handleChange}
                   required
@@ -211,6 +214,13 @@ const handleSubmit = async (e) => {
                   {showPassword ? <FiEyeOff /> : <FiEye />}
                 </button>
               </div>
+              <ul className="password-rules" aria-live="polite">
+                {passwordChecks(formData.password).map((check) => (
+                  <li key={check.id} className={check.met ? 'password-rule password-rule--met' : 'password-rule'}>
+                    {check.met ? '✓' : '•'} {check.label}
+                  </li>
+                ))}
+              </ul>
             </div>
 
             <div className="form-group">

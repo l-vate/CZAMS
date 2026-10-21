@@ -1,3 +1,4 @@
+import { jobRoleLabel } from '../../utils/jobRole';
 import { useEffect, useState } from "react";
 import StaffLayout from "./staff_layout";
 import CalendarView from "../../components/calendar_view";
@@ -18,7 +19,7 @@ function toCalendarJob(booking) {
 
   const main = {
     id: booking._id || booking.bookingId,
-    title: `${booking.isBackJob ? "Back job: " : ""}${booking.service?.name || "Service"}${unitTypesLabel}${booking.myRole ? ` (${booking.myRole})` : ""}`,
+    title: `${booking.isBackJob ? "Back job: " : ""}${booking.service?.name || "Service"}${unitTypesLabel}${booking.myRole ? ` (${jobRoleLabel(booking.myRole, booking.isPrimaryLead)})` : ""}`,
     customer: booking.customer?.name || booking.customerName || "Customer",
     assignedTo: "Me", // Current logged-in technician
     date: booking.date,

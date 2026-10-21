@@ -6,6 +6,7 @@ const { before, after } = test;
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { createRequire } = require('node:module');
+const { startSsrServer } = require('./helpers/viteSsr');
 const { pathToFileURL } = require('node:url');
 
 const root = path.join(__dirname, '..', '..');
@@ -13,11 +14,11 @@ const fromRoot = createRequire(path.join(root, 'package.json'));
 const load = (file) => import(pathToFileURL(path.join(root, 'src', file)).href);
 
 let vite;
+let closeVite;
 before(async () => {
-  const { createServer } = await import(pathToFileURL(fromRoot.resolve('vite')).href);
-  vite = await createServer({ root, appType: 'custom', logLevel: 'silent', server: { middlewareMode: true, hmr: false, watch: null } });
+  ({ vite, close: closeVite } = await startSsrServer());
 });
-after(async () => { await vite.close(); });
+after(async () => { await closeVite(); });
 
 test('pluralize picks the singular for exactly one and the plural otherwise', async () => {
   const { pluralize } = await load('utils/pluralize.js');
@@ -57,7 +58,7 @@ test('the card: empty state, one booking, many bookings, and where the links go'
 
   // no bookings: the message and the My Bookings link only
   const empty = render(history({}));
-  assert.match(empty, /No bookings yet\./);
+  assert.match(empty, /You have no booking history yet./);
   assert.doesNotMatch(empty, /Completed|Cancelled|Total paid|<dl/);
   assert.deepEqual(linkTargets(empty), [['/customer/bookings', 'My Bookings']]);
 
@@ -68,7 +69,7 @@ test('the card: empty state, one booking, many bookings, and where the links go'
   for (const label of ['Total', 'Completed', 'Open', 'Cancelled', 'Total paid']) assert.match(one, new RegExp(`<dt>${label}</dt>`));
   assert.match(one, /<dt>Open<\/dt><dd>1<\/dd>/);
   assert.match(one, /<dt>Total paid<\/dt><dd>₱0<\/dd>/);
-  assert.doesNotMatch(one, /No bookings yet/);
+  assert.doesNotMatch(one, /You have no booking history yet/);
 
   // many bookings: counts, the open figure adds Pending, Approved and In Progress, money through formatPeso
   const many = render(history(

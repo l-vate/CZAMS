@@ -11,9 +11,9 @@ import { UNIT_TYPES, MAX_UNIT_QUANTITY } from '../../constants/unitTypes';
 import { resolveCleaningTier } from '../../../shared/bookingRules.js';
 import { useServices } from '../../hooks/useServices';
 import { useTechnicians } from '../../hooks/useTechnicians';
-import { useMyClassification, useMyAgreedTerms } from '../../hooks/useMyClassification';
+import { useMyClassification, useMyAgreedTerms, useIsCommercialClient } from '../../hooks/useMyClassification';
 import { getUnitPrice } from '../../utils/bookingPricing';
-import { earliestBookingKey, formatManilaDay } from '../../utils/manilaTime';
+import { earliestBookingKey } from '../../utils/manilaTime';
 import { isValidContactNumber, getAccountPhone } from '../../utils/contact';
 import { usePaymentSettings, getDownPaymentOptions, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
 import { isWithinQuezonCity } from '../../utils/serviceArea';
@@ -31,13 +31,16 @@ import { ApiError, orFallback } from '../../services/apiClient';
 import PaymentSettingsUnavailable from '../../components/payment_settings_unavailable';
 import { getBusyTechnicians, createBooking } from '../../services/bookingService';
 import { PAYMENT_STATUS } from '../../constants/paymentStatus';
+import { ONLINE_PAYMENT_MODES } from '../../constants/paymentModes';
 import { TIME_BLOCK_VALUES, TIME_BLOCK } from '../../constants/timeBlocks';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
 
 import Notice from '../../components/notice';
 import { useNotice } from '../../hooks/useNotice';
 import { pluralize } from '../../utils/pluralize';
-import { BRAND_NAME, BRAND_SHORT } from '../../config/company';
+import { CUSTOMER_UNIT_NOTE } from '../../utils/warrantyText';
+import { AC_BRANDS, OTHER_BRAND, HP_OPTIONS } from '../../constants/unitOptions';
+import { BRAND_NAME } from '../../config/company';
 // System Configuration Module: payment methods and down payment percentages used
 // to be hardcoded here (DOWN_PAYMENT_OPTIONS / PAYMENT_MODES / getDownPaymentOptions).
 // Both are now admin-managed - see src/utils/paymentSettings.js (usePaymentSettings,
@@ -209,7 +212,7 @@ export function Step1({ form, setForm, services }) {
 }
 
 /* ── Step 2: Unit Details ─────────────────────────────────── */
-const EMPTY_UNIT_ENTRY = { type: '', quantity: 1, brandModel: '' };
+const EMPTY_UNIT_ENTRY = { type: '', quantity: 1, brandModel: '', hp: '' };
 
 function getAccountName() {
   const storedUser = localStorage.getItem('user');
@@ -283,13 +286,41 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
                 onChange={(e) => updateUnit(index, { quantity: Math.min(MAX_UNIT_QUANTITY, Math.max(1, Math.floor(Number(e.target.value)) || 1)) })}
               />
 
-              <input
-                type="text"
-                className="bs-input unit-entry-brand"
-                placeholder="Brand & model (e.g. Carrier 1HP)"
-                value={unit.brandModel}
-                onChange={(e) => updateUnit(index, { brandModel: e.target.value })}
-              />
+              <div className="unit-entry-brand">
+                <select
+                  className="bs-select"
+                  aria-label="Brand"
+                  value={unit.brandOther ? OTHER_BRAND : (AC_BRANDS.includes(unit.brandModel) ? unit.brandModel : '')}
+                  onChange={(e) => (e.target.value === OTHER_BRAND
+                    ? updateUnit(index, { brandOther: true, brandModel: '' })
+                    : updateUnit(index, { brandOther: false, brandModel: e.target.value }))}
+                >
+                  <option value="">Brand</option>
+                  {AC_BRANDS.map((brand) => <option key={brand} value={brand}>{brand}</option>)}
+                  <option value={OTHER_BRAND}>{OTHER_BRAND}</option>
+                </select>
+                {unit.brandOther && (
+                  <input
+                    type="text"
+                    className="bs-input"
+                    placeholder="Type the brand"
+                    aria-label="Other brand"
+                    maxLength={60}
+                    value={unit.brandModel}
+                    onChange={(e) => updateUnit(index, { brandModel: e.target.value })}
+                  />
+                )}
+              </div>
+
+              <select
+                className="bs-select unit-entry-hp"
+                aria-label="Horsepower (HP)"
+                value={unit.hp || ''}
+                onChange={(e) => updateUnit(index, { hp: e.target.value })}
+              >
+                <option value="">HP</option>
+                {HP_OPTIONS.map((hp) => <option key={hp} value={hp}>{hp} HP</option>)}
+              </select>
 
               {selectedService && unit.type && (
                 <span className="unit-entry-subtotal">
@@ -340,11 +371,7 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
       {isInstallation && form.clientSuppliedUnit && (
         <div className="bs-field-group waiver-box">
           <label className="bs-label">Unit Warranty Waiver</label>
-          <p className="bs-card-sub">
-            Since this unit wasn't purchased through {BRAND_SHORT}, our Unit Warranty (compressor
-            and parts coverage) does not apply to it. Installation workmanship is still covered
-            for 3 months.
-          </p>
+          <p className="bs-card-sub">{CUSTOMER_UNIT_NOTE}</p>
           <label className="waiver-checkbox-label">
             <input
               type="checkbox"
@@ -425,10 +452,8 @@ export function Step3({ form, setForm, technicians }) {
             min={minDate}
             value={form.date}
             onChange={(date) => setForm({ ...form, date })}
+            showEarliest
           />
-          <p className="customer-book-service-x2">
-            Earliest available date is {formatManilaDay(minDate, { month: 'long', day: 'numeric', year: 'numeric' })}.
-          </p>
         </div>
 
         <div className="bs-field-group">
@@ -523,14 +548,12 @@ const PAYMENT_STATUS_LABELS = {
   rejected: 'Rejected',
 };
 
-function Step4({ form, setForm, services, isReturnCustomer, onAgreedTerms, paymentMethods, downPaymentPercentages, promos }) {
+function Step4({ form, setForm, services, isReturnCustomer, isCommercial = false, onAgreedTerms, paymentMethods, downPaymentPercentages, promos }) {
   const [showModal, setShowModal] = useState(false);
   const { lineItems, basePrice, discountAmount, discountLabel, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages), 0, promos);
   const isNoDownPayment = dpPercent === 0;
-  // The very first, remote payment can't reasonably be Cash or Cheque - both need
-  // a physical handoff that hasn't happened yet at this point in the flow.
-  // Everything else the admin has configured (GCash, Bank Transfer, ...) is fair game.
-  const firstPaymentMethods = paymentMethods.filter((m) => !['Cash', 'Cheque'].includes(m.name));
+  // A customer pays online by GCash or Bank Transfer only, for both payments. Cash and cheque are recorded by our team on site.
+  const onlineMethods = paymentMethods.filter((m) => ONLINE_PAYMENT_MODES.includes(m.name));
 
 const handleSubmitPayment = ({ proof, referenceNumber }) => {
     setForm({ ...form, paymentStatus: PAYMENT_STATUS.TO_VERIFY, proofFile: proof?.name || null, proofFileObj: proof || null, referenceNumber: referenceNumber || '' });
@@ -586,7 +609,8 @@ const handleSubmitPayment = ({ proof, referenceNumber }) => {
             </div>
           </div>
 
-          <DiscountOption form={form} setForm={setForm} idRequired />
+          {/* the Senior/PWD discount is for residential customers only */}
+          {!isCommercial && <DiscountOption form={form} setForm={setForm} idRequired />}
 
           {/* Nothing is due right now for a 0% down payment - no payment mode or
               proof to collect until the customer settles the balance later. */}
@@ -601,7 +625,7 @@ const handleSubmitPayment = ({ proof, referenceNumber }) => {
                   onChange={(e) => setForm({ ...form, paymentMode: e.target.value })}
                 >
                   <option value="">Select mode</option>
-                  {firstPaymentMethods.map((m) => (
+                  {onlineMethods.map((m) => (
                     <option key={m.name} value={m.name}>{m.name}</option>
                   ))}
                 </select>
@@ -617,7 +641,7 @@ const handleSubmitPayment = ({ proof, referenceNumber }) => {
                     onChange={(e) => setForm({ ...form, paymentMode2: e.target.value })}
                   >
                     <option value="">Select mode</option>
-                    {paymentMethods.map((m) => (
+                    {onlineMethods.map((m) => (
                       <option key={m.name} value={m.name}>{m.name}</option>
                     ))}
                   </select>
@@ -715,7 +739,7 @@ export function Step5({ form, services, technicians, downPaymentPercentages, dis
           {lineItems.map((li, i) => (
             <div className="summary-row" key={i}>
               <span>Unit {i + 1}</span>
-              <span>{li.quantity}× {li.type || '-'}{li.brandModel ? ` - ${li.brandModel}` : ''}</span>
+              <span>{li.quantity}× {li.type || '-'}{li.brandModel ? ` - ${li.brandModel}` : ''}{li.hp ? ` - ${li.hp} HP` : ''}</span>
             </div>
           ))}
           <div className="summary-row"><span>Date &amp; Time</span><span>{form.date ? `${form.date}, ${form.time || ''}` : '-'}</span></div>
@@ -754,8 +778,7 @@ export function Step5({ form, services, technicians, downPaymentPercentages, dis
         </div>
       </div>
       <p className="summary-note">
-        <FiClock /> Service is typically completed within <strong>1–3 days</strong> after confirmation.<br />
-        You can cancel before the service starts. Cancelling on the day of the service may include a dispatch charge deduction from your refund. A new service date must be at least <strong>3 days</strong> from today.
+        <FiClock /> Service is typically completed within <strong>1–3 days</strong> after confirmation.
       </p>
     </div>
   );
@@ -767,6 +790,7 @@ function BookService() {
   const { technicians } = useTechnicians();
   const classification = useMyClassification();
   const isReturnCustomer = classification === 'Return';
+  const isCommercialClient = useIsCommercialClient();
   const onAgreedTerms = useMyAgreedTerms();
   const { paymentMethods, downPaymentPercentages, ready: paymentSettingsReady, failed: paymentSettingsFailed, refetch: refetchPaymentSettings } = usePaymentSettings();
   const { promos } = usePublicPromos();
@@ -786,6 +810,7 @@ function BookService() {
     contactNumber: getAccountPhone(),
     discountType: '',
     discountIdFileObj: null,
+    discountConsent: false,
     downPaymentPercent: null,
     paymentMode: '',
     paymentMode2: '',
@@ -821,7 +846,7 @@ const canNext = () => {
     }
     if (step === 4) {
       const { dpPercent } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages));
-      if (form.discountType && !form.discountIdFileObj) return false;
+      if (form.discountType && (!form.discountIdFileObj || !form.discountConsent)) return false; // a customer always attaches the ID photo and agrees to its use
       if (dpPercent === 0) return true;
       return form.paymentStatus === PAYMENT_STATUS.TO_VERIFY || form.paymentStatus === PAYMENT_STATUS.FULLY_PAID;
     }
@@ -862,6 +887,7 @@ const canNext = () => {
       if (form.referenceNumber) formData.append('referenceNumber', form.referenceNumber);
       if (form.discountType) {
         formData.append('discountType', form.discountType);
+        formData.append('discountConsent', form.discountConsent ? 'true' : 'false');
         if (form.discountIdFileObj) formData.append('discountId', form.discountIdFileObj);
       }
 
@@ -900,6 +926,7 @@ const canNext = () => {
               setForm={setForm}
               services={services}
               isReturnCustomer={isReturnCustomer}
+              isCommercial={isCommercialClient}
               onAgreedTerms={onAgreedTerms}
               paymentMethods={paymentMethods}
               downPaymentPercentages={downPaymentPercentages}

@@ -18,4 +18,15 @@ function validateNewPassword({ currentPassword, newPassword }) {
   return null;
 }
 
-module.exports = { validateNewPassword, MIN_PASSWORD_LENGTH };
+// A password chosen when registering a new account: the rules above, plus at least one number and one special character.
+// Only registration uses it. Existing accounts are not checked against it, and signing in or changing a password is unchanged.
+const REGISTRATION_PASSWORD_MESSAGE = `Use a password of at least ${MIN_PASSWORD_LENGTH} characters with at least 1 number and 1 special character.`;
+
+function validateRegistrationPassword(password) {
+  const basic = validateNewPassword({ newPassword: password });
+  if (basic) return basic;
+  if (!/\d/.test(password) || !/[^A-Za-z0-9\s]/.test(password)) return bad(REGISTRATION_PASSWORD_MESSAGE);
+  return null;
+}
+
+module.exports = { validateNewPassword, validateRegistrationPassword, REGISTRATION_PASSWORD_MESSAGE, MIN_PASSWORD_LENGTH };

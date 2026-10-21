@@ -1,5 +1,5 @@
-// Run with: npm test (inside server/). The first payment a customer makes through the system cannot be Cash or Cheque,
-// whatever the form shows. An admin recording a walk-in may still use them. The real route runs; only the database is
+// Run with: npm test (inside server/). A customer pays online by GCash or Bank Transfer only, for the first and the second payment,
+// whatever the form shows. An admin recording a walk-in may still use any mode. The real route runs; only the database is
 // replaced.
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -24,7 +24,7 @@ test('a customer booking with Cash or Cheque as the first payment is refused and
   for (const paymentMode of ['Cash', 'Cheque', 'cash']) {
     const res = await post({ paymentMode });
     assert.equal(res.status, 400, paymentMode);
-    assert.match(res.body.message, /Cash and cheque cannot be used for the first payment/);
+    assert.match(res.body.message, /GCash or Bank Transfer only/);
   }
   assert.equal(state.bookings.length, 0);
 });
@@ -34,9 +34,14 @@ test('a customer booking with GCash or Bank Transfer is accepted', async () => {
   assert.equal((await post({ paymentMode: 'Bank Transfer', date: goodDate(8) })).status, 201); // another day: the same booking twice is refused
 });
 
-test('the second payment (the balance) may be cash or cheque, paid at the shop', async () => {
-  const res = await post({ paymentMode: 'GCash', paymentMode2: 'Cash' });
-  assert.equal(res.status, 201, JSON.stringify(res.body));
+test('the second payment is online only too: Cash or Cheque as the second payment mode is refused, Bank Transfer is fine', async () => {
+  for (const paymentMode2 of ['Cash', 'Cheque', 'cheque ']) {
+    const res = await post({ paymentMode: 'GCash', paymentMode2 });
+    assert.equal(res.status, 400, paymentMode2);
+    assert.match(res.body.message, /GCash or Bank Transfer only/);
+  }
+  const ok = await post({ paymentMode: 'GCash', paymentMode2: 'Bank Transfer' });
+  assert.equal(ok.status, 201, JSON.stringify(ok.body));
 });
 
 test('an admin walk-in booking may record a cash or cheque first payment', async () => {

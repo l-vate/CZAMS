@@ -17,5 +17,18 @@ export function isBusinessDay(key, closedKeys = new Set(), { sundayClosed = SUND
   return !closedKeys.has(key);
 }
 
+const addKeyDays = (key, n) => {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+};
+
+// The first day on or after `fromKey` that the shop is open: not a Sunday (while Sundays are closed) and not a closed date. This is the
+// "earliest available date": the lead time gives a day, and if that day is closed the next open one is the answer.
+export function firstOpenDay(fromKey, closedKeys = new Set(), options = {}) {
+  let key = fromKey;
+  for (let i = 0; i < 400 && !isBusinessDay(key, closedKeys, options); i += 1) key = addKeyDays(key, 1);
+  return key;
+}
+
 // Why a picked date cannot be used because it is a Sunday, or null.
 export const sundayProblem = (key, { sundayClosed = SUNDAY_CLOSED } = {}) => (sundayClosed && isSundayKey(key) ? SUNDAY_MESSAGE : null);

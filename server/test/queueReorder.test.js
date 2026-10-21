@@ -38,11 +38,14 @@ test.beforeEach(() => {
 });
 const move = (id, action) => call('PATCH', `/${id}/queue`, 'ADM1', { action }, { role: 'admin' });
 
-// three requests for one block, with only two pairs of technicians, from three customers (one customer cannot send the same booking twice)
+// three requests for one block, with only two pairs of technicians. A customer is refused once the pairs are taken (a Pending request
+// holds its slot), so the third one is booked by the admin for a walk-in, which is how a request beyond the crew still reaches the queue.
 const three = async () => {
   const ids = [];
   for (let i = 0; i < 3; i += 1) {
-    const res = await post({ date: D, time: 'Morning' }, `CUS${i + 1}`);
+    const res = i < 2
+      ? await post({ date: D, time: 'Morning' }, `CUS${i + 1}`)
+      : await post({ date: D, time: 'Morning', customer: 'CUS3' }, 'ADM1', { role: 'admin' });
     assert.equal(res.status, 201, JSON.stringify(res.body));
     ids.push(res.body.bookingId);
   }

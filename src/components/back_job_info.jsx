@@ -5,8 +5,6 @@ export function BackJobBadge() {
   return <span className="tech-job-status-badge tech-status-in-progress">Back job</span>;
 }
 
-const roleName = (role) => (role === 'Lead' ? 'lead' : 'helper');
-
 // `showReport` also shows the original report's summary (for the report form).
 export function BackJobInfo({ backJob, showReport = false }) {
   if (!backJob) return null;
@@ -20,7 +18,7 @@ export function BackJobInfo({ backJob, showReport = false }) {
         )}
         {original?.technicians?.length > 0 && (
           <p className="confirmation-detail-value">
-            Original technicians: {original.technicians.map((t) => `${t.name} (${roleName(t.role)})`).join(', ')}
+            Original technicians: {original.technicians.map((t) => t.name).join(', ')}
           </p>
         )}
         {showReport && (

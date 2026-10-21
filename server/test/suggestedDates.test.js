@@ -44,7 +44,7 @@ test('approving a booking nobody can staff on its date returns the next free dat
   addBooking({ bookingId: 'CZ-1', customer: 'CUS1', service: cleaning, status: 'Pending', date: D, time: 'Morning', assignments: [] });
   const res = await admin('PATCH', '/CZ-1/admin-update', { status: 'Approved' });
   assert.equal(res.status, 400);
-  assert.match(res.body.message, /needs a lead technician and a helper/);
+  assert.match(res.body.message, /needs at least two technicians/);
   assert.equal(res.body.suggestedDates.length, 3);
   res.body.suggestedDates.forEach((d) => { assert.ok(d > D); assert.equal(isSunday(d), false); });
   assert.deepEqual([...res.body.suggestedDates].sort(), res.body.suggestedDates, 'soonest first');
@@ -66,7 +66,7 @@ test('a walk-in booking nobody can staff comes back with the dates, for the admi
   assert.deepEqual(state.bookings.find((b) => b.bookingId === made.body.bookingId).assignments, []);
 
   const byCustomer = await post({ date: D, time: 'Morning' }, 'CUS1');
-  assert.equal(byCustomer.status, 201);
+  assert.equal(byCustomer.status, 409, 'a customer is refused: the pairs are taken, and Pending requests hold their slot');
   assert.equal(byCustomer.body.suggestedDates, undefined, 'a customer is not given them');
 });
 

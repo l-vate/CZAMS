@@ -13,7 +13,7 @@ const auth = require('../middleware/auth');
 const Booking = require('../models/Booking');
 const User = require('../models/User');
 const Service = require('../models/Service');
-const { getWarrantyStatus } = require('../utils/warranty');
+const { getWarrantyStatus, unitSourceOf } = require('../utils/warranty');
 const { sendNotification, notifyAdmins } = require('../utils/notifications');
 const Report = require('../models/Report');
 const {
@@ -35,10 +35,17 @@ const { loadBackJobContexts } = require('../utils/backJobContext');
 const BackJob = require('../models/BackJob');
 const { TECHNICIAN_BOOKING_FILTER, isHiddenFromTechnicians } = require('../utils/technicianVisibility');
 const scheduling = require('../constants/scheduling');
+const { SENIOR_PWD_DISCOUNT_RATE, SENIOR_PWD_DISCOUNT_PERCENT } = require('../constants/discount');
+
+const isTrue = (v) => v === true || v === 'true';
+const COMMERCIAL_DISCOUNT_MESSAGE = 'The Senior Citizen and PWD discount is for residential customers only.';
+const CONSENT_MESSAGE = 'Tick the box to agree that your ID will be viewed only to verify your discount.';
+const { amountPaid } = require('../utils/customerHistory');
 const { createUploader, discardUploads, storeUploads, PROOF_TYPES } = require('../utils/uploadSafety');
 const { KINDS } = require('../storage/fileStore');
 const { withLocks, LockBusyError } = require('../utils/slotLock');
 const { duplicateKey, findActiveDuplicate, DuplicateBookingError } = require('../utils/duplicateBooking');
+const { PendingLimitError, SlotTakenError, slotKey, pendingLimitKey, assertUnderPendingLimit, assertSlotOpen } = require('../utils/pendingHold');
 const { manilaToday, isAtLeastDaysAhead } = require('../utils/manilaDate');
 const { readFeedback } = require('../utils/feedbackInput');
 const { normalizeContactNumber } = require('../utils/contactNumber');
@@ -48,7 +55,7 @@ const { describeChargeChanges } = require('../utils/chargeNotice');
 const { buildPriceSnapshot } = require('../utils/priceSnapshot');
 const { readPaging } = require('../utils/adminInput');
 const { serviceProblem, unitsProblem } = require('../utils/bookingValidation');
-const { downPaymentProblem, balanceProblem, firstPaymentModeProblem, DOWN_PAYMENT_BOOKING_STATUSES, DOWN_PAYMENT_OPEN, BALANCE_BOOKING_STATUSES, BALANCE_OPEN } = require('../utils/paymentGuards');
+const { downPaymentProblem, balanceProblem, onlinePaymentModeProblem, DOWN_PAYMENT_BOOKING_STATUSES, DOWN_PAYMENT_OPEN, BALANCE_BOOKING_STATUSES, BALANCE_OPEN } = require('../utils/paymentGuards');
 const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/queue');
 const { generateBookingId, createWithUniqueBookingId, BookingIdExhaustedError } = require('../utils/bookingId');
 const { invalid, sendProblem } = require('../utils/validation');
@@ -73,6 +80,7 @@ const { TIME_BLOCKS } = require('../utils/timeBlocks');
 function withWarranty(booking) {
   const obj = booking.toObject();
   obj.warranty = getWarrantyStatus(booking);
+  obj.unitSource = unitSourceOf(booking); // where an Installation unit came from: 'company' or 'customer'
   return obj;
 }
 
@@ -136,7 +144,7 @@ async function notifyMembersOfChange(booking, wasStatus, type, message) {
   }
 }
 
-// Today's date in Manila as YYYY-MM-DD, for same-day-cancellation comparisons against booking.date.
+// Today's date in Manila as YYYY-MM-DD, for comparing the day of a cancellation against booking.date.
 const todayDateString = () => manilaToday();
 
 // Opens a refund request on a booking that's about to be cancelled, but only if a
@@ -168,13 +176,18 @@ function openRefundIfEligible(booking) {
   const downPaymentAmount = typeof booking.downPaymentPaidAmount === 'number'
     ? booking.downPaymentPaidAmount
     : computeDownPaymentAmount(booking);
-  const isSameDay = booking.date === todayDateString();
+  // Decided on the server, from the Manila calendar day the booking was cancelled on (not the day an admin gets round to verifying
+  // the proof). On or after the booked date a transportation fee applies (the stored flag is still called isSameDay, and it is true for
+  // the booked day and for every day after it: a late cancellation or a no-show). Any earlier day is a full refund. Both dates are YYYY-MM-DD
+  // Manila days, so comparing the text compares the days.
+  const cancelledOn = booking.cancelledAt ? manilaTodayKey(new Date(booking.cancelledAt)) : todayDateString();
+  const isSameDay = cancelledOn >= booking.date;
 
   booking.refund = {
     status: 'Pending',
     isSameDay,
     downPaymentAmount,
-    // Same-day: the dispatch/transportation deduction isn't known until admin
+    // On or after the booked date: the transportation fee isn't known until admin
     // reviews it, so the refundable amount stays unset until then.
     dispatchDeduction: isSameDay ? undefined : 0,
     refundableAmount: isSameDay ? undefined : downPaymentAmount,
@@ -292,7 +305,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
       downPaymentPercent, paymentMode, paymentMode2, referenceNumber,
       customer, clientSuppliedUnit, unitWaiverAcknowledged, unitWaiverName, contactNumber,
       lastCleanedOver6MonthsAgo, isActivelyLeaking,
-      poNumber, paymentTermsDays, discountType,
+      poNumber, paymentTermsDays, discountType, discountConsent,
     } = req.body;
 
     // Payment terms are agreed by an admin, never sent by a customer: a customer's paymentTermsDays is ignored. Only an
@@ -354,6 +367,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
       type: u.type,
       quantity: Number(u.quantity),
       brandModel: u.brandModel || '',
+      hp: typeof u.hp === 'string' || typeof u.hp === 'number' ? String(u.hp).trim().slice(0, 10) : '',
     }));
 
     // The booking must fit its service: the service exists and is open for booking, a cleaning booking uses the tier its
@@ -373,6 +387,11 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
 
     // Warranty Tracking Module: a client-supplied unit on an installation booking
     // has no Unit Warranty, so a signed waiver acknowledging that is required.
+    // Where the unit comes from must be stated for an Installation (it sets the warranty: 6 months for a Cooling Zone unit, 3 for the customer's own).
+    const isInstallationService = serviceDoc?.serviceType === SERVICE_TYPE.INSTALLATION;
+    if (isInstallationService && !['true', 'false', true, false].includes(clientSuppliedUnit)) {
+      return res.status(400).json({ message: 'Choose where the unit comes from: bought from Cooling Zone, or your own unit.' });
+    }
     const isClientSuppliedUnit = clientSuppliedUnit === 'true' || clientSuppliedUnit === true;
     const isWaiverAcknowledged = unitWaiverAcknowledged === 'true' || unitWaiverAcknowledged === true;
     if (isClientSuppliedUnit && (!isWaiverAcknowledged || !unitWaiverName?.trim())) {
@@ -438,10 +457,11 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
         });
       }
     }
-    // A customer's first payment cannot be cash or cheque, whatever the form offers. An admin walk-in may record them.
+    // A customer pays online by GCash or Bank Transfer only, for the first and the second payment, whatever the form offers. An admin
+    // walk-in may record any mode.
     if (req.userRole !== ROLE.ADMIN) {
-      const firstModeProblem = firstPaymentModeProblem(paymentMode);
-      if (firstModeProblem) return sendProblem(res, firstModeProblem);
+      const modeProblem = onlinePaymentModeProblem(paymentMode) || onlinePaymentModeProblem(paymentMode2);
+      if (modeProblem) return sendProblem(res, modeProblem);
     }
     if (dpPercent > 0 && !allowedModes.includes(paymentMode)) {
       return res.status(400).json({ message: 'Choose a valid payment mode.' });
@@ -466,10 +486,9 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
     });
     if (paymentSubmission.problem) return sendProblem(res, paymentSubmission.problem);
 
-    // Senior Citizen / PWD discount request. A customer must attach a photo of a valid
-    // ID and the discount stays Pending until an admin approves it. An admin booking on
-    // someone's behalf (walk-in) has seen the ID in person: it is approved on the spot
-    // and the ID upload is optional.
+    // Senior Citizen / PWD discount request. A customer must always attach a photo of a valid ID, and the discount stays Pending until
+    // an admin approves it. An admin booking on someone's behalf (walk-in) has seen the ID in person: it is applied on the spot and the
+    // ID upload is optional.
     const discountIdFile = req.files?.discountId?.[0];
     const discountIdPath = discountIdFile ? `/uploads/proofs/${discountIdFile.filename}` : undefined;
     const isDiscountRequested = discountType === 'Senior' || discountType === 'PWD';
@@ -479,8 +498,16 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
     if (discountIdFile && !isDiscountRequested) {
       return res.status(400).json({ message: 'Choose Senior Citizen or PWD to go with the ID you uploaded.' });
     }
+    // Residential customers only: a Commercial account cannot have the discount, whoever asks for it.
+    if (isDiscountRequested && isCommercial) {
+      return res.status(400).json({ message: COMMERCIAL_DISCOUNT_MESSAGE });
+    }
     if (isDiscountRequested && !isAdminWalkIn && !discountIdFile) {
       return res.status(400).json({ message: 'Upload a photo of a valid ID to request the Senior Citizen / PWD discount.' });
+    }
+    // A customer must agree that the ID is viewed only to verify the discount. The agreement is recorded with its time.
+    if (isDiscountRequested && !isAdminWalkIn && !isTrue(discountConsent)) {
+      return res.status(400).json({ message: CONSENT_MESSAGE });
     }
     const now = new Date();
     let discount;
@@ -488,10 +515,10 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
       discount = isAdminWalkIn
         ? {
             type: discountType, idFile: discountIdPath, status: 'Approved',
-            percent: Number(paymentSettings.seniorPwdDiscountPercent ?? 20),
+            percent: SENIOR_PWD_DISCOUNT_PERCENT, rate: SENIOR_PWD_DISCOUNT_RATE,
             dpPaidBeforeApproval: 0, requestedAt: now, reviewedAt: now, reviewedBy: req.userId,
           }
-        : { type: discountType, idFile: discountIdPath, status: 'Pending', requestedAt: now };
+        : { type: discountType, idFile: discountIdPath, status: 'Pending', requestedAt: now, consentGiven: true, consentAt: now };
     }
 
     // A booking is never marked paid just because an admin made it. Money received in person is recorded afterwards, on
@@ -509,8 +536,16 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
     // Everything has passed. The check for an identical booking and the insert happen while holding one lock (utils/slotLock.js), so
     // two copies sent at the same moment (a double click) take turns: the second sees the first and is refused. The files are written
     // to the store only once the booking is certain to be made, and removed again if it cannot be saved.
-    const booking = await withLocks([duplicateKey({ customer: bookingCustomerId, date, time, service })], async () => {
+    // A customer's Pending bookings hold their slot, first come first served, and are capped. Both checks run under their own lock (one
+    // for the slot, one for the customer) so two requests at the same moment cannot both pass. An admin booking a walk-in decides for
+    // themselves and is not held to either.
+    const holdKeys = isAdminWalkIn || req.userRole === ROLE.ADMIN ? [] : [slotKey(date, time), pendingLimitKey(bookingCustomerId)];
+    const booking = await withLocks([duplicateKey({ customer: bookingCustomerId, date, time, service }), ...holdKeys], async () => {
       if (await findActiveDuplicate(Booking, { customer: bookingCustomerId, date, time, service, units })) throw new DuplicateBookingError();
+      if (holdKeys.length > 0) {
+        await assertUnderPendingLimit(Booking, bookingCustomerId);
+        await assertSlotOpen(date, time);
+      }
       await storeUploads(req, { kind: (file) => (file.fieldname === 'discountId' ? KINDS.ID_PHOTO : KINDS.PROOF), bookingId: req.generatedBookingId });
       const queueRank = await nextQueueRank(); // last in line: first come, first served
       return createWithUniqueBookingId((bookingId) => Booking.create({
@@ -618,6 +653,8 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
   } catch (err) {
     if (err instanceof BookingIdExhaustedError) { console.error(err); return res.status(500).json({ message: err.message }); }
     if (err instanceof DuplicateBookingError) return res.status(409).json({ message: err.message });
+    if (err instanceof PendingLimitError) return res.status(400).json({ message: err.message });
+    if (err instanceof SlotTakenError) return res.status(409).json({ message: err.message });
     if (err instanceof LockBusyError) return res.status(503).json({ message: err.message });
     sendRouteError(res, err);
   }
@@ -770,7 +807,7 @@ router.patch('/:bookingId/cancel', auth, auditSpecs.customerCancel, allowRoles(R
     if (booking.refund?.status === REFUND_STATUS.PENDING) {
       await notifyAdmins(
         NOTIFICATION_TYPE.REFUND_REQUESTED,
-        `Booking ${booking.bookingId} was cancelled by the customer and a refund request is waiting for review${booking.refund.isSameDay ? ' (same-day cancellation, deduction needed)' : ''}.`,
+        `Booking ${booking.bookingId} was cancelled by the customer and a refund request is waiting for review${booking.refund.isSameDay ? ' (cancelled on or after the booked date, transportation fee needed)' : ''}.`,
         { booking }
       );
     } else if (refundOutcome === 'awaiting-check') {
@@ -943,16 +980,20 @@ router.patch('/:bookingId/discount/request', auth, allowRoles(ROLE.CUSTOMER), up
     // A refused request must not leave its uploaded file behind.
     res.on('finish', () => { if (res.statusCode >= 400) discardUploads(req); });
 
-    const { discountType } = req.body;
+    const { discountType, discountConsent } = req.body;
     if (discountType !== 'Senior' && discountType !== 'PWD') {
       return res.status(400).json({ message: 'Choose either Senior Citizen or PWD for the discount.' });
     }
     if (!req.file) {
       return res.status(400).json({ message: 'Upload a photo of a valid ID to request the Senior Citizen / PWD discount.' });
     }
+    if (!isTrue(discountConsent)) {
+      return res.status(400).json({ message: CONSENT_MESSAGE });
+    }
 
     const booking = await Booking.findOne({ bookingId: req.params.bookingId, customer: req.userId }).populate('service');
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    if (booking.isCommercial) return res.status(400).json({ message: COMMERCIAL_DISCOUNT_MESSAGE });
 
     if (![BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED].includes(booking.status)) {
       return res.status(400).json({ message: 'A discount can only be requested while the booking is Pending or Approved.' });
@@ -962,7 +1003,8 @@ router.patch('/:bookingId/discount/request', auth, allowRoles(ROLE.CUSTOMER), up
     }
 
     await storeUploads(req, { kind: KINDS.ID_PHOTO, bookingId: booking.bookingId });
-    booking.discount = { type: discountType, idFile: `/uploads/proofs/${req.file.filename}`, status: 'Pending', requestedAt: new Date() };
+    const askedAt = new Date();
+    booking.discount = { type: discountType, idFile: `/uploads/proofs/${req.file.filename}`, status: 'Pending', requestedAt: askedAt, consentGiven: true, consentAt: askedAt };
     await booking.save();
 
     await notifyAdmins(
@@ -1006,22 +1048,45 @@ router.patch('/:bookingId/discount/approve', auth, auditSpecs.discountApprove, a
       return res.status(400).json({ message: 'This booking is already completed, so a discount can no longer be approved on it.' });
     }
 
-    const settings = await getOrCreateSettings();
-    const percent = Number(settings.seniorPwdDiscountPercent ?? 20);
+    // The rate is the owner's fixed answer (constants/discount.js), frozen on the booking.
+    const percent = SENIOR_PWD_DISCOUNT_PERCENT;
 
-    // Computed before the discount is switched on, so this is the full-price down payment.
+    // What the customer has already paid and an admin verified, at full price (computed before the discount is switched on). The paid
+    // amount is never touched: only the balance goes down. A verified down payment on file is what was really paid; an older booking
+    // without one falls back to the percentage of the full price.
     const downPaymentVerified = [PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(booking.paymentStatus);
     const dpPaid = downPaymentVerified
-      ? Math.round(getBookingUnitsSubtotal(booking) * ((booking.downPaymentPercent || 0) / 100))
+      ? (typeof booking.downPaymentPaidAmount === 'number'
+        ? booking.downPaymentPaidAmount
+        : Math.round(getBookingUnitsSubtotal(booking) * ((booking.downPaymentPercent || 0) / 100)))
       : 0;
+    const alreadyPaid = Math.max(dpPaid, amountPaid(booking));
 
     booking.discount.status = 'Approved';
     booking.discount.percent = percent;
+    booking.discount.rate = SENIOR_PWD_DISCOUNT_RATE;
     booking.discount.dpPaidBeforeApproval = dpPaid;
     booking.discount.rejectionReason = undefined;
     booking.discount.reviewedAt = new Date();
     booking.discount.reviewedBy = req.userId;
     booking.discount.amount = getSeniorDiscountAmount(booking);
+
+    // The new total may not fall below what was already paid: that difference is money to give back, which goes through the refund
+    // flow, not through a discount. Nothing has been saved yet.
+    if (alreadyPaid > 0 && getBookingBasePrice(booking) < alreadyPaid) {
+      const discountedTotal = getBookingBasePrice(booking);
+      // put the request back as it was, so nothing half-applied is left on the document
+      booking.discount.status = 'Pending';
+      booking.discount.percent = undefined;
+      booking.discount.rate = undefined;
+      booking.discount.amount = undefined;
+      booking.discount.dpPaidBeforeApproval = undefined;
+      booking.discount.reviewedAt = undefined;
+      booking.discount.reviewedBy = undefined;
+      return res.status(400).json({
+        message: `The customer has already paid ₱${alreadyPaid.toLocaleString()}, which is more than the discounted total of ₱${discountedTotal.toLocaleString()}. The discount cannot be applied. Handle the difference through the refund flow instead.`,
+      });
+    }
 
     if (booking.isCommercial) {
       booking.vatAmount = Math.round(getBookingUnitsSubtotal(booking) * 0.12);
@@ -1195,18 +1260,25 @@ router.patch('/:bookingId/reschedule', auth, allowRoles(ROLE.CUSTOMER), async (r
     ];
 
     if (booking.status === BOOKING_STATUS.PENDING) {
-      // The date changes straight away. Whoever was proposed for the old date is dropped and proposed again below.
-      booking.date = date;
-      booking.time = time;
-      booking.rescheduleRequest = { requestedDate: null, requestedTime: null, status: 'None' };
-      await booking.save();
+      // The date changes straight away, if the new slot is still free (a Pending booking holds its slot, first come first served; the
+      // check and the save happen under the slot's lock). Whoever was proposed for the old date is dropped and proposed again below.
+      await withLocks([slotKey(date, time)], async () => {
+        await assertSlotOpen(date, time, booking.bookingId);
+        booking.date = date;
+        booking.time = time;
+        booking.rescheduleRequest = { requestedDate: null, requestedTime: null, status: 'None' };
+        await booking.save();
+      });
       await booking.populate('service');
       await repropose(booking, req.userId);
       const populated = await booking.populate(populateAfter);
       return res.json(customerBooking(populated));
     }
 
-    // Approved: one open request per booking. The status check is part of the update, so two requests at once cannot both pass.
+    // Approved: the new slot must be free too, so the admin is not asked about a slot someone else already holds.
+    await assertSlotOpen(date, time, booking.bookingId);
+
+    // One open request per booking. The status check is part of the update, so two requests at once cannot both pass.
     const updated = await Booking.findOneAndUpdate(
       { _id: booking._id, customer: req.userId, status: BOOKING_STATUS.APPROVED, 'rescheduleRequest.status': { $ne: 'Pending' } },
       { $set: { rescheduleRequest: { requestedDate: date, requestedTime: time, status: 'Pending' } } },
@@ -1232,6 +1304,8 @@ router.patch('/:bookingId/reschedule', auth, allowRoles(ROLE.CUSTOMER), async (r
     const populated = await updated.populate(populateAfter);
     res.json(customerBooking(populated));
   } catch (err) {
+    if (err instanceof SlotTakenError) return res.status(409).json({ message: err.message });
+    if (err instanceof LockBusyError) return res.status(503).json({ message: err.message });
     sendRouteError(res, err);
   }
 });
@@ -1365,7 +1439,7 @@ router.patch('/:bookingId/disruption/report', auth, async (req, res) => {
       return res.status(403).json({ message: 'Not your booking' });
     }
     if (!getLeadIds(booking).includes(req.userId)) {
-      return res.status(403).json({ message: 'Only the lead technician can report a disruption. Please tell your lead.' });
+      return res.status(403).json({ message: 'Only the primary technician of this job can report a disruption. Please tell them.' });
     }
 
     if (booking.status !== BOOKING_STATUS.IN_PROGRESS) {
@@ -1446,7 +1520,7 @@ router.patch('/:bookingId/extension/request', auth, async (req, res) => {
       return res.status(403).json({ message: 'Not your booking' });
     }
     if (!getLeadIds(booking).includes(req.userId)) {
-      return res.status(403).json({ message: 'Only the lead technician can request an extension. Please tell your lead.' });
+      return res.status(403).json({ message: 'Only the primary technician of this job can request an extension. Please tell them.' });
     }
 
     if (booking.status !== BOOKING_STATUS.IN_PROGRESS) {
@@ -1759,8 +1833,7 @@ async function performAssignment(booking, requested, { changedBy, reason } = {})
   const when = `${booking.date}, ${booking.time}`;
   for (const id of after) {
     if (!before.has(id)) {
-      const role = getRoleFor(booking, id);
-      await sendNotification(id, NOTIFICATION_TYPE.JOB_ASSIGNED, `You were assigned as ${role === 'Helper' ? 'helper' : 'lead'} on booking ${booking.bookingId} (${booking.service?.name || 'service'}) for ${when}.`, { booking });
+      await sendNotification(id, NOTIFICATION_TYPE.JOB_ASSIGNED, `You were assigned to booking ${booking.bookingId} (${booking.service?.name || 'service'}) for ${when}.`, { booking });
     }
   }
   for (const id of before) {
@@ -1777,8 +1850,7 @@ async function notifyAssignedTechnicians(booking) {
   const when = `${booking.date}, ${booking.time}`;
   for (const id of getMemberIds(booking)) {
     try {
-      const role = getRoleFor(booking, id);
-      await sendNotification(id, NOTIFICATION_TYPE.JOB_ASSIGNED, `You were assigned as ${role === 'Helper' ? 'helper' : 'lead'} on booking ${booking.bookingId} (${booking.service?.name || 'service'}) for ${when}.`, { booking });
+      await sendNotification(id, NOTIFICATION_TYPE.JOB_ASSIGNED, `You were assigned to booking ${booking.bookingId} (${booking.service?.name || 'service'}) for ${when}.`, { booking });
     } catch (err) {
       console.error(`Could not notify ${id} about booking ${booking.bookingId}:`, err);
     }
@@ -1945,7 +2017,7 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
 
     const {
       technician, status, paymentStatus, balancePaymentStatus, balancePaid, technicianInstructions,
-      distanceAdjustment, mobilizationFee,
+      distanceAdjustment, mobilizationFee, unitSource,
     } = req.body;
     const allowedStatuses = BOOKING_STATUS_VALUES;
 
@@ -2016,6 +2088,17 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
       booking.mobilizationFee = parsed;
     }
 
+    // Where an Installation unit came from. Admin only, and only on an Installation; the warranty window follows it.
+    if (unitSource !== undefined) {
+      if (!['company', 'customer'].includes(unitSource)) {
+        return res.status(400).json({ message: 'The unit source must be company or customer.' });
+      }
+      if (booking.service?.serviceType !== SERVICE_TYPE.INSTALLATION) {
+        return res.status(400).json({ message: 'The unit source only applies to an Installation booking.' });
+      }
+      booking.clientSuppliedUnit = unitSource === 'customer';
+    }
+
     // Pre-service technician instructions (Service Report Module)
     const instructionsBefore = booking.technicianInstructions || '';
     if (technicianInstructions !== undefined) {
@@ -2035,7 +2118,7 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
     }
 
     // Staffing rule from the paper: a booking cannot be approved until the technicians the service needs are
-    // assigned. A Cleaning (or any pair service) needs a lead and a helper; only a check-up or survey may be solo.
+    // assigned. A Cleaning (or any other service that needs two) needs at least two technicians; only a check-up or survey may have one.
     if (status === BOOKING_STATUS.APPROVED && prev.status !== BOOKING_STATUS.APPROVED) {
       const staffing = staffingProblem(getAssignments(booking), booking.service, 'approving');
       if (staffing) return res.status(400).json({ message: staffing, suggestedDates: await suggestionsFor(booking) });
@@ -2098,7 +2181,7 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
     if (refundOpenedAfterCheck) {
       await notifyAdmins(
         NOTIFICATION_TYPE.REFUND_REQUESTED,
-        `Booking ${booking.bookingId}: the down payment was verified after the booking was cancelled, so a refund request is waiting for review${booking.refund.isSameDay ? ' (same-day cancellation, deduction needed)' : ''}.`,
+        `Booking ${booking.bookingId}: the down payment was verified after the booking was cancelled, so a refund request is waiting for review${booking.refund.isSameDay ? ' (cancelled on or after the booked date, transportation fee needed)' : ''}.`,
         { booking }
       );
     }
@@ -2136,7 +2219,7 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
       if (booking.refund?.status === REFUND_STATUS.PENDING) {
         await notifyAdmins(
           NOTIFICATION_TYPE.REFUND_REQUESTED,
-          `Booking ${booking.bookingId} was cancelled and a refund request is waiting for review${booking.refund.isSameDay ? ' (same-day cancellation, deduction needed)' : ''}.`,
+          `Booking ${booking.bookingId} was cancelled and a refund request is waiting for review${booking.refund.isSameDay ? ' (cancelled on or after the booked date, transportation fee needed)' : ''}.`,
           { booking }
         );
       }
@@ -2192,7 +2275,7 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
 
 // Admin: process a pending refund. Requires proof the money was actually sent back
 // (same upload mechanism as customer proof-of-payment) before it can be marked
-// Processed. Same-day cancellations also require a dispatch/transportation
+// Processed. A cancellation on or after the booked date also requires a transportation
 // deduction before the refundable amount is finalized; pre-service cancellations
 // refund the down payment in full.
 router.patch('/:bookingId/refund', auth, auditSpecs.refundProcess, allowRoles(ROLE.ADMIN), upload.single('proof'), async (req, res) => {
@@ -2219,12 +2302,16 @@ router.patch('/:bookingId/refund', auth, auditSpecs.refundProcess, allowRoles(RO
       amountPaid: booking.refund.downPaymentAmount,
       isSameDay: booking.refund.isSameDay,
       dispatchDeduction: req.body.dispatchDeduction,
+      dispatchReason: req.body.dispatchReason,
       finalAmount: req.body.finalAmount,
       reason: req.body.adjustmentReason,
     });
     if (amounts.problem) return sendProblem(res, amounts.problem);
 
-    if (booking.refund.isSameDay) booking.refund.dispatchDeduction = Number(req.body.dispatchDeduction);
+    if (booking.refund.isSameDay) {
+      booking.refund.dispatchDeduction = Number(req.body.dispatchDeduction);
+      booking.refund.dispatchReason = amounts.values.dispatchReason;
+    }
     booking.refund.refundableAmount = amounts.values.finalAmount;
     booking.refund.computedAmount = amounts.values.computedAmount;
     booking.refund.finalAmount = amounts.values.finalAmount;

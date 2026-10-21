@@ -27,7 +27,7 @@ const TECHNICIANS_VISIBLE_STATUSES = ['Approved', 'In Progress', 'Completed'];
 // Top-level Booking fields a customer may receive, passed through as they are (they hold nothing internal).
 const PASS_THROUGH = [
   '_id', 'bookingId', 'status', 'createdAt', 'updatedAt', 'date', 'time', 'address', 'contactNumber', 'problemDescription',
-  'units', 'unitTypes', 'brandModel', 'clientSuppliedUnit', 'unitWaiver', 'unitPurchaseProof', 'cleaningTierAnswers',
+  'units', 'unitTypes', 'brandModel', 'clientSuppliedUnit', 'unitSource', 'unitWaiver', 'unitPurchaseProof', 'cleaningTierAnswers',
   'requestedTechnician',
   'downPaymentPercent', 'downPaymentPaidAmount', 'paymentMode', 'paymentMode2', 'paymentStatus', 'balancePaid',
   'balancePaymentStatus', 'proofFile', 'balanceProofFile', 'referenceNumber', 'balanceReferenceNumber',
@@ -66,12 +66,12 @@ function toCustomerView(booking) {
 
   if (b.discount) {
     // reviewedBy (the admin who decided) stays out; the reason shown to the customer stays in
-    out.discount = pick(b.discount, ['type', 'idFile', 'status', 'percent', 'amount', 'dpPaidBeforeApproval', 'rejectionReason', 'requestedAt', 'reviewedAt']);
+    out.discount = pick(b.discount, ['type', 'consentGiven', 'status', 'percent', 'amount', 'dpPaidBeforeApproval', 'rejectionReason', 'requestedAt', 'reviewedAt']);
   }
 
   if (b.refund) {
     out.refund = pick(b.refund, [
-      'status', 'isSameDay', 'downPaymentAmount', 'dispatchDeduction', 'refundableAmount', 'computedAmount', 'finalAmount',
+      'status', 'isSameDay', 'downPaymentAmount', 'dispatchDeduction', 'dispatchReason', 'refundableAmount', 'computedAmount', 'finalAmount',
       'adjustmentReason', 'receivedConfirmedAt', 'requestedAt', 'processedAt', 'proofFile',
     ]);
     if (b.refund.customerFlag) {

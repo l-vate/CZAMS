@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { FiSearch, FiTool } from 'react-icons/fi';
 import { UNIT_TYPE_IMAGES } from '../../utils/unitTypeImages';
-import { COMPANY_PHONE } from '../../config/company';
+import { COMPANY_PHONE, COMPANY_PHONE_TEL } from '../../config/company';
 import { getBusinessHoursText } from '../../config/timeBlocks';
 import { usePublicPromos, describeDiscount } from '../../utils/promos';
 import AvailabilityCalendar from '../../components/availability_calendar';
@@ -499,7 +499,7 @@ function LandingPage() {
 
           <div>
             <h4>Contact Us</h4>
-            <p>📞 {COMPANY_PHONE}</p>
+            <p>📞 <a href={COMPANY_PHONE_TEL}>{COMPANY_PHONE}</a></p>
             <p>✉️ coolingzoneaircon@yahoo.com</p>
           </div>
 

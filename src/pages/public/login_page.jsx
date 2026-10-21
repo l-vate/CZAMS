@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   FiThermometer,
   FiCalendar,
@@ -28,6 +28,7 @@ function LoginPage() {
   const [error, setError] = useState(() => takeSessionNotice());
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const justRegistered = useLocation().state?.registered === true;
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -133,6 +134,7 @@ function LoginPage() {
               </div>
             </div>
 
+            {justRegistered && !error && <p className="auth-success" role="status">Your account was created. Please sign in to continue.</p>}
             {error && <p className="auth-error public-login-page-x1">{error}</p>}
 
             <button

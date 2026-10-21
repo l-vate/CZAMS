@@ -19,6 +19,7 @@ const { authCache } = require('../../utils/authCache');
 const { manilaTodayKey } = require('../../utils/timeBlocks');
 const { addDays } = require('../../utils/extensionDays');
 const { matches, chain } = require('./memoryQueries');
+const { isFieldTechnician } = require('../../utils/technicians');
 const { createMemoryStore, setStore } = require('../../storage/fileStore');
 const Lock = require('../../models/Lock');
 
@@ -67,13 +68,18 @@ function versionedCopy(canon) {
   return doc;
 }
 
+// Most tests make many bookings for one customer, so the cap on Pending bookings is lifted for them. pendingHold.test.js puts the real value back.
 function reset({ users = [], services = [], settings = DEFAULT_SETTINGS } = {}) {
   authCache.clear();
+  require('../../constants/scheduling').MAX_PENDING_PER_CUSTOMER = 1000;
   // Uploaded files go to an in-memory store, never to disk or a database: state.store shows what was kept.
   state.store = createMemoryStore();
   setStore(state.store);
   state.locks = new Map();
-  state.users = users;
+  // A shop has a crew. A fixture with fewer than two field technicians gets five pairs, so a slot is not "full" only because nobody works there.
+  state.users = users.filter(isFieldTechnician).length >= 2
+    ? users
+    : [...users, ...['TD1', 'TD2', 'TD3', 'TD4', 'TD5', 'TD6', 'TD7', 'TD8', 'TD9', 'TD10'].map((id) => ({ _id: id, name: `Default ${id}`, role: 'staff', isActive: true, position: 'Technician' }))];
   state.services = services;
   state.settings = settings;
   state.bookings = [];

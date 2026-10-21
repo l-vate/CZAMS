@@ -84,11 +84,11 @@ const makeLink = (name, id) => fetch(`${base}/api/files/proofs/${name}/link`, { 
 const ALL = { 'down.png': 'down payment proof', 'bal.png': 'balance proof', 'id.jpg': 'Senior/PWD ID', 'refund.pdf': 'refund proof', 'purchase.webp': 'purchase proof', 'signed.png': 'signed form photo' };
 const EXPECT = {
   ADM1: { 'down.png': 200, 'bal.png': 200, 'id.jpg': 200, 'refund.pdf': 200, 'purchase.webp': 200, 'signed.png': 200, 'orphan.png': 200 },
-  CUS1: { 'down.png': 200, 'bal.png': 200, 'id.jpg': 200, 'refund.pdf': 200, 'purchase.webp': 200, 'signed.png': 200, 'orphan.png': 404 },
-  CUS2: { 'down.png': 404, 'bal.png': 404, 'id.jpg': 404, 'refund.pdf': 404, 'purchase.webp': 404, 'signed.png': 404, 'orphan.png': 404 },
-  T1: { 'down.png': 404, 'bal.png': 404, 'id.jpg': 404, 'refund.pdf': 404, 'purchase.webp': 404, 'signed.png': 200, 'orphan.png': 404 },
-  T2: { 'down.png': 404, 'bal.png': 404, 'id.jpg': 404, 'refund.pdf': 404, 'purchase.webp': 404, 'signed.png': 200, 'orphan.png': 404 },
-  T9: { 'down.png': 404, 'bal.png': 404, 'id.jpg': 404, 'refund.pdf': 404, 'purchase.webp': 404, 'signed.png': 404, 'orphan.png': 404 },
+  CUS1: { 'down.png': 200, 'bal.png': 200, 'id.jpg': 403, 'refund.pdf': 200, 'purchase.webp': 200, 'signed.png': 200, 'orphan.png': 404 },
+  CUS2: { 'down.png': 404, 'bal.png': 404, 'id.jpg': 403, 'refund.pdf': 404, 'purchase.webp': 404, 'signed.png': 404, 'orphan.png': 404 },
+  T1: { 'down.png': 404, 'bal.png': 404, 'id.jpg': 403, 'refund.pdf': 404, 'purchase.webp': 404, 'signed.png': 200, 'orphan.png': 404 },
+  T2: { 'down.png': 404, 'bal.png': 404, 'id.jpg': 403, 'refund.pdf': 404, 'purchase.webp': 404, 'signed.png': 200, 'orphan.png': 404 },
+  T9: { 'down.png': 404, 'bal.png': 404, 'id.jpg': 403, 'refund.pdf': 404, 'purchase.webp': 404, 'signed.png': 404, 'orphan.png': 404 },
 };
 
 Object.entries(EXPECT).forEach(([who, table]) => {
@@ -96,7 +96,7 @@ Object.entries(EXPECT).forEach(([who, table]) => {
     test(`${who} opening ${file} with a token: ${status}`, async () => {
       const res = await open(file, who);
       assert.equal(res.status, status);
-      if (status === 404) assert.equal(res.headers.get('content-type').includes('application/json'), true); // no file bytes
+      if (status === 404 || status === 403) assert.equal(res.headers.get('content-type').includes('application/json'), true); // no file bytes
     });
     test(`${who} asking for a link to ${file}: ${status}`, async () => {
       assert.equal((await makeLink(file, who)).status, status);
@@ -104,9 +104,10 @@ Object.entries(EXPECT).forEach(([who, table]) => {
   });
 });
 
-test('every denial is a 404, never a 403, so a file name cannot be confirmed', async () => {
+test('every denial is a 404, so a file name cannot be confirmed (a Senior/PWD ID photo is the one exception: a plain 403 for everyone but the admin)', async () => {
   for (const who of ['CUS2', 'T9']) {
-    for (const file of Object.keys(ALL)) assert.equal((await open(file, who)).status, 404);
+    for (const file of Object.keys(ALL).filter((f) => f !== 'id.jpg')) assert.equal((await open(file, who)).status, 404);
+    assert.equal((await open('id.jpg', who)).status, 403);
   }
   assert.equal((await open('does-not-exist.png', 'ADM1')).status, 404);
   assert.equal((await open('down.png')).status, 404, 'no credentials at all is also a 404');
@@ -276,4 +277,21 @@ test.describe('files that only exist on the local disk (saved before the store e
       without.close();
     }
   });
+});
+
+// ---- the Senior/PWD ID photo: the admin role only, by token and by signed link
+test('an ID photo is opened only by the admin: not by the customer it belongs to, another customer, or any technician', async () => {
+  assert.equal((await open('id.jpg', 'ADM1')).status, 200);
+  for (const who of ['CUS1', 'CUS2', 'T1', 'T2', 'T9']) assert.equal((await open('id.jpg', who)).status, 403, who);
+  assert.equal((await open('id.jpg')).status, 404, 'no credentials at all');
+});
+
+test('a signed link to an ID photo works for the admin it was made for, and a link made for a customer or a technician is refused', async () => {
+  const adminLink = await (await makeLink('id.jpg', 'ADM1')).json();
+  assert.equal((await fetch(`${base}${adminLink.url}`)).status, 200);
+  for (const who of ['CUS1', 'T1']) {
+    const parts = createLinkParts({ name: 'id.jpg', userId: who });
+    const url = `${base}/api/files/proofs/id.jpg?${new URLSearchParams({ u: parts.u, exp: String(parts.exp), sig: parts.sig })}`;
+    assert.equal((await fetch(url)).status, 403, `a valid signature made for ${who}`);
+  }
 });

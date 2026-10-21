@@ -7,5 +7,8 @@ export const PAYMENT_MODE = Object.freeze({
   BANK_TRANSFER: 'Bank Transfer',
 });
 
+// The only ways a customer can pay online. Cash and cheque are recorded by the admin on site.
+export const ONLINE_PAYMENT_MODES = Object.freeze([PAYMENT_MODE.GCASH, PAYMENT_MODE.BANK_TRANSFER]);
+
 // A payment in one of these modes needs a proof file and a reference number.
 export const REFERENCE_REQUIRED_MODES = Object.freeze([PAYMENT_MODE.GCASH, PAYMENT_MODE.BANK_TRANSFER]);

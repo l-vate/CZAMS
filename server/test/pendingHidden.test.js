@@ -170,8 +170,8 @@ test('approving sends the assignment notification once to each technician on the
   const sent = assignedNotes();
   assert.equal(sent.length, 2);
   assert.deepEqual(sent.map((n) => n.user).sort(), ['T1', 'T2']);
-  assert.match(sent.find((n) => n.user === 'T1').message, /as lead on booking CZ-P/);
-  assert.match(sent.find((n) => n.user === 'T2').message, /as helper on booking CZ-P/);
+  assert.match(sent.find((n) => n.user === 'T1').message, /assigned to booking CZ-P/);
+  assert.match(sent.find((n) => n.user === 'T2').message, /assigned to booking CZ-P/);
   assert.equal(notes.filter((n) => n.type === 'booking_approved' && n.user === 'CUS1').length, 1, 'the customer is told as before');
 });
 

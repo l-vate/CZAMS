@@ -10,11 +10,19 @@ const mongoose = require('mongoose');
 // declaration.
 const discountSchema = new mongoose.Schema({
     type: { type: String, enum: ['Senior', 'PWD', null], default: null },
+    // The photo of a valid ID, kept only so the owner can check it. Deleted by the retention job (utils/idPhotoRetention.js) after
+    // ID_PHOTO_RETENTION_DAYS; the path is then cleared and idFileDeletedAt says when. No ID number is ever stored.
     idFile: String,
+    idFileDeletedAt: Date,
+    // The customer ticked the consent next to the upload (a walk-in booked by an admin has none).
+    consentGiven: Boolean,
+    consentAt: Date,
     status: { type: String, enum: ['None', 'Pending', 'Approved', 'Rejected'], default: 'None' },
     // Rate frozen at approval time (from PaymentSettings.seniorPwdDiscountPercent), so a
     // later settings change never rewrites an already approved booking.
     percent: Number,
+    // The same rate as a fraction (0.20), frozen with the percent.
+    rate: Number,
     // Snapshot of the discount in pesos at approval time. The live total is always
     // recomputed from `percent` (see utils/pricing.js), the same way every other
     // price follows the current service price.
@@ -78,6 +86,8 @@ const bookingSchema = new mongoose.Schema({
       type: { type: String, required: true },
       quantity: { type: Number, required: true, min: 1, default: 1 },
       brandModel: String,
+      // The unit's horsepower as the customer wrote it, for example "1.5" or "2" (optional, at most 10 characters).
+      hp: String,
     }],
     // Legacy: kept for existing data
     unitTypes: [String],
@@ -206,9 +216,12 @@ const bookingSchema = new mongoose.Schema({
     // cleaning booking with no down payment simply stays 'None'.
     refund: {
         status: { type: String, enum: REFUND_STATUS_VALUES, default: REFUND_STATUS.NONE },
+        // true when the cancellation was on or after the booked date (a transportation fee applies); the name is from when only the booked day counted
         isSameDay: { type: Boolean, default: false },
         downPaymentAmount: Number,
+        // The transportation fee the owner deducted for a cancellation on or after the booked date (0 up to the down payment), and why.
         dispatchDeduction: Number,
+        dispatchReason: String,
         // refundableAmount is what is actually refunded (the final figure). When the admin processes
         // the refund, computedAmount keeps the system's figure so any change is visible, with who
         // changed it, when and why. Refunds processed before these fields existed have none of them.

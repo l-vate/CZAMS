@@ -7,9 +7,9 @@ import BackJobModal from '../../components/back_job_modal';
 import ServiceReportViewer from '../../components/service_report_viewer';
 import { getBookingLineItems, getPaymentBreakdown, formatPeso } from '../../utils/bookingPricing';
 import { getMemberNames } from '../../utils/assignments';
-import { earliestBookingKey, formatManilaDay, manilaTodayKey } from '../../utils/manilaTime';
+import { earliestBookingKey, manilaTodayKey } from '../../utils/manilaTime';
 import { bookingHeading } from '../../utils/bookingHeading';
-import { SAME_DAY_CANCEL_WARNING, sameDayCancelledMessage, showsSameDayWarning } from '../../config/cancellation';
+import { SAME_DAY_CANCEL_WARNING, CANCEL_POLICY_NOTE, sameDayCancelledMessage, showsSameDayWarning } from '../../config/cancellation';
 import { usePaymentSettings, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
 import {
   FiCheck, FiBell, FiPrinter,
@@ -29,6 +29,7 @@ import { REFUND_STATUS } from '../../constants/refundStatus';
 import { TIME_BLOCK_VALUES } from '../../constants/timeBlocks';
 import { NOTIFICATION_TYPE } from '../../constants/notificationTypes';
 import { ProofLink } from '../../components/proof_file';
+import { warrantyStatusText } from '../../utils/warrantyText';
 
 import Notice from '../../components/notice';
 import { useNotice } from '../../hooks/useNotice';
@@ -62,22 +63,22 @@ function formatDate(dateStr) {
 // booking is Pending or Approved and has no request yet, or the last one was rejected.
 function DiscountRequestForm({ bookingId, onRequested }) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ discountType: '', discountIdFileObj: null });
+  const [form, setForm] = useState({ discountType: '', discountIdFileObj: null, discountConsent: false });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async () => {
-    if (!form.discountType || !form.discountIdFileObj) {
-      setError('Choose Senior Citizen or PWD and upload a photo of a valid ID.');
+    if (!form.discountType || !form.discountIdFileObj || !form.discountConsent) {
+      setError('Choose Senior Citizen or PWD, upload a photo of a valid ID and tick the consent box.');
       return;
     }
     setSubmitting(true);
     setError('');
     try {
-      const data = await requestDiscount(bookingId, { type: form.discountType, idFile: form.discountIdFileObj });
+      const data = await requestDiscount(bookingId, { type: form.discountType, idFile: form.discountIdFileObj, consent: form.discountConsent });
       onRequested(data);
       setOpen(false);
-      setForm({ discountType: '', discountIdFileObj: null });
+      setForm({ discountType: '', discountIdFileObj: null, discountConsent: false });
     } catch (err) {
       setError(err instanceof ApiError ? err.message || 'Failed to send the discount request.' : 'Could not connect to server.');
     } finally {
@@ -127,12 +128,11 @@ function RescheduleModal({ booking, onClose, onSubmit, submitting }) {
           </p>
         )}
 
+        <p className="cancel-confirm-text">A new service date must be at least <strong>3 days</strong> from today.</p>
+
         <div className="bs-field-group">
           <label className="bs-label">New Date</label>
-          <ClosureDateInput min={minDate} value={date} onChange={setDate} />
-          <p className="customer-book-details-x1">
-            Earliest available date is {formatManilaDay(minDate, { month: 'long', day: 'numeric', year: 'numeric' })}.
-          </p>
+          <ClosureDateInput min={minDate} value={date} onChange={setDate} showEarliest />
         </div>
 
         <div className="bs-field-group">
@@ -175,7 +175,9 @@ function CancelConfirmDialog({ onKeep, onConfirmCancel, sameDayWarning = false }
         <p className="cancel-confirm-text">
           This action can't be undone. Your technician assignment and scheduled slot will be released.
         </p>
-        {sameDayWarning && <p className="cancel-confirm-text" role="note"><strong>{SAME_DAY_CANCEL_WARNING}</strong></p>}
+        {sameDayWarning
+          ? <p className="cancel-confirm-text" role="note"><strong>{SAME_DAY_CANCEL_WARNING}</strong></p>
+          : <p className="cancel-confirm-text" role="note">{CANCEL_POLICY_NOTE}</p>}
         <div className="cancel-confirm-actions">
           <button className="bs-back-btn" onClick={onKeep}>Keep booking</button>
           <button className="cancel-booking-btn" onClick={onConfirmCancel}>Yes, cancel it</button>
@@ -203,6 +205,7 @@ function RefundStatusMessage({ refund }) {
         {refund.adjustmentReason && (
           <>
             {' '}It was adjusted from ₱{refund.computedAmount?.toLocaleString()}. Reason: {refund.adjustmentReason}
+            {refund.dispatchReason ? `. Note on the transportation fee: ${refund.dispatchReason}` : ''}
           </>
         )}
       </p>
@@ -634,7 +637,7 @@ function BookDetails() {
               ) : (
                 lineItems.filter((li) => !li.isCharge).map((li, i) => (
                   <p className="confirmation-detail-line" key={i}>
-                    Unit: {li.quantity}× {li.type}{li.brandModel ? ` - ${li.brandModel}` : ''}
+                    Unit: {li.quantity}× {li.type}{li.brandModel ? ` - ${li.brandModel}` : ''}{li.hp ? ` - ${li.hp} HP` : ''}
                   </p>
                 ))
               )}
@@ -753,7 +756,7 @@ function BookDetails() {
               <div className="summary-row">
                 <span>Workmanship Warranty</span>
                 <span className={booking.warranty.workmanship.active ? 'cost-status-paid' : 'cost-status-unpaid'}>
-                  {booking.warranty.workmanship.active ? 'Active' : 'Expired'} - until {formatDate(booking.warranty.workmanship.expiresAt)}
+                  {warrantyStatusText(booking.warranty.workmanship.active, booking.warranty.workmanship.expiresAt)}
                 </span>
               </div>
               {booking.warranty.unit && (
@@ -761,13 +764,13 @@ function BookDetails() {
                   <div className="summary-row">
                     <span>Compressor Warranty</span>
                     <span className={booking.warranty.unit.compressorActive ? 'cost-status-paid' : 'cost-status-unpaid'}>
-                      {booking.warranty.unit.compressorActive ? 'Active' : 'Expired'} - until {formatDate(booking.warranty.unit.compressorExpiresAt)}
+                      {warrantyStatusText(booking.warranty.unit.compressorActive, booking.warranty.unit.compressorExpiresAt)}
                     </span>
                   </div>
                   <div className="summary-row">
                     <span>Minor Parts Warranty</span>
                     <span className={booking.warranty.unit.minorPartsActive ? 'cost-status-paid' : 'cost-status-unpaid'}>
-                      {booking.warranty.unit.minorPartsActive ? 'Active' : 'Expired'} - until {formatDate(booking.warranty.unit.minorPartsExpiresAt)}
+                      {warrantyStatusText(booking.warranty.unit.minorPartsActive, booking.warranty.unit.minorPartsExpiresAt)}
                     </span>
                   </div>
                   <p className="customer-book-details-x8">Excludes: {booking.warranty.unit.excludes}</p>
@@ -814,6 +817,7 @@ function BookDetails() {
             )}
 
             {[BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED].includes(booking.status)
+              && !booking.isCommercial
               && !['Pending', 'Approved'].includes(booking.discount?.status) && (
               <DiscountRequestForm bookingId={booking.bookingId} onRequested={(data) => setBooking(data)} />
             )}

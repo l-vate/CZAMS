@@ -14,4 +14,8 @@ const REFERENCE_REQUIRED_MODES = Object.freeze([PAYMENT_MODE.GCASH, PAYMENT_MODE
 // sent remotely. An admin recording a walk-in on the spot may still use them.
 const FIRST_PAYMENT_BLOCKED_MODES = Object.freeze([PAYMENT_MODE.CASH, PAYMENT_MODE.CHEQUE]);
 
-module.exports = { PAYMENT_MODE, REFERENCE_REQUIRED_MODES, FIRST_PAYMENT_BLOCKED_MODES };
+// The only ways a customer can pay online, for every payment they submit (the down payment and the remaining balance). Cash and cheque
+// are recorded by the admin on site (PATCH /:bookingId/record-payment), which accepts every mode in PAYMENT_MODE.
+const ONLINE_PAYMENT_MODES = Object.freeze([PAYMENT_MODE.GCASH, PAYMENT_MODE.BANK_TRANSFER]);
+
+module.exports = { PAYMENT_MODE, REFERENCE_REQUIRED_MODES, FIRST_PAYMENT_BLOCKED_MODES, ONLINE_PAYMENT_MODES };

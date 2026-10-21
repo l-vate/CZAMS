@@ -88,10 +88,6 @@ function PaymentSettingsPanel() {
       setError('Every payment method needs a name.');
       return;
     }
-    if (discountPercent === '' || isNaN(discountPercent) || Number(discountPercent) < 0 || Number(discountPercent) > 100) {
-      setError('The Senior/PWD discount must be a number from 0 to 100.');
-      return;
-    }
     if (percentages.length === 0) {
       setError('At least one down payment percentage is required.');
       return;
@@ -112,7 +108,6 @@ function PaymentSettingsPanel() {
               .filter((d) => d.label && d.value),
           })),
           downPaymentPercentages: percentages.map(Number),
-          seniorPwdDiscountPercent: Number(discountPercent),
         }),
         'Failed to save payment settings.'
       );
@@ -258,18 +253,16 @@ function PaymentSettingsPanel() {
           <h3 className="bs-card-title">Senior Citizen / PWD Discount</h3>
         </div>
         <p className="bs-card-sub">
-          Percentage taken off the unit price (not off distance or mobilization charges) once an
-          admin approves a customer's discount request. <strong>Confirm the correct rate with the owner.</strong>
+          Percentage taken off the service charge (not off distance or mobilization charges) once the
+          owner approves a customer's discount request. The rate is set by the owner and is fixed here.
         </p>
         <div className="pset-percent-list">
           <div className="pset-percent-row">
             <input
               type="number"
               className="pset-input pset-percent-input"
-              min="0"
-              max="100"
               value={discountPercent}
-              onChange={(e) => setDiscountPercent(e.target.value)}
+              readOnly
               aria-label="Senior and PWD discount percentage"
             />
             <span>%</span>

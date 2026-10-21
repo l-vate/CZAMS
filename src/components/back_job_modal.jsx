@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { BACK_JOB_STATUS } from '../constants/backJobStatus';
+import { warrantyStatusText, CLEANING_WARRANTY_NOTE } from '../utils/warrantyText';
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -10,7 +11,14 @@ function formatDate(dateStr) {
 
 // existingBackJob, when present, means the customer already reported an issue on
 // this booking - shown read-only instead of the report form.
-function BackJobModal({ existingBackJob, onClose, onSubmit, submitting }) {
+function BackJobModal({ booking, existingBackJob, onClose, onSubmit, submitting }) {
+  const warranty = booking?.warranty?.applicable ? booking.warranty : null;
+  const warrantyLine = warranty ? (
+    <p className="modal-instruction">
+      <strong>{warrantyStatusText(warranty.workmanship.active, warranty.workmanship.expiresAt)}.</strong>
+      {warranty.type === 'Cleaning' ? ` ${CLEANING_WARRANTY_NOTE}.` : ''}
+    </p>
+  ) : null;
   const [issueDescription, setIssueDescription] = useState('');
   const [error, setError] = useState('');
 
@@ -36,6 +44,7 @@ function BackJobModal({ existingBackJob, onClose, onSubmit, submitting }) {
           </div>
 
           <p className="modal-instruction">{existingBackJob.issueDescription}</p>
+          {warrantyLine}
 
           <div className="bs-field-group">
             <label className="bs-label">Reported On</label>
@@ -83,6 +92,7 @@ function BackJobModal({ existingBackJob, onClose, onSubmit, submitting }) {
           cleaning, or the AC not cooling soon after installation. We'll check whether
           this is covered by warranty.
         </p>
+        {warrantyLine}
 
         <div className="bs-field-group">
           <label className="bs-label">What happened?</label>

@@ -6,21 +6,21 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { createRequire } = require('node:module');
-const { pathToFileURL } = require('node:url');
+const { startSsrServer } = require('./helpers/viteSsr');
 
 const root = path.join(__dirname, '..', '..');
 const fromRoot = createRequire(path.join(root, 'package.json'));
 
 let vite;
+let closeVite;
 let nav;
 let rules;
 test.before(async () => {
-  const { createServer } = await import(pathToFileURL(fromRoot.resolve('vite')).href);
-  vite = await createServer({ root, appType: 'custom', logLevel: 'silent', server: { middlewareMode: true, hmr: false, watch: null } });
+  ({ vite, close: closeVite } = await startSsrServer());
   nav = await vite.ssrLoadModule('/src/components/public_navbar.jsx');
   rules = await vite.ssrLoadModule('/src/utils/navMenu.js');
 });
-test.after(async () => { await vite.close(); });
+test.after(async () => { await closeVite(); });
 
 test('the menu opens only by the button and closes on every other event', () => {
   const { navMenuReducer } = rules;

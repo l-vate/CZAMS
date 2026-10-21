@@ -81,15 +81,15 @@ test('moving a Pending booking to a date the proposed pair is busy is a 200: the
   assert.equal(history[history.length - 2].previous.length, 1);
 });
 
-test('when nobody is free on the new date the booking is left unassigned, still a 200', async () => {
+test('when nobody is free on the new date the move is refused with a 409 and the booking stays where it was', async () => {
   await post({ date: D1() });
   const date2 = D2();
   busyOn(date2, ['T1', 'T2']);
   busyOn(date2, ['T3', 'T4']);
   const res = await call('PATCH', `/${state.bookings[0].bookingId}/reschedule`, 'CUS1', { date: date2, time: 'Morning' });
-  assert.equal(res.status, 200, JSON.stringify(res.body));
-  assert.equal(state.bookings[0].date, date2);
-  assert.deepEqual(names(state.bookings[0]), []);
+  assert.equal(res.status, 409, JSON.stringify(res.body));
+  assert.equal(state.bookings[0].date, D1());
+  assert.equal(names(state.bookings[0]).length, 2, 'it keeps its pair');
 });
 
 test('a Pending booking that has nobody yet is proposed someone when it moves', async () => {

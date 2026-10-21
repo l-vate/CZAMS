@@ -36,13 +36,9 @@ export function getMemberIds(booking) {
   return [...new Set(getAssignments(booking).flatMap((a) => [a.lead._id, a.helper?._id].filter(Boolean)))];
 }
 
-// "Tech One (lead), Tech Two (helper)" across every assigned team, or `fallback` when nobody is assigned.
+// "Tech One, Tech Two" for every technician on the booking, or `fallback` when nobody is assigned.
 export function getAssignedNames(booking, fallback = 'To be assigned') {
-  const assignments = getAssignments(booking);
-  if (assignments.length === 0) return fallback;
-  return assignments
-    .map((a) => (a.helper ? `${a.lead.name} (lead), ${a.helper.name} (helper)` : a.lead.name))
-    .join('; ');
+  return getMemberNames(booking, fallback);
 }
 
 // Every technician name on the booking, comma separated (for compact lists and calendars).

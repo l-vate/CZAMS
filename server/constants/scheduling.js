@@ -1,6 +1,6 @@
 // Scheduling switches that are an OWNER DECISION. Each is one value in one place.
 //
-// PENDING_HOLDS_SLOT
+// PENDING_HOLDS_SLOT  (OWNER DECISION, confirmed: true, first come first served)
 //   true  (current behavior): a Pending booking that already has technicians assigned counts as busy, so
 //         those technicians cannot be given to another booking in the same date and time block, and
 //         Pending requests also use up free technicians on the public availability calendar.
@@ -15,6 +15,11 @@
 //   utils/queue.js          getQueue (free technicians and pairs shown in the Pending queue)
 //   routes/bookingRoutes.js the approval check, which only runs when this is false, and reproposeBlock (moving a request in the
 //                           Pending queue makes the proposals for its block again only when this is true)
+//
+// MAX_PENDING_PER_CUSTOMER  (default 3)
+//   How many bookings a customer can have waiting for confirmation (status Pending) at once. Because a Pending booking holds its
+//   slot, the cap stops one customer from holding many slots. Free back job visits are not counted. An admin booking for a walk-in
+//   is not held to it. Read by routes/bookingRoutes.js (create) through utils/pendingHold.js.
 //
 // SUNDAY_CLOSED  (an OWNER DECISION, default true)
 //   true:  the shop is closed on Sundays. No booking, reschedule, reschedule approval, disruption reschedule, extra day
@@ -38,6 +43,7 @@
 //   book_details.jsx); change that number by hand too if this one changes.
 const scheduling = {
   PENDING_HOLDS_SLOT: true,
+  MAX_PENDING_PER_CUSTOMER: 3,
   SUNDAY_CLOSED: true,
   MIN_LEAD_DAYS: 3,
 };

@@ -53,8 +53,14 @@ function getMemberIds(booking) {
   return [...new Set(ids)];
 }
 
+// The admin picks technicians one by one, and each is saved as its own entry with no helper. The first entry is the primary technician (the
+// "lead"); an entry after the first that has no helper is a technician added to the list, who has the helper's rights on the job (they see it,
+// they are held in their slot, but they do not file the service report or report a disruption). An entry with a helper is a pair, as on
+// bookings made before the flat list: its lead is a lead.
+const isAddedTechnician = (assignment, index) => index > 0 && !assignment.helper;
+
 function getLeadIds(booking) {
-  return [...new Set(getAssignments(booking).map((a) => a.lead))];
+  return [...new Set(getAssignments(booking).filter((a, i) => !isAddedTechnician(a, i)).map((a) => a.lead))];
 }
 
 // The primary lead is the lead of the first pair. On a job with several pairs only the primary lead files the
@@ -67,11 +73,11 @@ function getPrimaryLeadId(booking) {
 function getRoleFor(booking, userId) {
   const id = idOf(userId);
   if (getLeadIds(booking).includes(id)) return 'Lead';
-  if (getAssignments(booking).some((a) => a.helper === id)) return 'Helper';
+  if (getAssignments(booking).some((a, i) => a.helper === id || (isAddedTechnician(a, i) && a.lead === id))) return 'Helper';
   return null;
 }
 
-// How many technicians a service needs: 1 (a solo technician) or 2 (a lead and a helper).
+// How many technicians a service needs: 1 (a solo technician) or 2.
 // The paper allows a solo technician only for a check-up or a survey visit; everything else, Cleaning
 // above all, needs a lead and a helper. So:
 //   - a service flagged minTechnicians = 2 always needs a pair;
@@ -88,25 +94,28 @@ function getMinTechnicians(service) {
   return 2;
 }
 
-// Whether a list of { lead, helper } meets what the service needs: one technician for a solo service, and for
-// a pair service at least one assignment that has BOTH a lead and a helper (two leads alone are not a pair).
+// How many different technicians a list of assignments names. The admin now picks technicians one by one (each saved as its own entry
+// with no helper); an older booking may still hold a lead and a helper in one entry, and both count.
+function countTechnicians(assignments) {
+  return new Set((assignments || []).flatMap((a) => (a && a.lead ? [idOf(a.lead), a.helper ? idOf(a.helper) : null] : [])).filter(Boolean)).size;
+}
+
+// Whether a list of assignments meets what the service needs: at least getMinTechnicians(service) different technicians.
 function isStaffed(assignments, service) {
-  const list = (assignments || []).filter((a) => a && a.lead);
-  if (getMinTechnicians(service) === 1) return list.length > 0;
-  return list.some((a) => a.lead && a.helper);
+  return countTechnicians(assignments) >= getMinTechnicians(service);
 }
 
 // null when the job is staffed, otherwise the sentence for the admin. `when` is 'approving' or 'saving'.
 function staffingProblem(assignments, service, when = 'approving') {
   if (isStaffed(assignments, service)) return null;
   const name = service?.name || 'This service';
-  const needsPair = getMinTechnicians(service) === 2;
-  const nobody = !(assignments || []).some((a) => a && a.lead);
-  if (!needsPair) return 'Assign a technician before approving.';
-  if (nobody) return `${name} needs a lead technician and a helper. Assign them before ${when === 'approving' ? 'approving' : 'saving'}.`;
+  const needsTwo = getMinTechnicians(service) === 2;
+  const nobody = countTechnicians(assignments) === 0;
+  if (!needsTwo) return 'Assign a technician before approving.';
+  if (nobody) return `${name} needs at least two technicians. Assign them before ${when === 'approving' ? 'approving' : 'saving'}.`;
   return when === 'approving'
-    ? `${name} needs a lead technician and a helper. Add a helper before approving.`
-    : `${name} needs a lead technician and a helper. A helper cannot be removed from it, choose another helper instead.`;
+    ? `${name} needs at least two technicians. Add another technician before approving.`
+    : `${name} needs at least two technicians. A technician cannot be removed from it, choose another technician instead.`;
 }
 
 // Mongo filter for "this technician is on the booking in any role".

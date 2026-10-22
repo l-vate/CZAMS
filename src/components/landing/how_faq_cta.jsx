@@ -3,7 +3,6 @@ import { FiChevronDown, FiPhone } from 'react-icons/fi';
 import { HOW, FAQ, CTA_BAND, COMPANY_PHONE, COMPANY_PHONE_TEL } from '../../config/landingContent';
 import LandingIcon from './icons';
 import SectionHeading from './section_heading';
-import Snowfall from './snowfall';
 
 export function HowSection() {
   return (
@@ -69,7 +68,6 @@ export function FaqSection() {
 export function CtaBand({ onBook }) {
   return (
     <section className="lp-cta-band" aria-labelledby="cta-title" data-nav="availability">
-      <Snowfall className="lp-snow--soft" />
       <div className="lp-cta-inner" data-reveal>
         <h2 id="cta-title">{CTA_BAND.title}</h2>
         <p>{CTA_BAND.text}</p>

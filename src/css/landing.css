@@ -5,7 +5,24 @@
   --lp-nav-h: 78px;       /* the sticky header, so anchors never land under it */
   --lp-max: 1180px;
   --lp-gutter: 40px;
+  position: relative;
+  isolation: isolate;     /* the backdrop sits behind the page content but above this background */
+  background: #0b2545;
+  color: #fff;
   overflow-x: clip;       /* decorative shapes never cause a sideways scroll */
+}
+
+/* One backdrop for the whole page: the dark navy gradient with its soft teal and coral glows, and the snow. It is fixed, so it never
+   restarts or changes as the sections scroll over it. */
+.lp-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(900px 520px at 88% 12%, rgba(14, 140, 140, 0.42), transparent 62%),
+    radial-gradient(760px 520px at 0% 100%, rgba(255, 107, 74, 0.2), transparent 60%),
+    linear-gradient(155deg, #0b2545 0%, #143a63 58%, #0b2545 100%);
 }
 
 /* every anchor target stops below the sticky header */
@@ -83,16 +100,8 @@ main:focus { outline: none; }
 .lp-hero .lp-btn:focus-visible,
 .lp-cta-band .lp-btn:focus-visible { box-shadow: 0 0 0 3px var(--navy), 0 0 0 6px #fff; }
 
-/* ---------- hero ---------- */
-.lp-hero {
-  position: relative;
-  overflow: hidden;
-  color: #fff;
-  background:
-    radial-gradient(900px 520px at 88% 12%, rgba(14, 140, 140, 0.42), transparent 62%),
-    radial-gradient(760px 520px at 0% 100%, rgba(255, 107, 74, 0.2), transparent 60%),
-    linear-gradient(155deg, #0b2545 0%, #143a63 58%, #0b2545 100%);
-}
+/* ---------- hero: the headline, text and buttons on the left, the picture on the right ---------- */
+.lp-hero { position: relative; overflow: hidden; color: #fff; }
 .lp-hero-shape { position: absolute; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.1); pointer-events: none; }
 .lp-hero-shape--one { width: 520px; height: 520px; right: -140px; top: -180px; background: rgba(255, 255, 255, 0.03); }
 .lp-hero-shape--two { width: 320px; height: 320px; left: -120px; bottom: -150px; border-color: rgba(255, 107, 74, 0.25); }
@@ -105,27 +114,15 @@ main:focus { outline: none; }
   align-items: center;
   max-width: var(--lp-max);
   margin: 0 auto;
-  padding: 72px var(--lp-gutter) 120px;
+  padding: 72px var(--lp-gutter);
 }
 .lp-hero-copy { min-width: 0; }
 .lp-hero h1 {
-  margin: 18px 0 16px;
+  margin: 0 0 16px;
   color: #fff;
   font-size: clamp(30px, 4.6vw, 46px);
   font-weight: 800;
   line-height: 1.12;
-}
-.lp-pill {
-  display: inline-block;
-  padding: 7px 16px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  color: rgba(255, 255, 255, 0.92);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 .lp-hero-sub { max-width: 520px; margin: 0 0 28px; color: rgba(255, 255, 255, 0.9); font-size: 19px; line-height: 1.6; }
 .lp-hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
@@ -145,7 +142,7 @@ main:focus { outline: none; }
 }
 
 /* ---------- trust strip ---------- */
-.lp-trust { position: relative; z-index: 2; margin-top: -56px; padding: 0 var(--lp-gutter); }
+.lp-trust { position: relative; z-index: 2; padding: 0 var(--lp-gutter); }
 .lp-trust-list {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -183,14 +180,7 @@ main:focus { outline: none; }
 .lp-subtitle { max-width: 620px; margin: 0 auto; color: var(--ink-soft); font-size: 16px; line-height: 1.6; }
 .lp-heading--left .lp-subtitle { margin-left: 0; }
 
-.lp-about { background: #fff; padding-top: 112px; }
-.lp-services { background: var(--frost); }
-.lp-promos { background: #fff; }
-.lp-units { background: #fff; }
-.lp-why { background: var(--frost); }
-.lp-availability { background: #fff; }
-.lp-how { background: var(--frost); }
-.lp-faq { background: #fff; }
+.lp-about { padding-top: 96px; }
 
 /* ---------- about ---------- */
 .lp-about-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 56px; align-items: center; }
@@ -365,9 +355,7 @@ main:focus { outline: none; }
   padding: 72px var(--lp-gutter);
   color: #fff;
   text-align: center;
-  background:
-    radial-gradient(640px 300px at 50% 0%, rgba(255, 107, 74, 0.28), transparent 70%),
-    linear-gradient(155deg, #0b2545 0%, #143a63 100%);
+  background: radial-gradient(640px 300px at 50% 0%, rgba(255, 107, 74, 0.2), transparent 70%);
 }
 .lp-cta-inner { max-width: 760px; margin: 0 auto; }
 .lp-cta-band h2 { margin: 0 0 10px; color: #fff; font-size: clamp(26px, 3.4vw, 36px); font-weight: 800; }
@@ -416,7 +404,7 @@ main:focus { outline: none; }
 @media (max-width: 1024px) {
   .lp-root { --lp-nav-h: 66px; --lp-gutter: 28px; }
   .lp-root .nav-links a.is-active { border-left: 4px solid var(--coral); padding-left: 10px; }
-  .lp-hero-inner { grid-template-columns: 1fr; gap: 24px; padding: 56px var(--lp-gutter) 104px; text-align: center; }
+  .lp-hero-inner { grid-template-columns: 1fr; gap: 24px; padding: 56px var(--lp-gutter) 64px; text-align: center; }
   .lp-hero-sub { margin-left: auto; margin-right: auto; }
   .lp-hero-actions { justify-content: center; }
   .lp-announce { margin-left: auto; margin-right: auto; text-align: left; }
@@ -452,7 +440,6 @@ main:focus { outline: none; }
   .lp-hero-actions { flex-direction: column; align-items: stretch; }
   .lp-hero-actions .lp-btn { width: 100%; }
   .lp-faq-q { font-size: 16px; }
-  .lp-trust { margin-top: -48px; }
 }
 
 @media (max-width: 380px) {

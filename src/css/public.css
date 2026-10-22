@@ -685,7 +685,10 @@
 }
 
 .auth-split-back {
-  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
   font-weight: 600;
   color: rgba(255,255,255,0.55);
   text-decoration: none;
@@ -694,6 +697,7 @@
   transition: color 0.2s;
 }
 
+.auth-split-back svg { width: 18px; height: 18px; flex-shrink: 0; }
 .auth-split-back:hover { color: rgba(255,255,255,0.9); }
 
 .auth-split-brand {

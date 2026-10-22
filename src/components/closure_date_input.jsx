@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { listClosures } from '../services/closureService';
+import { getAvailability } from '../services/availabilityService';
 import { formatClosureDate } from '../utils/closureDates';
 import { isSundayKey, firstOpenDay, SUNDAY_CLOSED } from '../utils/businessDays';
 import { manilaTodayKey } from '../utils/manilaTime';
@@ -8,14 +9,17 @@ import { manilaTodayKey } from '../utils/manilaTime';
 // closed, and anything before `min` are greyed out and disabled. The calendar is drawn here because a browser date input cannot disable
 // single days. With showEarliest it also says the earliest open day (the first day from `min` that is not closed).
 // The closed dates coming up are listed underneath so the choice is clear before picking.
+// With blockFull (the customer pages) a day with no free pair of technicians in either block is disabled too, read from the public
+// availability calendar for the month on screen; if that cannot be loaded the day stays pickable and the server still refuses it.
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
 const pad = (n) => String(n).padStart(2, '0');
 const keyOf = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
 
-function ClosureDateInput({ value, onChange, min, className = 'bs-input', id, showEarliest = false }) {
+function ClosureDateInput({ value, onChange, min, className = 'bs-input', id, showEarliest = false, blockFull = false }) {
   const [closures, setClosures] = useState([]);
+  const [fullKeys, setFullKeys] = useState(() => new Set());
   const [open, setOpen] = useState(false);
   const today = manilaTodayKey();
   const startKey = value || min || today;
@@ -38,6 +42,21 @@ function ClosureDateInput({ value, onChange, min, className = 'bs-input', id, sh
     return () => document.removeEventListener('mousedown', close);
   }, [open]);
 
+  // the days of the month on screen that are fully booked; months already read are kept
+  useEffect(() => {
+    if (!blockFull || !open) return undefined;
+    let cancelled = false;
+    const from = keyOf(view.year, view.month, 1);
+    const to = keyOf(view.year, view.month, new Date(Date.UTC(view.year, view.month + 1, 0)).getUTCDate());
+    getAvailability(from, to)
+      .then((days) => {
+        if (cancelled || !Array.isArray(days)) return;
+        setFullKeys((prev) => new Set([...prev, ...days.filter((d) => d.status === 'full').map((d) => d.date)]));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [blockFull, open, view]);
+
   const closedKeys = useMemo(() => new Set(closures.map((c) => c.date)), [closures]);
   const reasonOf = useMemo(() => new Map(closures.map((c) => [c.date, c.reason])), [closures]);
   const earliest = firstOpenDay(min || today, closedKeys);
@@ -54,6 +73,7 @@ function ClosureDateInput({ value, onChange, min, className = 'bs-input', id, sh
     if (min && key < min) return 'Too soon to book';
     if (SUNDAY_CLOSED && isSundayKey(key)) return 'Closed on Sundays';
     if (closedKeys.has(key)) return `Closed: ${reasonOf.get(key)}`;
+    if (fullKeys.has(key)) return 'Fully booked';
     return null;
   };
 

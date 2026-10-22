@@ -6,7 +6,10 @@ const Notification = require('../models/Notification');
 const { NOTIFICATION_TYPE } = require('../constants/notificationTypes');
 const {
   smtpConfig,
+  brevoConfig,
+  emailConfig,
   queueNotificationEmail,
+  sendEmail,
   processPendingEmailDeliveries,
 } = require('../utils/emailDelivery');
 const { sendNotification } = require('../utils/notifications');
@@ -53,6 +56,76 @@ test('SMTP settings are optional and require valid host, sender, and paired cred
   assert.equal(config.port, 587);
   assert.equal(config.secure, true);
   assert.deepEqual(config.auth, { user: 'user', pass: 'pass' });
+});
+
+test('Brevo API settings require an API key and sender, and take precedence over SMTP', () => {
+  assert.equal(brevoConfig({}), null);
+  assert.equal(brevoConfig({ BREVO_API_KEY: 'api-key' }), null);
+  const config = brevoConfig({
+    BREVO_API_KEY: ' api-key ',
+    SMTP_FROM: 'CZAMS <notifications@example.test>',
+  });
+  assert.deepEqual(config, {
+    apiKey: 'api-key',
+    sender: { name: 'CZAMS', email: 'notifications@example.test' },
+  });
+  assert.deepEqual(emailConfig({
+    ...SMTP_ENV,
+    BREVO_API_KEY: 'api-key',
+  }), { provider: 'brevo', ...config });
+  assert.equal(emailConfig(SMTP_ENV).provider, 'smtp');
+  assert.equal(emailConfig({ BREVO_API_KEY: 'api-key' }), null);
+});
+
+test('email delivery sends Brevo messages through its HTTPS API', async () => {
+  const originalFetch = globalThis.fetch;
+  let request;
+  globalThis.fetch = async (...args) => {
+    request = args;
+    return { ok: true, status: 201 };
+  };
+
+  try {
+    await sendEmail({
+      recipientEmail: 'customer@example.test',
+      subject: 'Booking approved',
+      text: 'Your booking is approved.',
+      html: '<p>Your booking is approved.</p>',
+    }, {
+      BREVO_API_KEY: 'api-key',
+      SMTP_FROM: 'CZAMS <notifications@example.test>',
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(request[0], 'https://api.brevo.com/v3/smtp/email');
+  assert.equal(request[1].method, 'POST');
+  assert.equal(request[1].headers['api-key'], 'api-key');
+  assert.deepEqual(JSON.parse(request[1].body), {
+    sender: { name: 'CZAMS', email: 'notifications@example.test' },
+    to: [{ email: 'customer@example.test' }],
+    subject: 'Booking approved',
+    textContent: 'Your booking is approved.',
+    htmlContent: '<p>Your booking is approved.</p>',
+  });
+});
+
+test('email delivery reports Brevo API errors for the worker to retry', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: false, status: 401 });
+
+  try {
+    await assert.rejects(
+      sendEmail({ recipientEmail: 'customer@example.test' }, {
+        BREVO_API_KEY: 'invalid-key',
+        SMTP_FROM: 'notifications@example.test',
+      }),
+      /Brevo API request failed with status 401/
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test('only selected notification types are enqueued for recipients with email', async () => {

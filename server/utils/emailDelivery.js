@@ -62,12 +62,35 @@ function smtpConfig(env = process.env) {
   };
 }
 
+function brevoConfig(env = process.env) {
+  const apiKey = env.BREVO_API_KEY?.trim();
+  const from = env.SMTP_FROM?.trim();
+  if (!apiKey || !from) return null;
+
+  const senderMatch = from.match(/^(.*?)\s*<([^<>]+)>$/);
+  return {
+    apiKey,
+    sender: senderMatch
+      ? { name: senderMatch[1].trim(), email: senderMatch[2].trim() }
+      : { email: from },
+  };
+}
+
+function emailConfig(env = process.env) {
+  if (env.BREVO_API_KEY?.trim()) {
+    const config = brevoConfig(env);
+    return config ? { provider: 'brevo', ...config } : null;
+  }
+  const config = smtpConfig(env);
+  return config ? { provider: 'smtp', ...config } : null;
+}
+
 function subjectFor(type) {
   return `CZAMS: ${type.split('_').map((part) => part[0].toUpperCase() + part.slice(1)).join(' ')}`;
 }
 
 async function queueNotificationEmail(userId, type, message, notificationId, env = process.env) {
-  if (!EMAIL_NOTIFICATION_TYPES.has(type) || !smtpConfig(env)) return null;
+  if (!EMAIL_NOTIFICATION_TYPES.has(type) || !emailConfig(env)) return null;
 
   const recipient = await User.findById(userId).select('email');
   if (!recipient?.email) return null;
@@ -83,6 +106,32 @@ async function queueNotificationEmail(userId, type, message, notificationId, env
 }
 
 async function sendEmail(delivery, env = process.env) {
+  if (env.BREVO_API_KEY?.trim()) {
+    const brevo = brevoConfig(env);
+    if (!brevo) throw new Error('Brevo email settings are incomplete: set SMTP_FROM to a verified sender.');
+
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'api-key': brevo.apiKey,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: brevo.sender,
+        to: [{ email: delivery.recipientEmail }],
+        subject: delivery.subject,
+        textContent: delivery.text,
+        htmlContent: delivery.html,
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!response.ok) {
+      throw new Error(`Brevo API request failed with status ${response.status}.`);
+    }
+    return;
+  }
+
   const config = smtpConfig(env);
   if (!config) throw new Error('SMTP email settings are incomplete.');
 
@@ -163,8 +212,8 @@ async function safeProcessPendingEmailDeliveries() {
 }
 
 function startEmailDeliverySchedule() {
-  if (!smtpConfig()) {
-    console.warn('Email delivery is disabled: configure SMTP_HOST and SMTP_FROM (and SMTP_USER/SMTP_PASS when required).');
+  if (!emailConfig()) {
+    console.warn('Email delivery is disabled: configure BREVO_API_KEY and SMTP_FROM, or SMTP_HOST and SMTP_FROM (and SMTP_USER/SMTP_PASS when required).');
     return;
   }
   cron.schedule('* * * * *', safeProcessPendingEmailDeliveries, { timezone: TIMEZONE });
@@ -174,7 +223,10 @@ function startEmailDeliverySchedule() {
 module.exports = {
   EMAIL_NOTIFICATION_TYPES,
   smtpConfig,
+  brevoConfig,
+  emailConfig,
   queueNotificationEmail,
+  sendEmail,
   processPendingEmailDeliveries,
   startEmailDeliverySchedule,
 };

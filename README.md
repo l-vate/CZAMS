@@ -57,15 +57,14 @@ JWT_SECRET=your_secret_key
 > Do not commit `.env` to GitHub.
 
 ### Optional email notifications (Brevo)
-
-The backend sends selected booking, payment, reschedule, job, back-job, and service-reminder notifications by email when SMTP is configured. To enable Brevo:
+The backend sends selected booking, payment, reschedule, job, back-job, and service-reminder notifications by email when Brevo or SMTP is configured. On Render, use the Brevo HTTPS API so delivery does not depend on outbound SMTP ports:
 
 1. In Brevo, verify a sender email address (or authenticate your sending domain).
-2. Open **Settings → SMTP & API → SMTP** and obtain the SMTP login and SMTP key. Use the SMTP key here, not your API key or account password.
-3. Copy `server/.env.example` to `server/.env` and fill `SMTP_USER` with the Brevo SMTP login, `SMTP_PASS` with the SMTP key, and `SMTP_FROM` with the verified sender address (for example, `CZAMS <notifications@yourdomain.com>`).
-4. Keep `SMTP_HOST=smtp-relay.brevo.com`, `SMTP_PORT=587`, and `SMTP_SECURE=false`, then restart the backend.
+2. In Brevo, open **Settings → SMTP & API → API keys** and create an API key.
+3. In Render's backend service environment settings, set `BREVO_API_KEY` to that API key and `SMTP_FROM` to the verified sender address (for example, `CZAMS <notifications@yourdomain.com>`). Do not use the SMTP key or your account password for `BREVO_API_KEY`.
+4. Redeploy or restart the backend. When `BREVO_API_KEY` is configured, the backend sends through `https://api.brevo.com/v3/smtp/email` over HTTPS; it takes precedence over SMTP.
 
-For deployment, configure the same values in the backend host's environment-variable settings. Email delivery uses a persistent queue and retries temporary failures; in-app notifications continue to work independently of email delivery. Never commit `server/.env` or share the SMTP key.
+For local development or hosts that allow outbound SMTP, the SMTP settings in `server/.env.example` remain available as a fallback when `BREVO_API_KEY` is unset. Email delivery uses a persistent queue and retries temporary failures; in-app notifications continue to work independently of email delivery. Never commit `server/.env` or share either key.
 
 ## Running the Project
 

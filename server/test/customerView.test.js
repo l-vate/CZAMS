@@ -202,7 +202,9 @@ test('PATCH cancel returns the customer view', async () => {
 
 test('PATCH reschedule returns the customer view', async () => {
   DB = [doc({ status: 'Pending', rescheduleRequest: undefined })];
+  // about ten days ahead, never a Sunday (the shop is closed, so the server would refuse it and the test would depend on the weekday it runs)
   const date = new Date(Date.now() + 10 * 86400000);
+  if (date.getDay() === 0) date.setDate(date.getDate() + 1);
   const day = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   const res = await call('PATCH', '/api/bookings/CZ-1/reschedule', 'CUS1', { date: day, time: 'Afternoon' });
   assert.equal(res.status, 200, JSON.stringify(res.body));

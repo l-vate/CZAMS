@@ -33,7 +33,7 @@ const PASS_THROUGH = [
   'balancePaymentStatus', 'proofFile', 'balanceProofFile', 'referenceNumber', 'balanceReferenceNumber',
   'distanceAdjustment', 'mobilizationFee', 'promo', 'isCommercial', 'vatAmount', 'poNumber', 'paymentTermsDays', 'paymentDueAt',
   'feedback', 'completedAt', 'cancelledAt', 'cancelledBy', 'reportSubmitted', 'isBackJob', 'backJobId',
-  'service', 'customer', 'warranty', 'priceSnapshot',
+  'service', 'customer', 'warranty', 'priceSnapshot', 'quotationTerms', 'taxInclusive', 'site',
 ];
 
 // Fields built piece by piece below, so only the safe parts leave.
@@ -44,6 +44,8 @@ const SHAPED = ['technician', 'assignments', 'discount', 'refund', 'rescheduleRe
 const HIDDEN = [
   'technicianInstructions', 'assignmentHistory', 'queueRank', 'serviceAreaCheck', 'approvedAt',
   'reportId', 'report', '__v', 'id', 'paymentEvents', 'needsReassignment', 'paymentCheckAfterCancel',
+  // the raw quotation settings; the customer gets the effective terms (quotationTerms) instead
+  'quotation',
 ];
 
 function toCustomerView(booking) {

@@ -21,6 +21,7 @@ const LOOKS = {
   [T.PAYMENT_REJECTED]: ['Payment needs attention', 'coral'],
   [T.CHARGE_UPDATED]: ['Charges updated', 'amber'],
   [T.SCOPE_UPDATED]: ['Scope of works updated', 'amber'],
+  [T.QUOTATION_UPDATED]: ['Quotation updated', 'amber'],
   [T.UNIT_REQUEST_RESOLVED]: ['Your unit is confirmed', 'teal'],
   [T.UNIT_REQUEST_DECLINED]: ['Unit request declined', 'coral'],
   [T.REFUND_REQUESTED]: ['Refund requested', 'amber'],

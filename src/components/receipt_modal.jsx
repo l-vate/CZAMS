@@ -3,6 +3,7 @@ import { getMe } from '../services/userService';
 import { documentTitle } from '../utils/receiptStatus';
 import { ProofLink } from './proof_file';
 import { BRAND_NAME, COMPANY_PHONE } from '../config/company';
+import { formatDays, formatMonths, siteLines, vatInside } from '../utils/quotationTerms';
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -41,6 +42,9 @@ function ReceiptModal({ form, booking, billTo, onClose }) {
   // walk-in booking made under a Commercial client account.
   const isCommercial = booking?.isCommercial || form.isCommercial;
   const vatAmount = booking?.vatAmount || form.vatAmount || 0;
+  const taxInclusive = booking?.taxInclusive ?? form.taxInclusive;
+  const terms = booking?.quotationTerms || form.quotationTerms;
+  const site = booking?.site || form.site;
   const poNumber = booking?.poNumber || form.poNumber;
   const paymentTermsDays = booking?.paymentTermsDays || form.paymentTermsDays;
   const paymentDueAt = booking?.paymentDueAt || form.paymentDueAt;
@@ -105,6 +109,23 @@ function ReceiptModal({ form, booking, billTo, onClose }) {
             <div className="receipt-info-row"><span>Contact Number:</span><span>{form.contactNumber || '-'}</span></div>
           </div>
 
+          {(terms || siteLines(site).length > 0) && (
+            <div className="receipt-section">
+              <p className="receipt-section-title">Job Details</p>
+              {siteLines(site).map(([label, value]) => (
+                <div className="receipt-info-row" key={label}><span>{label}:</span><span>{value}</span></div>
+              ))}
+              {terms?.estimatedDays && <div className="receipt-info-row"><span>Estimated time:</span><span>{formatDays(terms.estimatedDays)}</span></div>}
+              {terms?.exclusions && <div className="receipt-info-row"><span>Not included:</span><span>{terms.exclusions.join(', ')}</span></div>}
+              {terms?.warranty && (
+                <div className="receipt-info-row">
+                  <span>Warranty:</span>
+                  <span>Workmanship {formatMonths(terms.warranty.workmanshipMonths)}{terms.warranty.unitText ? `; unit: ${terms.warranty.unitText}` : ''}</span>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="receipt-section">
             <p className="receipt-section-title">Service Details</p>
             <table className="receipt-table">
@@ -150,7 +171,18 @@ function ReceiptModal({ form, booking, billTo, onClose }) {
               </>
             )}
 
-            {isCommercial ? (
+            {isCommercial && taxInclusive ? (
+              <>
+                <div className="receipt-info-row">
+                  <span>Total (VAT included)</span>
+                  <span>₱{basePrice.toLocaleString()}</span>
+                </div>
+                <div className="receipt-info-row">
+                  <span>VAT included (12%)</span>
+                  <span>₱{(vatAmount || vatInside(basePrice)).toLocaleString()}</span>
+                </div>
+              </>
+            ) : isCommercial ? (
               <>
                 <div className="receipt-info-row">
                   <span>Subtotal</span>
@@ -166,10 +198,18 @@ function ReceiptModal({ form, booking, billTo, onClose }) {
                 </div>
               </>
             ) : (
-              <div className="receipt-info-row">
-                <span>Total</span>
-                <span>₱{basePrice.toLocaleString()}</span>
-              </div>
+              <>
+                <div className="receipt-info-row">
+                  <span>Total</span>
+                  <span>₱{basePrice.toLocaleString()}</span>
+                </div>
+                {taxInclusive && (
+                  <div className="receipt-info-row">
+                    <span>VAT included in the price (12%)</span>
+                    <span>₱{vatInside(basePrice).toLocaleString()}</span>
+                  </div>
+                )}
+              </>
             )}
 
             <div className="receipt-info-row">

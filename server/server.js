@@ -30,6 +30,7 @@ app.use('/api/services', require('./routes/serviceRoutes'));
 app.use('/api/bookings', require('./routes/bookingRoutes'));
 app.use('/api/bookings', require('./routes/scopeLineRoutes'));
 app.use('/api/bookings', require('./routes/unitRequestRoutes'));
+app.use('/api/bookings', require('./routes/quotationRoutes'));
 app.use('/api/supplied-units', require('./routes/suppliedUnitRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/reports', require('./routes/reportRoutes'));

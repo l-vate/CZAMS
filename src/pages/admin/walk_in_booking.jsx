@@ -535,6 +535,9 @@ function WalkInBooking() {
       formData.append('technician', form.technician || '');
       formData.append('address', form.address);
       formData.append('contactNumber', form.contactNumber || '');
+      if (form.siteBuilding) formData.append('siteBuilding', form.siteBuilding);
+      if (form.siteFloorRoom) formData.append('siteFloorRoom', form.siteFloorRoom);
+      if (form.siteAttention) formData.append('siteAttention', form.siteAttention);
       if (form.discountType && !isCommercial) {
         formData.append('discountType', form.discountType);
         if (form.discountIdFileObj) formData.append('discountId', form.discountIdFileObj);

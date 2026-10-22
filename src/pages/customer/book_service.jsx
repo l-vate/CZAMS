@@ -5,6 +5,8 @@ import PaymentModal from '../../components/payment_modal';
 import ClosureDateInput from '../../components/closure_date_input';
 import BelowSelect from '../../components/below_select';
 import SuppliedUnitPicker from '../../components/supplied_unit_picker';
+import QuotationTerms from '../../components/quotation_terms';
+import { standardTerms } from '../../utils/quotationTerms';
 import { listSuppliedUnits } from '../../services/suppliedUnitService';
 import { brandsLine, hasChoice, unitsForSubmit } from '../../utils/suppliedUnitChoice';
 import DiscountOption from '../../components/discount_option';
@@ -530,6 +532,24 @@ export function Step3({ form, setForm, technicians }) {
       </div>
 
       <div className="bs-field-group">
+        <label className="bs-label">Site details <span className="bs-label-hint">(Optional)</span></label>
+        <div className="bs-two-col">
+          <input
+            type="text" className="bs-input" placeholder="Building" aria-label="Building" maxLength={100}
+            value={form.siteBuilding || ''} onChange={(e) => setForm({ ...form, siteBuilding: e.target.value })}
+          />
+          <input
+            type="text" className="bs-input" placeholder="Floor or room" aria-label="Floor or room" maxLength={100}
+            value={form.siteFloorRoom || ''} onChange={(e) => setForm({ ...form, siteFloorRoom: e.target.value })}
+          />
+        </div>
+        <input
+          type="text" className="bs-input" placeholder="Attention: who should the technician ask for?" aria-label="Attention" maxLength={100}
+          value={form.siteAttention || ''} onChange={(e) => setForm({ ...form, siteAttention: e.target.value })}
+        />
+      </div>
+
+      <div className="bs-field-group">
         <label className="bs-label">Contact Number</label>
         <input
           type="tel"
@@ -571,7 +591,7 @@ const PAYMENT_STATUS_LABELS = {
 
 function Step4({ form, setForm, services, isReturnCustomer, isCommercial = false, onAgreedTerms, paymentMethods, downPaymentPercentages, promos }) {
   const [showModal, setShowModal] = useState(false);
-  const { lineItems, basePrice, discountAmount, discountLabel, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages), 0, promos);
+  const { selected: selectedService, lineItems, basePrice, discountAmount, discountLabel, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages), 0, promos);
   const isNoDownPayment = dpPercent === 0;
   // A customer pays online by GCash or Bank Transfer only, for both payments. Cash and cheque are recorded by our team on site.
   const onlineMethods = paymentMethods.filter((m) => ONLINE_PAYMENT_MODES.includes(m.name));
@@ -607,6 +627,10 @@ const handleSubmitPayment = ({ proof, referenceNumber }) => {
         <div className="bs-card bs-step4-left">
           <h3 className="bs-card-title">Payment</h3>
           <p className="bs-card-sub">Choose payment option.</p>
+
+          {selectedService?.serviceType === SERVICE_TYPE.INSTALLATION && (
+            <QuotationTerms terms={standardTerms({ clientSuppliedUnit: !!form.clientSuppliedUnit })} isCommercial={isCommercial} />
+          )}
 
           {/* Down Payment - 2×2 radio grid (return customers get an extra 0% option) */}
           <div className="bs-field-group">
@@ -901,6 +925,9 @@ const canNext = () => {
       formData.append('technician', form.technician || '');
       formData.append('address', form.address);
       formData.append('contactNumber', form.contactNumber || '');
+      if (form.siteBuilding) formData.append('siteBuilding', form.siteBuilding);
+      if (form.siteFloorRoom) formData.append('siteFloorRoom', form.siteFloorRoom);
+      if (form.siteAttention) formData.append('siteAttention', form.siteAttention);
       if (form.poNumber) formData.append('poNumber', form.poNumber);
       formData.append('clientSuppliedUnit', form.clientSuppliedUnit || false);
       if (form.clientSuppliedUnit) {

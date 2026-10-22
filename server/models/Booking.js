@@ -323,6 +323,24 @@ const bookingSchema = new mongoose.Schema({
     // excess pipe and other lines are service work (the Senior/PWD discount applies to them); a distance line is a charge (never
     // discounted) and is the same charge as distanceAdjustment, which follows the distance lines so it is never counted twice. They add
     // to the total and the remaining balance, never to the down payment. A booking with no lines is priced exactly as before.
+    // The quotation details of an Installation (utils/quotation.js). Written with the standard defaults when the booking is made, then changed
+    // per booking by the admin (routes/quotationRoutes.js). A booking made before these existed has none and shows none; its warranty keeps
+    // following the standard windows. warrantyMonths, when set, is the workmanship warranty that booking gets instead of the standard window.
+    quotation: {
+        estimatedDays: { min: Number, max: Number },
+        exclusions: [String],
+        warrantyMonths: Number,
+        unitWarrantyText: String,
+    },
+    // The quoted prices already include 12% VAT: the VAT is shown as part of the price and nothing is added on top (utils/pricing.js getVatAmount).
+    taxInclusive: { type: Boolean, default: false },
+    // Where the work is, beyond the address: the building, the floor or room, and who to ask for. For the admin and the technicians.
+    site: {
+        building: String,
+        floorRoom: String,
+        attention: String,
+    },
+
     scopeLines: [{
       kind: { type: String, enum: ['dismantling', 'installation', 'excessPipe', 'distance', 'other'], required: true },
       description: { type: String, required: true, maxlength: 120 },

@@ -34,6 +34,7 @@ function toTechnicianView(booking, extra = {}) {
     contactNumber: b.contactNumber,
     problemDescription: b.problemDescription,
     technicianInstructions: b.technicianInstructions,
+    site: b.site ? pick(b.site, ['building', 'floorRoom', 'attention']) : undefined,
 
     service: b.service && typeof b.service === 'object'
       ? pick(b.service, ['_id', 'name', 'serviceType', 'category'])

@@ -6,6 +6,8 @@ import FeedbackModal from '../../components/feedback_modal';
 import BackJobModal from '../../components/back_job_modal';
 import ServiceReportViewer from '../../components/service_report_viewer';
 import { getBookingLineItems, getPaymentBreakdown, formatPeso } from '../../utils/bookingPricing';
+import QuotationTerms from '../../components/quotation_terms';
+import { vatInside } from '../../utils/quotationTerms';
 import { getMemberNames } from '../../utils/assignments';
 import { earliestBookingKey, manilaTodayKey } from '../../utils/manilaTime';
 import { bookingHeading } from '../../utils/bookingHeading';
@@ -629,6 +631,8 @@ function BookDetails() {
             </div>
           </div>
 
+          <QuotationTerms terms={booking.quotationTerms} site={booking.site} isCommercial={booking.isCommercial} title="Quotation terms" />
+
           <div className="confirmation-details-grid">
             <div>
               <p className="summary-section-title">{booking.service?.name || '-'}</p>
@@ -710,6 +714,21 @@ function BookDetails() {
                 </div>
               )}
               <div className="summary-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}</span></div>
+              {booking.isCommercial && booking.taxInclusive && (
+                <div className="summary-row"><span>VAT included (12%)</span><span>₱{(booking.vatAmount ?? vatInside(basePrice)).toLocaleString()}</span></div>
+              )}
+              {booking.isCommercial && !booking.taxInclusive && (
+                <>
+                  <div className="summary-row"><span>VAT (12%)</span><span>₱{(booking.vatAmount || 0).toLocaleString()}</span></div>
+                  <div className="summary-row"><span>Total incl. VAT</span><span>₱{(basePrice + (booking.vatAmount || 0)).toLocaleString()}</span></div>
+                </>
+              )}
+              {!booking.isCommercial && booking.taxInclusive && (
+                <div className="summary-row"><span>VAT included in the price (12%)</span><span>₱{vatInside(basePrice).toLocaleString()}</span></div>
+              )}
+              {booking.isCommercial && booking.paymentTermsDays > 0 && (
+                <div className="summary-row"><span>Payment Terms</span><span>{booking.paymentTermsDays} days after completion</span></div>
+              )}
               <div className="summary-row"><span>Down Payment</span><span>{dpPercent === null ? 'Not set' : `${dpPercent}%`}</span></div>
               <div className="summary-row"><span>Amount Paid</span><span>₱{toPayNow.toLocaleString()}</span></div>
               <div className="summary-row"><span>Remaining Balance</span><span>₱{remaining.toLocaleString()}</span></div>

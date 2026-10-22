@@ -4,6 +4,7 @@ import AssignmentPanel from './assignment_panel';
 import SuggestedDates from './suggested_dates';
 import PaymentReference from './payment_reference';
 import ScopeOfWorksEditor from './scope_of_works_editor';
+import QuotationEditor from './quotation_editor';
 import UnitRequestPanel from './unit_request_panel';
 import ClosureDateInput from './closure_date_input';
 import { warrantyStatusText } from '../utils/warrantyText';
@@ -765,7 +766,7 @@ const [report, setReport] = useState(null);
                                 {booking.isCommercial && (
                                     <>
                                         <div className="sdm-list-row">
-                                            <span>VAT (12%)</span>
+                                            <span>{booking.taxInclusive ? 'VAT included (12%)' : 'VAT (12%)'}</span>
                                             <span className="sdm-list-value">₱{(booking.vatAmount || 0).toLocaleString()}</span>
                                         </div>
                                         {booking.poNumber && (
@@ -1101,6 +1102,8 @@ const [report, setReport] = useState(null);
                     </div>
 
                     <ScopeOfWorksEditor booking={booking} onUpdated={onUpdated} />
+
+                    <QuotationEditor booking={booking} onUpdated={onUpdated} />
 
                     <AssignmentPanel booking={booking} onUpdated={onUpdated} />
                     <AssignmentHistory bookingId={booking.bookingId} admin refreshKey={JSON.stringify(booking.assignments || [])} />

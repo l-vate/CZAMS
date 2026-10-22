@@ -111,7 +111,11 @@ function getWarrantyStatus(booking, now = new Date()) {
 
   if (serviceType === SERVICE_TYPE.INSTALLATION) {
     const clientSupplied = !!booking.clientSuppliedUnit;
-    const workmanshipExpiresAt = windowEnd(completedAt, clientSupplied ? WARRANTY_WINDOWS.installationCustomerUnit : WARRANTY_WINDOWS.installationCompanyUnit);
+    // The standard window, unless the admin set the workmanship months for this booking (its quotation): then that is what it gets.
+    const customMonths = Number.isFinite(booking.quotation?.warrantyMonths) ? booking.quotation.warrantyMonths : null;
+    const workmanshipExpiresAt = customMonths !== null
+      ? addMonths(completedAt, customMonths)
+      : windowEnd(completedAt, clientSupplied ? WARRANTY_WINDOWS.installationCustomerUnit : WARRANTY_WINDOWS.installationCompanyUnit);
 
     // Unit warranty (compressor/minor parts) only exists for a unit CZA actually
     // supplied - a client-supplied unit has no unit warranty at all (that's what

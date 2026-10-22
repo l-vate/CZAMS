@@ -453,6 +453,7 @@ export function Step3({ form, setForm, technicians }) {
             value={form.date}
             onChange={(date) => setForm({ ...form, date })}
             showEarliest
+            blockFull
           />
         </div>
 

@@ -132,7 +132,7 @@ function RescheduleModal({ booking, onClose, onSubmit, submitting }) {
 
         <div className="bs-field-group">
           <label className="bs-label">New Date</label>
-          <ClosureDateInput min={minDate} value={date} onChange={setDate} showEarliest />
+          <ClosureDateInput min={minDate} value={date} onChange={setDate} showEarliest blockFull />
         </div>
 
         <div className="bs-field-group">

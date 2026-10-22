@@ -972,7 +972,7 @@ router.get('/:bookingId/reference-duplicates', auth, async (req, res) => {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
     }
-    const booking = await Booking.findOne({ bookingId: req.params.bookingId }).select('bookingId referenceNumber balanceReferenceNumber');
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId }).select('bookingId referenceNumber balanceReferenceNumber paymentMode paymentMode2');
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
     res.json({ duplicates: await findSameReference(Booking, booking) });
   } catch (err) {

@@ -22,7 +22,7 @@ const booking = (over = {}) => addBooking({
 async function submit(path, fields = {}) {
   const token = jwt.sign({ id: 'CUS1', role: 'customer' }, process.env.JWT_SECRET, { expiresIn: '5m' });
   const form = new FormData();
-  form.append('referenceNumber', 'GC123456');
+  form.append('referenceNumber', '1234567890123');
   Object.entries(fields).forEach(([k, v]) => form.append(k, v));
   form.append('proof', new Blob([PNG], { type: 'image/png' }), 'proof.png');
   const res = await fetch(`${base()}/api/bookings/CZ-1/${path}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form });

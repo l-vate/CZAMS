@@ -28,7 +28,7 @@ const send = async (method, route, fields, parts, as = 'CUS1', role = 'customer'
 
 const bookingFields = (over = {}) => ({
   service: 'S-CLEAN', units: JSON.stringify([{ type: 'Split Type', quantity: 1 }]), date: goodDate(7), time: 'Morning', address: 'Quezon City',
-  contactNumber: '09171234567', downPaymentPercent: '50', paymentMode: 'GCash', referenceNumber: 'GC123456',
+  contactNumber: '09171234567', downPaymentPercent: '50', paymentMode: 'GCash', referenceNumber: '1234567890123',
   lastCleanedOver6MonthsAgo: 'false', isActivelyLeaking: 'false', ...over,
 });
 const existing = (over = {}) => addBooking({
@@ -75,7 +75,7 @@ test('an admin walk-in booking stores its proof under the admin as uploader', as
 
 test('a balance proof is stored as a proof for that booking', async () => {
   existing();
-  const pay = await send('PATCH', '/CZ-1/pay-balance', { referenceNumber: 'GC987654' }, [{ field: 'proof' }]);
+  const pay = await send('PATCH', '/CZ-1/pay-balance', { referenceNumber: '9876543210987' }, [{ field: 'proof' }]);
   assert.equal(pay.status, 200, JSON.stringify(pay.body));
   const [file] = await files();
   assert.equal(file.metadata.kind, 'proof');
@@ -95,7 +95,7 @@ test('a discount request stores the ID photo as an id photo for that booking', a
 
 test('a file that is not what it says it is is refused before anything is stored', async () => {
   existing();
-  const res = await send('PATCH', '/CZ-1/pay-balance', { referenceNumber: 'GC987654' }, [{ field: 'proof', bytes: HTML }]);
+  const res = await send('PATCH', '/CZ-1/pay-balance', { referenceNumber: '9876543210987' }, [{ field: 'proof', bytes: HTML }]);
   assert.equal(res.status, 400);
   assert.match(res.body.message, /not a real/);
   const svg = await send('POST', '', bookingFields(), [{ field: 'proof', bytes: Buffer.from('<svg/>'), type: 'image/svg+xml' }]);

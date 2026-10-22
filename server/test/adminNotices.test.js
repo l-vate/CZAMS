@@ -52,7 +52,7 @@ test('a payment proof sent by the customer tells every admin once, for the down 
   const token = jwt.sign({ id: 'CUS1', role: 'customer' }, process.env.JWT_SECRET, { expiresIn: '5m' });
   const send = async (route) => {
     const form = new FormData();
-    form.append('referenceNumber', 'GC123456');
+    form.append('referenceNumber', '1234567890123');
     form.append('proof', new Blob([Buffer.from(PNG_DATA_URL.split(',')[1], 'base64')], { type: 'image/png' }), 'proof.png');
     const res = await fetch(`${harness.base()}/api/bookings/CZ-1/${route}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form });
     return res.status;

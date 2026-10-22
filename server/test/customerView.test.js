@@ -232,7 +232,7 @@ const callPay = async (path, as) => {
   const token = jwt.sign({ id: as, role: accounts[as] }, process.env.JWT_SECRET, { expiresIn: '5m' });
   const png = Buffer.from(PNG_DATA_URL.split(',')[1], 'base64');
   const form = new FormData();
-  form.append('referenceNumber', 'GC123456');
+  form.append('referenceNumber', '1234567890123');
   form.append('proof', new Blob([png], { type: 'image/png' }), 'proof.png');
   const res = await fetch(`${base}${path}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form });
   return { status: res.status, body: await res.json().catch(() => ({})) };

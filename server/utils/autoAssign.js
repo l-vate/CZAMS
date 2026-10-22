@@ -13,6 +13,8 @@
 const User = require('../models/User');
 const Booking = require('../models/Booking');
 const Closure = require('../models/Closure');
+const TechnicianOff = require('../models/TechnicianOff');
+const { offByDate, offRowsBetween } = require('./technicianOff');
 const { activeStatuses, getMemberIds, getMinTechnicians } = require('./assignments');
 const { manilaTodayKey } = require('./timeBlocks');
 const { listFieldTechnicians } = require('./technicians');
@@ -169,6 +171,11 @@ async function loadContext(booking) {
   const upcomingBookings = memberLists(nearby.filter((b) => b.date >= today));
 
   const busyByDate = busyByDateOf(nearby, booking.time);
+  // technicians marked as not available count as busy on their dates
+  offByDate(await offRowsBetween(TechnicianOff, today, horizon), booking.time).forEach((ids, date) => {
+    if (!busyByDate.has(date)) busyByDate.set(date, new Set());
+    ids.forEach((id) => busyByDate.get(date).add(id));
+  });
   const closedDates = new Set((await Closure.find({ date: { $gte: today, $lte: horizon } }).select('date').lean()).map((c) => c.date));
   return { minTechnicians, technicians, weekBookings, upcomingBookings, busyByDate, closedDates };
 }

@@ -71,14 +71,14 @@ test('a payment proof sent by the customer tells every admin once, for the down 
 test('a customer cancelling without a refund tells every admin once; with a refund waiting, the refund notice covers it', async () => {
   booking({ status: 'Pending' });
   assert.equal((await call('PATCH', '/CZ-1/cancel', 'CUS1')).status, 200);
-  assert.deepEqual(toAdmins('booking_cancelled'), ['ADM1', 'ADM2']);
+  assert.deepEqual(toAdmins('booking_cancelled'), ['ADM1', 'ADM2', 'CUS1']);
   assert.deepEqual(toAdmins('refund_requested'), []);
 
   harness.reset({ users: state.users, services: state.services });
   booking({ status: 'Pending', paymentStatus: 'partially_paid', downPaymentPaidAmount: 1000 });
   assert.equal((await call('PATCH', '/CZ-1/cancel', 'CUS1')).status, 200);
   assert.deepEqual(toAdmins('refund_requested'), ['ADM1', 'ADM2']);
-  assert.deepEqual(toAdmins('booking_cancelled'), [], 'not told twice');
+  assert.deepEqual(toAdmins('booking_cancelled'), ['CUS1'], 'admins not told twice (only the customer confirmation remains)');
 });
 
 test('a customer flagging a refund tells every admin once', async () => {

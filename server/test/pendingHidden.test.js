@@ -13,6 +13,7 @@ process.env.JWT_SECRET = 'test-secret-not-a-real-one';
 
 const User = require('../models/User');
 const Booking = require('../models/Booking');
+const TechnicianOff = require('../models/TechnicianOff');
 const Report = require('../models/Report');
 const Notification = require('../models/Notification');
 const { authCache } = require('../utils/authCache');
@@ -49,6 +50,7 @@ test.before(async () => {
   };
   User.findOne = () => chain({ _id: 'ADM1' });
   Booking.find = (filter) => chain(DB.filter((d) => matches(d, filter)));
+  TechnicianOff.find = () => chain([]);
   Booking.findOne = (filter) => chain(DB.find((d) => matches(d, filter)) || null);
   Booking.updateOne = async () => ({});
   Report.findOne = (f) => chain(REPORTS.find((r) => r.bookingId === f.bookingId) || null);

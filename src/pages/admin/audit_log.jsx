@@ -3,7 +3,7 @@ import AdminLayout from './admin_layout';
 import LoadError from '../../components/load_error';
 import { listAuditLog } from '../../services/auditService';
 
-const RECORD_TYPES = ['', 'Booking', 'User', 'PaymentSettings', 'Promo', 'Service', 'Announcement', 'Closure', 'Report', 'BackJob'];
+const RECORD_TYPES = ['', 'Booking', 'User', 'PaymentSettings', 'Promo', 'Service', 'Announcement', 'Closure', 'TechnicianOff', 'Report', 'BackJob'];
 const EMPTY = { from: '', to: '', actor: '', action: '', entityType: '', entityId: '' };
 
 // When it happened, in Manila time.

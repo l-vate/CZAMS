@@ -14,6 +14,7 @@ const BackJob = require('../models/BackJob');
 const Report = require('../models/Report');
 const Notification = require('../models/Notification');
 const Closure = require('../models/Closure');
+const TechnicianOff = require('../models/TechnicianOff');
 const { authCache } = require('../utils/authCache');
 const { toCustomerView, toCustomerBackJob, PASS_THROUGH, SHAPED, HIDDEN } = require('../utils/customerView');
 const { matches, chain } = require('./helpers/memoryQueries');
@@ -155,6 +156,7 @@ test.before(async () => {
   Notification.create = async (d) => d;
   Closure.findOne = () => chain(null);
   Closure.find = () => chain([]);
+  TechnicianOff.find = () => chain([]);
 
   const app = express();
   app.use(express.json());

@@ -9,6 +9,8 @@ const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const User = require('../models/User');
 const Booking = require('../models/Booking');
 const Closure = require('../models/Closure');
+const TechnicianOff = require('../models/TechnicianOff');
+const { offIdsAt, offRowsBetween } = require('./technicianOff');
 const { activeStatuses, getMemberIds } = require('./assignments');
 const { slotsOf } = require('./extensionDays');
 const { listFieldTechnicians } = require('./technicians');
@@ -29,12 +31,13 @@ const { isSunday, sundaysAreClosed } = require('./businessDays');
 const KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 // Whether one date and time block still has a free pair of field technicians. `technicians` are the active field technicians,
-// `bookings` the ones that hold a slot (activeStatuses(): Pending counts, first come first served). A Pending request nobody has been
+// `bookings` the ones that hold a slot (activeStatuses(): Pending counts, first come first served), `offIds` the technicians the admin
+// marked as not available in that date and block (utils/technicianOff.js). A Pending request nobody has been
 // assigned to yet counts as waiting for a pair, so it uses one up before the proposal is even made. Booking creation, the customer
 // reschedule and the public calendar all ask this one function.
-function blockIsOpen({ technicians, bookings, date, time }) {
+function blockIsOpen({ technicians, bookings, date, time, offIds = new Set() }) {
   const sameBlock = bookings.filter((b) => slotsOf(b).some((s) => s.date === date && s.time === time));
-  const busy = new Set(sameBlock.flatMap(getMemberIds));
+  const busy = new Set([...sameBlock.flatMap(getMemberIds), ...offIds]); // technicians off that day are as unavailable as busy ones
   const waiting = sameBlock.filter((b) => b.status === BOOKING_STATUS.PENDING && getMemberIds(b).length === 0).length;
   const freeUnits = Math.floor(technicians.filter((t) => !busy.has(t._id)).length / 2);
   return freeUnits - waiting > 0;
@@ -42,15 +45,16 @@ function blockIsOpen({ technicians, bookings, date, time }) {
 
 // The same answer for a single slot, read from the database. `excludeBookingId` leaves one booking out (the one being moved).
 async function isSlotOpen(date, time, excludeBookingId) {
-  const [technicians, bookings] = await Promise.all([
+  const [technicians, bookings, offRows] = await Promise.all([
     listFieldTechnicians(User, '_id'),
     Booking.find({
       status: { $in: activeStatuses() },
       $or: [{ date }, { extensionDays: { $elemMatch: { date } } }],
       ...(excludeBookingId ? { bookingId: { $ne: excludeBookingId } } : {}),
     }).select('date time status technician assignments extensionDays'),
+    offRowsBetween(TechnicianOff, date, date),
   ]);
-  return blockIsOpen({ technicians, bookings, date, time });
+  return blockIsOpen({ technicians, bookings, date, time, offIds: offIdsAt(offRows, date, time) });
 }
 
 // Returns [{ date, status, morning, afternoon }] for every day from `from` to `to` (inclusive).
@@ -60,11 +64,12 @@ async function getAvailability(from, to) {
   const today = manilaTodayKey();
   const firstBookable = addDays(today, MIN_LEAD_DAYS);
 
-  const [technicians, bookings, closures] = await Promise.all([
+  const [technicians, bookings, closures, offRows] = await Promise.all([
     listFieldTechnicians(User, '_id'),
     Booking.find({ status: { $in: activeStatuses() }, $or: [{ date: { $gte: from, $lte: to } }, { 'extensionDays.date': { $gte: from, $lte: to } }] })
       .select('date time status technician assignments extensionDays'),
     Closure.find({ date: { $gte: from, $lte: to } }).select('date reason').lean(),
+    offRowsBetween(TechnicianOff, from, to),
   ]);
   const closureReason = new Map(closures.map((c) => [c.date, c.reason]));
 
@@ -77,7 +82,7 @@ async function getAvailability(from, to) {
 
     const open = {};
     TIME_BLOCKS.forEach((block) => {
-      open[block] = blockIsOpen({ technicians, bookings, date: key, time: block });
+      open[block] = blockIsOpen({ technicians, bookings, date: key, time: block, offIds: offIdsAt(offRows, key, block) });
     });
 
     const openCount = Object.values(open).filter(Boolean).length;

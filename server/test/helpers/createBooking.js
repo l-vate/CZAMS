@@ -10,6 +10,7 @@ const User = require('../../models/User');
 const Booking = require('../../models/Booking');
 const Service = require('../../models/Service');
 const Closure = require('../../models/Closure');
+const TechnicianOff = require('../../models/TechnicianOff');
 const Promo = require('../../models/Promo');
 const Counter = require('../../models/Counter');
 const PaymentSettings = require('../../models/PaymentSettings');
@@ -23,7 +24,7 @@ const { isFieldTechnician } = require('../../utils/technicians');
 const { createMemoryStore, setStore } = require('../../storage/fileStore');
 const Lock = require('../../models/Lock');
 
-const state = { locks: new Map(), store: null, versioned: false, backJobDelay: 0, users: [], services: [], bookings: [], notes: [], closures: [], promos: [], backJobs: [], settings: null };
+const state = { locks: new Map(), store: null, versioned: false, backJobDelay: 0, users: [], services: [], bookings: [], notes: [], closures: [], techOff: [], promos: [], backJobs: [], settings: null };
 let seq = 0;
 let server;
 let base;
@@ -85,6 +86,7 @@ function reset({ users = [], services = [], settings = DEFAULT_SETTINGS } = {}) 
   state.bookings = [];
   state.notes = [];
   state.closures = [];
+  state.techOff = [];
   state.promos = [];
   state.backJobs = [];
   state.backJobDelay = 0;
@@ -101,6 +103,7 @@ async function install() {
   PaymentSettings.findById = () => chain(state.settings);
   Closure.findOne = (f) => chain(state.closures.find((c) => matches(c, f)) || null);
   Closure.find = (f) => chain(state.closures.filter((c) => matches(c, f)));
+  TechnicianOff.find = (f) => chain(state.techOff.filter((o) => matches(o, f)));
   Promo.find = () => chain(state.promos);
   // locks: creating one that exists fails with a duplicate key error (what the unique _id does in MongoDB); an expired one can be deleted
   Lock.create = async (doc) => {

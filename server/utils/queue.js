@@ -9,6 +9,8 @@ const User = require('../models/User');
 const { activeStatuses, getMemberIds, getMinTechnicians, ASSIGNMENT_POPULATE } = require('./assignments');
 const { slotsOf, addDays } = require('./extensionDays');
 const Closure = require('../models/Closure');
+const TechnicianOff = require('../models/TechnicianOff');
+const { offIdsAt, offRowsBetween } = require('./technicianOff');
 const { manilaTodayKey } = require('./timeBlocks');
 const { suggestFromBookings } = require('./autoAssign');
 const { listFieldTechnicians } = require('./technicians');
@@ -118,8 +120,9 @@ async function getQueue() {
     Booking.find({ status: { $in: activeStatuses() } }).select('bookingId date time technician assignments extensionDays'),
   ]);
 
+  const offRows = await offRowsBetween(TechnicianOff, manilaTodayKey(), addDays(manilaTodayKey(), 365));
   const busyIn = (date, time, ownId) => {
-    const busy = new Set();
+    const busy = offIdsAt(offRows, date, time); // technicians marked as not available are not free
     occupying.forEach((b) => {
       if (b.bookingId !== ownId && slotsOf(b).some((s) => s.date === date && s.time === time)) getMemberIds(b).forEach((id) => busy.add(id));
     });

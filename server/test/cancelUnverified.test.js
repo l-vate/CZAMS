@@ -36,7 +36,7 @@ test('cancelling by the customer with the proof still To Verify opens no refund,
   assert.deepEqual(toAdmins('payment_submitted'), ['ADM1', 'ADM2']);
   assert.match(state.notes.find((n) => n.type === 'payment_submitted').message, /Verify or reject the proof/);
   assert.deepEqual(toAdmins('refund_requested'), []);
-  assert.deepEqual(toAdmins('booking_cancelled'), []);
+  assert.deepEqual(toAdmins('booking_cancelled'), ['CUS1']);
 });
 
 test('cancelling by an admin does the same', async () => {
@@ -108,7 +108,7 @@ test('a booking cancelled with a verified payment opens the refund straight away
   await customerCancel();
   assert.equal(unpaid.refund.status, 'None');
   assert.ok(!unpaid.paymentCheckAfterCancel, 'nothing paid does not wait');
-  assert.deepEqual(toAdmins('booking_cancelled'), ['ADM1', 'ADM2']);
+  assert.deepEqual(toAdmins('booking_cancelled'), ['ADM1', 'ADM2', 'CUS1'], 'both admins, and the customer gets a confirmation');
 });
 
 test('a customer cannot use the admin route to check their own proof', async () => {

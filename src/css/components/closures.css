@@ -127,3 +127,13 @@
 
 .customer-history-error { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .customer-history-error p { margin: 0; }
+
+/* Technician availability panel (components/technician_availability_manager.jsx): who is not available on a date. */
+.tech-off-picker { border: 1px solid var(--border, #e5e7eb); border-radius: var(--radius-sm, 8px); padding: 8px 12px 12px; margin: 0 0 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+.tech-off-picker legend { padding: 0 6px; font-size: 0.8125rem; color: var(--ink-soft); }
+.tech-off-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1.5px solid var(--border, #e5e7eb); border-radius: 999px; font-size: 0.875rem; cursor: pointer; user-select: none; }
+.tech-off-chip input { accent-color: var(--coral, #ff6b4a); }
+.tech-off-chip--on { border-color: var(--coral, #ff6b4a); background: rgba(255, 107, 74, 0.08); font-weight: 600; }
+.tech-off-day { display: grid; gap: 6px; }
+.tech-off-entries { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.tech-off-entries li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }

@@ -291,6 +291,21 @@ const bookingSchema = new mongoose.Schema({
     distanceAdjustment: { type: Number, default: 0 },
     mobilizationFee: { type: Number, default: 0 },
 
+    // The scope of works, built by the admin as lines (routes/scopeLineRoutes.js, rules in utils/scopeLines.js). Dismantling, installation,
+    // excess pipe and other lines are service work (the Senior/PWD discount applies to them); a distance line is a charge (never
+    // discounted) and is the same charge as distanceAdjustment, which follows the distance lines so it is never counted twice. They add
+    // to the total and the remaining balance, never to the down payment. A booking with no lines is priced exactly as before.
+    scopeLines: [{
+      kind: { type: String, enum: ['dismantling', 'installation', 'excessPipe', 'distance', 'other'], required: true },
+      description: { type: String, required: true, maxlength: 120 },
+      quantity: { type: Number, required: true, min: 0 },
+      unitLabel: { type: String, maxlength: 20 },
+      unitRate: { type: Number, required: true, min: 0 },
+      amount: { type: Number, required: true, min: 0 },
+      addedBy: String,
+      addedAt: Date,
+    }],
+
     // Explicit Service Area Boundary: computed at booking creation from a
     // keyword match against the confirmed area list (Quezon City, Pasig, Manila,
     // Cavite, Alabang, GMA, Carmona) - see isWithinServiceArea in

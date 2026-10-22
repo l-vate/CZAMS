@@ -20,6 +20,7 @@ const LOOKS = {
   [T.PAYMENT_VERIFIED]: ['Payment verified', 'teal'],
   [T.PAYMENT_REJECTED]: ['Payment needs attention', 'coral'],
   [T.CHARGE_UPDATED]: ['Charges updated', 'amber'],
+  [T.SCOPE_UPDATED]: ['Scope of works updated', 'amber'],
   [T.REFUND_REQUESTED]: ['Refund requested', 'amber'],
   [T.REFUND_FLAGGED]: ['Refund flagged', 'coral'],
   [T.REFUND_PROCESSED]: ['Refund processed', 'teal'],

@@ -37,7 +37,7 @@ const PASS_THROUGH = [
 ];
 
 // Fields built piece by piece below, so only the safe parts leave.
-const SHAPED = ['technician', 'assignments', 'discount', 'refund', 'rescheduleRequest', 'disruption', 'extensionRequest', 'extensionDays'];
+const SHAPED = ['technician', 'assignments', 'discount', 'refund', 'rescheduleRequest', 'disruption', 'extensionRequest', 'extensionDays', 'scopeLines'];
 
 // Booking fields a customer never receives. Together with PASS_THROUGH and SHAPED this must cover every field
 // of the Booking model (the test checks it), so a new field cannot reach customers by accident.
@@ -84,6 +84,9 @@ function toCustomerView(booking) {
   // The technician's reasons are for the admin; the customer is told the outcome by notification.
   if (b.disruption) out.disruption = pick(b.disruption, ['status', 'rescheduledAt']);
   if (b.extensionRequest) out.extensionRequest = pick(b.extensionRequest, ['status', 'requestedDate', 'requestedTime', 'requestedAt', 'decidedAt']);
+
+  // The scope of works as a breakdown: what, how many, the rate and the amount (not which admin added it).
+  if (Array.isArray(b.scopeLines)) out.scopeLines = b.scopeLines.map((l) => pick(l, ['kind', 'description', 'quantity', 'unitLabel', 'unitRate', 'amount', 'addedAt']));
 
   // The extra days an admin approved (no admin id).
   if (Array.isArray(b.extensionDays)) out.extensionDays = b.extensionDays.map((d) => pick(d, ['date', 'time', 'approvedAt']));

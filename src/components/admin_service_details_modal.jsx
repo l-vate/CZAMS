@@ -3,6 +3,7 @@ import { getBookingLineItems, getPaymentBreakdown, formatPeso } from '../utils/b
 import AssignmentPanel from './assignment_panel';
 import SuggestedDates from './suggested_dates';
 import PaymentReference from './payment_reference';
+import ScopeOfWorksEditor from './scope_of_works_editor';
 import ClosureDateInput from './closure_date_input';
 import { warrantyStatusText } from '../utils/warrantyText';
 import { BRAND_SHORT } from '../config/company';
@@ -692,7 +693,7 @@ const [report, setReport] = useState(null);
                                     <>
                                         {lineItems.map((li, i) => (
                                             <div className="sdm-list-row" key={i}>
-                                                <span>{li.isDiscount ? li.type : `${li.quantity}× ${li.type} @ ${formatPeso(li.unitPrice)}`}</span>
+                                                <span>{li.isDiscount ? li.type : li.isScope ? `${li.type}: ${li.quantity} ${li.unitLabel || 'unit'} @ ${formatPeso(li.unitPrice)}` : `${li.quantity}× ${li.type} @ ${formatPeso(li.unitPrice)}`}</span>
                                                 <span className="sdm-list-value">{formatPeso(li.subtotal)}</span>
                                             </div>
                                         ))}
@@ -1094,6 +1095,8 @@ const [report, setReport] = useState(null);
                             )}
                         </div>
                     </div>
+
+                    <ScopeOfWorksEditor booking={booking} onUpdated={onUpdated} />
 
                     <AssignmentPanel booking={booking} onUpdated={onUpdated} />
                     <AssignmentHistory bookingId={booking.bookingId} admin refreshKey={JSON.stringify(booking.assignments || [])} />

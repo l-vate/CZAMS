@@ -687,7 +687,7 @@ function BookDetails() {
               <p className="summary-section-title"><FiCreditCard /> Payment Details</p>
               {lineItems.filter((li) => li.isCharge).map((li, i) => (
                 <div className="summary-row" key={i}>
-                  <span>{li.type}</span>
+                  <span>{li.isScope ? `${li.type} (${li.quantity} ${li.unitLabel || 'unit'} at ${formatPeso(li.unitPrice)})` : li.type}</span>
                   <span>{formatPeso(li.subtotal)}</span>
                 </div>
               ))}

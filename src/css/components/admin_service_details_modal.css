@@ -139,3 +139,15 @@
   font-size: 0.75rem;
   font-weight: 600;
 }
+
+/* Scope of works (components/scope_of_works_editor.jsx): the admin's lines on a booking. */
+.scope-editor { margin-top: 24px; padding-top: 16px; border-top: 1px solid #eef1f5; }
+.scope-lines { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 10px; }
+.scope-line { padding: 12px 14px; border: 1px solid #e2e8f0; border-radius: 10px; display: grid; gap: 8px; }
+.scope-line-main { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.scope-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.scope-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; align-items: end; }
+.scope-form label { display: grid; gap: 4px; font-size: 0.8125rem; color: #475569; font-weight: 600; }
+.scope-form-wide { grid-column: 1 / -1; }
+.scope-form-amount { grid-column: 1 / -1; margin: 0; font-size: 0.9rem; }
+.scope-add { padding: 12px 14px; border: 1px dashed #cbd5e1; border-radius: 10px; display: grid; gap: 10px; }

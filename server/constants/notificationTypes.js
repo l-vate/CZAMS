@@ -14,6 +14,7 @@ const NOTIFICATION_TYPE = Object.freeze({
   PAYMENT_VERIFIED: 'payment_verified',
   PAYMENT_REJECTED: 'payment_rejected',
   CHARGE_UPDATED: 'charge_updated',
+  SCOPE_UPDATED: 'scope_updated',
   DISCOUNT_REQUESTED: 'discount_requested',
   DISCOUNT_APPROVED: 'discount_approved',
   DISCOUNT_REJECTED: 'discount_rejected',

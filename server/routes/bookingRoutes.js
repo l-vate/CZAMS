@@ -13,7 +13,8 @@ const auth = require('../middleware/auth');
 const Booking = require('../models/Booking');
 const User = require('../models/User');
 const Service = require('../models/Service');
-const { getWarrantyStatus, unitSourceOf } = require('../utils/warranty');
+const { getWarrantyStatus } = require('../utils/warranty');
+const { withWarranty } = require('../utils/bookingView');
 const { sendNotification, notifyAdmins } = require('../utils/notifications');
 const Report = require('../models/Report');
 const {
@@ -74,15 +75,7 @@ const { resolveClassification } = require('../utils/classification');
 
 const { TIME_BLOCKS } = require('../utils/timeBlocks');
 
-// Every route that returns a booking should include its computed warranty status,
-// otherwise the admin/customer detail views lose that section the moment any other
-// field gets updated (same class of bug as Customer Classification's PUT /:id fix).
-function withWarranty(booking) {
-  const obj = booking.toObject();
-  obj.warranty = getWarrantyStatus(booking);
-  obj.unitSource = unitSourceOf(booking); // where an Installation unit came from: 'company' or 'customer'
-  return obj;
-}
+// Every route that returns a booking includes its computed warranty status (utils/bookingView.js).
 
 // The same, for a customer: only the fields a customer may see (utils/customerView.js).
 const customerBooking = (booking) => toCustomerView(withWarranty(booking));
@@ -2091,6 +2084,11 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
     // saved amount actually changes, not on every admin-update touching this route.
     let chargeChanged = false;
     const chargesBefore = { distanceAdjustment: booking.distanceAdjustment || 0, mobilizationFee: booking.mobilizationFee || 0 };
+    if (distanceAdjustment !== undefined && (booking.scopeLines || []).some((l) => l.kind === 'distance')
+      && Number(distanceAdjustment) !== (booking.distanceAdjustment || 0)) {
+      // the distance based charge is the booking's distance line(s) in the scope of works; changing the field here would count it twice
+      return res.status(400).json({ message: 'This booking has a distance line in its scope of works. Change that line instead of the distance based charge.' });
+    }
     if (distanceAdjustment !== undefined) {
       const parsed = Number(distanceAdjustment);
       if (isNaN(parsed) || parsed < 0) {

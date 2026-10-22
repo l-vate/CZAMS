@@ -2,11 +2,43 @@
 // Keep the two in sync - the server needs its own copy because it is CommonJS and separate from the Vite bundle.
 //
 // Order of operations, everywhere: units subtotal, minus the approved Senior/PWD
-// discount, gives the discounted units subtotal. Down payment percentage and VAT work
-// off that. Admin-entered distance/mobilization charges are added on top afterwards and
-// are never discounted.
+// discount, gives the discounted units subtotal. Down payment percentage works off that
+// and nothing else. Everything else the admin or the company adds is added on top
+// afterwards, so it always falls into the remaining balance:
+//   - scope of works lines the admin builds (scopeLines). Dismantling, installation, excess pipe and other service work are SERVICE
+//     lines: the Senior/PWD discount applies to them, like it does to the units. A distance line is a CHARGE: never discounted.
+//   - the unit a customer buys from Cooling Zone (units[].supplied: its price when it was chosen, times the quantity): never discounted.
+//   - the distance based charge field and the mobilization fee, as before: never discounted.
+// A distance line and the distanceAdjustment field are ONE charge, never two (see getDistanceTotal).
 
 const { computeAmount } = require('./promos');
+const scopeConstants = require('../constants/scopeLines.json');
+
+const SERVICE_KINDS = scopeConstants.serviceKinds;
+
+// The booking's scope of works lines that carry a real amount.
+function scopeLinesOf(booking) {
+  return (Array.isArray(booking?.scopeLines) ? booking.scopeLines : []).filter((l) => l && Number.isFinite(l.amount) && l.amount >= 0);
+}
+
+// Pesos of the service lines (dismantling, installation, excess pipe, other): the part of the scope the Senior/PWD discount applies to.
+function getScopeServiceTotal(booking) {
+  return scopeLinesOf(booking).filter((l) => SERVICE_KINDS.includes(l.kind)).reduce((sum, l) => sum + l.amount, 0);
+}
+
+// The distance based charge. Distance lines and the distanceAdjustment field are the same charge: when the booking has distance lines,
+// they ARE the charge (the route that saves them also writes their total to distanceAdjustment, so the two always agree); otherwise the
+// field is. It is never both, so the charge is counted once.
+function getDistanceTotal(booking) {
+  const lines = scopeLinesOf(booking).filter((l) => l.kind === 'distance');
+  return lines.length > 0 ? lines.reduce((sum, l) => sum + l.amount, 0) : (booking?.distanceAdjustment || 0);
+}
+
+// What the unit entries the customer buys from Cooling Zone cost: the price each one was given when it was chosen (supplied.price,
+// frozen then, so a later catalog edit never changes it) times its quantity. A request nobody has priced yet counts 0.
+function getEquipmentTotal(booking) {
+  return (booking?.units || []).reduce((sum, u) => (Number.isFinite(u?.supplied?.price) && u.supplied.price >= 0 ? sum + u.supplied.price * (u.quantity || 0) : sum), 0);
+}
 
 function getUnitPrice(service, unitType) {
   const override = service?.unitTypePricing?.find((p) => p.unitType === unitType);
@@ -50,22 +82,33 @@ function getPromoAmount(booking) {
   return computeAmount(promo.discountType, promo.discountValue, getBookingGrossUnitsSubtotal(booking));
 }
 
-// Pesos an Approved Senior/PWD discount would take off. Pending and Rejected requests are 0.
-function getSeniorDiscountAmount(booking) {
+// The two parts of an Approved Senior/PWD discount: on the units, and on the service lines of the scope of works. Pending and Rejected
+// requests are 0. They are rounded separately so the part on the units (which the down payment works off) is exactly what it was
+// before scope lines existed.
+function getSeniorParts(booking) {
   const discount = booking?.discount;
-  if (!discount || discount.status !== 'Approved') return 0;
-  return Math.round(getBookingGrossUnitsSubtotal(booking) * ((discount.percent || 0) / 100));
+  if (!discount || discount.status !== 'Approved') return { onUnits: 0, onScope: 0 };
+  const rate = (discount.percent || 0) / 100;
+  return { onUnits: Math.round(getBookingGrossUnitsSubtotal(booking) * rate), onScope: Math.round(getScopeServiceTotal(booking) * rate) };
+}
+
+// Pesos an Approved Senior/PWD discount would take off: units plus service lines.
+function getSeniorDiscountAmount(booking) {
+  const { onUnits, onScope } = getSeniorParts(booking);
+  return onUnits + onScope;
 }
 
 // Promo and Senior/PWD do not stack: the one that takes off more is applied. A tie goes to the
-// promo (it was applied first, automatically).
+// promo (it was applied first, automatically). A promo works off the units only; a Senior/PWD discount also takes its percent off the
+// service lines. onUnits and onScope say where the pesos come off.
 function getAppliedDiscount(booking) {
   const promo = getPromoAmount(booking);
-  const senior = getSeniorDiscountAmount(booking);
-  if (promo === 0 && senior === 0) return { amount: 0, kind: null, promoAmount: 0, seniorAmount: 0 };
+  const parts = getSeniorParts(booking);
+  const senior = parts.onUnits + parts.onScope;
+  if (promo === 0 && senior === 0) return { amount: 0, kind: null, promoAmount: 0, seniorAmount: 0, onUnits: 0, onScope: 0 };
   return promo >= senior
-    ? { amount: promo, kind: 'promo', promoAmount: promo, seniorAmount: senior }
-    : { amount: senior, kind: 'senior', promoAmount: promo, seniorAmount: senior };
+    ? { amount: promo, kind: 'promo', promoAmount: promo, seniorAmount: senior, onUnits: promo, onScope: 0 }
+    : { amount: senior, kind: 'senior', promoAmount: promo, seniorAmount: senior, onUnits: parts.onUnits, onScope: parts.onScope };
 }
 
 // Pesos taken off the units subtotal (the applied discount).
@@ -73,17 +116,27 @@ function getDiscountAmount(booking) {
   return getAppliedDiscount(booking).amount;
 }
 
-// The portion of the total the down payment percentage (and VAT) applies to: units
-// minus the approved discount, excluding distance/mobilization charges.
+// The portion of the total the down payment percentage applies to: units minus the part of the
+// discount that comes off them. Scope of works lines, the unit a customer buys and every distance or
+// mobilization charge are not in it: they fall into the remaining balance.
 function getBookingUnitsSubtotal(booking) {
-  return getBookingGrossUnitsSubtotal(booking) - getDiscountAmount(booking);
+  return getBookingGrossUnitsSubtotal(booking) - getAppliedDiscount(booking).onUnits;
 }
 
 // Distance/Mobilization Charges: admin-entered extras on top of the discounted unit
 // pricing - real money the customer owes, so they belong in the same total a refund is
 // calculated against.
 function getBookingBasePrice(booking) {
-  return getBookingUnitsSubtotal(booking) + (booking?.distanceAdjustment || 0) + (booking?.mobilizationFee || 0);
+  const scopeServiceAfterDiscount = getScopeServiceTotal(booking) - getAppliedDiscount(booking).onScope;
+  return getBookingUnitsSubtotal(booking) + scopeServiceAfterDiscount + getDistanceTotal(booking) + getEquipmentTotal(booking) + (booking?.mobilizationFee || 0);
+}
+
+// The VAT on a commercial booking. Normally 12% added on top of the base price. When the booking's quoted prices already include VAT
+// (taxInclusive), the VAT is the part of the base price that is tax (12/112 of it) and nothing is added on top. Stored in vatAmount
+// by the routes that change the price; a residential booking has none.
+function getVatAmount(booking) {
+  const base = getBookingBasePrice(booking);
+  return booking?.taxInclusive ? Math.round((base * 12) / 112) : Math.round(base * 0.12);
 }
 
 // Down payment and balance. If the discount was approved after a down payment had
@@ -105,6 +158,11 @@ function getPaymentBreakdown(booking) {
 }
 
 module.exports = {
+  scopeLinesOf,
+  getScopeServiceTotal,
+  getDistanceTotal,
+  getEquipmentTotal,
+  getSeniorParts,
   unitPriceOf,
   getBookingTotalQuantity,
   getPromoAmount,
@@ -115,5 +173,6 @@ module.exports = {
   getDiscountAmount,
   getBookingUnitsSubtotal,
   getBookingBasePrice,
+  getVatAmount,
   getPaymentBreakdown,
 };

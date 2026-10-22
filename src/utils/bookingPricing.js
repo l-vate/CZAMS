@@ -6,7 +6,7 @@ import { computeAmount } from './promos';
 // discount, gives the discounted units subtotal. Down payment percentage works off that
 // and nothing else. Everything else is added on top afterwards and falls into the remaining balance:
 // scope of works lines (service lines take the Senior/PWD discount, a distance line never does), the unit a customer buys from
-// Cooling Zone (its price when it was chosen times the quantity, never discounted), and the distance and mobilization charges.
+// the company (its price when it was chosen times the quantity, never discounted), and the distance and mobilization charges.
 // A distance line and the distanceAdjustment field are one charge, never two. Server mirror of all of it: server/utils/pricing.js.
 import scopeConstants from '../../server/constants/scopeLines.json';
 
@@ -55,7 +55,7 @@ export function getDistanceTotal(booking) {
   return lines.length > 0 ? lines.reduce((sum, l) => sum + l.amount, 0) : (booking?.distanceAdjustment || 0);
 }
 
-// The unit entries bought from Cooling Zone: the price each had when it was chosen times its quantity.
+// The unit entries bought from the company: the price each had when it was chosen times its quantity.
 export function getEquipmentTotal(booking) {
   return (booking?.units || []).reduce((sum, u) => (Number.isFinite(u?.supplied?.price) && u.supplied.price >= 0 ? sum + u.supplied.price * (u.quantity || 0) : sum), 0);
 }
@@ -125,7 +125,7 @@ export function getBookingLineItems(booking) {
   // Distance/Mobilization Charges: admin-entered extras, appended as synthetic
   // line items (isCharge: true, distinct from a real unit entry). Never discounted.
   let chargesTotal = 0;
-  // The unit bought from Cooling Zone, one line per unit entry that has a price (never discounted).
+  // The unit bought from the company, one line per unit entry that has a price (never discounted).
   (booking?.units || []).forEach((u) => {
     if (Number.isFinite(u?.supplied?.price) && u.supplied.price >= 0) {
       const name = [u.supplied.brand, u.supplied.model].filter(Boolean).join(' ');

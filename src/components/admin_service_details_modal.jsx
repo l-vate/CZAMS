@@ -4,6 +4,7 @@ import AssignmentPanel from './assignment_panel';
 import SuggestedDates from './suggested_dates';
 import PaymentReference from './payment_reference';
 import ScopeOfWorksEditor from './scope_of_works_editor';
+import UnitRequestPanel from './unit_request_panel';
 import ClosureDateInput from './closure_date_input';
 import { warrantyStatusText } from '../utils/warrantyText';
 import { BRAND_SHORT } from '../config/company';
@@ -373,6 +374,8 @@ const [report, setReport] = useState(null);
                         }}
                     />
 
+                    <UnitRequestPanel booking={booking} onUpdated={onUpdated} />
+
                     <div className="sdm-customer-line">
                         <Icon name="user" />
                         <span>{customerLabel(booking.customer)}</span>
@@ -385,11 +388,12 @@ const [report, setReport] = useState(null);
                     <div className="sdm-columns">
                         <div className="sdm-col">
                             <h4 className="sdm-service-name">{booking.service?.name || 'Service'}</h4>
-                            {lineItems.map((li, i) => (
+                            {lineItems.filter((li) => !li.isCharge).map((li, i) => (
                                 <p className="sdm-unit-line" key={i}>
                                     Unit: {li.quantity}× {li.type}
                                     {li.brandModel ? ` · ${li.brandModel}` : ''}
                                     {li.hp ? ` · ${li.hp} HP` : ''}
+                                    {li.supplied?.source === 'requested' ? ` · ${li.supplied.status === 'Declined' ? 'request declined' : 'needs owner confirmation'}` : ''}
                                 </p>
                             ))}
 

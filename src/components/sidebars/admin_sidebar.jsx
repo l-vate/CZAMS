@@ -11,6 +11,7 @@ function AdminSidebar({ onNavigate }) {
   // link despite sharing the /admin/services prefix.
   const isServicesSubRoute =
     location.pathname.startsWith("/admin/services/manage") ||
+    location.pathname.startsWith("/admin/services/units") ||
     location.pathname.startsWith("/admin/services/reports") ||
     location.pathname.startsWith("/admin/payment-settings");
 
@@ -92,6 +93,13 @@ function AdminSidebar({ onNavigate }) {
                 onClick={onNavigate}
               >
                 Manage Services
+              </NavLink>
+              <NavLink
+                to="/admin/services/units"
+                className={subLinkClass}
+                onClick={onNavigate}
+              >
+                Supplied Units
               </NavLink>
               <NavLink
                 to="/admin/payment-settings"

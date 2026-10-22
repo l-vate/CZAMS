@@ -151,3 +151,11 @@
 .scope-form-wide { grid-column: 1 / -1; }
 .scope-form-amount { grid-column: 1 / -1; margin: 0; font-size: 0.9rem; }
 .scope-add { padding: 12px 14px; border: 1px dashed #cbd5e1; border-radius: 10px; display: grid; gap: 10px; }
+
+/* A unit the customer asked for that is not in the catalog (components/unit_request_panel.jsx). */
+.unit-request-panel { margin: 14px 0; padding: 12px 14px; border: 1.5px solid #f59e0b; border-radius: 10px; background: #fffbeb; display: grid; gap: 10px; }
+.unit-request { display: grid; gap: 6px; }
+.unit-request-title { margin: 0; font-weight: 700; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.unit-request-flag { padding: 2px 10px; border-radius: 999px; background: #fde68a; color: #92400e; font-size: 0.75rem; font-weight: 700; }
+.unit-request-flag.is-declined { background: #fecaca; color: #991b1b; }
+.unit-request-form { display: grid; gap: 10px; }

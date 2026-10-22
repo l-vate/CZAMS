@@ -638,6 +638,12 @@ function BookDetails() {
                 lineItems.filter((li) => !li.isCharge).map((li, i) => (
                   <p className="confirmation-detail-line" key={i}>
                     Unit: {li.quantity}× {li.type}{li.brandModel ? ` - ${li.brandModel}` : ''}{li.hp ? ` - ${li.hp} HP` : ''}
+                    {li.supplied?.source === 'requested' && li.supplied.status !== 'Declined' && (
+                      <span className="customer-unit-note"> Waiting for the owner to confirm the unit you asked for. The price is added once it is confirmed.</span>
+                    )}
+                    {li.supplied?.source === 'requested' && li.supplied.status === 'Declined' && (
+                      <span className="customer-unit-note"> The owner could not supply this unit: {li.supplied.declineReason}. You can cancel this booking and book again with a unit from the list.</span>
+                    )}
                   </p>
                 ))
               )}

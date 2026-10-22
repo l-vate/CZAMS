@@ -3,6 +3,32 @@ const { PAYMENT_STATUS_VALUES, PAYMENT_STATUS, BALANCE_PAYMENT_STATUS_VALUES, BA
 const { BOOKING_STATUS, BOOKING_STATUS_VALUES } = require('../constants/bookingStatus');
 const mongoose = require('mongoose');
 
+// The unit a customer buys from Cooling Zone on an Installation, kept on its unit entry (units[].supplied). A catalog choice is a COPY of
+// the item when it was chosen (brand, model, type, hp, inverter, price), so a later catalog edit never changes the booking. "Not listed,
+// ask the owner" starts as source 'requested' with the customer's words and no price, status 'Pending', and the booking cannot be approved
+// until the admin settles it (catalog unit, manual price with a note, or declined with a reason). See utils/suppliedUnits.js. Declared
+// as its own schema because a nested object with a key named "type" would otherwise be read by Mongoose as a type declaration.
+const suppliedUnitSchema = new mongoose.Schema({
+    source: { type: String, enum: ['catalog', 'requested', 'manual'] },
+    status: { type: String, enum: ['Pending', 'Resolved', 'Declined'] },
+    catalogId: String,
+    brand: String,
+    model: String,
+    type: { type: String },
+    hp: String,
+    inverter: Boolean,
+    price: Number,
+    chosenAt: Date,
+    request: {
+        type: new mongoose.Schema({ brand: String, type: { type: String }, hp: String, notes: String }, { _id: false }),
+    },
+    declineReason: String,
+    // the admin's note on a manual price: for the owner and admins, never shown to the customer
+    adminNote: String,
+    resolvedBy: String,
+    resolvedAt: Date,
+}, { _id: false });
+
 // Senior Citizen / PWD discount. Optional, requested at booking time with a photo of a
 // valid ID and NOT applied until an admin approves it (walk-in bookings made by an
 // admin are approved on the spot). Declared as its own schema because a nested
@@ -88,6 +114,8 @@ const bookingSchema = new mongoose.Schema({
       brandModel: String,
       // The unit's horsepower as the customer wrote it, for example "1.5" or "2" (optional, at most 10 characters).
       hp: String,
+      // The Cooling Zone unit chosen for this entry (Installation with a company unit only). Its price is added to the booking's total.
+      supplied: { type: suppliedUnitSchema },
     }],
     // Legacy: kept for existing data
     unitTypes: [String],

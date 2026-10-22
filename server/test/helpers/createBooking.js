@@ -11,6 +11,8 @@ const Booking = require('../../models/Booking');
 const Service = require('../../models/Service');
 const Closure = require('../../models/Closure');
 const TechnicianOff = require('../../models/TechnicianOff');
+const SuppliedUnit = require('../../models/SuppliedUnit');
+const AuditLog = require('../../models/AuditLog');
 const Promo = require('../../models/Promo');
 const Counter = require('../../models/Counter');
 const PaymentSettings = require('../../models/PaymentSettings');
@@ -24,7 +26,7 @@ const { isFieldTechnician } = require('../../utils/technicians');
 const { createMemoryStore, setStore } = require('../../storage/fileStore');
 const Lock = require('../../models/Lock');
 
-const state = { locks: new Map(), store: null, versioned: false, backJobDelay: 0, users: [], services: [], bookings: [], notes: [], closures: [], techOff: [], promos: [], backJobs: [], settings: null };
+const state = { locks: new Map(), store: null, versioned: false, backJobDelay: 0, users: [], services: [], bookings: [], notes: [], audits: [], catalog: [], closures: [], techOff: [], promos: [], backJobs: [], settings: null };
 let seq = 0;
 let server;
 let base;
@@ -85,6 +87,8 @@ function reset({ users = [], services = [], settings = DEFAULT_SETTINGS } = {}) 
   state.settings = settings;
   state.bookings = [];
   state.notes = [];
+  state.audits = [];
+  state.catalog = [];
   state.closures = [];
   state.techOff = [];
   state.promos = [];
@@ -119,6 +123,26 @@ async function install() {
   };
   Counter.findOneAndUpdate = async () => ({ seq: (seq += 1) * 1000 });
   Notification.create = async (d) => { state.notes.push(d); return d; };
+  // the audit trail and the supplied unit catalog, in memory (ids are valid 24 character ids, like the real ones)
+  AuditLog.create = async (d) => { state.audits.push(d); return d; };
+  Booking.exists = async (f) => state.bookings.find((b) => matches(b, f)) || null;
+  const catalogDoc = (data) => {
+    const doc = { isActive: true, isDeleted: false, ...data };
+    doc.save = async () => doc;
+    return doc;
+  };
+  SuppliedUnit.find = (f) => chain(state.catalog.filter((c) => matches(c, f)));
+  SuppliedUnit.findById = (id) => chain(state.catalog.find((c) => String(c._id) === String(id)) || null);
+  SuppliedUnit.create = async (data) => {
+    const doc = catalogDoc({ _id: String(state.catalog.length + 1).padStart(24, '0'), ...JSON.parse(JSON.stringify(data)) });
+    state.catalog.push(doc);
+    return doc;
+  };
+  SuppliedUnit.deleteOne = async (f) => {
+    const index = state.catalog.findIndex((c) => matches(c, f));
+    if (index >= 0) state.catalog.splice(index, 1);
+    return { deletedCount: index >= 0 ? 1 : 0 };
+  };
   // With state.versioned, every read gives its own copy and a save is refused (VersionError) when the stored booking changed since
   // that read: what Mongoose's optimisticConcurrency does. Two requests at once can then not both succeed.
   Booking.findOne = (f) => {
@@ -194,6 +218,9 @@ async function install() {
   const app = express();
   app.use(express.json());
   app.use('/api/bookings', require('../../routes/bookingRoutes'));
+  app.use('/api/bookings', require('../../routes/scopeLineRoutes'));
+  app.use('/api/bookings', require('../../routes/unitRequestRoutes'));
+  app.use('/api/supplied-units', require('../../routes/suppliedUnitRoutes'));
   app.use('/api/back-jobs', require('../../routes/backJobRoutes'));
   app.use('/api/users', require('../../routes/userRoutes'));
   server = await new Promise((resolve) => { const s = app.listen(0, () => resolve(s)); });
@@ -253,4 +280,12 @@ async function call(method, path, as = 'CUS1', body, { role = 'customer' } = {})
 
 const getBase = () => base;
 
-module.exports = { base: getBase, state, install, reset, close, post, call, callPath, addBooking, goodDate, DEFAULT_SETTINGS };
+// A catalog item in the stand-in database (a plain object that can be saved), as the admin would have entered it.
+function addCatalogUnit(fields = {}) {
+  const doc = { _id: String(state.catalog.length + 1).padStart(24, '0'), brand: 'Testbrand', model: 'T100', type: 'Split Type', hp: '1', inverter: true, price: 25000, isActive: true, isDeleted: false, ...fields };
+  doc.save = async () => doc;
+  state.catalog.push(doc);
+  return doc;
+}
+
+module.exports = { base: getBase, state, install, reset, close, post, call, callPath, addBooking, addCatalogUnit, goodDate, DEFAULT_SETTINGS };

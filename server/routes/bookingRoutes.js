@@ -5,6 +5,7 @@ const { REFUND_STATUS } = require('../constants/refundStatus');
 const { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } = require('../constants/paymentStatus');
 const { PAYMENT_MODE } = require('../constants/paymentModes');
 const { BOOKING_STATUS, BOOKING_STATUS_VALUES } = require('../constants/bookingStatus');
+const mongoose = require('mongoose');
 const multer = require('multer');
 const auditSpecs = require('../utils/auditSpecs');
 const express = require('express');
@@ -61,6 +62,8 @@ const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/que
 const { generateBookingId, createWithUniqueBookingId, BookingIdExhaustedError } = require('../utils/bookingId');
 const { invalid, sendProblem } = require('../utils/validation');
 const { readPaymentSubmission, findSameReference } = require('../utils/paymentReference');
+const { readUnitChoices, brandModelOf, unitConfirmationProblem } = require('../utils/suppliedUnits');
+const SuppliedUnit = require('../models/SuppliedUnit');
 const { resolveRefundAmounts } = require('../utils/refundAmounts');
 const Closure = require('../models/Closure');
 const { businessDayProblem } = require('../utils/businessDays');
@@ -356,6 +359,8 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
     if (units.some((u) => !u.type || !Number.isFinite(Number(u.quantity)) || Number(u.quantity) < 1)) {
       return res.status(400).json({ message: 'Each unit needs a type and a quantity of at least 1.' });
     }
+    // what the customer chose for each unit entry from the supplied unit catalog (checked below, once the service is known)
+    const suppliedChoices = units.map((u) => u.supplied);
     units = units.map((u) => ({
       type: u.type,
       quantity: Number(u.quantity),
@@ -392,6 +397,20 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
         message: 'A signed waiver is required when the client supplies their own unit.'
       });
     }
+
+    // An Installation with a Cooling Zone unit: every unit entry must name a unit from the catalog (active, and the same type and
+    // horsepower), or ask the owner when it is not listed. The unit's brand, model, price and so on are copied onto the booking now.
+    // A customer's own unit keeps the waiver path above and carries no supplied unit.
+    const unitChoices = await readUnitChoices({
+      units,
+      choices: suppliedChoices,
+      needsChoice: isInstallationService && !isClientSuppliedUnit,
+      findItem: (id) => (mongoose.isValidObjectId(id) ? SuppliedUnit.findById(id) : null),
+    });
+    if (unitChoices.problem) return sendProblem(res, unitChoices.problem);
+    units = units.map((u, i) => (unitChoices.supplied[i]
+      ? { ...u, supplied: unitChoices.supplied[i], brandModel: brandModelOf({ ...u, supplied: unitChoices.supplied[i] }) || u.brandModel }
+      : u));
 
     let bookingCustomerId = req.userId;
     let isAdminWalkIn = false;
@@ -2072,6 +2091,12 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
     // time block starts, Completed when the technician submits the service report.
     const statusProblem = validateAdminStatusChange(booking.status, status);
     if (statusProblem) return sendProblem(res, statusProblem);
+    // A unit the customer asked for that is not in the catalog must be settled by the owner first (a catalog unit, a unit price with a note,
+    // or declined), so a booking is never approved at a price nobody has confirmed.
+    if (status === BOOKING_STATUS.APPROVED && booking.status !== BOOKING_STATUS.APPROVED) {
+      const unitProblem = unitConfirmationProblem(booking.units);
+      if (unitProblem) return sendProblem(res, unitProblem);
+    }
 
     // Technicians are assigned through PATCH /:bookingId/assign, which checks every
     // member for conflicts. This route no longer takes a single technician.
@@ -2115,6 +2140,10 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
         return res.status(400).json({ message: 'The unit source only applies to an Installation booking.' });
       }
       booking.clientSuppliedUnit = unitSource === 'customer';
+      // The customer's own unit is not bought from Cooling Zone: no supplied unit (and no price for one) stays on the booking.
+      if (booking.clientSuppliedUnit && booking.units.some((u) => u.supplied)) {
+        booking.units.forEach((u) => { u.supplied = undefined; });
+      }
     }
 
     // Pre-service technician instructions (Service Report Module)

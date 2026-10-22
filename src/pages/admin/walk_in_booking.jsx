@@ -12,6 +12,7 @@ import DiscountOption from '../../components/discount_option';
 import { useServices } from '../../hooks/useServices';
 import { useTechnicians } from '../../hooks/useTechnicians';
 import { getCostBreakdown } from '../../utils/costBreakdown';
+import { hasChoice, unitsForSubmit } from '../../utils/suppliedUnitChoice';
 import { usePublicPromos } from '../../utils/promos';
 import { isValidContactNumber } from '../../utils/contact';
 import { usePaymentSettings, getDownPaymentOptions, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
@@ -243,7 +244,7 @@ function CustomerStep({ customers, loadingCustomers, selectedCustomer, onSelectC
    walking a remote customer through where to send money, so this skips the
    customer-facing PaymentModal and just records the mode + an optional proof. ── */
 function WalkInPaymentStep({ form, setForm, services, isReturnCustomer, isCommercial, paymentMethods, downPaymentPercentages, discountPercent, promos }) {
-  const { basePrice, discountAmount, discountLabel, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages), discountPercent, promos);
+  const { basePrice, equipment, discountAmount, discountLabel, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages), discountPercent, promos);
   const isNoDownPayment = dpPercent === 0;
   const isBilledOnTerms = isCommercial && !!form.paymentTermsDays;
   const vatAmount = isCommercial ? Math.round(basePrice * 0.12) : 0;
@@ -410,6 +411,12 @@ function WalkInPaymentStep({ form, setForm, services, isReturnCustomer, isCommer
         {discountAmount > 0 && (
           <div className="cost-row"><span>{discountLabel}</span><span>-₱{discountAmount.toLocaleString()}.00</span></div>
         )}
+        {equipment.map((line, i) => (
+          <div className="cost-row" key={`equipment-${i}`}><span>{line.quantity}× {line.label}</span><span>₱{line.subtotal.toLocaleString()}.00</span></div>
+        ))}
+        {(form.units || []).some((u) => u.supplied?.notListed) && (
+          <div className="cost-row"><span>Unit asked from the owner</span><span>Price to be confirmed</span></div>
+        )}
         <div className="cost-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}.00</span></div>
         {isCommercial && (
           <>
@@ -495,6 +502,8 @@ function WalkInBooking() {
         const nameMatches = (form.unitWaiverName || '').trim().toLowerCase() === (customer?.name || '').trim().toLowerCase();
         return !!form.unitWaiverAcknowledged && !!customer?.name && nameMatches;
       }
+      // the company supplies the unit: every unit entry needs a catalog unit, or a request for the owner to settle
+      if (isInstallation && !units.every(hasChoice)) return false;
       return true;
     }
     if (step === 4) {
@@ -519,7 +528,7 @@ function WalkInBooking() {
       const formData = new FormData();
       formData.append('customer', customer._id);
       formData.append('service', form.service);
-      formData.append('units', JSON.stringify(form.units || []));
+      formData.append('units', JSON.stringify(unitsForSubmit(form.units, form.clientSuppliedUnit)));
       formData.append('problemDescription', form.problemDescription || '');
       formData.append('date', form.date);
       formData.append('time', form.time);

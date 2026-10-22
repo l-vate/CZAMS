@@ -27,7 +27,7 @@ const TECHNICIANS_VISIBLE_STATUSES = ['Approved', 'In Progress', 'Completed'];
 // Top-level Booking fields a customer may receive, passed through as they are (they hold nothing internal).
 const PASS_THROUGH = [
   '_id', 'bookingId', 'status', 'createdAt', 'updatedAt', 'date', 'time', 'address', 'contactNumber', 'problemDescription',
-  'units', 'unitTypes', 'brandModel', 'clientSuppliedUnit', 'unitSource', 'unitWaiver', 'unitPurchaseProof', 'cleaningTierAnswers',
+  'unitTypes', 'brandModel', 'clientSuppliedUnit', 'unitSource', 'unitWaiver', 'unitPurchaseProof', 'cleaningTierAnswers',
   'requestedTechnician',
   'downPaymentPercent', 'downPaymentPaidAmount', 'paymentMode', 'paymentMode2', 'paymentStatus', 'balancePaid',
   'balancePaymentStatus', 'proofFile', 'balanceProofFile', 'referenceNumber', 'balanceReferenceNumber',
@@ -37,7 +37,7 @@ const PASS_THROUGH = [
 ];
 
 // Fields built piece by piece below, so only the safe parts leave.
-const SHAPED = ['technician', 'assignments', 'discount', 'refund', 'rescheduleRequest', 'disruption', 'extensionRequest', 'extensionDays', 'scopeLines'];
+const SHAPED = ['technician', 'assignments', 'discount', 'refund', 'rescheduleRequest', 'disruption', 'extensionRequest', 'extensionDays', 'scopeLines', 'units'];
 
 // Booking fields a customer never receives. Together with PASS_THROUGH and SHAPED this must cover every field
 // of the Booking model (the test checks it), so a new field cannot reach customers by accident.
@@ -84,6 +84,19 @@ function toCustomerView(booking) {
   // The technician's reasons are for the admin; the customer is told the outcome by notification.
   if (b.disruption) out.disruption = pick(b.disruption, ['status', 'rescheduledAt']);
   if (b.extensionRequest) out.extensionRequest = pick(b.extensionRequest, ['status', 'requestedDate', 'requestedTime', 'requestedAt', 'decidedAt']);
+
+  // The unit entries. The unit a customer chose or asked for stays, with its price; who settled a request and the admin's note on a
+  // manual price do not. The reason a request was declined stays, because the customer is told it.
+  if (Array.isArray(b.units)) {
+    out.units = b.units.map((u) => {
+      const entry = pick(u, ['_id', 'type', 'quantity', 'brandModel', 'hp']);
+      if (u.supplied) {
+        entry.supplied = pick(u.supplied, ['source', 'status', 'brand', 'model', 'type', 'hp', 'inverter', 'price', 'declineReason']);
+        if (u.supplied.request) entry.supplied.request = pick(u.supplied.request, ['brand', 'type', 'hp', 'notes']);
+      }
+      return entry;
+    });
+  }
 
   // The scope of works as a breakdown: what, how many, the rate and the amount (not which admin added it).
   if (Array.isArray(b.scopeLines)) out.scopeLines = b.scopeLines.map((l) => pick(l, ['kind', 'description', 'quantity', 'unitLabel', 'unitRate', 'amount', 'addedAt']));

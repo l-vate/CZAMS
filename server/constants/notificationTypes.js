@@ -7,6 +7,7 @@ const NOTIFICATION_TYPE = Object.freeze({
   REFUND_FLAGGED: 'refund_flagged',
   BOOKING_APPROVED: 'booking_approved',
   BOOKING_CANCELLED: 'booking_cancelled',
+  BOOKING_IN_PROGRESS: 'booking_in_progress',
   BOOKING_COMPLETED: 'booking_completed',
   JOB_ASSIGNED: 'job_assigned',
   JOB_UNASSIGNED: 'job_unassigned',

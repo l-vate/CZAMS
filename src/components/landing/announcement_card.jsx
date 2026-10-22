@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FiBell } from 'react-icons/fi';
+import { FiBell, FiChevronRight } from 'react-icons/fi';
 
 const CATEGORY_LABEL = {
   Holiday: 'Holiday',
@@ -12,7 +12,7 @@ const CATEGORY_LABEL = {
 const LONG_MESSAGE = 150;
 
 // One published announcement as a clean banner under the hero: a bell, the kind and dates as small tags, the title, the message (line
-// breaks kept, long ones folded) and, when there are several, a button for the next one.
+// breaks kept, long ones folded) and, when there are several, an arrow button on the right for the next one with a small "1 / 2" count.
 function AnnouncementCard({ announcements }) {
   const [current, setCurrent] = useState(0);
   const [expanded, setExpanded] = useState(false);
@@ -33,21 +33,27 @@ function AnnouncementCard({ announcements }) {
         </div>
         <h2 className="lp-announce-title">{announcement.title}</h2>
         <p className={`lp-announce-text${long && !expanded ? ' lp-announce-text--folded' : ''}`}>{announcement.message}</p>
-        {(long || total > 1) && (
+        {long && (
           <div className="lp-announce-actions">
-            {long && (
-              <button type="button" className="lp-announce-btn" aria-expanded={expanded} onClick={() => setExpanded((e) => !e)}>
-                {expanded ? 'Show less' : 'Show more'}
-              </button>
-            )}
-            {total > 1 && (
-              <button type="button" className="lp-announce-btn" onClick={next}>
-                Next announcement ({(current % total) + 1} of {total})
-              </button>
-            )}
+            <button type="button" className="lp-announce-btn" aria-expanded={expanded} onClick={() => setExpanded((e) => !e)}>
+              {expanded ? 'Show less' : 'Show more'}
+            </button>
           </div>
         )}
       </div>
+      {total > 1 && (
+        <div className="lp-announce-nav">
+          <span className="lp-announce-count" aria-hidden="true">{(current % total) + 1} / {total}</span>
+          <button
+            type="button"
+            className="lp-announce-next"
+            onClick={next}
+            aria-label={`Next announcement (${(current % total) + 1} of ${total})`}
+          >
+            <FiChevronRight aria-hidden="true" />
+          </button>
+        </div>
+      )}
     </section>
   );
 }

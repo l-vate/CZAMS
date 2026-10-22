@@ -103,6 +103,8 @@ const announcementUpdate = audited1('announcement.update', 'Announcement', param
 const announcementDelete = audited1('announcement.delete', 'Announcement', param('id'), 'Deleted an announcement');
 const closureCreate = audited1('closure.create', 'Closure', (req) => req.body && req.body.date, 'Closed a date', (req) => ({ date: req.body && req.body.date, reason: req.body && req.body.reason }));
 const closureDelete = audited1('closure.delete', 'Closure', param('date'), 'Opened a closed date again');
+const technicianOffCreate = audited1('technician_off.set', 'TechnicianOff', (req) => req.body && req.body.date, 'Marked technicians as not available on a date', (req) => ({ date: req.body && req.body.date, blocks: req.body && req.body.blocks, technicians: req.body && req.body.technicians }));
+const technicianOffDelete = audited1('technician_off.clear', 'TechnicianOff', param('id'), 'Marked a technician as available again');
 
 // ---- reports and claims
 const reportEdit = audited1('report.edit', 'Report', param('id'), 'Edited a service report', (req) => ({ fields: Object.keys(req.body || {}).slice(0, 10) }));
@@ -113,5 +115,5 @@ module.exports = {
   adminUpdate, recordPayment, customerCancel, rescheduleApprove, rescheduleDeny, rescheduleUseDate, assign, discountApprove, discountReject, refundProcess,
   refundFlagResolve, disruptionReschedule, extensionApprove, extensionDeny, queueMove, unitPurchaseProof, userCreate, userUpdate,
   userClassification, settingsUpdate, promoCreate, promoUpdate, promoDelete, serviceCreate, serviceUpdate, serviceToggle, serviceRemove,
-  announcementCreate, announcementUpdate, announcementDelete, closureCreate, closureDelete, reportEdit, reportDelete, backJobReview,
+  announcementCreate, announcementUpdate, announcementDelete, closureCreate, closureDelete, technicianOffCreate, technicianOffDelete, reportEdit, reportDelete, backJobReview,
 };

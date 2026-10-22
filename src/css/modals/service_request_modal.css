@@ -414,3 +414,40 @@
         display: none; /* Hide avatar on very small screens to save space */
     }
 }
+/* The booking details as a page (pages/admin/booking_details_page.jsx): the same content as the popup, on a wide white card with
+   room between its parts, and the actions bar at the bottom of the card instead of floating over a scrolled list. */
+.sdm-page-wrap { max-width: 1120px; }
+.sdm-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 16px;
+    padding: 8px 14px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fff;
+    color: #0f172a;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+.sdm-back:hover { background: #f1f5f9; }
+.sdm-page-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    box-shadow: 0 8px 30px rgba(15, 23, 42, 0.07);
+    overflow: hidden;
+}
+.sdm-page-card .sdm-body { padding: 36px 40px 16px; overflow: visible; }
+.sdm-page-card .sdm-titlebar { padding-right: 0; margin-bottom: 24px; }
+.sdm-page-card .sdm-title { font-size: 1.7rem; }
+.sdm-page-card .sdm-columns { gap: 56px; }
+.sdm-page-card .sdm-footer { padding: 20px 40px; background: #f8fafc; }
+@media (max-width: 900px) {
+    .sdm-page-card .sdm-columns { gap: 28px; }
+}
+@media (max-width: 620px) {
+    .sdm-page-card .sdm-body { padding: 24px 18px 8px; }
+    .sdm-page-card .sdm-footer { padding: 16px 18px; }
+}

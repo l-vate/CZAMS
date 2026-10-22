@@ -4,6 +4,7 @@ export const NOTIFICATION_TYPE = Object.freeze({
   BOOKING_CREATED: 'booking_created',
   BOOKING_APPROVED: 'booking_approved',
   BOOKING_CANCELLED: 'booking_cancelled',
+  BOOKING_IN_PROGRESS: 'booking_in_progress',
   BOOKING_COMPLETED: 'booking_completed',
   JOB_ASSIGNED: 'job_assigned',
   JOB_UNASSIGNED: 'job_unassigned',

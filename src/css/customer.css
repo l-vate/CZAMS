@@ -1821,3 +1821,26 @@
 .customer-billings-x5.balance-note--warning {
   color: var(--warning);
 }
+
+/* BelowSelect (components/below_select.jsx): the choices always open under the box and scroll inside their own list */
+.below-select { position: relative; min-width: 0; }
+.below-select-box { display: block; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.below-select-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: 240px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: #fff;
+  border: 1.5px solid var(--mist);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(11, 37, 69, 0.18);
+}
+.below-select-option { padding: 9px 12px; border-radius: 7px; font-size: 15px; color: var(--navy); cursor: pointer; }
+.below-select-option.is-active { background: var(--frost); }
+.below-select-option.is-selected { font-weight: 700; }

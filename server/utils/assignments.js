@@ -4,6 +4,8 @@
 const { SERVICE_TYPE } = require('../constants/serviceTypes');
 const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const Booking = require('../models/Booking');
+const TechnicianOff = require('../models/TechnicianOff');
+const { offIdsAt, offRowsBetween } = require('./technicianOff');
 
 const scheduling = require('../constants/scheduling');
 
@@ -157,7 +159,18 @@ async function getBusyTechnicianIds(date, time, excludeBookingId) {
     ...(excludeBookingId ? { bookingId: { $ne: excludeBookingId } } : {}),
   });
   const busy = bookings.filter((b) => slotsOf(b).some((s) => s.date === date && (!time || s.time === time)));
-  return [...new Set(busy.flatMap(getMemberIds))];
+  // a technician the admin marked as not available counts as busy too (without a time: in either block)
+  const offRows = await offRowsBetween(TechnicianOff, date, date);
+  const off = time ? [...offIdsAt(offRows, date, time)] : offRows.map((r) => String(r.technician));
+  return [...new Set([...busy.flatMap(getMemberIds), ...off])];
+}
+
+// Which of these technicians the admin marked as not available on `date` in `time` (an array of ids, empty when none).
+async function findOffTechnicianIds(technicianIds, date, time) {
+  const ids = (Array.isArray(technicianIds) ? technicianIds : [technicianIds]).map(idOf).filter(Boolean);
+  if (ids.length === 0 || !date || !time) return [];
+  const off = offIdsAt(await offRowsBetween(TechnicianOff, date, date), date, time);
+  return ids.filter((id) => off.has(String(id)));
 }
 
 module.exports = {
@@ -175,4 +188,5 @@ module.exports = {
   memberFilter,
   findConflictingBooking,
   getBusyTechnicianIds,
+  findOffTechnicianIds,
 };

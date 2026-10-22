@@ -12,6 +12,7 @@ process.env.JWT_SECRET = 'test-secret-not-a-real-one';
 const User = require('../models/User');
 const Booking = require('../models/Booking');
 const Closure = require('../models/Closure');
+const TechnicianOff = require('../models/TechnicianOff');
 const Notification = require('../models/Notification');
 const { authCache } = require('../utils/authCache');
 const { matches, chain } = require('./helpers/memoryQueries');
@@ -42,6 +43,7 @@ test.before(async () => {
   Booking.find = (f) => chain(DB.filter((d) => matches(d, f)));
   Booking.findOne = (f) => chain(DB.find((d) => matches(d, f)) || null);
   Closure.findOne = (f) => chain(closedDate && f && JSON.stringify(f).includes(closedDate) ? { date: closedDate, reason: 'Holiday' } : null);
+  TechnicianOff.find = () => chain([]);
   Notification.create = async (d) => { notes.push(d); return d; };
 
   const app = express();

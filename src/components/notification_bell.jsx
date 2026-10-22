@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiBell } from 'react-icons/fi';
+import { FiBell, FiCalendar, FiCheckCircle, FiXCircle, FiCreditCard, FiMessageCircle, FiRefreshCw } from 'react-icons/fi';
 import { listNotifications, markNotificationRead, markAllNotificationsRead } from '../services/notificationService';
 
 
@@ -14,6 +14,17 @@ function timeAgo(dateStr) {
   const days = Math.floor(hours / 24);
   if (days < 30) return `${days}d ago`;
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// The little round icon in front of a notification, by what it is about: [icon, color family used in notification_bell.css].
+function iconFor(type = '') {
+  if (type === 'chat_message') return [FiMessageCircle, 'blue'];
+  if (type.includes('cancel') || type.includes('rejected') || type.includes('denied') || type.includes('disruption')) return [FiXCircle, 'coral'];
+  if (type.includes('approved') || type.includes('completed') || type.includes('verified') || type.includes('confirmed')) return [FiCheckCircle, 'teal'];
+  if (type.includes('payment') || type.includes('refund') || type.includes('charge') || type.includes('discount')) return [FiCreditCard, 'amber'];
+  if (type.includes('reschedule') || type.includes('extension') || type.includes('progress')) return [FiRefreshCw, 'blue'];
+  if (type.includes('booking') || type.includes('job')) return [FiCalendar, 'navy'];
+  return [FiBell, 'navy'];
 }
 
 // onNotificationClick, when provided, is called with the full notification
@@ -112,7 +123,10 @@ function NotificationBell({ onNotificationClick, viewAllRoute }) {
       {open && (
         <div className="notif-dropdown">
           <div className="notif-dropdown-header">
-            <span className="notif-dropdown-title">Notifications</span>
+            <span className="notif-dropdown-title">
+              Notifications
+              {unreadCount > 0 && <span className="notif-dropdown-count">{unreadCount} new</span>}
+            </span>
             {unreadCount > 0 && (
               <button type="button" className="notif-mark-all-btn" onClick={handleMarkAllRead}>
                 Mark all as read
@@ -138,11 +152,15 @@ function NotificationBell({ onNotificationClick, viewAllRoute }) {
                 onClick={() => handleItemClick(n)}
               >
                 <div className="notif-item-row">
-                  <span className={`notif-item-dot ${n.read ? 'read' : ''}`} />
-                  <div>
+                  {(() => {
+                    const [Icon, tone] = iconFor(n.type);
+                    return <span className={`notif-item-icon notif-item-icon--${tone}`} aria-hidden="true"><Icon /></span>;
+                  })()}
+                  <div className="notif-item-body">
                     <p className="notif-item-message">{n.message}</p>
                     <p className="notif-item-time">{timeAgo(n.createdAt)}</p>
                   </div>
+                  {!n.read && <span className="notif-item-dot" aria-label="Unread" />}
                 </div>
               </button>
             ))

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
 import PaymentModal from '../../components/payment_modal';
 import ClosureDateInput from '../../components/closure_date_input';
+import BelowSelect from '../../components/below_select';
 import DiscountOption from '../../components/discount_option';
 import { usePublicPromos } from '../../utils/promos';
 import { getCostBreakdown } from '../../utils/costBreakdown';
@@ -265,16 +266,13 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
         <div className="unit-entry-list">
           {units.map((unit, index) => (
             <div className="unit-entry-row" key={index}>
-              <select
-                className="bs-select unit-entry-type"
+              <BelowSelect
+                className="unit-entry-type"
+                ariaLabel="Unit type"
                 value={unit.type}
-                onChange={(e) => updateUnit(index, { type: e.target.value })}
-              >
-                <option value="">Select type</option>
-                {UNIT_TYPES.map((type) => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
+                options={[{ value: '', label: 'Select type' }, ...UNIT_TYPES.map((type) => ({ value: type, label: type }))]}
+                onChange={(type) => updateUnit(index, { type })}
+              />
 
               <input
                 type="number"
@@ -287,18 +285,14 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
               />
 
               <div className="unit-entry-brand">
-                <select
-                  className="bs-select"
-                  aria-label="Brand"
+                <BelowSelect
+                  ariaLabel="Brand"
                   value={unit.brandOther ? OTHER_BRAND : (AC_BRANDS.includes(unit.brandModel) ? unit.brandModel : '')}
-                  onChange={(e) => (e.target.value === OTHER_BRAND
+                  options={[{ value: '', label: 'Brand' }, ...AC_BRANDS.map((brand) => ({ value: brand, label: brand })), { value: OTHER_BRAND, label: OTHER_BRAND }]}
+                  onChange={(brand) => (brand === OTHER_BRAND
                     ? updateUnit(index, { brandOther: true, brandModel: '' })
-                    : updateUnit(index, { brandOther: false, brandModel: e.target.value }))}
-                >
-                  <option value="">Brand</option>
-                  {AC_BRANDS.map((brand) => <option key={brand} value={brand}>{brand}</option>)}
-                  <option value={OTHER_BRAND}>{OTHER_BRAND}</option>
-                </select>
+                    : updateUnit(index, { brandOther: false, brandModel: brand }))}
+                />
                 {unit.brandOther && (
                   <input
                     type="text"
@@ -312,15 +306,13 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
                 )}
               </div>
 
-              <select
-                className="bs-select unit-entry-hp"
-                aria-label="Horsepower (HP)"
+              <BelowSelect
+                className="unit-entry-hp"
+                ariaLabel="Horsepower (HP)"
                 value={unit.hp || ''}
-                onChange={(e) => updateUnit(index, { hp: e.target.value })}
-              >
-                <option value="">HP</option>
-                {HP_OPTIONS.map((hp) => <option key={hp} value={hp}>{hp} HP</option>)}
-              </select>
+                options={[{ value: '', label: 'HP' }, ...HP_OPTIONS.map((hp) => ({ value: hp, label: `${hp} HP` }))]}
+                onChange={(hp) => updateUnit(index, { hp })}
+              />
 
               {selectedService && unit.type && (
                 <span className="unit-entry-subtotal">

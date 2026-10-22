@@ -9,6 +9,7 @@ process.env.JWT_SECRET = 'test-secret-not-a-real-one';
 
 const User = require('../models/User');
 const Booking = require('../models/Booking');
+const TechnicianOff = require('../models/TechnicianOff');
 const PaymentSettings = require('../models/PaymentSettings');
 const { authCache } = require('../utils/authCache');
 
@@ -33,6 +34,7 @@ test.before(async () => {
   User.findById = (id) => query(accounts[id] || null);
   User.find = () => query(TECHNICIANS);
   Booking.find = () => Promise.resolve([]);
+  TechnicianOff.find = () => ({ select: () => ({ lean: async () => [] }) });
   PaymentSettings.findById = () => Promise.resolve(SETTINGS);
 
   const app = express();

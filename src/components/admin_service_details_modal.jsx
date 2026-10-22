@@ -62,7 +62,9 @@ function Icon({ name }) {
     }
 }
 
-function AdminServiceDetailsModal({ booking, onClose, onUpdated }) {
+// asPage: drawn as the body of the booking details page (pages/admin/booking_details_page.jsx) instead of a popup over the list: no
+// overlay, no close button; the page has its own Back link.
+function AdminServiceDetailsModal({ booking, onClose, onUpdated, asPage = false }) {
     
     const [saving, setSaving] = useState(false);
     const [offeredDates, setOfferedDates] = useState([]); // dates offered after an approval is refused because nobody is free
@@ -313,9 +315,9 @@ const [report, setReport] = useState(null);
 
     return (
         <>
-        <div className="sdm-overlay" onClick={onClose}>
-            <div className="sdm-modal" onClick={(e) => e.stopPropagation()}>
-                <button type="button" className="modal-close-btn sdm-close-position" onClick={onClose}>✕</button>
+        <div className={asPage ? 'sdm-page' : 'sdm-overlay'} onClick={asPage ? undefined : onClose}>
+            <div className={asPage ? 'sdm-page-card' : 'sdm-modal'} onClick={asPage ? undefined : (e) => e.stopPropagation()}>
+                {!asPage && <button type="button" className="modal-close-btn sdm-close-position" onClick={onClose}>✕</button>}
                 <div className="sdm-body">
                     <div className="sdm-titlebar">
                         <div>

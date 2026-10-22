@@ -15,6 +15,7 @@ process.env.JWT_SECRET = 'test-secret-not-a-real-one';
 const User = require('../models/User');
 const Booking = require('../models/Booking');
 const Closure = require('../models/Closure');
+const TechnicianOff = require('../models/TechnicianOff');
 const Team = require('../models/Team');
 const Notification = require('../models/Notification');
 const { authCache } = require('../utils/authCache');
@@ -87,6 +88,7 @@ test.before(async () => {
   Booking.updateOne = async () => ({});
   Closure.find = () => chain([]);
   Closure.findOne = () => chain(null);
+  TechnicianOff.find = () => chain([]);
   Notification.create = async (d) => d;
   Team.find = () => { throw new Error('the old Team records must not be read'); };
 

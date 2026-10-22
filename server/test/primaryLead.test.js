@@ -11,6 +11,7 @@ process.env.JWT_SECRET = 'test-secret-not-a-real-one';
 
 const User = require('../models/User');
 const Booking = require('../models/Booking');
+const TechnicianOff = require('../models/TechnicianOff');
 const Report = require('../models/Report');
 const Notification = require('../models/Notification');
 const { authCache } = require('../utils/authCache');
@@ -46,6 +47,7 @@ test.before(async () => {
   User.findOne = (f) => chain({ _id: f && f._id, role: 'staff' });
   User.find = () => chain([]);
   Report.findOne = () => chain(null);
+  TechnicianOff.find = () => chain([]);
   Report.prototype.save = async function save() { saved = this; return this; };
   Notification.create = async (d) => d;
   Booking.findOne = () => chain(booking);

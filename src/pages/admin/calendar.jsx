@@ -3,6 +3,7 @@ import AdminLayout from "./admin_layout";
 import { getMemberNames } from "../../utils/assignments";
 import CalendarView from "../../components/calendar_view";
 import ClosureManager from "../../components/closure_manager";
+import TechnicianAvailabilityManager from "../../components/technician_availability_manager";
 import { mapBookingStatusToCalendarStatus, getTimeBlockHours } from "../../utils/calendar";
 import { orFallback } from '../../services/apiClient';
 import { listBookings } from '../../services/bookingService';
@@ -55,6 +56,7 @@ function Calendar() {
   return (
     <AdminLayout title="Calendar">
       <ClosureManager />
+      <TechnicianAvailabilityManager />
 {loading ? (
         <p>Loading schedule…</p>
       ) : (

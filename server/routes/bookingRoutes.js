@@ -67,7 +67,7 @@ const { isRealDateKey } = require('../utils/closures');
 const { nextWorkingDayKey, extensionSlotProblem, addDays } = require('../utils/extensionDays');
 const {
   ASSIGNMENT_POPULATE, getMemberIds, getLeadIds, getPrimaryLeadId, getRoleFor,
-  memberFilter, findConflictingBooking, getBusyTechnicianIds, getAssignments, staffingProblem,
+  memberFilter, findConflictingBooking, getBusyTechnicianIds, findOffTechnicianIds, getAssignments, staffingProblem,
 } = require('../utils/assignments');
 const { readReason, buildHistoryEntry, viewHistory, idsIn } = require('../utils/assignmentHistory');
 const { resolveClassification } = require('../utils/classification');
@@ -801,6 +801,14 @@ router.patch('/:bookingId/cancel', auth, auditSpecs.customerCancel, allowRoles(R
 
     // the technicians on an Approved job are told it will not happen
     await notifyMembersOfChange(booking, statusBeforeCancel, NOTIFICATION_TYPE.BOOKING_CANCELLED, `Booking ${booking.bookingId} (${booking.date}, ${booking.time}) was cancelled. You no longer need to attend.`);
+
+    // The customer gets a confirmation too, so the cancellation shows in their own notifications.
+    await sendNotification(
+      booking.customer,
+      NOTIFICATION_TYPE.BOOKING_CANCELLED,
+      `You cancelled booking ${booking.bookingId}.${booking.refund?.status === REFUND_STATUS.PENDING ? ' A refund request for your down payment has been opened and is being reviewed.' : ''}`,
+      { booking }
+    ).catch((err) => console.error('Could not confirm the cancellation to the customer:', err.message));
 
     // Every admin is told once: with a refund waiting, the refund notice already says the booking was cancelled; otherwise a
     // plain cancellation notice.
@@ -1800,6 +1808,18 @@ async function performAssignment(booking, requested, { changedBy, reason } = {})
   let blocked = null;
   await withLocks([...seen].map((id) => `tech:${id}|${booking.date}|${booking.time}`), async () => {
     for (const id of seen) {
+      const [off] = await findOffTechnicianIds([id], booking.date, booking.time);
+      if (off) {
+        const who = await User.findById(id).select('name');
+        blocked = {
+          error: {
+            status: 409,
+            message: `${who?.name || 'A technician'} is not available ${booking.date} (${booking.time}). Choose a different technician, or move the booking to another date.`,
+            suggestedDates: await suggestionsFor(booking),
+          },
+        };
+        return;
+      }
       const conflict = await findConflictingBooking([id], booking.date, booking.time, booking.bookingId);
       if (conflict) {
         const who = await User.findById(id).select('name');

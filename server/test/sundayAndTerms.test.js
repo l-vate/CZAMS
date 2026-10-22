@@ -126,18 +126,20 @@ test('the public calendar shows a Sunday as closed only when Sundays are closed'
   const User = require('../models/User');
   const Booking = require('../models/Booking');
   const Closure = require('../models/Closure');
+  const TechnicianOff = require('../models/TechnicianOff');
   const { chain } = require('./helpers/memoryQueries');
-  const real = { user: User.find, booking: Booking.find, closure: Closure.find };
+  const real = { user: User.find, booking: Booking.find, closure: Closure.find, off: TechnicianOff.find };
   User.find = () => chain([]);
   Booking.find = () => chain([]);
   Closure.find = () => chain([]);
+  TechnicianOff.find = () => chain([]);
   try {
     const statusOf = async () => (await getAvailability(SUNDAY, SUNDAY))[0].status;
     await withSunday(true, async () => assert.equal(await statusOf(), 'closed'));
     await withSunday(false, async () => assert.notEqual(await statusOf(), 'closed'));
   } finally {
     // the stand-ins of the other tests come back, so the tests after this one still see their crew
-    User.find = real.user; Booking.find = real.booking; Closure.find = real.closure;
+    User.find = real.user; Booking.find = real.booking; Closure.find = real.closure; TechnicianOff.find = real.off;
   }
 });
 

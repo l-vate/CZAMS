@@ -1844,3 +1844,8 @@
 .below-select-option { padding: 9px 12px; border-radius: 7px; font-size: 15px; color: var(--navy); cursor: pointer; }
 .below-select-option.is-active { background: var(--frost); }
 .below-select-option.is-selected { font-weight: 700; }
+
+/* Delete Account is disabled while a booking is still active, with the reason and a link next to it. */
+.delete-account-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.delete-account-block { margin: 12px 0 0; color: var(--ink-soft); font-size: 0.9rem; line-height: 1.5; }
+.delete-account-block a { color: var(--navy-soft); font-weight: 700; }

@@ -3,12 +3,14 @@ const { NOTIFICATION_TYPE } = require('../constants/notificationTypes');
 const EmailDelivery = require('../models/EmailDelivery');
 const User = require('../models/User');
 const { TIMEZONE } = require('./timeBlocks');
+const { renderNotificationEmail } = require('./emailTemplate');
 
 const EMAIL_NOTIFICATION_TYPES = new Set([
   NOTIFICATION_TYPE.BOOKING_CREATED,
   NOTIFICATION_TYPE.BOOKING_NEW,
   NOTIFICATION_TYPE.BOOKING_APPROVED,
   NOTIFICATION_TYPE.BOOKING_CANCELLED,
+  NOTIFICATION_TYPE.BOOKING_IN_PROGRESS,
   NOTIFICATION_TYPE.BOOKING_COMPLETED,
   NOTIFICATION_TYPE.PAYMENT_SUBMITTED,
   NOTIFICATION_TYPE.PAYMENT_VERIFIED,
@@ -60,16 +62,6 @@ function smtpConfig(env = process.env) {
   };
 }
 
-function escapeHtml(value) {
-  return value.replace(/[&<>"']/g, (character) => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  })[character]);
-}
-
 function subjectFor(type) {
   return `CZAMS: ${type.split('_').map((part) => part[0].toUpperCase() + part.slice(1)).join(' ')}`;
 }
@@ -80,13 +72,13 @@ async function queueNotificationEmail(userId, type, message, notificationId, env
   const recipient = await User.findById(userId).select('email');
   if (!recipient?.email) return null;
 
-  const safeMessage = escapeHtml(message);
+  const { html, text } = renderNotificationEmail({ type, message, appUrl: env.APP_URL });
   return EmailDelivery.create({
     notification: notificationId,
     recipientEmail: recipient.email,
     subject: subjectFor(type),
-    text: `${message}\n\nThis email was sent by CZAMS. Sign in to your account to view more details.`,
-    html: `<p>${safeMessage}</p><p>This email was sent by CZAMS. Sign in to your account to view more details.</p>`,
+    text,
+    html,
   });
 }
 

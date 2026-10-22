@@ -21,6 +21,7 @@ import { JSON_LD, AVAILABILITY } from '../../config/landingContent';
 import { useReveal } from '../../hooks/useReveal';
 import { useScrollSpy } from '../../hooks/useScrollSpy';
 import Hero from '../../components/landing/hero';
+import Snowfall from '../../components/landing/snowfall';
 import { TrustStrip, AboutSection } from '../../components/landing/trust_and_about';
 import ServicesSection from '../../components/landing/services_section';
 import { UnitTypesSection, WhySection } from '../../components/landing/units_and_why';
@@ -303,6 +304,8 @@ function LandingPage() {
   return (
     <div className="lp-root" ref={rootRef}>
       <a className="lp-skip" href="#main">Skip to content</a>
+      {/* one backdrop for the whole page: it stays put while the sections scroll over it, so the background never restarts */}
+      <div className="lp-backdrop" aria-hidden="true"><Snowfall /></div>
       <script type="application/ld+json">{JSON.stringify(JSON_LD)}</script>
 
       <PublicNavbar search={<NavSearch navigate={navigate} services={serviceCards} />} onLogin={goLogin} activeId={activeId} />

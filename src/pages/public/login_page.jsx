@@ -6,6 +6,7 @@ import {
   FiTool,
   FiEye,
   FiEyeOff,
+  FiArrowLeft,
 } from 'react-icons/fi';
 import '../../css/public.css'
 import { ApiError } from '../../services/apiClient';
@@ -61,7 +62,7 @@ function LoginPage() {
 
       {/* ── Left Panel ── */}
       <div className="auth-split-left">
-        <Link to="/" className="auth-split-back">← Back to site</Link>
+        <Link to="/" className="auth-split-back"><FiArrowLeft aria-hidden="true" /> Back to site</Link>
 
         <div className="auth-split-brand">
           <img src="/images/logo.png" alt={`${BRAND_NAME} logo`} className="auth-split-logo" />

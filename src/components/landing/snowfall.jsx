@@ -1,4 +1,4 @@
-// A slow, soft snowfall behind the hero (and the call band). Pure CSS: each flake is a span with its own position, size, speed and sway, set
+// A slow, soft snowfall behind the whole page (it lives in the fixed .lp-backdrop). Pure CSS: each flake is a span with its own position, size, speed and sway, set
 // through custom properties; landing.css makes them fall and turns it all off for prefers-reduced-motion. Fixed numbers (no random), so
 // the picture is the same on every load. The layer is decorative and hidden from assistive technology.
 // x (% from the left), size (px), seconds to fall, start delay (s), sideways sway (px), opacity, kind

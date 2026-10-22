@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiClipboard, FiMapPin, FiCreditCard, FiEye, FiEyeOff } from 'react-icons/fi';
+import { FiClipboard, FiMapPin, FiCreditCard, FiEye, FiEyeOff, FiArrowLeft } from 'react-icons/fi';
 import '../../css/public.css'
 import { ApiError } from '../../services/apiClient';
 import { COMPANY_NAME_MAX, REPRESENTATIVE_NAME_MAX } from '../../constants/profileFields';
@@ -62,7 +62,7 @@ const handleSubmit = async (e) => {
 
       {/* ── Left Panel ── */}
       <div className="auth-split-left auth-split-left--register">
-        <Link to="/" className="auth-split-back">← Back to site</Link>
+        <Link to="/" className="auth-split-back"><FiArrowLeft aria-hidden="true" /> Back to site</Link>
 
         <div className="auth-split-brand">
           <img src="/images/logo.png" alt={`${BRAND_NAME} logo`} className="auth-split-logo" />

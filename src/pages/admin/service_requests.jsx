@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AdminLayout from './admin_layout';
-import AdminServiceDetailsModal from '../../components/admin_service_details_modal';
 import PersonFilterBanner from '../../components/person_filter_banner';
 import { getStatusColor, getFilterPillStyle, textOnFill } from '../../utils/statusColors';
 import { FiEye } from 'react-icons/fi';
@@ -19,10 +18,8 @@ function ServiceRequests() {
     const [loading, setLoading] = useState(true);
     const [activeFilter, setActiveFilter] = useState('All');
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedBooking, setSelectedBooking] = useState(null);
     // 'all' = every booking; 'queue' = the Pending queue (first come, first served, reorderable)
     const [view, setView] = useState('all');
-    const [queueRefresh, setQueueRefresh] = useState(0);
     // Manage Accounts' "View Job History" (technician) / "View Bookings" (client)
     // links land here with a person filter pre-applied via navigation state, rather
     // than this page having its own duplicate list of every technician/client.
@@ -30,15 +27,12 @@ function ServiceRequests() {
 
     const filters = ['All', ...BOOKING_STATUS_VALUES];
 
-    // A notification links here with ?booking=<id>: open that booking once the list has loaded.
-    const [searchParams, setSearchParams] = useSearchParams();
+    // A notification links here with ?booking=<id>: go straight to that booking's page.
+    const [searchParams] = useSearchParams();
     const bookingFromLink = searchParams.get('booking');
     useEffect(() => {
-        if (!bookingFromLink || loading) return;
-        const found = requests.find((r) => r.bookingId === bookingFromLink);
-        if (found) setSelectedBooking(found);
-        setSearchParams({}, { replace: true });
-    }, [bookingFromLink, loading, requests, setSearchParams]);
+        if (bookingFromLink) navigate(`/admin/services/requests/${encodeURIComponent(bookingFromLink)}`, { replace: true });
+    }, [bookingFromLink, navigate]);
 
     useEffect(() => {
         fetchRequests();
@@ -74,15 +68,9 @@ function ServiceRequests() {
         }
     };
 
+    // A booking opens on its own page (pages/admin/booking_details_page.jsx).
     const handleViewDetails = (booking) => {
-        setSelectedBooking(booking);
-    };
-
-    const handleBookingUpdated = (updatedBooking) => {
-        setRequests((prev) =>
-            prev.map((req) => (req.bookingId === updatedBooking.bookingId ? updatedBooking : req))
-        );
-        setSelectedBooking(updatedBooking);
+        navigate(`/admin/services/requests/${encodeURIComponent(booking.bookingId)}`);
     };
 
     return (
@@ -107,7 +95,7 @@ function ServiceRequests() {
                 </div>
 
                 {view === 'queue' && (
-                    <PendingQueue refreshKey={queueRefresh} onViewDetails={handleViewDetails} />
+                    <PendingQueue onViewDetails={handleViewDetails} />
                 )}
 
                 {view === 'all' && (<>
@@ -195,14 +183,6 @@ function ServiceRequests() {
                 )}
                 </>)}
             </div>
-
-            {selectedBooking && (
-                <AdminServiceDetailsModal
-                    booking={selectedBooking}
-                    onClose={() => { setSelectedBooking(null); setQueueRefresh((n) => n + 1); }}
-                    onUpdated={handleBookingUpdated}
-                />
-            )}
         </AdminLayout>
     );
 }

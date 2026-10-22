@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AdminLayout from './admin_layout';
-import AdminServiceDetailsModal from '../../components/admin_service_details_modal';
 import DashboardCharts from '../../components/dashboard_charts';
 
 import {
@@ -64,7 +64,7 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [activeClientType, setActiveClientType] = useState('all');
-  const [selectedBooking, setSelectedBooking] = useState(null);
+  const navigate = useNavigate();
 
   // A failed load is an error with a Retry, never zeros and empty tables that look like "no bookings".
   const fetchData = async () => {
@@ -126,13 +126,6 @@ function Dashboard() {
   ], [filteredBookings, activeStaffCount]);
 
   const recentBookings = filteredBookings.slice(0, RECENT_BOOKINGS_LIMIT);
-
-  const handleBookingUpdated = (updatedBooking) => {
-    setBookings((prev) =>
-      prev.map((b) => (b.bookingId === updatedBooking.bookingId ? updatedBooking : b))
-    );
-    setSelectedBooking(updatedBooking);
-  };
 
   return (
     <AdminLayout title="Dashboard">
@@ -232,7 +225,7 @@ function Dashboard() {
 
                   <button
                     className="view-details-btn"
-                    onClick={() => setSelectedBooking(b)}
+                    onClick={() => navigate(`/admin/services/requests/${encodeURIComponent(b.bookingId)}`)}
                   >
                     <FiEye size={14} /> View Details
                   </button>
@@ -243,13 +236,6 @@ function Dashboard() {
         </div>
       </div>
 
-      {selectedBooking && (
-        <AdminServiceDetailsModal
-          booking={selectedBooking}
-          onClose={() => setSelectedBooking(null)}
-          onUpdated={handleBookingUpdated}
-        />
-      )}
     </AdminLayout>
   );
 }

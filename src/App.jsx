@@ -27,6 +27,7 @@ import AdminServices from './pages/admin/services';
 import AdminServiceManage from './pages/admin/service_manage';
 import AdminManagePaymentSettings from './pages/admin/manage_payment_settings';
 import AdminServiceRequests from './pages/admin/service_requests';
+import AdminBookingDetails from './pages/admin/booking_details_page';
 import AdminWalkInBooking from './pages/admin/walk_in_booking';
 import AdminServiceReports from './pages/admin/service_reports';
 import AdminPayments from './pages/admin/payments';
@@ -92,6 +93,7 @@ function App() {
           <Route path="/admin/payment-settings" element={<AdminManagePaymentSettings />} />
           <Route path="/admin/services/requests" element={<AdminServiceRequests />} />
           <Route path="/admin/services/requests/new" element={<AdminWalkInBooking />} />
+          <Route path="/admin/services/requests/:bookingId" element={<AdminBookingDetails />} />
           <Route path="/admin/services/reports" element={<AdminServiceReports />} />
           <Route path="/admin/payments" element={<AdminPayments />} />
           {/* Refunds is now a filter pill on the Payments tab, not its own page. */}

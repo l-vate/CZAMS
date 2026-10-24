@@ -131,3 +131,44 @@ test('a preflight request from an allowed origin is answered, from another origi
     assert.equal(no.headers.get('access-control-allow-origin'), null);
   });
 });
+
+// ---- E15-2: production refuses to start without a usable CORS_ORIGINS, and only the methods and headers the app uses are allowed
+const { checkEnvironment } = require('../config/envCheck');
+const GOOD_PROD = { NODE_ENV: 'production', JWT_SECRET: 'x'.repeat(40), MONGO_URI: 'present', CORS_ORIGINS: 'https://myapp.vercel.app' };
+
+test('production without CORS_ORIGINS does not start, and the message names the variable only', () => {
+  assert.deepEqual(checkEnvironment(GOOD_PROD).errors, []);
+  const missing = checkEnvironment({ ...GOOD_PROD, CORS_ORIGINS: undefined }).errors;
+  assert.equal(missing.length, 1);
+  assert.match(missing[0], /CORS_ORIGINS is missing/);
+  assert.equal(checkEnvironment({ ...GOOD_PROD, CORS_ORIGINS: '  , ,' }).errors.length, 1, 'blank entries are as good as nothing');
+});
+
+test('production refuses a wildcard origin, a bare host and an http origin, without printing them', () => {
+  ['*', 'https://*', 'myapp.vercel.app', 'http://myapp.vercel.app', 'https://good.example,*'].forEach((value) => {
+    const errors = checkEnvironment({ ...GOOD_PROD, CORS_ORIGINS: value }).errors;
+    assert.equal(errors.length, 1, `${value} should be refused`);
+    assert.match(errors[0], /CORS_ORIGINS/);
+    assert.equal(errors[0].includes('myapp.vercel.app') || errors[0].includes('good.example'), false, 'the message does not repeat a value');
+  });
+  assert.deepEqual(checkEnvironment({ ...GOOD_PROD, CORS_ORIGINS: 'https://myapp.vercel.app,https://myapp-*-myteam.vercel.app' }).errors, [], 'the Vercel preview pattern is fine');
+});
+
+test('development does not need CORS_ORIGINS', () => {
+  assert.deepEqual(checkEnvironment({ NODE_ENV: 'development', JWT_SECRET: 'x'.repeat(40) }).errors, []);
+});
+
+test('a preflight answer lists only the methods and headers the app uses, and never reflects an unlisted origin or a wildcard', async () => {
+  await withApp({ NODE_ENV: 'production', CORS_ORIGINS: 'https://myapp.vercel.app' }, async (base) => {
+    const res = await fetch(`${base}/ping`, { method: 'OPTIONS', headers: { Origin: 'https://myapp.vercel.app', 'Access-Control-Request-Method': 'PATCH', 'Access-Control-Request-Headers': 'authorization,content-type' } });
+    assert.equal(res.status, 204);
+    assert.equal(res.headers.get('access-control-allow-origin'), 'https://myapp.vercel.app');
+    assert.equal(res.headers.get('access-control-allow-methods'), 'GET,POST,PUT,PATCH,DELETE');
+    assert.equal(res.headers.get('access-control-allow-headers'), 'Authorization,Content-Type');
+    assert.equal(res.headers.get('access-control-allow-credentials'), null, 'no cookies are involved, so no credentials');
+    for (const origin of ['https://evil.com', 'null', 'https://myapp.vercel.app.evil.com']) {
+      const refused = await fetch(`${base}/ping`, { method: 'OPTIONS', headers: { Origin: origin, 'Access-Control-Request-Method': 'GET' } });
+      assert.equal(refused.headers.get('access-control-allow-origin'), null, `${origin} must not be answered`);
+    }
+  });
+});

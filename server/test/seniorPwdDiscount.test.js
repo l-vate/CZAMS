@@ -4,6 +4,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const jwt = require('jsonwebtoken');
+const { REAL_PNG } = require('./helpers/images');
 const harness = require('./helpers/createBooking');
 const { SENIOR_PWD_DISCOUNT_RATE, SENIOR_PWD_DISCOUNT_PERCENT } = require('../constants/discount');
 const { getPaymentBreakdown, getBookingBasePrice } = require('../utils/pricing');
@@ -38,7 +39,7 @@ async function ask(fields, withId = true, as = 'CUS1') {
   const token = jwt.sign({ id: as, role: 'customer' }, process.env.JWT_SECRET, { expiresIn: '5m' });
   const form = new FormData();
   Object.entries({ discountConsent: 'true', ...fields }).forEach(([k, v]) => { if (v !== undefined) form.append(k, v); });
-  if (withId) form.append('discountId', new Blob([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.alloc(64)], { type: 'image/png' }), 'id.png');
+  if (withId) form.append('discountId', new Blob([REAL_PNG], { type: 'image/png' }), 'id.png');
   const res = await fetch(`${harness.base()}/api/bookings/CZ-1/discount/request`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form });
   return { status: res.status, body: await res.json().catch(() => ({})) };
 }
@@ -162,7 +163,7 @@ async function create(fields, { as = 'CUS1', withId = true, role = 'customer' } 
     contactNumber: '09171234567', downPaymentPercent: '50', paymentMode: 'GCash', lastCleanedOver6MonthsAgo: 'false', isActivelyLeaking: 'false', ...fields,
   };
   Object.entries(body).forEach(([k, v]) => { if (v !== undefined) form.append(k, v); });
-  if (withId) form.append('discountId', new Blob([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.alloc(64)], { type: 'image/png' }), 'id.png');
+  if (withId) form.append('discountId', new Blob([REAL_PNG], { type: 'image/png' }), 'id.png');
   const res = await fetch(`${harness.base()}/api/bookings`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
   return { status: res.status, body: await res.json().catch(() => ({})) };
 }
@@ -180,7 +181,7 @@ test('a Commercial customer cannot ask for the discount: refused at booking, aft
   const form = new FormData();
   form.append('discountType', 'PWD');
   form.append('discountConsent', 'true');
-  form.append('discountId', new Blob([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.alloc(64)], { type: 'image/png' }), 'id.png');
+  form.append('discountId', new Blob([REAL_PNG], { type: 'image/png' }), 'id.png');
   const res = await fetch(`${harness.base()}/api/bookings/CZ-1/discount/request`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form });
   assert.equal(res.status, 400);
   assert.equal(b.discount, undefined);

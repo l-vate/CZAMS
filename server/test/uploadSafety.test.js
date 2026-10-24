@@ -9,10 +9,7 @@ const {
 const { createMemoryStore, setStore, KINDS } = require('../storage/fileStore');
 
 // ---- bytes of real (tiny) files, and of things pretending to be them
-const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(32)]);
-const JPG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(32)]);
-const WEBP = Buffer.concat([Buffer.from('RIFF'), Buffer.from([0x24, 0, 0, 0]), Buffer.from('WEBP'), Buffer.alloc(16)]);
-const PDF = Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\n');
+const { REAL_PNG: PNG, REAL_JPG: JPG, REAL_WEBP: WEBP, REAL_PDF: PDF } = require('./helpers/images');
 const HTML = Buffer.from('<html><script>alert(document.cookie)</script></html>');
 const SVG = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
 
@@ -68,11 +65,11 @@ async function withApp(options, run) {
 
 const one = (bytes, name, type) => [{ field: 'file', bytes, name, type }];
 
-test('a real PNG is saved under a random name with a .png extension, whatever it was called', async () => {
+test('a real PNG is cleaned, re-encoded as a JPEG and saved under a random name with a .jpg extension, whatever it was called', async () => {
   await withApp({ allowedTypes: IMAGE_TYPES }, async ({ send, files }) => {
     const res = await send('/one', one(PNG, 'evil.html', 'image/png'));
     assert.equal(res.status, 200);
-    assert.match(res.body.saved, /^[0-9a-f]{32}\.png$/);
+    assert.match(res.body.saved, /^[0-9a-f]{32}\.jpg$/);
     assert.deepEqual(await files(), [res.body.saved]);
   });
 });
@@ -157,8 +154,8 @@ test('a stored file keeps its kind, size and detected type, and not the name the
   await withApp({ allowedTypes: IMAGE_TYPES }, async ({ send, store }) => {
     const res = await send('/one', one(PNG, 'my-private-id-card.png', 'image/png'));
     const stored = await store.open(res.body.saved);
-    assert.equal(stored.contentType, 'image/png');
-    assert.equal(stored.size, PNG.length);
+    assert.equal(stored.contentType, 'image/jpeg', 'a picture is stored as the JPEG it was cleaned into');
+    assert.equal(stored.size, (await store.list())[0].size);
     assert.equal(stored.metadata.kind, 'proof');
     assert.equal(JSON.stringify(stored.metadata).includes('my-private'), false);
   });

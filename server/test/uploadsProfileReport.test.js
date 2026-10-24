@@ -76,7 +76,7 @@ test('a profile photo is stored as a profile image and the user points at it', a
   const [file] = await store.list();
   assert.equal(file.metadata.kind, 'profile_image');
   assert.equal(file.metadata.uploadedBy, 'T1');
-  assert.match(file.name, /^[0-9a-f]{32}\.png$/);
+  assert.match(file.name, /^[0-9a-f]{32}\.jpg$/);
   assert.equal(profile.profileImage, `/uploads/profile-images/${file.name}`);
 });
 

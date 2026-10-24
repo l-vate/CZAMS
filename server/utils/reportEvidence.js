@@ -3,7 +3,7 @@
 const { invalid } = require('./validation');
 const { bytesMatch } = require('./uploadSafety');
 
-const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
+const PHOTO_MAX_BYTES = 8 * 1024 * 1024;
 const PHOTO_MIME_TYPES = Object.freeze(['image/jpeg', 'image/png']);
 const SIGNATURE_MAX_BYTES = 500 * 1024;
 

@@ -56,11 +56,11 @@ test('a customer booking with a payment proof and an ID photo stores both, with 
   assert.equal(saved.proofFile, `/uploads/proofs/${byKind.proof.name}`);
   assert.equal(saved.discount.idFile, `/uploads/proofs/${byKind.id_photo.name}`);
   listed.forEach((f) => {
-    assert.match(f.name, /^[0-9a-f]{32}\.png$/);
+    assert.match(f.name, /^[0-9a-f]{32}\.jpg$/);
     assert.equal(f.metadata.uploadedBy, 'CUS1');
     assert.equal(f.metadata.bookingId, saved.bookingId);
-    assert.equal(f.metadata.contentType, 'image/png');
-    assert.equal(f.metadata.size, PNG.length);
+    assert.equal(f.metadata.contentType, 'image/jpeg');
+    assert.ok(f.metadata.size > 0, 'the size kept is the size of the cleaned picture');
   });
 });
 

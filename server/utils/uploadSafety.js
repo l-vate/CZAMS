@@ -6,14 +6,20 @@
 //    the name is random, so a file called "x.html" can never be stored or served as HTML.
 //  - The browser's Content-Type can be forged, so the first bytes of the file are checked against the
 //    type it claims. A file that does not match is refused.
+//  - A picture is cleaned before it is stored (utils/imageProcessing.js): at most 1600 px on the longest side, re-encoded as a JPEG at about
+//    80 percent, every piece of metadata (GPS, phone model, time) dropped. The image library decodes it, which is the real check that it is
+//    a picture. A PDF is stored as it came.
 //  - Files are held in memory and written to the file store (storage/fileStore.js) by storeUploads, only after the route has checked
 //    everything else. A refused request stores nothing; one that fails after storing removes what it stored (discardUploads).
 const path = require('path');
 const crypto = require('crypto');
 const multer = require('multer');
 const { getStore } = require('../storage/fileStore');
+const { cleanImage } = require('./imageProcessing');
 
 const MB = 1024 * 1024;
+// The most one upload may be, before it is shrunk. A phone photo is often 5 to 10 MB; a bigger file is refused with a clear message.
+const MAX_UPLOAD_BYTES = 8 * MB;
 
 // What each accepted type must start with. Checked against the saved file, not the header.
 const FILE_TYPES = Object.freeze({
@@ -95,19 +101,32 @@ function discardUploads(req) {
 // Express middleware for the step right after multer: every file in memory must pass the byte check, and then gets its random stored name
 // (from the validated type, never from the client's name). If any fails the request ends with a 400; nothing was stored yet.
 function verifyUploads(allowedTypes) {
-  return (req, res, next) => {
-    const files = filesOf(req);
-    if (!files.every(verifyBuffer)) {
-      return res.status(400).json({ message: `The file is not a real ${describeTypes(allowedTypes)} file.` });
+  return async (req, res, next) => {
+    try {
+      const files = filesOf(req);
+      if (!files.every(verifyBuffer)) {
+        return res.status(400).json({ message: `The file is not a real ${describeTypes(allowedTypes)} file.` });
+      }
+      // a picture is decoded, shrunk and stripped of its metadata; a picture the library cannot read is refused
+      for (const file of files) {
+        if (file.mimetype === 'application/pdf') continue;
+        const cleaned = await cleanImage(file.buffer);
+        file.buffer = cleaned.buffer;
+        file.size = cleaned.buffer.length;
+        file.mimetype = cleaned.mimetype;
+      }
+      files.forEach((file) => { file.filename = `${crypto.randomBytes(16).toString('hex')}${extensionFor(file.mimetype)}`; });
+      return next();
+    } catch (err) {
+      if (err && err.isUploadRejection) return res.status(400).json({ message: err.message });
+      return next(err);
     }
-    files.forEach((file) => { file.filename = `${crypto.randomBytes(16).toString('hex')}${extensionFor(file.mimetype)}`; });
-    return next();
   };
 }
 
 // Builds the upload helpers. `upload.single(name)` and `upload.fields(list)` return the middleware to put in a route. Files are held in
 // memory (at most maxBytes each) until the route stores them.
-function createUploader({ allowedTypes, maxBytes = 5 * MB }) {
+function createUploader({ allowedTypes, maxBytes = MAX_UPLOAD_BYTES }) {
   const instance = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: maxBytes },
@@ -141,6 +160,6 @@ function createUploader({ allowedTypes, maxBytes = 5 * MB }) {
 const UPLOADS_ROOT = path.join(__dirname, '..', 'uploads');
 
 module.exports = {
-  FILE_TYPES, IMAGE_TYPES, PHOTO_TYPES, PROOF_TYPES, UPLOADS_ROOT,
+  FILE_TYPES, MAX_UPLOAD_BYTES, IMAGE_TYPES, PHOTO_TYPES, PROOF_TYPES, UPLOADS_ROOT,
   extensionFor, bytesMatch, verifyUploads, storeUploads, discardUploads, createUploader, describeTypes,
 };

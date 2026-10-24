@@ -20,7 +20,7 @@ test('a photo alone passes', () => {
 
 test('only JPG and PNG up to 5 MB are accepted', () => {
   assert.deepEqual([...PHOTO_MIME_TYPES], ['image/jpeg', 'image/png']);
-  assert.equal(PHOTO_MAX_BYTES, 5 * 1024 * 1024);
+  assert.equal(PHOTO_MAX_BYTES, 8 * 1024 * 1024);
 });
 
 test('multipart flags read as booleans', () => {

@@ -591,7 +591,7 @@ const PAYMENT_STATUS_LABELS = {
 
 function Step4({ form, setForm, services, isReturnCustomer, isCommercial = false, onAgreedTerms, paymentMethods, downPaymentPercentages, promos }) {
   const [showModal, setShowModal] = useState(false);
-  const { selected: selectedService, lineItems, basePrice, discountAmount, discountLabel, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages), 0, promos);
+  const { selected: selectedService, lineItems, equipment, basePrice, discountAmount, discountLabel, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages), 0, promos);
   const isNoDownPayment = dpPercent === 0;
   // A customer pays online by GCash or Bank Transfer only, for both payments. Cash and cheque are recorded by our team on site.
   const onlineMethods = paymentMethods.filter((m) => ONLINE_PAYMENT_MODES.includes(m.name));
@@ -608,7 +608,7 @@ const handleSubmitPayment = ({ proof, referenceNumber }) => {
           form={{
             ...form,
             basePrice,
-            lineItems,
+            lineItems: [...lineItems, ...equipment.map((line) => ({ type: line.label, quantity: line.quantity, subtotal: line.subtotal }))],
             downPaymentPercent: dpPercent,
             toPayNow,
             remaining,
@@ -706,6 +706,15 @@ const handleSubmitPayment = ({ proof, referenceNumber }) => {
               <span>₱{li.subtotal.toLocaleString()}.00</span>
             </div>
           ))}
+          {equipment.map((line, i) => (
+            <div className="cost-row cost-row-item" key={`equipment-${i}`}>
+              <span>{line.label} × {line.quantity}</span>
+              <span>₱{line.subtotal.toLocaleString()}.00</span>
+            </div>
+          ))}
+          {(form.units || []).some((u) => u.supplied?.notListed) && (
+            <div className="cost-row cost-row-item"><span>Unit asked from the owner</span><span>Price to be confirmed</span></div>
+          )}
           <div className="cost-divider" />
 
           {discountAmount > 0 && (

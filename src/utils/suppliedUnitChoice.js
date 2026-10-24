@@ -8,6 +8,10 @@ export const NOT_LISTED_BRAND_MAX = 40;
 const hpNumber = (hp) => (/^\d+(\.\d+)?$/.test(String(hp ?? '').trim()) ? Number(String(hp).trim()) : NaN);
 export const sameHp = (a, b) => Number.isFinite(hpNumber(a)) && hpNumber(a) === hpNumber(b);
 
+// The horsepower choice that equals a stored value: the server keeps "1.0" as "1", but the horsepower box lists "1.0". The stored text
+// itself when no choice equals it.
+export const hpChoiceFor = (options, hp) => (options || []).find((o) => sameHp(o, hp)) ?? String(hp ?? '');
+
 // The catalog items that fit a unit entry: its type and its horsepower.
 export function matchingUnits(items, unit) {
   if (!unit?.type || !unit?.hp) return [];

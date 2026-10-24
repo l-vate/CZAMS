@@ -5,6 +5,7 @@ import { listSuppliedUnits, addSuppliedUnit, updateSuppliedUnit, setSuppliedUnit
 import { UNIT_TYPES } from '../../constants/unitTypes';
 import { HP_OPTIONS } from '../../constants/unitOptions';
 import { formatPeso } from '../../utils/bookingPricing';
+import { hpChoiceFor } from '../../utils/suppliedUnitChoice';
 
 const EMPTY = { brand: '', model: '', type: UNIT_TYPES[0], hp: HP_OPTIONS[2], inverter: 'true', price: '' };
 
@@ -33,7 +34,7 @@ function SuppliedUnits() {
   const reset = () => { setForm(EMPTY); setEditingId(null); };
   const edit = (item) => {
     setEditingId(item._id);
-    setForm({ brand: item.brand, model: item.model || '', type: item.type, hp: item.hp, inverter: String(item.inverter), price: String(item.price) });
+    setForm({ brand: item.brand, model: item.model || '', type: item.type, hp: hpChoiceFor(HP_OPTIONS, item.hp), inverter: String(item.inverter), price: String(item.price) });
     setError('');
     setNotice('');
   };

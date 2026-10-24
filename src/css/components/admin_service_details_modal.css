@@ -147,7 +147,8 @@
 .scope-line-main { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
 .scope-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 .scope-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; align-items: end; }
-.scope-form label { display: grid; gap: 4px; font-size: 0.8125rem; color: #475569; font-weight: 600; }
+.scope-form label, .scope-editor label.scope-form-wide { display: grid; gap: 4px; font-size: 0.8125rem; color: #475569; font-weight: 600; min-width: 0; }
+.scope-form input, .scope-form select, .scope-form textarea, .scope-editor label input, .scope-editor label textarea { width: 100%; min-width: 0; box-sizing: border-box; }
 .scope-form-wide { grid-column: 1 / -1; }
 .scope-form-amount { grid-column: 1 / -1; margin: 0; font-size: 0.9rem; }
 .scope-add { padding: 12px 14px; border: 1px dashed #cbd5e1; border-radius: 10px; display: grid; gap: 10px; }

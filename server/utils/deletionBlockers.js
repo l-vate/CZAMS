@@ -8,20 +8,20 @@ const { BACK_JOB_STATUS } = require('../constants/backJobStatus');
 
 const ACTIVE = [BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS];
 
-const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-
 // null when nothing blocks the deletion, otherwise the sentence to show the customer. With an active booking the first sentence is the
 // fixed one the page shows; anything else that is open (money or a claim) is named after it.
 function describeBlockers({ activeBookings = 0, openRefunds = 0, openBackJobs = 0, cancelledAwaitingCheck = 0 }) {
   const others = [];
-  if (openRefunds > 0) others.push(`${plural(openRefunds, 'refund that is', 'refunds that are')} not settled yet`);
-  if (cancelledAwaitingCheck > 0) others.push(`${plural(cancelledAwaitingCheck, 'cancelled booking whose payment proof is', 'cancelled bookings whose payment proofs are')} still being checked`);
-  if (openBackJobs > 0) others.push(`${plural(openBackJobs, 'back job claim that is', 'back job claims that are')} waiting for review`);
+  if (openRefunds > 0) others.push(`${openRefunds} ${openRefunds === 1 ? 'refund needs' : 'refunds need'} to be settled`);
+  if (cancelledAwaitingCheck > 0) {
+    others.push(`${cancelledAwaitingCheck} ${cancelledAwaitingCheck === 1 ? 'cancelled booking needs' : 'cancelled bookings need'} to be settled (${cancelledAwaitingCheck === 1 ? 'its payment proof is' : 'their payment proofs are'} still being checked)`);
+  }
+  if (openBackJobs > 0) others.push(`${openBackJobs} ${openBackJobs === 1 ? 'back job claim needs' : 'back job claims need'} to be reviewed`);
   if (activeBookings === 0 && others.length === 0) return null;
   if (activeBookings > 0) {
-    return `You cannot delete your account while you have active bookings. Complete or cancel them first.${others.length > 0 ? ` You also have ${others.join(', ')}.` : ''}`;
+    return `You cannot delete your account while you have active bookings. Complete or cancel them first.${others.length > 0 ? ` Also open: ${others.join('; ')}.` : ''}`;
   }
-  return `You cannot delete your account while you have ${others.join(', ')}. Wait for them to be settled, then try again.`;
+  return `You cannot delete your account yet. ${others.join('; ')}. Try again once that is done.`;
 }
 
 // Counts what is open for this customer. `Booking` and `BackJob` are the Mongoose models.

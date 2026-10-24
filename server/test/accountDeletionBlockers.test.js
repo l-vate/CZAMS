@@ -51,13 +51,14 @@ test('with an active booking the message is the fixed sentence, and anything els
   assert.equal(describeBlockers({ activeBookings: 3 }), fixed);
   const all = describeBlockers({ activeBookings: 1, openRefunds: 1, openBackJobs: 1, cancelledAwaitingCheck: 2 });
   assert.ok(all.startsWith(fixed));
-  assert.match(all, /You also have 1 refund that is not settled yet, 2 cancelled bookings whose payment proofs are still being checked, 1 back job claim that is waiting for review\.$/);
+  assert.match(all, /Also open: 1 refund needs to be settled; 2 cancelled bookings need to be settled \(their payment proofs are still being checked\); 1 back job claim needs to be reviewed\.$/);
 });
 
 test('without an active booking the message names what else is open, with the right singular and plural', () => {
-  assert.match(describeBlockers({ openRefunds: 1 }), /^You cannot delete your account while you have 1 refund that is not settled yet\./);
-  assert.match(describeBlockers({ openBackJobs: 2 }), /2 back job claims that are waiting for review/);
-  assert.match(describeBlockers({ cancelledAwaitingCheck: 1 }), /1 cancelled booking whose payment proof is still being checked/);
+  assert.match(describeBlockers({ openRefunds: 1 }), /^You cannot delete your account yet\. 1 refund needs to be settled\. Try again once that is done\.$/);
+  assert.match(describeBlockers({ openBackJobs: 2 }), /2 back job claims need to be reviewed/);
+  assert.match(describeBlockers({ cancelledAwaitingCheck: 1 }), /1 cancelled booking needs to be settled \(its payment proof is still being checked\)/);
+  assert.match(describeBlockers({ cancelledAwaitingCheck: 2 }), /2 cancelled bookings need to be settled \(their payment proofs are still being checked\)/);
 });
 
 // ---- the route
@@ -88,7 +89,7 @@ test('an unsettled refund blocks it, even on a cancelled booking', async () => {
   bookings = [booking({ status: 'Cancelled', refund: { status: 'Pending' } })];
   const res = await remove();
   assert.equal(res.status, 409);
-  assert.match(res.body.message, /1 refund that is not settled yet/);
+  assert.match(res.body.message, /1 refund needs to be settled/);
   assert.deepEqual(deleted, []);
 });
 
@@ -103,7 +104,7 @@ test('a back job claim waiting for review blocks it; a reviewed one does not', a
   backJobs = [{ customer: 'CUS1', status: 'Not Covered' }];
   const res = await remove();
   assert.equal(res.status, 409);
-  assert.match(res.body.message, /1 back job claim that is waiting for review/);
+  assert.match(res.body.message, /1 back job claim needs to be reviewed/);
   backJobs = [{ customer: 'CUS1', status: 'Reviewed' }];
   assert.equal((await remove()).status, 200);
 });
@@ -124,7 +125,7 @@ test('several open things are all named in one message', async () => {
   backJobs = [{ customer: 'CUS1', status: 'Not Covered' }];
   const res = await remove();
   assert.equal(res.status, 409);
-  assert.match(res.body.message, /You also have 1 refund that is not settled yet, 1 back job claim that is waiting for review\.$/);
+  assert.match(res.body.message, /Also open: 1 refund needs to be settled; 1 back job claim needs to be reviewed\.$/);
   assert.deepEqual(res.body.blockers, { activeBookings: 2, openRefunds: 1, cancelledAwaitingCheck: 0, openBackJobs: 1 });
 });
 
@@ -138,7 +139,7 @@ test('a cancelled booking whose payment proof is still being checked blocks it u
   bookings = [booking({ status: 'Cancelled', paymentCheckAfterCancel: true })];
   const res = await remove();
   assert.equal(res.status, 409);
-  assert.match(res.body.message, /1 cancelled booking whose payment proof is still being checked/);
+  assert.match(res.body.message, /1 cancelled booking needs to be settled \(its payment proof is still being checked\)/);
   assert.deepEqual(deleted, []);
   bookings = [booking({ status: 'Cancelled', paymentCheckAfterCancel: false })];
   assert.equal((await remove()).status, 200);

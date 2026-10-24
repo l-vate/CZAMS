@@ -757,7 +757,11 @@ const [report, setReport] = useState(null);
                                                 </span>
                                                 <span className="sdm-list-value admin-service-details-modal-x21">
                                                     ₱{(booking.service?.serviceType === SERVICE_TYPE.INSTALLATION ? (booking.mobilizationFee || 0) : (booking.distanceAdjustment || 0)).toLocaleString()}
-                                                    <button className="sdm-btn sdm-btn-outline admin-service-details-modal-x22" onClick={() => setEditingCharges(true)}>Edit</button>
+                                                    {booking.service?.serviceType !== SERVICE_TYPE.INSTALLATION && (booking.scopeLines || []).some((l) => l.kind === 'distance') ? (
+                                                        <small className="sdm-muted"> Edit the distance line in Scope of works.</small>
+                                                    ) : (
+                                                        <button className="sdm-btn sdm-btn-outline admin-service-details-modal-x22" onClick={() => setEditingCharges(true)}>Edit</button>
+                                                    )}
                                                 </span>
                                             </div>
                                         )
@@ -1142,7 +1146,7 @@ const [report, setReport] = useState(null);
         {showReceipt && (
             <ReceiptModal
                 form={buildReceiptForm(booking, {
-                    customerName: booking.customer?.name,
+                    customerName: customerLabel(booking.customer, '-'),
                     contactNumber: booking.contactNumber || booking.customer?.phone,
                 })}
                 booking={booking}

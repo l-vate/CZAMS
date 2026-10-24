@@ -45,7 +45,8 @@ function toTechnicianView(booking, extra = {}) {
     clientSuppliedUnit: !!b.clientSuppliedUnit,
     cleaningTierAnswers: b.cleaningTierAnswers ? pick(b.cleaningTierAnswers, ['lastCleanedOver6MonthsAgo', 'isActivelyLeaking']) : undefined,
 
-    customer: b.customer && typeof b.customer === 'object' ? { name: b.customer.name, phone: b.customer.phone } : undefined,
+    // null means the customer deleted their account: the technician sees "Deleted customer", never a blank or a made up name
+    customer: b.customer === null ? { name: 'Deleted customer', phone: '' } : (b.customer && typeof b.customer === 'object' ? { name: b.customer.name, phone: b.customer.phone } : undefined),
 
     technician: person(b.technician),
     assignments: (b.assignments || []).map((a) => ({

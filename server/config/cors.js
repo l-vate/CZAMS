@@ -4,19 +4,10 @@
 // closed) and one warning says why. No origin is ever reflected back unless it is listed. The API uses a token in a header, not
 // cookies, so no credentials are involved.
 //
-// CORS_ORIGINS is a comma separated list. Each entry is an exact origin, or an origin whose host has *
-// in it. A * stands for one or more letters, digits or hyphens and never matches a dot or a slash, so
-// "https://myapp-*-myteam.vercel.app" matches https://myapp-git-fix-x-myteam.vercel.app and
-// https://myapp-abc123-myteam.vercel.app, but not https://myapp-x-myteam.vercel.app.evil.com.
+// CORS_ORIGINS is a comma separated list of exact origins (https://your-site.example). There are no wildcards: an entry with a *
+// matches nothing, and production does not start with one (config/envCheck.js). A preview deployment on another address is allowed by
+// adding its exact origin to the list.
 const cors = require('cors');
-
-const escapeRegex = (text) => text.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
-
-// "https://a-*-b.vercel.app" to a regular expression for the whole origin, case-insensitive.
-function patternToRegex(pattern) {
-  const source = pattern.split('*').map(escapeRegex).join('[a-z0-9-]+');
-  return new RegExp(`^${source}$`, 'i');
-}
 
 function parseOrigins(raw) {
   return String(raw || '')
@@ -36,7 +27,8 @@ const LOCALHOST = /^http:\/\/(localhost|127\.0\.0\.1)(:\d{1,5})?$/i;
 function isOriginAllowed(origin, { origins = [], production = false } = {}) {
   if (!origin) return true;
   if (!production && LOCALHOST.test(origin)) return true;
-  return origins.some((entry) => (entry.includes('*') ? patternToRegex(entry).test(origin) : entry.toLowerCase() === origin.toLowerCase()));
+  // exact, case-insensitive match of the whole origin; an entry holding a * is never a match
+  return origins.some((entry) => !entry.includes('*') && entry.toLowerCase() === origin.toLowerCase());
 }
 
 // The CORS middleware for the app. `warn` is called once at start-up when production has no origins.
@@ -60,4 +52,4 @@ function buildCors({ env = process.env, warn = console.warn } = {}) {
   });
 }
 
-module.exports = { buildCors, isOriginAllowed, parseOrigins, patternToRegex, ALLOWED_METHODS, ALLOWED_HEADERS };
+module.exports = { buildCors, isOriginAllowed, parseOrigins, ALLOWED_METHODS, ALLOWED_HEADERS };

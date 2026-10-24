@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const express = require('express');
-const { buildCors, isOriginAllowed, parseOrigins, patternToRegex } = require('../config/cors');
+const { buildCors, isOriginAllowed, parseOrigins } = require('../config/cors');
 
 test('CORS_ORIGINS is split on commas, trimmed, and trailing slashes are dropped', () => {
   assert.deepEqual(parseOrigins(' https://a.example , https://b.example/ ,, '), ['https://a.example', 'https://b.example']);
@@ -23,33 +23,30 @@ test('an exact origin in the list is allowed, and only that exact origin', () =>
   assert.equal(isOriginAllowed('null', opts), false);
 });
 
-// The Vercel preview pattern, with made-up names.
-const PREVIEW = { origins: ['https://myapp.vercel.app', 'https://myapp-*-myteam.vercel.app'], production: true };
-
-test('a Vercel preview origin matches the wildcard entry', () => {
-  assert.equal(isOriginAllowed('https://myapp-git-fix-batch-e2-myteam.vercel.app', PREVIEW), true); // branch preview
-  assert.equal(isOriginAllowed('https://myapp-k3j9x2abc-myteam.vercel.app', PREVIEW), true); // deployment preview
-  assert.equal(isOriginAllowed('https://myapp.vercel.app', PREVIEW), true); // production
-});
-
-test('look-alikes of the preview pattern do not match', () => {
+// There are no wildcards: only exact origins are allowed. A preview deployment is allowed by listing its exact origin.
+test('a wildcard entry matches nothing, so a preview address is not allowed by a pattern', () => {
+  const opts = { origins: ['https://myapp.vercel.app', 'https://myapp-*-myteam.vercel.app'], production: true };
+  assert.equal(isOriginAllowed('https://myapp.vercel.app', opts), true, 'the exact entry still works');
   [
-    'https://myapp-x-otherteam.vercel.app',
-    'https://myapp-x-myteam.vercel.app.evil.com',
-    'https://evil.com/myapp-x-myteam.vercel.app',
-    'https://myapp-x-myteam.vercel.app@evil.com',
-    'https://myapp--myteam.vercel.app', // nothing where the * is
-    'https://myapp-a.b-myteam.vercel.app', // a dot is not part of *
-    'http://myapp-x-myteam.vercel.app', // wrong scheme
-    'https://xmyapp-x-myteam.vercel.app',
-    'https://myapp-x-myteam.vercel.app:444',
-  ].forEach((origin) => assert.equal(isOriginAllowed(origin, PREVIEW), false, origin));
+    'https://myapp-git-fix-batch-e2-myteam.vercel.app',
+    'https://myapp-k3j9x2abc-myteam.vercel.app',
+    'https://myapp-*-myteam.vercel.app', // not even the literal text of the entry
+    'https://evil.com',
+  ].forEach((origin) => assert.equal(isOriginAllowed(origin, opts), false, origin));
+  assert.equal(isOriginAllowed('https://anything.example', { origins: ['*'], production: true }), false, 'a bare * allows no one');
 });
 
-test('a * never matches a dot or a slash, and regex characters in an entry are taken literally', () => {
-  assert.equal(patternToRegex('https://a-*.example.com').test('https://a-b.example.com'), true);
-  assert.equal(patternToRegex('https://a-*.example.com').test('https://a-b.c.example.com'), false);
-  assert.equal(patternToRegex('https://a.example.com').test('https://aXexample.com'), false);
+test('a preview deployment is allowed by listing its exact origin, and only that one', () => {
+  const opts = { origins: ['https://myapp.vercel.app', 'https://myapp-git-fix-batch-e2-myteam.vercel.app'], production: true };
+  assert.equal(isOriginAllowed('https://myapp-git-fix-batch-e2-myteam.vercel.app', opts), true);
+  assert.equal(isOriginAllowed('https://myapp-git-other-branch-myteam.vercel.app', opts), false);
+  assert.equal(isOriginAllowed('https://myapp-git-fix-batch-e2-myteam.vercel.app.evil.com', opts), false);
+});
+
+test('the matching code holds no pattern language at all', () => {
+  const source = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'config', 'cors.js'), 'utf8');
+  assert.equal(/new RegExp|patternToRegex|\[a-z0-9-\]/.test(source), false, 'no regular expression is built from CORS_ORIGINS');
+  assert.equal('patternToRegex' in require('../config/cors'), false);
 });
 
 test('localhost origins work while not in production, and only then', () => {
@@ -99,9 +96,10 @@ async function withApp(env, run) {
 const allowOrigin = async (base, origin) => (await fetch(`${base}/ping`, { headers: { Origin: origin } })).headers.get('access-control-allow-origin');
 
 test('listed origins get the CORS header, other origins do not', async () => {
-  await withApp({ NODE_ENV: 'production', CORS_ORIGINS: 'https://myapp.vercel.app,https://myapp-*-myteam.vercel.app' }, async (base) => {
+  await withApp({ NODE_ENV: 'production', CORS_ORIGINS: 'https://myapp.vercel.app,https://myapp-git-fix-x-myteam.vercel.app' }, async (base) => {
     assert.equal(await allowOrigin(base, 'https://myapp.vercel.app'), 'https://myapp.vercel.app');
     assert.equal(await allowOrigin(base, 'https://myapp-git-fix-x-myteam.vercel.app'), 'https://myapp-git-fix-x-myteam.vercel.app');
+    assert.equal(await allowOrigin(base, 'https://myapp-git-another-myteam.vercel.app'), null, 'only the exact origins listed');
     assert.equal(await allowOrigin(base, 'https://evil.com'), null);
     assert.equal(await allowOrigin(base, 'http://localhost:5173'), null, 'localhost is closed in production');
   });
@@ -145,13 +143,13 @@ test('production without CORS_ORIGINS does not start, and the message names the 
 });
 
 test('production refuses a wildcard origin, a bare host and an http origin, without printing them', () => {
-  ['*', 'https://*', 'myapp.vercel.app', 'http://myapp.vercel.app', 'https://good.example,*'].forEach((value) => {
+  ['*', 'https://*', 'https://myapp-*-myteam.vercel.app', 'myapp.vercel.app', 'http://myapp.vercel.app', 'https://good.example,*'].forEach((value) => {
     const errors = checkEnvironment({ ...GOOD_PROD, CORS_ORIGINS: value }).errors;
     assert.equal(errors.length, 1, `${value} should be refused`);
     assert.match(errors[0], /CORS_ORIGINS/);
     assert.equal(errors[0].includes('myapp.vercel.app') || errors[0].includes('good.example'), false, 'the message does not repeat a value');
   });
-  assert.deepEqual(checkEnvironment({ ...GOOD_PROD, CORS_ORIGINS: 'https://myapp.vercel.app,https://myapp-*-myteam.vercel.app' }).errors, [], 'the Vercel preview pattern is fine');
+  assert.deepEqual(checkEnvironment({ ...GOOD_PROD, CORS_ORIGINS: 'https://myapp.vercel.app,https://myapp-git-fix-x-myteam.vercel.app' }).errors, [], 'exact preview origins are fine');
 });
 
 test('development does not need CORS_ORIGINS', () => {

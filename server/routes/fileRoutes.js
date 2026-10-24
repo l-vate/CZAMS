@@ -1,7 +1,8 @@
 // Proof files (payment proofs, Senior/PWD ID photos, refund and purchase proofs, signed paper forms).
 // They are no longer served as static files: each one is opened through here, after a server-side check
 // of who is asking (utils/fileAccess.js). Anyone not allowed gets 404, never 403, so a file name cannot
-// be confirmed by guessing.
+// be confirmed by guessing. That includes a Senior/PWD ID photo: it is for the admin role only, and everyone else is told
+// "not found" exactly as for a file that does not exist.
 const express = require('express');
 const auth = require('../middleware/auth');
 const Booking = require('../models/Booking');
@@ -16,8 +17,6 @@ const {
 } = require('../utils/fileAccess');
 
 const notFound = (res) => res.status(404).json({ message: 'File not found' });
-// A Senior/PWD ID photo is for the admin role only: everyone else is told so plainly (403) instead of a 404.
-const forbidden = (res) => res.status(403).json({ message: 'Forbidden' });
 
 // Files are read from the file store (storage/fileStore.js): GridFS in production, and in development the local folder as well, so
 // files saved before the store existed still open. The access rules do not depend on where the bytes are.
@@ -25,14 +24,14 @@ function createFileRouter({ store } = {}) {
   const router = express.Router();
   const files = () => store || getStore();
 
-  // 'allow', 'deny' (404) or 'forbidden' (403, an ID photo and not the admin role).
+  // 'allow' or 'deny' (always a 404). An ID photo is allowed for the admin role only.
   const decide = async (role, userId, name) => {
     if (role === 'admin') return 'allow';
     const references = await findReferences(storedPathFor(name), { Booking, Report, getMemberIds });
-    if (isIdPhoto(references)) return 'forbidden';
+    if (isIdPhoto(references)) return 'deny';
     return decideAccess({ role, userId, references }) ? 'allow' : 'deny';
   };
-  const refuse = (res, verdict) => (verdict === 'forbidden' ? forbidden(res) : notFound(res));
+  const refuse = (res) => notFound(res);
 
   // A token in the Authorization header is checked by the normal auth middleware. With no header the
   // request may still carry a signed link, which the handler checks.
@@ -44,7 +43,7 @@ function createFileRouter({ store } = {}) {
       const name = safeProofName(req.params.name);
       if (!name || !(await files().exists(name))) return notFound(res);
       const verdict = await decide(req.userRole, req.userId, name);
-      if (verdict !== 'allow') return refuse(res, verdict);
+      if (verdict !== 'allow') return refuse(res);
 
       const parts = createLinkParts({ name, userId: req.userId });
       if (!parts) return res.status(500).json({ message: 'Server error' });
@@ -74,12 +73,12 @@ function createFileRouter({ store } = {}) {
         const references = await findReferences(storedPathFor(name), { Booking, Report, getMemberIds });
         if (isIdPhoto(references)) {
           const who = await User.findById(req.query.u).select('role isActive');
-          verdict = who && who.role === 'admin' && who.isActive !== false ? 'allow' : 'forbidden';
+          verdict = who && who.role === 'admin' && who.isActive !== false ? 'allow' : 'deny';
         } else {
           verdict = 'allow';
         }
       }
-      if (verdict !== 'allow') return refuse(res, verdict);
+      if (verdict !== 'allow') return refuse(res);
 
       const file = await files().open(name);
       if (!file) return notFound(res);

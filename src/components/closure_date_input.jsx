@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { listClosures } from '../services/closureService';
 import { getAvailability } from '../services/availabilityService';
 import { formatClosureDate } from '../utils/closureDates';
-import { closedWords, takenDayText, isNoTechniciansDay } from '../utils/availabilityText';
+import { closedWords, takenDayText, blocksText, isNoTechniciansDay } from '../utils/availabilityText';
 import { isSundayKey, firstOpenDay, SUNDAY_CLOSED } from '../utils/businessDays';
 import { manilaTodayKey } from '../utils/manilaTime';
 
@@ -25,6 +25,7 @@ const keyOf = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
 function ClosureDateInput({ value, onChange, min, className = 'bs-input', id, showEarliest = false, blockFull = false, showClosedList = true }) {
   const [closures, setClosures] = useState([]);
   const [fullDays, setFullDays] = useState(() => new Map()); // date key -> the public availability answer of a day with no block left
+  const [limitedDays, setLimitedDays] = useState(() => new Map()); // the same for a day with one block left: it can be picked, and says which block is gone
   const [note, setNote] = useState(''); // what a tapped day that cannot be picked says
   const [open, setOpen] = useState(false);
   const today = manilaTodayKey();
@@ -58,6 +59,7 @@ function ClosureDateInput({ value, onChange, min, className = 'bs-input', id, sh
       .then((days) => {
         if (cancelled || !Array.isArray(days)) return;
         setFullDays((prev) => new Map([...prev, ...days.filter((d) => d.status === 'full').map((d) => [d.date, d])]));
+        setLimitedDays((prev) => new Map([...prev, ...days.filter((d) => d.status === 'limited').map((d) => [d.date, d])]));
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -85,6 +87,9 @@ function ClosureDateInput({ value, onChange, min, className = 'bs-input', id, sh
     }
     return null;
   };
+
+  // a day that can be picked but has one block gone: "Morning: No technicians available · Afternoon: Available"
+  const partialOf = (key) => (limitedDays.has(key) ? blocksText(limitedDays.get(key)) : null);
 
   const shift = (delta) => { setNote(''); setView((v) => {
     const total = v.year * 12 + v.month + delta;
@@ -126,7 +131,8 @@ function ClosureDateInput({ value, onChange, min, className = 'bs-input', id, sh
               const problem = problemOf(key);
               const column = i % 7;
               const edge = column <= 1 ? ' date-picker-cell--left' : column >= 5 ? ' date-picker-cell--right' : '';
-              const label = `${day} ${MONTHS[view.month]} ${view.year}: ${problem ? problem.text : 'Available'}`;
+              const partial = problem ? null : partialOf(key);
+              const label = `${day} ${MONTHS[view.month]} ${view.year}: ${problem ? problem.text : partial || 'Available'}`;
               return (
                 <span className={`date-picker-cell${edge}`} key={key}>
                   <button
@@ -138,7 +144,7 @@ function ClosureDateInput({ value, onChange, min, className = 'bs-input', id, sh
                   >
                     {day}
                   </button>
-                  {problem && problem.kind !== 'past' && <span className="date-picker-tip" aria-hidden="true">{problem.text}</span>}
+                  {((problem && problem.kind !== 'past') || partial) && <span className="date-picker-tip" aria-hidden="true">{problem ? problem.text : partial}</span>}
                 </span>
               );
             })}

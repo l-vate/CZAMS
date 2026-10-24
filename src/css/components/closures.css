@@ -157,7 +157,7 @@
 .date-picker-cell--left .date-picker-tip { left: 0; transform: none; }
 .date-picker-cell--right .date-picker-tip { left: auto; right: 0; transform: none; }
 .date-picker-cell:hover .date-picker-tip,
-.date-picker-cell:focus-within .date-picker-tip { visibility: visible; opacity: 1; }
+.date-picker-cell:has(.date-picker-day:focus-visible) .date-picker-tip { visibility: visible; opacity: 1; }
 .date-picker-note { margin: 8px 0 0; padding: 6px 10px; border-radius: 8px; background: #eef2f7; color: #1e293b; font-size: 0.8125rem; font-weight: 600; }
 
 .customer-history-error { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }

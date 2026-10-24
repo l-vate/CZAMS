@@ -79,7 +79,7 @@
   color: #475569;
 }
 
-/* the message of a day on hover and keyboard focus (touch shows it in the detail under the calendar). Light text on navy reads on the white
+/* the message of a day on hover and keyboard focus (a mouse click does not leave it open; touch shows it in the detail under the calendar). Light text on navy reads on the white
    card and on the dark landing page alike. Cells on the left and right edges open inward, so the message never leaves the screen. */
 .avail-tip {
   position: absolute;
@@ -107,7 +107,7 @@
 .avail-cell--left .avail-tip { left: 0; transform: none; }
 .avail-cell--right .avail-tip { left: auto; right: 0; transform: none; }
 .avail-cell:hover .avail-tip,
-.avail-cell:focus-within .avail-tip { visibility: visible; opacity: 1; }
+.avail-cell:has(.avail-day:focus-visible) .avail-tip { visibility: visible; opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .avail-tip { transition: none; } }
 
 /* loading: quiet shimmering cells, so the grid never shows as a wall of dead grey boxes */

@@ -70,7 +70,7 @@ test('the landing calendar gives every day an accessible label with its message,
   assert.match(source, /className="avail-tip"/);
   assert.equal(/\stitle=/.test(source), false, 'the title attribute is not relied on');
   assert.equal(/'Fully booked'/.test(source.replace(/full: 'Fully booked',/, '')), false, 'a block never says Fully booked by itself: the reason decides');
-  assert.match(read('css/components/availability.css'), /\.avail-cell:focus-within \.avail-tip/);
+  assert.match(read('css/components/availability.css'), /\.avail-cell:has\(\.avail-day:focus-visible\) \.avail-tip/);
 });
 
 test('the booking date pickers keep unavailable days focusable, say why on hover, focus and tap, and list no closed dates for a customer', () => {
@@ -84,7 +84,7 @@ test('the booking date pickers keep unavailable days focusable, say why on hover
   assert.match(source, /showClosedList && closures\.length > 0/);
   assert.match(read('pages/customer/book_service.jsx'), /showClosedList=\{false\}/);
   assert.match(read('pages/customer/book_details.jsx'), /showClosedList=\{false\}/);
-  assert.match(read('css/components/closures.css'), /\.date-picker-cell:focus-within \.date-picker-tip/);
+  assert.match(read('css/components/closures.css'), /\.date-picker-cell:has\(\.date-picker-day:focus-visible\) \.date-picker-tip/);
   assert.match(read('css/components/closures.css'), /\.date-picker-day--no-technicians \{/);
 });
 

@@ -141,7 +141,7 @@ function AvailabilityCalendar() {
       {status === 'ready' && selectedDay && (
         <div className="avail-detail">
           <strong>{new Date(`${selected}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</strong>
-          <p>{messageOf(selectedDay)}{selectedDay.morning === undefined ? '.' : ''}</p>
+          <p>{messageOf(selectedDay)}{selectedDay.morning === undefined && !/^Closed: /.test(messageOf(selectedDay)) ? '.' : ''}</p>
           {(selectedDay.status === 'open' || selectedDay.status === 'limited') && (
             <button type="button" className="lp-btn lp-btn--primary" onClick={() => navigate('/login')}>Log In to Book</button>
           )}

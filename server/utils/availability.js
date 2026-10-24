@@ -30,21 +30,38 @@ const { isSunday, sundaysAreClosed } = require('./businessDays');
 
 const KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-// Whether one date and time block still has a free pair of field technicians. `technicians` are the active field technicians,
-// `bookings` the ones that hold a slot (activeStatuses(): Pending counts, first come first served), `offIds` the technicians the admin
-// marked as not available in that date and block (utils/technicianOff.js). A Pending request nobody has been
-// assigned to yet counts as waiting for a pair, so it uses one up before the proposal is even made. Booking creation, the customer
-// reschedule and the public calendar all ask this one function.
-function blockIsOpen({ technicians, bookings, date, time, offIds = new Set() }) {
+// Why a block is or is not open, for the customer calendars and the booking checks. `reason` is null when a pair of field technicians is
+// still free, otherwise:
+//   'noTechnicians'  nobody can work in that block: every technician is marked as not available (leave, a day off), or only one is left
+//                    and nobody has booked them, so no pair can be formed
+//   'fullyBooked'    technicians can work but every crew is already taken (some of them may be on leave, the rest are booked)
+// Only these two codes ever leave the server: who is off, and why, never does (see getAvailability).
+const BLOCK_REASON = Object.freeze({ NO_TECHNICIANS: 'noTechnicians', FULLY_BOOKED: 'fullyBooked' });
+
+// `technicians` are the active field technicians, `bookings` the ones that hold a slot (activeStatuses(): Pending counts, first come first
+// served), `offIds` the technicians the admin marked as not available in that date and block (utils/technicianOff.js). A Pending request
+// nobody has been assigned to yet counts as waiting for a pair, so it uses one up before the proposal is even made.
+function blockState({ technicians, bookings, date, time, offIds = new Set() }) {
   const sameBlock = bookings.filter((b) => slotsOf(b).some((s) => s.date === date && s.time === time));
-  const busy = new Set([...sameBlock.flatMap(getMemberIds), ...offIds]); // technicians off that day are as unavailable as busy ones
+  const booked = new Set(sameBlock.flatMap(getMemberIds));
+  const busy = new Set([...booked, ...offIds]); // technicians off that day are as unavailable as busy ones
   const waiting = sameBlock.filter((b) => b.status === BOOKING_STATUS.PENDING && getMemberIds(b).length === 0).length;
   const freeUnits = Math.floor(technicians.filter((t) => !busy.has(t._id)).length / 2);
-  return freeUnits - waiting > 0;
+  if (freeUnits - waiting > 0) return { open: true, reason: null };
+  const working = technicians.filter((t) => !offIds.has(t._id));
+  if (working.length === 0) return { open: false, reason: BLOCK_REASON.NO_TECHNICIANS };
+  const takenByBookings = waiting > 0 || working.some((t) => booked.has(t._id));
+  return { open: false, reason: takenByBookings ? BLOCK_REASON.FULLY_BOOKED : BLOCK_REASON.NO_TECHNICIANS };
 }
 
-// The same answer for a single slot, read from the database. `excludeBookingId` leaves one booking out (the one being moved).
-async function isSlotOpen(date, time, excludeBookingId) {
+// Whether one date and time block still has a free pair of field technicians. Booking creation, the customer reschedule and the public
+// calendar all ask this one rule.
+function blockIsOpen(args) {
+  return blockState(args).open;
+}
+
+// The same answer for a single slot, read from the database: { open, reason }. `excludeBookingId` leaves one booking out (the one being moved).
+async function slotState(date, time, excludeBookingId) {
   const [technicians, bookings, offRows] = await Promise.all([
     listFieldTechnicians(User, '_id'),
     Booking.find({
@@ -54,12 +71,25 @@ async function isSlotOpen(date, time, excludeBookingId) {
     }).select('date time status technician assignments extensionDays'),
     offRowsBetween(TechnicianOff, date, date),
   ]);
-  return blockIsOpen({ technicians, bookings, date, time, offIds: offIdsAt(offRows, date, time) });
+  return blockState({ technicians, bookings, date, time, offIds: offIdsAt(offRows, date, time) });
 }
 
-// Returns [{ date, status, morning, afternoon }] for every day from `from` to `to` (inclusive).
+async function isSlotOpen(date, time, excludeBookingId) {
+  return (await slotState(date, time, excludeBookingId)).open;
+}
+
+// The words a closed day carries for the calendars: "Closed: <reason>" for a closure the admin added (a closure has a reason and no
+// separate type), "Closed: Sunday" for a Sunday. Never empty.
+const closedLabel = (reason) => `Closed: ${String(reason || '').trim() || 'Shop closed'}`;
+
+// Returns [{ date, status, morning, afternoon, ... }] for every day from `from` to `to` (inclusive).
 // status: 'open' | 'limited' (one block open) | 'full' | 'closed' (Sunday) | 'shop-closed' (a closure
 // the admin added, with its `reason`) | 'too-soon' | 'past'
+// Why a day or block cannot be booked (added next to the fields above, which keep their meaning):
+//   closed days    reasonCode 'closed' and closedLabel ("Closed: Holiday", "Closed: Sunday")
+//   open, limited and full days    morningReason and afternoonReason: null, 'noTechnicians' or 'fullyBooked'; on a full day reasonCode is
+//                  'noTechnicians' when no block has technicians to book, otherwise 'fullyBooked'
+// PRIVACY: this answer is public. It carries the two codes only, never which technician is on leave, their names or ids, or their reason.
 async function getAvailability(from, to) {
   const today = manilaTodayKey();
   const firstBookable = addDays(today, MIN_LEAD_DAYS);
@@ -76,24 +106,33 @@ async function getAvailability(from, to) {
   const days = [];
   for (let key = from; key <= to; key = addDays(key, 1)) {
     if (key < today) { days.push({ date: key, status: 'past' }); continue; }
-    if (closureReason.has(key)) { days.push({ date: key, status: 'shop-closed', reason: closureReason.get(key) }); continue; }
-    if (sundaysAreClosed() && isSunday(key)) { days.push({ date: key, status: 'closed' }); continue; }
+    if (closureReason.has(key)) {
+      days.push({ date: key, status: 'shop-closed', reason: closureReason.get(key), reasonCode: 'closed', closedLabel: closedLabel(closureReason.get(key)) });
+      continue;
+    }
+    if (sundaysAreClosed() && isSunday(key)) { days.push({ date: key, status: 'closed', reasonCode: 'closed', closedLabel: closedLabel('Sunday') }); continue; }
     if (key < firstBookable) { days.push({ date: key, status: 'too-soon' }); continue; }
 
-    const open = {};
+    const state = {};
     TIME_BLOCKS.forEach((block) => {
-      open[block] = blockIsOpen({ technicians, bookings, date: key, time: block, offIds: offIdsAt(offRows, key, block) });
+      state[block] = blockState({ technicians, bookings, date: key, time: block, offIds: offIdsAt(offRows, key, block) });
     });
 
-    const openCount = Object.values(open).filter(Boolean).length;
-    days.push({
+    const openCount = Object.values(state).filter((x) => x.open).length;
+    const day = {
       date: key,
       status: openCount === TIME_BLOCKS.length ? 'open' : openCount > 0 ? 'limited' : 'full',
-      morning: open.Morning,
-      afternoon: open.Afternoon,
-    });
+      morning: state.Morning.open,
+      afternoon: state.Afternoon.open,
+      morningReason: state.Morning.reason,
+      afternoonReason: state.Afternoon.reason,
+    };
+    if (day.status === 'full') {
+      day.reasonCode = Object.values(state).every((x) => x.reason === BLOCK_REASON.NO_TECHNICIANS) ? BLOCK_REASON.NO_TECHNICIANS : BLOCK_REASON.FULLY_BOOKED;
+    }
+    days.push(day);
   }
   return days;
 }
 
-module.exports = { getAvailability, isSlotOpen, blockIsOpen, MIN_LEAD_DAYS, MAX_RANGE_DAYS, KEY_PATTERN, addDays };
+module.exports = { getAvailability, isSlotOpen, slotState, blockIsOpen, blockState, BLOCK_REASON, MIN_LEAD_DAYS, MAX_RANGE_DAYS, KEY_PATTERN, addDays };

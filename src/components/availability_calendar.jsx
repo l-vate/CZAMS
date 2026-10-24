@@ -4,12 +4,14 @@ import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import { getAvailability } from '../services/availabilityService';
 import { toLocalDateKey } from '../utils/date';
 import { AVAILABILITY, BOOKING_LEAD_DAYS } from '../config/landingContent';
+import { blocksText, closedDayText, dayLook } from '../utils/availabilityText';
 
 const MONTHS_AHEAD = 3;
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 // What each status from GET /api/availability/public means (server/utils/availability.js):
-//   open / limited / full  a normal shop day, with both blocks, one block or no block left
+//   open / limited / full  a normal shop day, with both blocks, one block or no block left; a block that is not open says why
+//                          (utils/availabilityText.js): "No technicians available" or "Fully booked"
 //   closed                 a Sunday (the shop is closed on Sundays)
 //   shop-closed            a date the admin closed, with a reason (a holiday, for example)
 //   too-soon / past        a date that cannot be booked: it is earlier than the lead time, or already gone
@@ -17,11 +19,20 @@ const STATUS_LABEL = {
   open: 'Available',
   limited: 'Limited',
   full: 'Fully booked',
+  'no-technicians': 'No technicians available',
   closed: 'Closed on Sundays',
   'shop-closed': 'Closed by the shop',
   'too-soon': 'Not available (under the notice period)',
   past: 'Not available (past)',
 };
+
+// What a day says to a visitor: on hover, on keyboard focus, in its accessible label, and in the detail under the calendar.
+function messageOf(day) {
+  if (!day || day.status === 'past') return 'Not available (past)';
+  if (day.status === 'closed' || day.status === 'shop-closed') return closedDayText(day);
+  if (day.status === 'too-soon') return `${STATUS_LABEL['too-soon']}. Bookings need at least ${BOOKING_LEAD_DAYS} days notice`;
+  return day.morning !== undefined ? blocksText(day) : STATUS_LABEL[day.status];
+}
 
 const monthStart = (date) => new Date(date.getFullYear(), date.getMonth(), 1);
 const monthEnd = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0);
@@ -96,20 +107,26 @@ function AvailabilityCalendar() {
         <div className="avail-grid" role="group" aria-label={`Availability for ${monthLabel}`} aria-busy={status === 'loading'}>
           {WEEKDAYS.map((w) => <span className="avail-weekday" key={w}>{w}</span>)}
           {Array.from({ length: leadingBlanks }, (_, i) => <span key={`blank-${i}`} />)}
-          {dayKeys.map((key) => {
-            const dayStatus = days[key]?.status || 'past';
-            const look = status === 'ready' ? dayStatus : 'loading';
+          {dayKeys.map((key, i) => {
+            const day = days[key];
+            const look = status === 'ready' ? dayLook(day || { status: 'past' }) : 'loading';
+            const message = status === 'ready' ? messageOf(day) : '';
+            const column = (leadingBlanks + i) % 7;
+            const edge = column <= 1 ? ' avail-cell--left' : column >= 5 ? ' avail-cell--right' : '';
+            const showTip = status === 'ready' && day && day.status !== 'open' && day.status !== 'past';
             return (
-              <button
-                type="button"
-                key={key}
-                className={`avail-day avail-day--${look}${selected === key ? ' avail-day--selected' : ''}`}
-                onClick={() => setSelected(key)}
-                disabled={status !== 'ready'}
-                aria-label={status === 'ready' ? `${Number(key.slice(8))} ${monthLabel}: ${STATUS_LABEL[dayStatus]}${days[key]?.reason ? `, ${days[key].reason}` : ''}` : `${Number(key.slice(8))} ${monthLabel}: loading`}
-              >
-                {Number(key.slice(8))}
-              </button>
+              <span className={`avail-cell${edge}`} key={key}>
+                <button
+                  type="button"
+                  className={`avail-day avail-day--${look}${selected === key ? ' avail-day--selected' : ''}`}
+                  onClick={() => setSelected(key)}
+                  disabled={status !== 'ready'}
+                  aria-label={`${Number(key.slice(8))} ${monthLabel}: ${status === 'ready' ? message : 'loading'}`}
+                >
+                  {Number(key.slice(8))}
+                </button>
+                {showTip && <span className="avail-tip" aria-hidden="true">{message}</span>}
+              </span>
             );
           })}
         </div>
@@ -124,17 +141,7 @@ function AvailabilityCalendar() {
       {status === 'ready' && selectedDay && (
         <div className="avail-detail">
           <strong>{new Date(`${selected}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</strong>
-          {selectedDay.morning !== undefined ? (
-            <p>
-              Morning: {selectedDay.morning ? 'Available' : 'Fully booked'} · Afternoon: {selectedDay.afternoon ? 'Available' : 'Fully booked'}
-            </p>
-          ) : (
-            <p>
-              {STATUS_LABEL[selectedDay.status]}.
-              {selectedDay.status === 'too-soon' ? ` Bookings need at least ${BOOKING_LEAD_DAYS} days notice.` : ''}
-              {selectedDay.status === 'shop-closed' && selectedDay.reason ? ` ${selectedDay.reason}` : ''}
-            </p>
-          )}
+          <p>{messageOf(selectedDay)}{selectedDay.morning === undefined ? '.' : ''}</p>
           {(selectedDay.status === 'open' || selectedDay.status === 'limited') && (
             <button type="button" className="lp-btn lp-btn--primary" onClick={() => navigate('/login')}>Log In to Book</button>
           )}

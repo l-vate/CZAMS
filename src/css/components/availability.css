@@ -57,11 +57,15 @@
 }
 
 .avail-day:disabled { cursor: default; }
+.avail-cell { position: relative; display: block; min-width: 0; }
+.avail-cell > .avail-day { width: 100%; }
 .avail-day--selected { outline: 2px solid var(--navy); outline-offset: 1px; }
 
 .avail-day--open { background: var(--status-complete-bg); color: var(--status-complete-txt); }
 .avail-day--limited { background: var(--status-pending-bg); color: var(--status-pending-txt); }
 .avail-day--full { background: var(--status-cancel-bg); color: var(--status-cancel-txt); }
+/* no technicians: nobody can work that day. Neutral slate with a dotted border, so it is not read as the red of fully booked or the hatch of closed. */
+.avail-day--no-technicians { background: #e2e8f0; color: #334155; border: 2px dotted #64748b; }
 .avail-day:focus-visible { outline: 3px solid var(--navy); outline-offset: 2px; }
 
 /* a normal shop day that is not bookable (too soon, or already gone): quiet grey */
@@ -74,6 +78,37 @@
   background: repeating-linear-gradient(135deg, #eef2f6 0 6px, #dbe3ec 6px 8px);
   color: #475569;
 }
+
+/* the message of a day on hover and keyboard focus (touch shows it in the detail under the calendar). Light text on navy reads on the white
+   card and on the dark landing page alike. Cells on the left and right edges open inward, so the message never leaves the screen. */
+.avail-tip {
+  position: absolute;
+  z-index: 20;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 210px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: #0b2545;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: left;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.avail-cell--left .avail-tip { left: 0; transform: none; }
+.avail-cell--right .avail-tip { left: auto; right: 0; transform: none; }
+.avail-cell:hover .avail-tip,
+.avail-cell:focus-within .avail-tip { visibility: visible; opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .avail-tip { transition: none; } }
 
 /* loading: quiet shimmering cells, so the grid never shows as a wall of dead grey boxes */
 .avail-day--loading {

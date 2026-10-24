@@ -11,6 +11,18 @@ function looksLikePlaceholder(value) {
 }
 
 // { errors, warnings }. In production any error means the server must not start; in development there are warnings only.
+// Production answers a browser page only for the origins in CORS_ORIGINS, so it must be set, and every entry must be an exact https
+// origin: never a * anywhere (not a bare wildcard and not one inside a host), and never a scheme-less or http entry. The messages name the
+// variable and never print a value.
+function corsProblems(raw) {
+  const entries = String(raw || '').split(',').map((e) => e.trim()).filter(Boolean);
+  if (entries.length === 0) return ['CORS_ORIGINS is missing. Set it to the web app origin(s), comma separated (for example the https address of the Vercel site).'];
+  const bad = entries.filter((e) => e.includes('*') || !/^https:\/\/[^/]/i.test(e));
+  return bad.length > 0
+    ? [`CORS_ORIGINS has ${bad.length} entr${bad.length === 1 ? 'y' : 'ies'} that ${bad.length === 1 ? 'is' : 'are'} not an https origin. Use exact origins such as https://your-site.example, with no * and no bare host.`]
+    : [];
+}
+
 function checkEnvironment(env = process.env) {
   const errors = [];
   const warnings = [];
@@ -20,6 +32,7 @@ function checkEnvironment(env = process.env) {
     if (!secret) errors.push('JWT_SECRET is missing. Set it to a long random string (at least 32 characters).');
     else if (secret.length < PRODUCTION_MIN_SECRET) errors.push(`JWT_SECRET is shorter than ${PRODUCTION_MIN_SECRET} characters. Use a longer random string.`);
     if (!env.MONGO_URI) errors.push('MONGO_URI is missing. Set it to the database connection string.');
+    errors.push(...corsProblems(env.CORS_ORIGINS));
     // Uploaded files kept on the host's disk are lost whenever the host restarts or redeploys.
     if (String(env.FILE_STORE || '').trim().toLowerCase() === 'disk') {
       warnings.push('FILE_STORE is disk in production, so uploaded files will be lost when the host restarts or redeploys. Use gridfs.');

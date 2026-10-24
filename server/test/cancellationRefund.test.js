@@ -2,6 +2,7 @@
 // payment; cancelling on or after the booked date (the booked day, a day after, several days after) refunds it minus a transportation fee the admin enters (0 up to the down payment). The day is
 // worked out on the server in Manila time and nothing the client sends changes it. The real routes run; only the database is replaced.
 const test = require('node:test');
+const { REAL_PNG } = require('./helpers/images');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const jwt = require('jsonwebtoken');
@@ -24,7 +25,7 @@ const cancel = (body) => call('PATCH', '/CZ-1/cancel', 'CUS1', body);
 async function processRefund(fields) {
   const token = jwt.sign({ id: 'ADM1', role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '5m' });
   const form = new FormData();
-  form.append('proof', new Blob([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.alloc(64)], { type: 'image/png' }), 'proof.png');
+  form.append('proof', new Blob([REAL_PNG], { type: 'image/png' }), 'proof.png');
   Object.entries(fields).forEach(([k, v]) => form.append(k, String(v)));
   const res = await fetch(`${base()}/api/bookings/CZ-1/refund`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form });
   return { status: res.status, body: await res.json().catch(() => ({})) };

@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const { checkEnvironment, enforceEnvironment, looksLikePlaceholder } = require('../config/envCheck');
 
 const GOOD = 'k9Zr2vQpX7mLw4TnB8cHd3JfGs6YaE1u';
-const prod = (over = {}) => ({ NODE_ENV: 'production', JWT_SECRET: GOOD, MONGO_URI: 'present', ...over });
+const prod = (over = {}) => ({ NODE_ENV: 'production', JWT_SECRET: GOOD, MONGO_URI: 'present', CORS_ORIGINS: 'https://myapp.vercel.app', ...over });
 
 test('production with a good secret and a database address is fine', () => {
   assert.deepEqual(checkEnvironment(prod()), { errors: [], warnings: [] });

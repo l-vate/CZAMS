@@ -2,8 +2,8 @@
 const { ROLE } = require('../constants/roles');
 const express = require('express');
 const router = express.Router();
-const { hashPassword, verifyPassword } = require('../utils/password');
-const jwt = require('jsonwebtoken');
+const { hashPassword, verifyPassword, burnPasswordCheck } = require('../utils/password');
+const { signToken, verifyToken } = require('../utils/jwtTokens');
 const User = require('../models/User');
 const { readProfileFields } = require('../utils/profileFields');
 const auth = require('../middleware/auth');
@@ -12,7 +12,7 @@ const { KINDS } = require('../storage/fileStore');
 const { clearAuthCache } = require('../utils/authCache');
 const { validateNewPassword } = require('../utils/passwordRules');
 const { listFieldTechnicians } = require('../utils/technicians');
-const { loginLimiter, registerLimiter } = require('../middleware/rateLimit');
+const { loginLimiter, registerLimiter, passwordChangeLimiter, uploadLimiter } = require('../middleware/rateLimit');
 const Booking = require('../models/Booking');
 const BackJob = require('../models/BackJob');
 const { findDeletionBlockers } = require('../utils/deletionBlockers');
@@ -66,11 +66,7 @@ router.post('/register', registerLimiter, async (req, res) => {
       ...profile.values,
     }), () => generateUserId(mappedRole));
 
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '1d' }
-    );
+    const token = signToken(user);
 
     res.status(201).json({
       token,
@@ -99,6 +95,7 @@ router.post('/login', loginLimiter, async (req, res) => {
     const { email, password } = req.body;
     const user = typeof email === 'string' && email.trim() ? await findUserByEmail(User, email) : null;
     if (!user) {
+      await burnPasswordCheck(password); // the same time as a wrong password, so the speed of the answer says nothing about the email
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
@@ -114,11 +111,7 @@ router.post('/login', loginLimiter, async (req, res) => {
       return res.status(403).json({ message: 'This account has been deactivated. Please contact the administrator.' });
     }
 
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '1d' }
-    );
+    const token = signToken(user);
 
     res.json({
       token,
@@ -183,7 +176,7 @@ router.put('/profile', auth, async (req, res) => {
   }
 });
 
-router.post('/profile/photo', auth, upload.single('photo'), async (req, res) => {
+router.post('/profile/photo', auth, uploadLimiter, upload.single('photo'), async (req, res) => {
   try {
     // A refused or failed request must not leave its uploaded file behind.
     res.on('finish', () => { if (res.statusCode >= 400) discardUploads(req); });
@@ -220,7 +213,7 @@ router.post('/profile/photo', auth, upload.single('photo'), async (req, res) => 
   }
 });
 
-router.put('/change-password', auth, async (req, res) => {
+router.put('/change-password', auth, passwordChangeLimiter, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
 
@@ -247,7 +240,7 @@ router.put('/change-password', auth, async (req, res) => {
     // so that holds on the very next request, and this response carries a fresh token so the person
     // changing the password stays signed in on this device.
     clearAuthCache(req.userId);
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
+    const token = signToken(user);
     res.json({ message: 'Password updated successfully', token });
   } catch (err) {
     console.error(err);
@@ -290,7 +283,7 @@ function hasValidToken(req) {
   const header = req.headers.authorization;
   if (!header || !header.startsWith('Bearer ')) return false;
   try {
-    jwt.verify(header.split(' ')[1], process.env.JWT_SECRET);
+    verifyToken(header.split(' ')[1]);
     return true;
   } catch {
     return false;

@@ -1,6 +1,8 @@
 // One place that turns a failure inside a route into the right answer. A request the database refuses because of what
 // the person sent (a missing required field, a value of the wrong kind) is the person's to fix: it is a 400 with a
 // message that names the field, never a 500 "Server error". Anything else is logged and answered with a 500.
+const { describeFault } = require('./safeLog');
+
 const FIELD_LABELS = Object.freeze({
   address: 'Address', contactNumber: 'Contact number', service: 'Service', date: 'Date', time: 'Time', units: 'Units',
   name: 'Name', email: 'Email', phone: 'Phone number', password: 'Password', customer: 'Customer', issueDescription: 'Issue description',
@@ -23,7 +25,7 @@ function describeValidationError(err) {
 }
 
 // Sends the answer for `err`. `log` is how a real server error is recorded (console.error by default).
-function sendRouteError(res, err, log = console.error) {
+function sendRouteError(res, err, log = (fault) => console.error(describeFault(fault))) {
   if (err && err.name === 'ValidationError') return res.status(400).json({ message: describeValidationError(err) });
   // a value that must be unique is already taken (an email, a date): the person's to change, not a server fault
   if (err && err.code === 11000) return res.status(409).json({ message: 'That already exists. Choose a different value.' });

@@ -84,11 +84,11 @@ const makeLink = (name, id) => fetch(`${base}/api/files/proofs/${name}/link`, { 
 const ALL = { 'down.png': 'down payment proof', 'bal.png': 'balance proof', 'id.jpg': 'Senior/PWD ID', 'refund.pdf': 'refund proof', 'purchase.webp': 'purchase proof', 'signed.png': 'signed form photo' };
 const EXPECT = {
   ADM1: { 'down.png': 200, 'bal.png': 200, 'id.jpg': 200, 'refund.pdf': 200, 'purchase.webp': 200, 'signed.png': 200, 'orphan.png': 200 },
-  CUS1: { 'down.png': 200, 'bal.png': 200, 'id.jpg': 403, 'refund.pdf': 200, 'purchase.webp': 200, 'signed.png': 200, 'orphan.png': 404 },
-  CUS2: { 'down.png': 404, 'bal.png': 404, 'id.jpg': 403, 'refund.pdf': 404, 'purchase.webp': 404, 'signed.png': 404, 'orphan.png': 404 },
-  T1: { 'down.png': 404, 'bal.png': 404, 'id.jpg': 403, 'refund.pdf': 404, 'purchase.webp': 404, 'signed.png': 200, 'orphan.png': 404 },
-  T2: { 'down.png': 404, 'bal.png': 404, 'id.jpg': 403, 'refund.pdf': 404, 'purchase.webp': 404, 'signed.png': 200, 'orphan.png': 404 },
-  T9: { 'down.png': 404, 'bal.png': 404, 'id.jpg': 403, 'refund.pdf': 404, 'purchase.webp': 404, 'signed.png': 404, 'orphan.png': 404 },
+  CUS1: { 'down.png': 200, 'bal.png': 200, 'id.jpg': 404, 'refund.pdf': 200, 'purchase.webp': 200, 'signed.png': 200, 'orphan.png': 404 },
+  CUS2: { 'down.png': 404, 'bal.png': 404, 'id.jpg': 404, 'refund.pdf': 404, 'purchase.webp': 404, 'signed.png': 404, 'orphan.png': 404 },
+  T1: { 'down.png': 404, 'bal.png': 404, 'id.jpg': 404, 'refund.pdf': 404, 'purchase.webp': 404, 'signed.png': 200, 'orphan.png': 404 },
+  T2: { 'down.png': 404, 'bal.png': 404, 'id.jpg': 404, 'refund.pdf': 404, 'purchase.webp': 404, 'signed.png': 200, 'orphan.png': 404 },
+  T9: { 'down.png': 404, 'bal.png': 404, 'id.jpg': 404, 'refund.pdf': 404, 'purchase.webp': 404, 'signed.png': 404, 'orphan.png': 404 },
 };
 
 Object.entries(EXPECT).forEach(([who, table]) => {
@@ -96,7 +96,7 @@ Object.entries(EXPECT).forEach(([who, table]) => {
     test(`${who} opening ${file} with a token: ${status}`, async () => {
       const res = await open(file, who);
       assert.equal(res.status, status);
-      if (status === 404 || status === 403) assert.equal(res.headers.get('content-type').includes('application/json'), true); // no file bytes
+      if (status === 404) assert.equal(res.headers.get('content-type').includes('application/json'), true); // no file bytes
     });
     test(`${who} asking for a link to ${file}: ${status}`, async () => {
       assert.equal((await makeLink(file, who)).status, status);
@@ -104,10 +104,9 @@ Object.entries(EXPECT).forEach(([who, table]) => {
   });
 });
 
-test('every denial is a 404, so a file name cannot be confirmed (a Senior/PWD ID photo is the one exception: a plain 403 for everyone but the admin)', async () => {
+test('every denial is a 404, a Senior/PWD ID photo included, so a file name cannot be confirmed by guessing', async () => {
   for (const who of ['CUS2', 'T9']) {
-    for (const file of Object.keys(ALL).filter((f) => f !== 'id.jpg')) assert.equal((await open(file, who)).status, 404);
-    assert.equal((await open('id.jpg', who)).status, 403);
+    for (const file of Object.keys(ALL)) assert.equal((await open(file, who)).status, 404);
   }
   assert.equal((await open('does-not-exist.png', 'ADM1')).status, 404);
   assert.equal((await open('down.png')).status, 404, 'no credentials at all is also a 404');
@@ -282,7 +281,7 @@ test.describe('files that only exist on the local disk (saved before the store e
 // ---- the Senior/PWD ID photo: the admin role only, by token and by signed link
 test('an ID photo is opened only by the admin: not by the customer it belongs to, another customer, or any technician', async () => {
   assert.equal((await open('id.jpg', 'ADM1')).status, 200);
-  for (const who of ['CUS1', 'CUS2', 'T1', 'T2', 'T9']) assert.equal((await open('id.jpg', who)).status, 403, who);
+  for (const who of ['CUS1', 'CUS2', 'T1', 'T2', 'T9']) assert.equal((await open('id.jpg', who)).status, 404, who);
   assert.equal((await open('id.jpg')).status, 404, 'no credentials at all');
 });
 
@@ -292,6 +291,54 @@ test('a signed link to an ID photo works for the admin it was made for, and a li
   for (const who of ['CUS1', 'T1']) {
     const parts = createLinkParts({ name: 'id.jpg', userId: who });
     const url = `${base}/api/files/proofs/id.jpg?${new URLSearchParams({ u: parts.u, exp: String(parts.exp), sig: parts.sig })}`;
-    assert.equal((await fetch(url)).status, 403, `a valid signature made for ${who}`);
+    assert.equal((await fetch(url)).status, 404, `a valid signature made for ${who}`);
   }
+});
+
+// ---- E15-1: nothing is open without a login in production, and a signed link ends with its file
+test('in production an unauthenticated request for a known stored file is a 404, by every address it could be asked for', async () => {
+  const before = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'production';
+  try {
+    for (const name of ['down.png', 'bal.png', 'id.jpg', 'refund.pdf', 'purchase.webp', 'signed.png']) {
+      for (const address of [`/uploads/proofs/${name}`, `/uploads/${name}`, `/uploads/profile-images/${name}`, `/api/files/proofs/${name}`]) {
+        const res = await fetch(`${base}${address}`);
+        assert.equal(res.status, 404, `${address} must not give anything without a login`);
+        assert.equal((res.headers.get('content-type') || '').includes('application/json'), true, `${address} must answer with no file bytes`);
+      }
+    }
+    assert.equal((await fetch(`${base}/api/files/proofs/down.png/link`, { method: 'POST' })).status, 401, 'a link cannot be asked for without a login');
+  } finally {
+    process.env.NODE_ENV = before;
+  }
+});
+
+test('there is no static folder anywhere: nothing in the server serves a directory of files', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const root = path.join(__dirname, '..');
+  ['server.js', 'config/uploadsStatic.js', 'routes/fileRoutes.js'].forEach((file) => {
+    assert.equal(/express\.static|serve-static/.test(fs.readFileSync(path.join(root, file), 'utf8')), false, `${file} serves a folder`);
+  });
+});
+
+test('a signed link lasts 5 minutes and says so', async () => {
+  const { LINK_TTL_SECONDS } = require('../utils/fileAccess');
+  assert.equal(LINK_TTL_SECONDS, 300);
+  const made = await (await makeLink('down.png', 'CUS1')).json();
+  assert.equal(made.expiresInSeconds, 300);
+  const exp = Number(new URL(`${base}${made.url}`).searchParams.get('exp'));
+  const seconds = exp - Math.floor(Date.now() / 1000);
+  assert.ok(seconds > 290 && seconds <= 300, `the link expires in ${seconds} seconds`);
+});
+
+test('a signed link stops working when its file is deleted, and a link for one file never opens another', async () => {
+  await put(store, 'short-lived.png', 'png-bytes');
+  const adminLink = await (await makeLink('short-lived.png', 'ADM1')).json();
+  assert.equal((await fetch(`${base}${adminLink.url}`)).status, 200);
+  await store.remove('short-lived.png');
+  assert.equal((await fetch(`${base}${adminLink.url}`)).status, 404, 'the file is gone, so is the link');
+  const downLink = await (await makeLink('down.png', 'CUS1')).json();
+  const params = new URL(`${base}${downLink.url}`).search;
+  assert.equal((await fetch(`${base}/api/files/proofs/bal.png${params}`)).status, 404, 'the same signature on another file');
 });

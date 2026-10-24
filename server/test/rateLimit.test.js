@@ -159,11 +159,12 @@ test('a correct login works and resets the count for that email', async () => {
   for (let i = 0; i < 4; i += 1) assert.equal((await login('real@example.com', `again-${i}`)).status, 401);
 });
 
-test('the IP count is not reset by a good login, so an attacker cannot reset it by logging in to their own account', async () => {
-  for (let i = 0; i < 9; i += 1) await login('real@example.com', `wrong-${i}`);
+test('the IP count (60) is not reset by a good login, so an attacker cannot reset it by logging in to their own account', async () => {
+  // 59 wrong tries on 59 different accounts: each account is far from its own limit of 10, but the address has used 59 of its 60
+  for (let i = 0; i < 59; i += 1) await login(`someone${i}@example.com`, 'wrong-password-1');
   assert.equal((await login('real@example.com', GOOD)).status, 200);
-  assert.equal((await login('real@example.com', 'wrong-9')).status, 401); // the 10th failure from this IP
-  assert.equal((await login('real@example.com', 'wrong-10')).status, 429);
+  assert.equal((await login('real@example.com', 'wrong-9')).status, 401); // the 60th failure from this IP
+  assert.equal((await login('other@example.com', 'wrong-10')).status, 429, 'the address is locked, whichever account is tried');
 });
 
 test('registration is limited the same way', async () => {
@@ -171,8 +172,8 @@ test('registration is limited the same way', async () => {
     const res = await fetch(`${base}/api/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ firstName: 'A', lastName: 'B', email, phone: '0917', password: GOOD }) });
     return { status: res.status, body: await res.json() };
   };
-  for (let i = 0; i < 10; i += 1) assert.notEqual((await register(`new${i}@example.com`)).status, 429, `attempt ${i + 1}`);
-  const blocked = await register('new-11@example.com');
+  for (let i = 0; i < 60; i += 1) assert.notEqual((await register(`new${i}@example.com`)).status, 429, `attempt ${i + 1}`);
+  const blocked = await register('new-61@example.com');
   assert.equal(blocked.status, 429);
   assert.match(blocked.body.message, /Too many registration attempts/);
 });

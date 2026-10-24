@@ -48,4 +48,11 @@ function generateTemporaryPassword(length = 10) {
   return chars.join('');
 }
 
-module.exports = { hashPassword, verifyPassword, isBcryptHash, generateTemporaryPassword, SALT_ROUNDS };
+// An email nobody has registered takes as long to answer as a wrong password: without this the quick answer would tell an attacker which emails
+// exist. The hash is of a throwaway text and is never compared for a real login.
+const UNKNOWN_ACCOUNT_HASH = bcrypt.hashSync('no account has this password', SALT_ROUNDS);
+async function burnPasswordCheck(candidate) {
+  await bcrypt.compare(typeof candidate === 'string' ? candidate : '', UNKNOWN_ACCOUNT_HASH);
+}
+
+module.exports = { hashPassword, verifyPassword, burnPasswordCheck, isBcryptHash, generateTemporaryPassword, SALT_ROUNDS };

@@ -2,6 +2,7 @@
 // path or a database message leave the server, in production or not. A real fault is logged with a short request id and the
 // person gets that id to quote, so it can be found in the log.
 const crypto = require('crypto');
+const { scrubSecrets } = require('../utils/safeLog');
 
 // Gives every request an id before the routes run.
 function requestId(req, res, next) {
@@ -26,7 +27,7 @@ function errorHandler(err, req, res, next) {
   if (err && err.name === 'CastError') return res.status(400).json({ message: 'Invalid id' });
   if (err && err.status >= 400 && err.status < 500 && err.expose) return res.status(err.status).json({ message: err.message });
 
-  console.error(`[request ${req.id || 'unknown'}] ${req.method} ${req.path}:`, err && err.message ? err.message : err);
+  console.error(`[request ${req.id || 'unknown'}] ${req.method} ${req.path}:`, scrubSecrets(err && err.message ? err.message : err));
   return res.status(500).json({ message: 'Server error', requestId: req.id });
 }
 

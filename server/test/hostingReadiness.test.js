@@ -22,11 +22,12 @@ test.describe('GET /api/health', () => {
   test.after(() => server && server.close());
   test.beforeEach(() => healthRoutes.healthLimiter.reset());
 
-  test('answers ok with the time and nothing else, with no login', async () => {
+  test('answers ok with the time and the image processing state, with no login', async () => {
     const res = await fetch(`${base}/api/health`);
     assert.equal(res.status, 200);
     const body = await res.json();
-    assert.deepEqual(Object.keys(body).sort(), ['status', 'time']);
+    assert.deepEqual(Object.keys(body).sort(), ['imageProcessing', 'status', 'time']);
+    assert.equal(body.imageProcessing, 'on');
     assert.equal(body.status, 'ok');
     assert.equal(new Date(body.time).toISOString(), body.time);
     assert.equal(res.headers.get('cache-control'), 'no-store');

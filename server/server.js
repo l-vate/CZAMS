@@ -5,6 +5,8 @@ require('dotenv').config({ quiet: true });
 // In production the server stops here, with a message, if JWT_SECRET or MONGO_URI is missing or the secret is too short.
 require('./config/envCheck').enforceEnvironment();
 const express = require('express');
+// Say once, at startup, if the image library could not be loaded (photos are then stored as they came). The server keeps running.
+require('./utils/imageProcessing').warnIfImageProcessingOff();
 const connectDB = require('./config/db');
 
 const databaseReady = connectDB();
@@ -18,6 +20,8 @@ if (process.env.TRUST_PROXY) {
 // Only the origins in CORS_ORIGINS (and localhost while not in production) may call the API from a browser.
 const { requestId, apiNotFound, errorHandler } = require('./middleware/errorHandler');
 app.use(requestId);
+// Security headers on every answer, health check included (helmet). No X-Powered-By.
+app.use(require('./config/securityHeaders').securityHeaders());
 // For an uptime monitor: no login, nothing about the database or the environment. Registered before the CORS and body parsing work.
 app.use('/api/health', require('./routes/healthRoutes'));
 app.use(require('./config/cors').buildCors());

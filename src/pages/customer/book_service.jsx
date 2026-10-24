@@ -476,6 +476,7 @@ export function Step3({ form, setForm, technicians }) {
             onChange={(date) => setForm({ ...form, date })}
             showEarliest
             blockFull
+            showClosedList={false}
           />
         </div>
 

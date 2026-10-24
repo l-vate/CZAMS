@@ -22,6 +22,7 @@ const BackJob = require('../models/BackJob');
 const { TECHNICIAN_BOOKING_FILTER, isHiddenFromTechnicians } = require('../utils/technicianVisibility');
 const { manilaTodayKey } = require('../utils/timeBlocks');
 const { createUploader, discardUploads, storeUploads, PHOTO_TYPES } = require('../utils/uploadSafety');
+const { uploadLimiter } = require('../middleware/rateLimit');
 const { KINDS, getStore } = require('../storage/fileStore');
 const { reportErrorResponse, validateReportInput, validateReportSections } = require('../utils/reportErrors');
 const { PHOTO_MAX_BYTES, consentProblem, signatureProblem, readFlag } = require('../utils/reportEvidence');
@@ -56,7 +57,7 @@ async function backJobLink(booking) {
 // ============================================
 
 // Create a new report for a booking
-router.post('/', auth, receivePhoto, async (req, res) => {
+router.post('/', auth, uploadLimiter, receivePhoto, async (req, res) => {
     try {
         const {
             bookingId,

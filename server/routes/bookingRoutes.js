@@ -43,6 +43,7 @@ const COMMERCIAL_DISCOUNT_MESSAGE = 'The Senior Citizen and PWD discount is for 
 const CONSENT_MESSAGE = 'Tick the box to agree that your ID will be viewed only to verify your discount.';
 const { amountPaid } = require('../utils/customerHistory');
 const { createUploader, discardUploads, storeUploads, PROOF_TYPES } = require('../utils/uploadSafety');
+const { uploadLimiter, paymentLimiter } = require('../middleware/rateLimit');
 const { KINDS } = require('../storage/fileStore');
 const { withLocks, LockBusyError } = require('../utils/slotLock');
 const { duplicateKey, findActiveDuplicate, DuplicateBookingError } = require('../utils/duplicateBooking');
@@ -287,7 +288,7 @@ router.get('/technicians/:id/feedback', auth, async (req, res) => {
 // customer themselves; an admin creating a walk-in/phone-in booking on someone
 // else's behalf may pass `customer` to book it under that customer's account
 // instead - only admins can do this, everyone else always books under their own id.
-router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) => {
+router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (req, res, next) => {
   req.generatedBookingId = generateBookingId();
   next();
 }, upload.fields([{ name: 'proof', maxCount: 1 }, { name: 'discountId', maxCount: 1 }]), async (req, res) => {
@@ -852,7 +853,7 @@ router.patch('/:bookingId/cancel', auth, auditSpecs.customerCancel, allowRoles(R
 // Approved, and only while no proof is waiting or verified (nothing yet, or the admin rejected the last one). The
 // status change is one conditional update, so two submissions at once cannot both pass, and a verified proof is
 // never overwritten. The amount on file is not touched here: it is set when the admin verifies the payment.
-router.patch('/:bookingId/pay', auth, allowRoles(ROLE.CUSTOMER), upload.single('proof'), async (req, res) => {
+router.patch('/:bookingId/pay', auth, allowRoles(ROLE.CUSTOMER), paymentLimiter, uploadLimiter, upload.single('proof'), async (req, res) => {
   const refuse = (problem) => { discardUploads(req); return sendProblem(res, problem); };
   try {
     const proofFile = req.file ? `/uploads/proofs/${req.file.filename}` : undefined;
@@ -897,7 +898,7 @@ router.patch('/:bookingId/pay', auth, allowRoles(ROLE.CUSTOMER), upload.single('
 // Customer: Submit/upload final balance payment proof. Only for the owner, only when a balance is really due (the
 // down payment is verified and the balance is not waiting or verified), on an Approved, In Progress or Completed
 // booking. Same atomic update and same file cleanup as the down payment.
-router.patch('/:bookingId/pay-balance', auth, allowRoles(ROLE.CUSTOMER), upload.single('proof'), async (req, res) => {
+router.patch('/:bookingId/pay-balance', auth, allowRoles(ROLE.CUSTOMER), paymentLimiter, uploadLimiter, upload.single('proof'), async (req, res) => {
   const refuse = (problem) => { discardUploads(req); return sendProblem(res, problem); };
   try {
     const proofFile = req.file ? `/uploads/proofs/${req.file.filename}` : undefined;
@@ -996,7 +997,7 @@ router.get('/:bookingId/reference-duplicates', auth, async (req, res) => {
 // Customer: ask for the Senior Citizen / PWD discount on a booking they already made. Same ID
 // upload and same admin approval flow as asking at booking time. Allowed while the booking is
 // Pending or Approved, and only if there is no request yet or the last one was rejected.
-router.patch('/:bookingId/discount/request', auth, allowRoles(ROLE.CUSTOMER), upload.single('discountId'), async (req, res) => {
+router.patch('/:bookingId/discount/request', auth, allowRoles(ROLE.CUSTOMER), uploadLimiter, upload.single('discountId'), async (req, res) => {
   try {
     // A refused request must not leave its uploaded file behind.
     res.on('finish', () => { if (res.statusCode >= 400) discardUploads(req); });
@@ -1210,7 +1211,7 @@ router.patch('/:bookingId/queue', auth, auditSpecs.queueMove, async (req, res) =
 // backs a future 5yr/1yr Unit Warranty claim, mirrors the client-supplied-unit
 // waiver's role but for the opposite case. Admin-side (not the customer's), since
 // CZA is the one that made the sale and holds the record of it.
-router.patch('/:bookingId/unit-purchase-proof', auth, auditSpecs.unitPurchaseProof, allowRoles(ROLE.ADMIN), upload.single('proof'), async (req, res) => {
+router.patch('/:bookingId/unit-purchase-proof', auth, auditSpecs.unitPurchaseProof, allowRoles(ROLE.ADMIN), uploadLimiter, upload.single('proof'), async (req, res) => {
   try {
     // A refused request must not leave its uploaded file behind.
     res.on('finish', () => { if (res.statusCode >= 400) discardUploads(req); });
@@ -2322,7 +2323,7 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
 // Processed. A cancellation on or after the booked date also requires a transportation
 // deduction before the refundable amount is finalized; pre-service cancellations
 // refund the down payment in full.
-router.patch('/:bookingId/refund', auth, auditSpecs.refundProcess, allowRoles(ROLE.ADMIN), upload.single('proof'), async (req, res) => {
+router.patch('/:bookingId/refund', auth, auditSpecs.refundProcess, allowRoles(ROLE.ADMIN), uploadLimiter, upload.single('proof'), async (req, res) => {
   try {
     // A refused request must not leave its uploaded file behind.
     res.on('finish', () => { if (res.statusCode >= 400) discardUploads(req); });

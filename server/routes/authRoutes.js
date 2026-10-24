@@ -2,7 +2,7 @@
 const { ROLE } = require('../constants/roles');
 const express = require('express');
 const router = express.Router();
-const { hashPassword, verifyPassword } = require('../utils/password');
+const { hashPassword, verifyPassword, burnPasswordCheck } = require('../utils/password');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { readProfileFields } = require('../utils/profileFields');
@@ -12,7 +12,7 @@ const { KINDS } = require('../storage/fileStore');
 const { clearAuthCache } = require('../utils/authCache');
 const { validateNewPassword } = require('../utils/passwordRules');
 const { listFieldTechnicians } = require('../utils/technicians');
-const { loginLimiter, registerLimiter } = require('../middleware/rateLimit');
+const { loginLimiter, registerLimiter, passwordChangeLimiter, uploadLimiter } = require('../middleware/rateLimit');
 const Booking = require('../models/Booking');
 const BackJob = require('../models/BackJob');
 const { findDeletionBlockers } = require('../utils/deletionBlockers');
@@ -99,6 +99,7 @@ router.post('/login', loginLimiter, async (req, res) => {
     const { email, password } = req.body;
     const user = typeof email === 'string' && email.trim() ? await findUserByEmail(User, email) : null;
     if (!user) {
+      await burnPasswordCheck(password); // the same time as a wrong password, so the speed of the answer says nothing about the email
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
@@ -183,7 +184,7 @@ router.put('/profile', auth, async (req, res) => {
   }
 });
 
-router.post('/profile/photo', auth, upload.single('photo'), async (req, res) => {
+router.post('/profile/photo', auth, uploadLimiter, upload.single('photo'), async (req, res) => {
   try {
     // A refused or failed request must not leave its uploaded file behind.
     res.on('finish', () => { if (res.statusCode >= 400) discardUploads(req); });
@@ -220,7 +221,7 @@ router.post('/profile/photo', auth, upload.single('photo'), async (req, res) => 
   }
 });
 
-router.put('/change-password', auth, async (req, res) => {
+router.put('/change-password', auth, passwordChangeLimiter, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
 

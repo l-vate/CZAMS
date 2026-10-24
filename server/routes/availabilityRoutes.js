@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { getAvailability, MAX_RANGE_DAYS, KEY_PATTERN, addDays } = require('../utils/availability');
+const { availabilityLimiter } = require('../middleware/rateLimit');
 
 // Public (no login): which dates can still be booked. Query: ?from=YYYY-MM-DD&to=YYYY-MM-DD,
 // at most about two months at a time.
-router.get('/public', async (req, res) => {
+router.get('/public', availabilityLimiter, async (req, res) => {
   try {
     const { from, to } = req.query;
     if (!KEY_PATTERN.test(from || '') || !KEY_PATTERN.test(to || '') || to < from) {

@@ -57,3 +57,15 @@ e11b-screenshots/
 # Screenshots taken while checking the landing page (E12). Never tracked.
 e12-screenshots/
 e13-screenshots/
+
+# Secrets and backups: never tracked. A backup folder (utils/backupToJson.js names it CZAMS-<date>) holds every customer record.
+*.pem
+*.key
+*.p12
+*.pfx
+*credentials*.json
+backups/
+**/CZAMS-20*/
+*.zip
+*.sql
+*.dump

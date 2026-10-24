@@ -2,7 +2,7 @@
 // the public availability calendar. Every limit is a named number in RATE_LIMITS below, so it can be changed in one place. A request over
 // the limit gets a 429 with a clear message and a Retry-After header (seconds) until its window ends.
 //
-// Login and registration count per IP address and, separately, per email (or username). The others count per signed in user (and per IP
+// Login and registration count per IP address (a loose limit) and, separately, per email or username (a tight one). The others count per signed in user (and per IP
 // where there is no user). The answer never says whether an account exists.
 //
 // It is kept in this server process's memory. With more than one server process, or after a restart,
@@ -11,8 +11,11 @@
 const MINUTE = 60 * 1000;
 // The limits. Change a number here and every route that uses it follows.
 const RATE_LIMITS = Object.freeze({
-  login: Object.freeze({ windowMs: 15 * MINUTE, max: 10 }), // wrong passwords, per IP and per account
-  register: Object.freeze({ windowMs: 60 * MINUTE, max: 10 }), // per IP
+  // Wrong passwords: `max` per account (email or username), `maxPerIp` per IP address. The IP limit is loose on purpose: a whole classroom or
+  // office shares one address, so one network must not lock itself out. The account limit is what stops guessing one person's password.
+  login: Object.freeze({ windowMs: 15 * MINUTE, max: 10, maxPerIp: 60 }),
+  // Registrations: `max` per email, `maxPerIp` per IP address (loose, for the same reason).
+  register: Object.freeze({ windowMs: 60 * MINUTE, max: 10, maxPerIp: 60 }),
   passwordChange: Object.freeze({ windowMs: 15 * MINUTE, max: 10 }), // per user
   upload: Object.freeze({ windowMs: 10 * MINUTE, max: 30 }), // file uploads, per user
   payment: Object.freeze({ windowMs: 60 * MINUTE, max: 20 }), // payment submissions, per user
@@ -24,7 +27,8 @@ const PRUNE_ABOVE = 5000; // entries; expired ones are dropped when the table ge
 
 // `countOn(status)` decides which finished responses count as an attempt. `resetOn(status)` decides which
 // ones clear the email's count (a successful login).
-function createRateLimiter({ windowMs = WINDOW_MS, max = MAX_ATTEMPTS, now = () => Date.now(), countOn, resetOn = () => false, label = 'attempts' } = {}) {
+// `max` is the limit per account (email); `maxPerIp` the limit per IP address, which is `max` unless given.
+function createRateLimiter({ windowMs = WINDOW_MS, max = MAX_ATTEMPTS, maxPerIp = max, now = () => Date.now(), countOn, resetOn = () => false, label = 'attempts' } = {}) {
   const table = new Map(); // key -> { count, resetAt }
 
   const live = (key) => {
@@ -50,7 +54,8 @@ function createRateLimiter({ windowMs = WINDOW_MS, max = MAX_ATTEMPTS, now = () 
 
   const secondsLeft = (key) => {
     const entry = live(key);
-    return entry && entry.count >= max ? Math.max(1, Math.ceil((entry.resetAt - now()) / 1000)) : 0;
+    const limit = key.startsWith('ip:') ? maxPerIp : max;
+    return entry && entry.count >= limit ? Math.max(1, Math.ceil((entry.resetAt - now()) / 1000)) : 0;
   };
 
   const keysFor = (req) => {
@@ -132,10 +137,10 @@ const paymentLimiter = createWindowLimiter({ ...RATE_LIMITS.payment, keysFor: (r
 const availabilityLimiter = createWindowLimiter({ ...RATE_LIMITS.availability, keysFor: (req) => [ipOf(req)], label: 'requests for the calendar' });
 
 // Login: a wrong email or password (401) is an attempt; a good login clears that email's count.
-const loginLimiter = createRateLimiter({ windowMs: RATE_LIMITS.login.windowMs, max: RATE_LIMITS.login.max, countOn: (s) => s === 401, resetOn: (s) => s >= 200 && s < 300, label: 'login attempts' });
+const loginLimiter = createRateLimiter({ windowMs: RATE_LIMITS.login.windowMs, max: RATE_LIMITS.login.max, maxPerIp: RATE_LIMITS.login.maxPerIp, countOn: (s) => s === 401, resetOn: (s) => s >= 200 && s < 300, label: 'login attempts' });
 
 // Registration: every attempt counts, successful or not.
-const registerLimiter = createRateLimiter({ windowMs: RATE_LIMITS.register.windowMs, max: RATE_LIMITS.register.max, countOn: () => true, label: 'registration attempts' });
+const registerLimiter = createRateLimiter({ windowMs: RATE_LIMITS.register.windowMs, max: RATE_LIMITS.register.max, maxPerIp: RATE_LIMITS.register.maxPerIp, countOn: () => true, label: 'registration attempts' });
 
 module.exports = {
   createRateLimiter, createWindowLimiter, loginLimiter, registerLimiter, passwordChangeLimiter, uploadLimiter, paymentLimiter, availabilityLimiter,

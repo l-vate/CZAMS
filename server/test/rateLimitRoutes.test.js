@@ -12,13 +12,13 @@ process.env.JWT_SECRET = 'test-secret-not-a-real-one';
 const User = require('../models/User');
 const { hashPassword } = require('../utils/password');
 const {
-  RATE_LIMITS, createWindowLimiter, passwordChangeLimiter, uploadLimiter, paymentLimiter, availabilityLimiter, loginLimiter, registerLimiter, limitsEnabled,
+  RATE_LIMITS, createRateLimiter, createWindowLimiter, passwordChangeLimiter, uploadLimiter, paymentLimiter, availabilityLimiter, loginLimiter, registerLimiter, limitsEnabled,
 } = require('../middleware/rateLimit');
 
 test('the limits are the agreed numbers, in one place', () => {
   const min = 60 * 1000;
-  assert.deepEqual({ ...RATE_LIMITS.login }, { windowMs: 15 * min, max: 10 });
-  assert.deepEqual({ ...RATE_LIMITS.register }, { windowMs: 60 * min, max: 10 });
+  assert.deepEqual({ ...RATE_LIMITS.login }, { windowMs: 15 * min, max: 10, maxPerIp: 60 });
+  assert.deepEqual({ ...RATE_LIMITS.register }, { windowMs: 60 * min, max: 10, maxPerIp: 60 });
   assert.deepEqual({ ...RATE_LIMITS.upload }, { windowMs: 10 * min, max: 30 });
   assert.deepEqual({ ...RATE_LIMITS.payment }, { windowMs: 60 * min, max: 20 });
   assert.deepEqual({ ...RATE_LIMITS.availability }, { windowMs: 10 * min, max: 300 });
@@ -186,9 +186,9 @@ test('an unknown email costs the same password check as a wrong password, and ge
   }
 });
 
-test('registration is 10 per hour per IP', async () => {
+test('registration is 60 per hour per IP', async () => {
   const register = () => fetch(`${base}/api/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
-  for (let i = 0; i < 10; i += 1) assert.notEqual((await register()).status, 429, `registration ${i + 1}`);
+  for (let i = 0; i < 60; i += 1) assert.notEqual((await register()).status, 429, `registration ${i + 1}`);
   const blocked = await register();
   assert.equal(blocked.status, 429);
   assert.equal(Number(blocked.headers.get('retry-after')) > 15 * 60, true, 'the window is an hour, not 15 minutes');
@@ -198,4 +198,27 @@ test('a username counts like an email for the per account login limit', async ()
   const wrong = () => fetch(`${base}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'SomeOne', password: 'x' }) });
   for (let i = 0; i < 10; i += 1) assert.equal((await wrong()).status, 401);
   assert.equal((await wrong()).status, 429);
+});
+
+test('a classroom on one network is not blocked: many people logging in with their own accounts share one address freely', async () => {
+  // 40 different students each mistype once from the same address: nobody is blocked, and each account has only one failure
+  for (let i = 0; i < 40; i += 1) assert.equal((await login(`student${i}@example.com`, 'wrong-password-1')).status, 401, `student ${i + 1}`);
+  assert.equal((await login('real@example.com', GOOD)).status, 200, 'and a real login still works');
+});
+
+test('one account is still locked after 10 wrong passwords, even from many addresses', () => {
+  let clock = 1_000;
+  const limiter = createRateLimiter({ windowMs: RATE_LIMITS.login.windowMs, max: RATE_LIMITS.login.max, maxPerIp: RATE_LIMITS.login.maxPerIp, now: () => clock, countOn: (s) => s === 401 });
+  const attempt = (ip, email) => {
+    let passed = false;
+    const finishers = [];
+    const res = { statusCode: 401, set() {}, status(c) { this.statusCode = c; return this; }, json() { return this; }, on(e, f) { if (e === 'finish') finishers.push(f); } };
+    limiter({ ip, body: { email } }, res, () => { passed = true; });
+    if (passed) finishers.forEach((f) => f());
+    return passed;
+  };
+  for (let i = 0; i < 10; i += 1) assert.equal(attempt(`1.1.1.${i}`, 'victim@example.com'), true);
+  assert.equal(attempt('2.2.2.2', 'victim@example.com'), false, 'the account is locked whatever the address');
+  assert.equal(attempt('2.2.2.2', 'someone-else@example.com'), true, 'while another account from that address is fine');
+  assert.equal(clock, 1_000);
 });

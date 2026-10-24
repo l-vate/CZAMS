@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { describeError } = require('../utils/safeLog');
 
 const connectDB = async () => {
   try {
@@ -6,7 +7,8 @@ const connectDB = async () => {
     // eslint-disable-next-line no-console -- startup message, not debugging
     console.log('MongoDB connected:', mongoose.connection.name);
   } catch (err) {
-    console.error('MongoDB connection error:', err.message);
+    // the reason, with any connection string or secret cut out: the log must never show the database address or its password
+    console.error('MongoDB connection error:', describeError(err));
     process.exit(1);
   }
 };

@@ -7,6 +7,9 @@ function sendStored(res, name, file, { cacheControl }) {
   res.setHeader('Content-Type', contentType);
   res.setHeader('Content-Disposition', `${disposition}; filename="${name}"`);
   res.setHeader('X-Content-Type-Options', 'nosniff');
+  // The API-wide policy allows nothing to load, which also stops a browser's built-in PDF viewer. A PDF is not a page and nosniff stays, so
+  // the policy is left off that one answer.
+  if (contentType === 'application/pdf') res.removeHeader('Content-Security-Policy');
   res.setHeader('Cache-Control', cacheControl);
   if (Number.isFinite(file.size)) res.setHeader('Content-Length', String(file.size));
   file.stream.on('error', (err) => {

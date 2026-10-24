@@ -6,6 +6,8 @@ import FeedbackModal from '../../components/feedback_modal';
 import BackJobModal from '../../components/back_job_modal';
 import ServiceReportViewer from '../../components/service_report_viewer';
 import { getBookingLineItems, getPaymentBreakdown, formatPeso } from '../../utils/bookingPricing';
+import QuotationTerms from '../../components/quotation_terms';
+import { vatInside } from '../../utils/quotationTerms';
 import { getMemberNames } from '../../utils/assignments';
 import { earliestBookingKey, manilaTodayKey } from '../../utils/manilaTime';
 import { bookingHeading } from '../../utils/bookingHeading';
@@ -629,6 +631,8 @@ function BookDetails() {
             </div>
           </div>
 
+          <QuotationTerms terms={booking.quotationTerms} site={booking.site} isCommercial={booking.isCommercial} title="Quotation terms" />
+
           <div className="confirmation-details-grid">
             <div>
               <p className="summary-section-title">{booking.service?.name || '-'}</p>
@@ -638,6 +642,12 @@ function BookDetails() {
                 lineItems.filter((li) => !li.isCharge).map((li, i) => (
                   <p className="confirmation-detail-line" key={i}>
                     Unit: {li.quantity}× {li.type}{li.brandModel ? ` - ${li.brandModel}` : ''}{li.hp ? ` - ${li.hp} HP` : ''}
+                    {li.supplied?.source === 'requested' && li.supplied.status !== 'Declined' && (
+                      <span className="customer-unit-note"> Waiting for the owner to confirm the unit you asked for. The price is added once it is confirmed.</span>
+                    )}
+                    {li.supplied?.source === 'requested' && li.supplied.status === 'Declined' && (
+                      <span className="customer-unit-note"> The owner could not supply this unit: {li.supplied.declineReason}. You can cancel this booking and book again with a unit from the list.</span>
+                    )}
                   </p>
                 ))
               )}
@@ -687,7 +697,7 @@ function BookDetails() {
               <p className="summary-section-title"><FiCreditCard /> Payment Details</p>
               {lineItems.filter((li) => li.isCharge).map((li, i) => (
                 <div className="summary-row" key={i}>
-                  <span>{li.type}</span>
+                  <span>{li.isScope ? `${li.type} (${li.quantity} ${li.unitLabel || 'unit'} at ${formatPeso(li.unitPrice)})` : li.type}</span>
                   <span>{formatPeso(li.subtotal)}</span>
                 </div>
               ))}
@@ -704,6 +714,21 @@ function BookDetails() {
                 </div>
               )}
               <div className="summary-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}</span></div>
+              {booking.isCommercial && booking.taxInclusive && (
+                <div className="summary-row"><span>VAT included (12%)</span><span>₱{(booking.vatAmount ?? vatInside(basePrice)).toLocaleString()}</span></div>
+              )}
+              {booking.isCommercial && !booking.taxInclusive && (
+                <>
+                  <div className="summary-row"><span>VAT (12%)</span><span>₱{(booking.vatAmount || 0).toLocaleString()}</span></div>
+                  <div className="summary-row"><span>Total incl. VAT</span><span>₱{(basePrice + (booking.vatAmount || 0)).toLocaleString()}</span></div>
+                </>
+              )}
+              {!booking.isCommercial && booking.taxInclusive && (
+                <div className="summary-row"><span>VAT included in the price (12%)</span><span>₱{vatInside(basePrice).toLocaleString()}</span></div>
+              )}
+              {booking.isCommercial && booking.paymentTermsDays > 0 && (
+                <div className="summary-row"><span>Payment Terms</span><span>{booking.paymentTermsDays} days after completion</span></div>
+              )}
               <div className="summary-row"><span>Down Payment</span><span>{dpPercent === null ? 'Not set' : `${dpPercent}%`}</span></div>
               <div className="summary-row"><span>Amount Paid</span><span>₱{toPayNow.toLocaleString()}</span></div>
               <div className="summary-row"><span>Remaining Balance</span><span>₱{remaining.toLocaleString()}</span></div>

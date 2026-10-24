@@ -12,7 +12,7 @@ const { sendRouteError } = require('../utils/routeErrors');
 const DEFAULT_LIMIT = 25;
 const MAX_LIMIT = 100;
 const ACTION_PATTERN = /^[a-z_.]{1,60}$/;
-const ENTITY_TYPES = ['Booking', 'User', 'PaymentSettings', 'Promo', 'Service', 'Announcement', 'Closure', 'TechnicianOff', 'Report', 'BackJob'];
+const ENTITY_TYPES = ['Booking', 'User', 'PaymentSettings', 'Promo', 'Service', 'Announcement', 'SuppliedUnit', 'Closure', 'TechnicianOff', 'Report', 'BackJob'];
 
 // Manila day boundaries as real instants (Manila is UTC+8 all year).
 const startOfManilaDay = (key) => new Date(`${key}T00:00:00.000+08:00`);

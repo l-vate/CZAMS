@@ -3,6 +3,9 @@ import { getBookingLineItems, getPaymentBreakdown, formatPeso } from '../utils/b
 import AssignmentPanel from './assignment_panel';
 import SuggestedDates from './suggested_dates';
 import PaymentReference from './payment_reference';
+import ScopeOfWorksEditor from './scope_of_works_editor';
+import QuotationEditor from './quotation_editor';
+import UnitRequestPanel from './unit_request_panel';
 import ClosureDateInput from './closure_date_input';
 import { warrantyStatusText } from '../utils/warrantyText';
 import { BRAND_SHORT } from '../config/company';
@@ -372,6 +375,8 @@ const [report, setReport] = useState(null);
                         }}
                     />
 
+                    <UnitRequestPanel booking={booking} onUpdated={onUpdated} />
+
                     <div className="sdm-customer-line">
                         <Icon name="user" />
                         <span>{customerLabel(booking.customer)}</span>
@@ -384,11 +389,12 @@ const [report, setReport] = useState(null);
                     <div className="sdm-columns">
                         <div className="sdm-col">
                             <h4 className="sdm-service-name">{booking.service?.name || 'Service'}</h4>
-                            {lineItems.map((li, i) => (
+                            {lineItems.filter((li) => !li.isCharge).map((li, i) => (
                                 <p className="sdm-unit-line" key={i}>
                                     Unit: {li.quantity}× {li.type}
                                     {li.brandModel ? ` · ${li.brandModel}` : ''}
                                     {li.hp ? ` · ${li.hp} HP` : ''}
+                                    {li.supplied?.source === 'requested' ? ` · ${li.supplied.status === 'Declined' ? 'request declined' : 'needs owner confirmation'}` : ''}
                                 </p>
                             ))}
 
@@ -692,7 +698,7 @@ const [report, setReport] = useState(null);
                                     <>
                                         {lineItems.map((li, i) => (
                                             <div className="sdm-list-row" key={i}>
-                                                <span>{li.isDiscount ? li.type : `${li.quantity}× ${li.type} @ ${formatPeso(li.unitPrice)}`}</span>
+                                                <span>{li.isDiscount ? li.type : li.isScope ? `${li.type}: ${li.quantity} ${li.unitLabel || 'unit'} @ ${formatPeso(li.unitPrice)}` : `${li.quantity}× ${li.type} @ ${formatPeso(li.unitPrice)}`}</span>
                                                 <span className="sdm-list-value">{formatPeso(li.subtotal)}</span>
                                             </div>
                                         ))}
@@ -751,7 +757,11 @@ const [report, setReport] = useState(null);
                                                 </span>
                                                 <span className="sdm-list-value admin-service-details-modal-x21">
                                                     ₱{(booking.service?.serviceType === SERVICE_TYPE.INSTALLATION ? (booking.mobilizationFee || 0) : (booking.distanceAdjustment || 0)).toLocaleString()}
-                                                    <button className="sdm-btn sdm-btn-outline admin-service-details-modal-x22" onClick={() => setEditingCharges(true)}>Edit</button>
+                                                    {booking.service?.serviceType !== SERVICE_TYPE.INSTALLATION && (booking.scopeLines || []).some((l) => l.kind === 'distance') ? (
+                                                        <small className="sdm-muted"> Edit the distance line in Scope of works.</small>
+                                                    ) : (
+                                                        <button className="sdm-btn sdm-btn-outline admin-service-details-modal-x22" onClick={() => setEditingCharges(true)}>Edit</button>
+                                                    )}
                                                 </span>
                                             </div>
                                         )
@@ -760,7 +770,7 @@ const [report, setReport] = useState(null);
                                 {booking.isCommercial && (
                                     <>
                                         <div className="sdm-list-row">
-                                            <span>VAT (12%)</span>
+                                            <span>{booking.taxInclusive ? 'VAT included (12%)' : 'VAT (12%)'}</span>
                                             <span className="sdm-list-value">₱{(booking.vatAmount || 0).toLocaleString()}</span>
                                         </div>
                                         {booking.poNumber && (
@@ -1095,6 +1105,10 @@ const [report, setReport] = useState(null);
                         </div>
                     </div>
 
+                    <ScopeOfWorksEditor booking={booking} onUpdated={onUpdated} />
+
+                    <QuotationEditor booking={booking} onUpdated={onUpdated} />
+
                     <AssignmentPanel booking={booking} onUpdated={onUpdated} />
                     <AssignmentHistory bookingId={booking.bookingId} admin refreshKey={JSON.stringify(booking.assignments || [])} />
 </div>
@@ -1132,7 +1146,7 @@ const [report, setReport] = useState(null);
         {showReceipt && (
             <ReceiptModal
                 form={buildReceiptForm(booking, {
-                    customerName: booking.customer?.name,
+                    customerName: customerLabel(booking.customer, '-'),
                     contactNumber: booking.contactNumber || booking.customer?.phone,
                 })}
                 booking={booking}

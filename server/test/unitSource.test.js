@@ -28,7 +28,7 @@ test('an Installation cannot be booked without saying where the unit comes from'
 });
 
 test('a Cooling Zone unit books as company, and the answer carries the unit source', async () => {
-  const res = await post({ service: 'S-INST', date: goodDate(9), clientSuppliedUnit: false }, 'ADM1', { role: 'admin' });
+  const res = await post({ service: 'S-INST', date: goodDate(9), clientSuppliedUnit: false, units: [{ type: 'Split Type', quantity: 1, supplied: { notListed: true, brand: 'Test brand' } }] }, 'ADM1', { role: 'admin' });
   assert.equal(res.status, 201, JSON.stringify(res.body));
   assert.equal(res.body.unitSource, 'company');
 });

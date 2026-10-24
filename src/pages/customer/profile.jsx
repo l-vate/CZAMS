@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
 import { FiUser, FiCamera, FiEdit2, FiMail, FiCalendar, FiPhone, FiMapPin, FiLock, FiTrash2 } from 'react-icons/fi';
 import { API_BASE } from '../../config/api';
@@ -7,6 +7,8 @@ import { ApiError } from '../../services/apiClient';
 import CustomerHistory from '../../components/customer_history';
 import ChangePasswordModal from '../../components/change_password_modal';
 import { uploadProfilePhoto, updateProfile, deleteAccount } from '../../services/authService';
+import { listMyBookings } from '../../services/bookingService';
+import { countActiveBookings, deletionBlockNote } from '../../utils/deletionBlock';
 
 import Notice from '../../components/notice';
 import { useNotice } from '../../hooks/useNotice';
@@ -69,6 +71,18 @@ const [user, setUser] = useState(loadUserFromStorage);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // How many bookings are still Pending, Approved or In Progress (null until they load). The server refuses the deletion in that case
+  // too; this lets the page explain it and keep the button from being pressed.
+  const [activeCount, setActiveCount] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    listMyBookings()
+      .then((list) => { if (!cancelled) setActiveCount(countActiveBookings(list)); })
+      .catch(() => { if (!cancelled) setActiveCount(null); });
+    return () => { cancelled = true; };
+  }, []);
+  const deleteBlocked = activeCount > 0;
 
   const handleEditClick = () => {
     setEditForm(user);
@@ -344,10 +358,17 @@ const [user, setUser] = useState(loadUserFromStorage);
             <button
               className="delete-account-btn"
               onClick={() => setShowDeleteConfirm(true)}
+              disabled={deleteBlocked}
+              aria-describedby={deleteBlocked ? 'delete-account-block' : undefined}
             >
               <FiTrash2 size={14} /> Delete Account
             </button>
           </div>
+          {deleteBlocked && (
+            <p id="delete-account-block" className="delete-account-block" role="status">
+              {deletionBlockNote(activeCount)} <Link to="/customer/bookings">View my bookings</Link>
+            </p>
+          )}
         </div>
 
       </div>

@@ -4,7 +4,7 @@ import { getReferenceDuplicates } from '../services/bookingService';
 const NOT_RECORDED = 'Not recorded';
 
 // The reference number(s) of a booking for the admin, with a warning badge for every other
-// booking that carries the same reference. The warning never blocks anything.
+// payment of the same method that carries the same reference. The warning never blocks anything.
 function PaymentReference({ booking }) {
   const [duplicates, setDuplicates] = useState([]);
   const bookingId = booking?.bookingId;
@@ -26,8 +26,8 @@ function PaymentReference({ booking }) {
         <span>Balance: {booking.balanceReferenceNumber}</span>
       )}
       {hasReference && duplicates.map((d) => (
-        <span key={d.bookingId} className="payment-reference-dup">
-          Same reference number on booking {d.bookingId}
+        <span key={d.bookingId} className="payment-reference-dup" role="alert">
+          Warning: this {d.method ? `${d.method} ` : ''}reference number was already used on booking {d.bookingId}. Check that it is not the same payment submitted twice.
         </span>
       ))}
     </span>

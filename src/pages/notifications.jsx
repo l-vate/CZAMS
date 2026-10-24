@@ -75,7 +75,7 @@ function NotificationsPage() {
       }
     }
 
-    let target = null;
+    let target;
     if (role === ROLE.ADMIN) {
       target = adminNotificationTarget(notification);
     } else if (role === ROLE.STAFF) {

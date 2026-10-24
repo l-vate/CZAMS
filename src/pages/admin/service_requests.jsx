@@ -9,6 +9,7 @@ import { orFallback } from '../../services/apiClient';
 import { listBookings } from '../../services/bookingService';
 import { getMembers, getMemberNames } from '../../utils/assignments';
 import PendingQueue from '../../components/pending_queue';
+import { customerLabel } from '../../utils/customerLabel';
 import { BOOKING_STATUS_VALUES } from '../../constants/bookingStatus';
 
 function ServiceRequests() {
@@ -51,7 +52,7 @@ function ServiceRequests() {
             const haystack = [
                 req.bookingId,
                 req.service?.name,
-                req.customer?.name,
+                customerLabel(req.customer, ''),
                 getMemberNames(req, ''),
             ].filter(Boolean).join(' ').toLowerCase();
             return haystack.includes(term);

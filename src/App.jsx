@@ -28,6 +28,7 @@ import AdminServiceManage from './pages/admin/service_manage';
 import AdminManagePaymentSettings from './pages/admin/manage_payment_settings';
 import AdminServiceRequests from './pages/admin/service_requests';
 import AdminBookingDetails from './pages/admin/booking_details_page';
+import AdminSuppliedUnits from './pages/admin/supplied_units';
 import AdminWalkInBooking from './pages/admin/walk_in_booking';
 import AdminServiceReports from './pages/admin/service_reports';
 import AdminPayments from './pages/admin/payments';
@@ -90,6 +91,7 @@ function App() {
           <Route path="/admin/calendar" element={<AdminCalendar />} />
           <Route path="/admin/services" element={<AdminServices />} />
           <Route path="/admin/services/manage" element={<AdminServiceManage />} />
+          <Route path="/admin/services/units" element={<AdminSuppliedUnits />} />
           <Route path="/admin/payment-settings" element={<AdminManagePaymentSettings />} />
           <Route path="/admin/services/requests" element={<AdminServiceRequests />} />
           <Route path="/admin/services/requests/new" element={<AdminWalkInBooking />} />

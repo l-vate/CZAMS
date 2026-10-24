@@ -525,7 +525,7 @@ function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
       {invoicePayment && (
         <ReceiptModal
           form={buildReceiptForm(invoicePayment.raw, {
-            customerName: invoicePayment.raw.customer?.name,
+            customerName: customerLabel(invoicePayment.raw.customer, '-'),
             contactNumber: invoicePayment.raw.contactNumber || invoicePayment.raw.customer?.phone,
           })}
           booking={invoicePayment.raw}

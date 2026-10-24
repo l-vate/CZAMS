@@ -3,6 +3,7 @@ import ServiceReportPdfModal from './service_report_pdf_modal';
 import { ApiError } from '../services/apiClient';
 import { getReportForBooking } from '../services/reportService';
 import { unitSourceLabel } from '../utils/warrantyText';
+import { customerLabel } from '../utils/customerLabel';
 
 // A read-only service report with the PDF button, for people who may read a report but not file it: the helper
 // and a non-primary lead on the job, and the customer who owns the booking. It loads the report by booking and
@@ -27,7 +28,7 @@ function ServiceReportViewer({ bookingId, fallback = {}, onClose }) {
     const reportItem = {
       bookingId,
       service: details.service?.name || fallback.service || 'Service',
-      customer: details.customer?.name || fallback.customer || 'Customer',
+      customer: customerLabel(details.customer, fallback.customer || 'Customer'),
       address: details.address || fallback.address || 'Address not available',
       unitSource: unitSourceLabel(details),
       bookingDate: (details.date || fallback.date) ? new Date(details.date || fallback.date).toLocaleDateString() : 'Date not available',

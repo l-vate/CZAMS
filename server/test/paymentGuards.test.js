@@ -52,7 +52,7 @@ test.after(() => {
 });
 test.beforeEach(() => { authCache.clear(); DB = [booking()]; store = createMemoryStore(); setStore(store); });
 
-const send = async (route, as = 'CUS1', { reference = 'GC123456', file = true, id = 'CZ-1' } = {}) => {
+const send = async (route, as = 'CUS1', { reference = '1234567890123', file = true, id = 'CZ-1' } = {}) => {
   const token = jwt.sign({ id: as, role: accounts[as] }, process.env.JWT_SECRET, { expiresIn: '5m' });
   const form = new FormData();
   if (reference) form.append('referenceNumber', reference);
@@ -169,4 +169,36 @@ test('a refused repeat does not change the refund amount a cancellation would us
   await send('pay-balance');
   assert.equal(DB[0].downPaymentPaidAmount, 500);
   assert.equal(DB[0].paymentStatus, 'partially_paid');
+});
+
+// ---- the GCash reference number (E13-1): exactly 13 digits, spaces allowed when pasted, stored without them
+test('a GCash reference pasted with spaces is accepted and stored as 13 digits', async () => {
+  const res = await send('pay', 'CUS1', { reference: '1234 567 890123' });
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  assert.equal(DB[0].referenceNumber, '1234567890123');
+});
+
+test('a GCash reference with 12 digits, 14 digits or a letter is refused with the 13 digit message and nothing is stored', async () => {
+  for (const reference of ['123456789012', '12345678901234', '12345678901A3']) {
+    const res = await send('pay', 'CUS1', { reference });
+    assert.equal(res.status, 400, reference);
+    assert.equal(res.body.message, 'A GCash reference number has 13 digits. Check your receipt.', reference);
+    assert.equal(DB[0].paymentStatus, 'Unpaid');
+  }
+  assert.equal(await stored(), 0);
+});
+
+test('the balance payment follows the same GCash rule', async () => {
+  DB = [booking({ paymentStatus: 'partially_paid', downPaymentPaidAmount: 500 })];
+  assert.equal((await send('pay-balance', 'CUS1', { reference: '12345' })).status, 400);
+  const ok = await send('pay-balance', 'CUS1', { reference: '9876 5432 10987' });
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+  assert.equal(DB[0].balanceReferenceNumber, '9876543210987');
+});
+
+test('a Bank Transfer reference is not held to the GCash rule', async () => {
+  DB = [booking({ paymentMode: 'Bank Transfer' })];
+  const res = await send('pay', 'CUS1', { reference: 'bpi-ref-12345' });
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  assert.equal(DB[0].referenceNumber, 'BPI-REF-12345');
 });

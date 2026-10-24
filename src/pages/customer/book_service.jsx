@@ -4,6 +4,11 @@ import CustomerLayout from './customer_layout';
 import PaymentModal from '../../components/payment_modal';
 import ClosureDateInput from '../../components/closure_date_input';
 import BelowSelect from '../../components/below_select';
+import SuppliedUnitPicker from '../../components/supplied_unit_picker';
+import QuotationTerms from '../../components/quotation_terms';
+import { standardTerms } from '../../utils/quotationTerms';
+import { listSuppliedUnits } from '../../services/suppliedUnitService';
+import { brandsLine, hasChoice, unitsForSubmit } from '../../utils/suppliedUnitChoice';
 import DiscountOption from '../../components/discount_option';
 import { usePublicPromos } from '../../utils/promos';
 import { getCostBreakdown } from '../../utils/costBreakdown';
@@ -233,8 +238,22 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
 
   const isInstallation = selectedService?.serviceType === SERVICE_TYPE.INSTALLATION;
 
+  // The units the company can supply (active catalog items). Only an installation where the company supplies the unit needs them.
+  const needsCatalog = isInstallation && !form.clientSuppliedUnit;
+  const [catalog, setCatalog] = useState({ items: [], loaded: false });
+  useEffect(() => {
+    if (!needsCatalog) return undefined;
+    let cancelled = false;
+    listSuppliedUnits()
+      .then((items) => { if (!cancelled) setCatalog({ items: Array.isArray(items) ? items : [], loaded: true }); })
+      .catch(() => { if (!cancelled) setCatalog({ items: [], loaded: true }); }); // no list is the same as an empty one: the customer can still ask the owner
+    return () => { cancelled = true; };
+  }, [needsCatalog]);
+
   const updateUnit = (index, patch) => {
-    const updated = units.map((u, i) => (i === index ? { ...u, ...patch } : u));
+    // another type or horsepower is another unit: the choice made for the old one no longer applies
+    const resets = 'type' in patch || 'hp' in patch ? { supplied: undefined } : {};
+    const updated = units.map((u, i) => (i === index ? { ...u, ...resets, ...patch } : u));
     setForm({ ...form, units: updated });
   };
 
@@ -250,6 +269,7 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
   const setClientSuppliedUnit = (clientSupplied) => {
     setForm({
       ...form,
+      units: units.map((u) => ({ ...u, supplied: undefined })),
       clientSuppliedUnit: clientSupplied,
       unitWaiverAcknowledged: false,
       unitWaiverName: '',
@@ -284,6 +304,7 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
                 onChange={(e) => updateUnit(index, { quantity: Math.min(MAX_UNIT_QUANTITY, Math.max(1, Math.floor(Number(e.target.value)) || 1)) })}
               />
 
+              {!needsCatalog && (
               <div className="unit-entry-brand">
                 <BelowSelect
                   ariaLabel="Brand"
@@ -305,6 +326,8 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
                   />
                 )}
               </div>
+              )}
+              {needsCatalog && <span className="unit-entry-brand" aria-hidden="true" />}
 
               <BelowSelect
                 className="unit-entry-hp"
@@ -329,6 +352,11 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
               >
                 <FiX />
               </button>
+              {needsCatalog && (
+                <div className="unit-entry-supplied">
+                  <SuppliedUnitPicker unit={unit} index={index} items={catalog.items} loaded={catalog.loaded} onChange={(supplied) => updateUnit(index, { supplied })} />
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -337,6 +365,8 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
           <FiPlus /> Add Another Unit
         </button>
       </div>
+
+      {needsCatalog && catalog.loaded && brandsLine(catalog.items) && <p className="supplied-picker-hint">{brandsLine(catalog.items)}</p>}
 
       {isInstallation && (
         <div className="bs-field-group">
@@ -502,6 +532,24 @@ export function Step3({ form, setForm, technicians }) {
       </div>
 
       <div className="bs-field-group">
+        <label className="bs-label">Site details <span className="bs-label-hint">(Optional)</span></label>
+        <div className="bs-two-col">
+          <input
+            type="text" className="bs-input" placeholder="Building" aria-label="Building" maxLength={100}
+            value={form.siteBuilding || ''} onChange={(e) => setForm({ ...form, siteBuilding: e.target.value })}
+          />
+          <input
+            type="text" className="bs-input" placeholder="Floor or room" aria-label="Floor or room" maxLength={100}
+            value={form.siteFloorRoom || ''} onChange={(e) => setForm({ ...form, siteFloorRoom: e.target.value })}
+          />
+        </div>
+        <input
+          type="text" className="bs-input" placeholder="Attention: who should the technician ask for?" aria-label="Attention" maxLength={100}
+          value={form.siteAttention || ''} onChange={(e) => setForm({ ...form, siteAttention: e.target.value })}
+        />
+      </div>
+
+      <div className="bs-field-group">
         <label className="bs-label">Contact Number</label>
         <input
           type="tel"
@@ -543,7 +591,7 @@ const PAYMENT_STATUS_LABELS = {
 
 function Step4({ form, setForm, services, isReturnCustomer, isCommercial = false, onAgreedTerms, paymentMethods, downPaymentPercentages, promos }) {
   const [showModal, setShowModal] = useState(false);
-  const { lineItems, basePrice, discountAmount, discountLabel, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages), 0, promos);
+  const { selected: selectedService, lineItems, equipment, basePrice, discountAmount, discountLabel, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages), 0, promos);
   const isNoDownPayment = dpPercent === 0;
   // A customer pays online by GCash or Bank Transfer only, for both payments. Cash and cheque are recorded by our team on site.
   const onlineMethods = paymentMethods.filter((m) => ONLINE_PAYMENT_MODES.includes(m.name));
@@ -560,7 +608,7 @@ const handleSubmitPayment = ({ proof, referenceNumber }) => {
           form={{
             ...form,
             basePrice,
-            lineItems,
+            lineItems: [...lineItems, ...equipment.map((line) => ({ type: line.label, quantity: line.quantity, subtotal: line.subtotal }))],
             downPaymentPercent: dpPercent,
             toPayNow,
             remaining,
@@ -579,6 +627,10 @@ const handleSubmitPayment = ({ proof, referenceNumber }) => {
         <div className="bs-card bs-step4-left">
           <h3 className="bs-card-title">Payment</h3>
           <p className="bs-card-sub">Choose payment option.</p>
+
+          {selectedService?.serviceType === SERVICE_TYPE.INSTALLATION && (
+            <QuotationTerms terms={standardTerms({ clientSuppliedUnit: !!form.clientSuppliedUnit })} isCommercial={isCommercial} />
+          )}
 
           {/* Down Payment - 2×2 radio grid (return customers get an extra 0% option) */}
           <div className="bs-field-group">
@@ -654,6 +706,15 @@ const handleSubmitPayment = ({ proof, referenceNumber }) => {
               <span>₱{li.subtotal.toLocaleString()}.00</span>
             </div>
           ))}
+          {equipment.map((line, i) => (
+            <div className="cost-row cost-row-item" key={`equipment-${i}`}>
+              <span>{line.label} × {line.quantity}</span>
+              <span>₱{line.subtotal.toLocaleString()}.00</span>
+            </div>
+          ))}
+          {(form.units || []).some((u) => u.supplied?.notListed) && (
+            <div className="cost-row cost-row-item"><span>Unit asked from the owner</span><span>Price to be confirmed</span></div>
+          )}
           <div className="cost-divider" />
 
           {discountAmount > 0 && (
@@ -719,7 +780,7 @@ const handleSubmitPayment = ({ proof, referenceNumber }) => {
 
 /* ── Step 5: Booking Summary ──────────────────────────────── */
 export function Step5({ form, services, technicians, downPaymentPercentages, discountPercent = 0, promos = [] }) {
-  const { selected, lineItems, basePrice, discountAmount, discountLabel, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages), discountPercent, promos);
+  const { selected, lineItems, equipment, basePrice, discountAmount, discountLabel, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages), discountPercent, promos);
   const techName = technicians.find((t) => t._id === form.technician)?.name || 'No preference';
 
   return (
@@ -759,6 +820,15 @@ export function Step5({ form, services, technicians, downPaymentPercentages, dis
               <span>{form.discountType === 'PWD' ? 'PWD' : 'Senior Citizen'} Discount</span>
               <span>Pending approval</span>
             </div>
+          )}
+          {equipment.map((line, i) => (
+            <div className="summary-row" key={`equipment-${i}`}>
+              <span>{line.quantity}× {line.label}</span>
+              <span>₱{line.subtotal.toLocaleString()}.00</span>
+            </div>
+          ))}
+          {(form.units || []).some((u) => u.supplied?.notListed) && (
+            <div className="summary-row"><span>Unit asked from the owner</span><span>Price to be confirmed</span></div>
           )}
           <div className="summary-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}.00</span></div>
           <div className="summary-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
@@ -831,6 +901,8 @@ const canNext = () => {
         const waiverNameMatches = (form.unitWaiverName || '').trim().toLowerCase() === accountName.trim().toLowerCase();
         return !!form.unitWaiverAcknowledged && waiverNameMatches;
       }
+      // the company supplies the unit: every unit entry needs a catalog unit, or a request that tells the owner what is wanted
+      if (isInstallation && !units.every(hasChoice)) return false;
       return true;
     }
     if (step === 3) {
@@ -855,13 +927,16 @@ const canNext = () => {
       formData.append('service', form.service);
       // Sent as a JSON string, not repeated fields, since this is multipart/form-data
       // (there's a proof file too) and units are now structured objects, not flat strings.
-      formData.append('units', JSON.stringify(form.units || []));
+      formData.append('units', JSON.stringify(unitsForSubmit(form.units, form.clientSuppliedUnit)));
       formData.append('problemDescription', form.problemDescription || '');
       formData.append('date', form.date);
       formData.append('time', form.time);
       formData.append('technician', form.technician || '');
       formData.append('address', form.address);
       formData.append('contactNumber', form.contactNumber || '');
+      if (form.siteBuilding) formData.append('siteBuilding', form.siteBuilding);
+      if (form.siteFloorRoom) formData.append('siteFloorRoom', form.siteFloorRoom);
+      if (form.siteAttention) formData.append('siteAttention', form.siteAttention);
       if (form.poNumber) formData.append('poNumber', form.poNumber);
       formData.append('clientSuppliedUnit', form.clientSuppliedUnit || false);
       if (form.clientSuppliedUnit) {

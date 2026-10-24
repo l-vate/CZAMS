@@ -202,7 +202,9 @@ test('PATCH cancel returns the customer view', async () => {
 
 test('PATCH reschedule returns the customer view', async () => {
   DB = [doc({ status: 'Pending', rescheduleRequest: undefined })];
+  // about ten days ahead, never a Sunday (the shop is closed, so the server would refuse it and the test would depend on the weekday it runs)
   const date = new Date(Date.now() + 10 * 86400000);
+  if (date.getDay() === 0) date.setDate(date.getDate() + 1);
   const day = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   const res = await call('PATCH', '/api/bookings/CZ-1/reschedule', 'CUS1', { date: day, time: 'Afternoon' });
   assert.equal(res.status, 200, JSON.stringify(res.body));
@@ -232,7 +234,7 @@ const callPay = async (path, as) => {
   const token = jwt.sign({ id: as, role: accounts[as] }, process.env.JWT_SECRET, { expiresIn: '5m' });
   const png = Buffer.from(PNG_DATA_URL.split(',')[1], 'base64');
   const form = new FormData();
-  form.append('referenceNumber', 'GC123456');
+  form.append('referenceNumber', '1234567890123');
   form.append('proof', new Blob([png], { type: 'image/png' }), 'proof.png');
   const res = await fetch(`${base}${path}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form });
   return { status: res.status, body: await res.json().catch(() => ({})) };

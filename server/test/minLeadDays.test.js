@@ -23,7 +23,7 @@ test.describe('the booking route uses the same lead', () => {
 
   const book = (date) => call('POST', '', 'CUS1', {
     service: 'S-CLEAN', units: [{ type: 'Split Type', quantity: 1 }], date, time: 'Morning', address: 'Quezon City', contactNumber: '09171234567',
-    downPaymentPercent: 50, paymentMode: 'GCash', referenceNumber: 'GC123456', lastCleanedOver6MonthsAgo: false, isActivelyLeaking: false,
+    downPaymentPercent: 50, paymentMode: 'GCash', referenceNumber: '1234567890123', lastCleanedOver6MonthsAgo: false, isActivelyLeaking: false,
   });
 
   test('a date one day short of the lead is refused', async () => {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { formatPeso } from '../utils/bookingPricing';
-import { needsReference, normalizeReference, referenceError, REFERENCE_MAX } from '../utils/paymentReference';
+import { needsReference, normalizeReference, referenceError, referenceHint, referencePlaceholder, isGcashMode, REFERENCE_MAX } from '../utils/paymentReference';
 import { shrinkPhoto } from '../utils/photoShrink';
 
 function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], onClose, onSubmit }) {
@@ -31,7 +31,7 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
   // neither. A booking with no mode on record keeps the old rule (proof required, no reference).
   const requiresReference = needsReference(selectedModeName);
   const proofRequired = requiresReference || !selectedModeName;
-  const referenceProblem = requiresReference ? referenceError(referenceNumber) : '';
+  const referenceProblem = requiresReference ? referenceError(referenceNumber, selectedModeName) : '';
   const canSubmit = (!proofRequired || !!proof) && !referenceProblem && !preparing;
 
   const MAX_SIZE = 5 * 1024 * 1024; // 5MB
@@ -144,13 +144,17 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
               type="text"
               className="bs-input"
               maxLength={REFERENCE_MAX}
+              inputMode={isGcashMode(selectedModeName) ? 'numeric' : 'text'}
               autoComplete="off"
+              aria-describedby="payment-reference-hint"
+              aria-invalid={Boolean(referenceProblem && referenceNumber !== '')}
               value={referenceNumber}
               onChange={(e) => setReferenceNumber(e.target.value)}
-              placeholder="e.g. 1234567890"
+              placeholder={referencePlaceholder(selectedModeName)}
             />
+            <p id="payment-reference-hint" className="sdm-muted">{referenceHint(selectedModeName)}</p>
             {referenceProblem && referenceNumber !== '' && (
-              <p className="payment-modal-x2">{referenceProblem}</p>
+              <p className="payment-modal-x2" role="alert">{referenceProblem}</p>
             )}
             {referenceNumber === '' && (
               <p className="payment-modal-x2">The reference number is required to submit.</p>
@@ -160,7 +164,7 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
 
         <button
           className="modal-submit-btn"
-          onClick={() => onSubmit({ proof, referenceNumber: requiresReference ? normalizeReference(referenceNumber) : undefined })}
+          onClick={() => onSubmit({ proof, referenceNumber: requiresReference ? normalizeReference(referenceNumber, selectedModeName) : undefined })}
           disabled={!canSubmit}
         >
           SUBMIT

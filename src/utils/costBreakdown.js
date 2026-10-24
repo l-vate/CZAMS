@@ -1,5 +1,6 @@
 import { getUnitPrice } from './bookingPricing';
 import { pickBestPromo } from './promos';
+import { equipmentLines } from './suppliedUnitChoice';
 
 // Shared cost breakdown math, used by Step2 (per-row price preview), Step4,
 // and Step5. Itemizes each unit entry (type × quantity, at that type's price)
@@ -29,11 +30,16 @@ export function getCostBreakdown(form, services, defaultDownPaymentPercent, disc
   const useSenior = seniorAmount > promoAmount;
   const discountAmount = useSenior ? seniorAmount : promoAmount;
   const discountLabel = discountAmount === 0 ? '' : (useSenior ? 'Senior/PWD Discount' : `Promo: ${bestPromo.promo.name}`);
-  const basePrice = grossPrice - discountAmount;
+  // What the down payment works off: the units less the discount. The unit the customer buys from the company (its catalog price times the
+  // quantity) is added to the total afterwards, so it falls into the remaining balance, like the server does (server/utils/pricing.js).
+  const unitsSubtotal = grossPrice - discountAmount;
+  const equipment = equipmentLines(units);
+  const equipmentTotal = equipment.reduce((sum, line) => sum + line.subtotal, 0);
+  const basePrice = unitsSubtotal + equipmentTotal;
   // No percent yet (settings not loaded) means no down payment figure, never a guessed one.
   const dpPercent = form.downPaymentPercent ?? defaultDownPaymentPercent ?? null;
-  const toPayNow = dpPercent === null ? 0 : Math.round(basePrice * (dpPercent / 100));
+  const toPayNow = dpPercent === null ? 0 : Math.round(unitsSubtotal * (dpPercent / 100));
   const remaining = basePrice - toPayNow;
   const isFullPay = dpPercent === 100;
-  return { selected, lineItems, basePrice, grossPrice, discountAmount, discountLabel, dpPercent, toPayNow, remaining, isFullPay };
+  return { selected, lineItems, equipment, equipmentTotal, basePrice, grossPrice, discountAmount, discountLabel, dpPercent, toPayNow, remaining, isFullPay };
 }

@@ -139,3 +139,28 @@
   font-size: 0.75rem;
   font-weight: 600;
 }
+
+/* Scope of works (components/scope_of_works_editor.jsx): the admin's lines on a booking. */
+.scope-editor { margin-top: 24px; padding-top: 16px; border-top: 1px solid #eef1f5; }
+.scope-lines { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 10px; }
+.scope-line { padding: 12px 14px; border: 1px solid #e2e8f0; border-radius: 10px; display: grid; gap: 8px; }
+.scope-line-main { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.scope-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.scope-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; align-items: end; }
+.scope-form label, .scope-editor label.scope-form-wide { display: grid; gap: 4px; font-size: 0.8125rem; color: #475569; font-weight: 600; min-width: 0; }
+.scope-form input, .scope-form select, .scope-form textarea, .scope-editor label input, .scope-editor label textarea { width: 100%; min-width: 0; box-sizing: border-box; }
+.scope-form-wide { grid-column: 1 / -1; }
+.scope-form-amount { grid-column: 1 / -1; margin: 0; font-size: 0.9rem; }
+.scope-add { padding: 12px 14px; border: 1px dashed #cbd5e1; border-radius: 10px; display: grid; gap: 10px; }
+
+/* A unit the customer asked for that is not in the catalog (components/unit_request_panel.jsx). */
+.unit-request-panel { margin: 14px 0; padding: 12px 14px; border: 1.5px solid #f59e0b; border-radius: 10px; background: #fffbeb; display: grid; gap: 10px; }
+.unit-request { display: grid; gap: 6px; }
+.unit-request-title { margin: 0; font-weight: 700; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.unit-request-flag { padding: 2px 10px; border-radius: 999px; background: #fde68a; color: #92400e; font-size: 0.75rem; font-weight: 700; }
+.unit-request-flag.is-declined { background: #fecaca; color: #991b1b; }
+.unit-request-form { display: grid; gap: 10px; }
+
+/* Quotation details (components/quotation_editor.jsx). */
+.quotation-summary { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; font-size: 0.9rem; }
+.quotation-check { display: flex; align-items: center; gap: 8px; }

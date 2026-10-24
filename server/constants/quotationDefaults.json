@@ -1,0 +1,9 @@
+{
+  "durationDays": {
+    "Installation": { "min": 1, "max": 2 }
+  },
+  "exclusions": {
+    "Installation": ["Feeder line", "Carpentry works", "Masonry works", "Electrical works"]
+  },
+  "limits": { "exclusionCount": 12, "exclusionLength": 100, "maxDays": 30, "unitWarrantyText": 200, "siteField": 100, "warrantyMonthsMax": 120 }
+}

@@ -80,7 +80,7 @@ test('a proof of purchase refused (no such booking) is not stored, and one that 
 test('a booking refused after its proof was uploaded stores no proof', async () => {
   const res = await send('', {
     service: 'S-CLEAN', units: JSON.stringify([{ type: 'Split Type', quantity: 1 }]), date: goodDate(7), time: 'Morning', address: '', contactNumber: '09171234567',
-    downPaymentPercent: '50', paymentMode: 'GCash', referenceNumber: 'GC123456', lastCleanedOver6MonthsAgo: 'false', isActivelyLeaking: 'false',
+    downPaymentPercent: '50', paymentMode: 'GCash', referenceNumber: '1234567890123', lastCleanedOver6MonthsAgo: 'false', isActivelyLeaking: 'false',
   }, 'CUS1', 'customer');
   assert.equal(res.status, 400);
   await settle();

@@ -4,6 +4,22 @@ const booking = (bookingId) => `/api/bookings/${bookingId}`;
 
 // ---- Lists ----
 // Admin: every booking.
+// Admin: the scope of works lines of a booking (kind, description, quantity, unitLabel, unitRate). Changing or removing one needs a reason.
+export function addScopeLine(bookingId, line) {
+  return request(`${booking(bookingId)}/scope-lines`, { method: 'POST', body: line });
+}
+export function updateScopeLine(bookingId, lineId, changes) {
+  return request(`${booking(bookingId)}/scope-lines/${lineId}`, { method: 'PATCH', body: changes });
+}
+export function removeScopeLine(bookingId, lineId, reason) {
+  return request(`${booking(bookingId)}/scope-lines/${lineId}`, { method: 'DELETE', body: { reason } });
+}
+
+// Admin: the quotation details of a booking (estimatedDays, exclusions, warrantyMonths, unitWarrantyText, taxInclusive, site). null puts one back to its default.
+export function updateQuotation(bookingId, changes) {
+  return request(`${booking(bookingId)}/quotation`, { method: 'PATCH', body: changes });
+}
+
 export function listBookings() {
   return request('/api/bookings');
 }

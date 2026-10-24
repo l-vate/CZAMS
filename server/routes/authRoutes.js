@@ -263,10 +263,11 @@ router.delete('/account', auth, async (req, res) => {
     if (req.userRole !== ROLE.CUSTOMER) {
       return res.status(403).json({ message: 'Only customers can delete their own account. Ask an administrator.' });
     }
-    // Not while something is still open (an active booking, an unsettled refund, a claim waiting for review).
+    // Not while something is still open (an active booking, an unsettled refund, a claim waiting for review): 409, checked here on the
+    // server whatever the page shows.
     const blockers = await findDeletionBlockers(req.userId, { Booking, BackJob });
     if (blockers.message) {
-      return res.status(400).json({ message: blockers.message, blockers: blockers.counts });
+      return res.status(409).json({ message: blockers.message, blockers: blockers.counts });
     }
 
     // Only the account is deleted. Their completed bookings, reports, chat and files stay as company records.

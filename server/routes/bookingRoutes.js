@@ -5,6 +5,7 @@ const { REFUND_STATUS } = require('../constants/refundStatus');
 const { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } = require('../constants/paymentStatus');
 const { PAYMENT_MODE } = require('../constants/paymentModes');
 const { BOOKING_STATUS, BOOKING_STATUS_VALUES } = require('../constants/bookingStatus');
+const mongoose = require('mongoose');
 const multer = require('multer');
 const auditSpecs = require('../utils/auditSpecs');
 const express = require('express');
@@ -13,7 +14,7 @@ const auth = require('../middleware/auth');
 const Booking = require('../models/Booking');
 const User = require('../models/User');
 const Service = require('../models/Service');
-const { getWarrantyStatus, unitSourceOf } = require('../utils/warranty');
+const { withWarranty } = require('../utils/bookingView');
 const { sendNotification, notifyAdmins } = require('../utils/notifications');
 const Report = require('../models/Report');
 const {
@@ -60,6 +61,9 @@ const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/que
 const { generateBookingId, createWithUniqueBookingId, BookingIdExhaustedError } = require('../utils/bookingId');
 const { invalid, sendProblem } = require('../utils/validation');
 const { readPaymentSubmission, findSameReference } = require('../utils/paymentReference');
+const { readUnitChoices, brandModelOf, unitConfirmationProblem } = require('../utils/suppliedUnits');
+const { startingQuotation, readSite } = require('../utils/quotation');
+const SuppliedUnit = require('../models/SuppliedUnit');
 const { resolveRefundAmounts } = require('../utils/refundAmounts');
 const Closure = require('../models/Closure');
 const { businessDayProblem } = require('../utils/businessDays');
@@ -74,15 +78,7 @@ const { resolveClassification } = require('../utils/classification');
 
 const { TIME_BLOCKS } = require('../utils/timeBlocks');
 
-// Every route that returns a booking should include its computed warranty status,
-// otherwise the admin/customer detail views lose that section the moment any other
-// field gets updated (same class of bug as Customer Classification's PUT /:id fix).
-function withWarranty(booking) {
-  const obj = booking.toObject();
-  obj.warranty = getWarrantyStatus(booking);
-  obj.unitSource = unitSourceOf(booking); // where an Installation unit came from: 'company' or 'customer'
-  return obj;
-}
+// Every route that returns a booking includes its computed warranty status (utils/bookingView.js).
 
 // The same, for a customer: only the fields a customer may see (utils/customerView.js).
 const customerBooking = (booking) => toCustomerView(withWarranty(booking));
@@ -363,6 +359,8 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
     if (units.some((u) => !u.type || !Number.isFinite(Number(u.quantity)) || Number(u.quantity) < 1)) {
       return res.status(400).json({ message: 'Each unit needs a type and a quantity of at least 1.' });
     }
+    // what the customer chose for each unit entry from the supplied unit catalog (checked below, once the service is known)
+    const suppliedChoices = units.map((u) => u.supplied);
     units = units.map((u) => ({
       type: u.type,
       quantity: Number(u.quantity),
@@ -399,6 +397,24 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
         message: 'A signed waiver is required when the client supplies their own unit.'
       });
     }
+
+    // Site details (optional): the building, the floor or room, and who to ask for.
+    const siteInput = readSite({ building: req.body.siteBuilding, floorRoom: req.body.siteFloorRoom, attention: req.body.siteAttention });
+    if (siteInput.problem) return sendProblem(res, siteInput.problem);
+
+    // An Installation with a Cooling Zone unit: every unit entry must name a unit from the catalog (active, and the same type and
+    // horsepower), or ask the owner when it is not listed. The unit's brand, model, price and so on are copied onto the booking now.
+    // A customer's own unit keeps the waiver path above and carries no supplied unit.
+    const unitChoices = await readUnitChoices({
+      units,
+      choices: suppliedChoices,
+      needsChoice: isInstallationService && !isClientSuppliedUnit,
+      findItem: (id) => (mongoose.isValidObjectId(id) ? SuppliedUnit.findById(id) : null),
+    });
+    if (unitChoices.problem) return sendProblem(res, unitChoices.problem);
+    units = units.map((u, i) => (unitChoices.supplied[i]
+      ? { ...u, supplied: unitChoices.supplied[i], brandModel: brandModelOf({ ...u, supplied: unitChoices.supplied[i] }) || u.brandModel }
+      : u));
 
     let bookingCustomerId = req.userId;
     let isAdminWalkIn = false;
@@ -563,6 +579,9 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), (req, res, next) =
           customerName: unitWaiverName.trim(),
           acknowledgedAt: new Date(),
         } : undefined,
+        // an Installation starts with the standard duration and exclusions (utils/quotation.js); the admin can change them per booking
+        quotation: isInstallationService ? startingQuotation(serviceDoc.serviceType) : undefined,
+        site: Object.values(siteInput.site).some(Boolean) ? siteInput.site : undefined,
         serviceAreaCheck: { withinArea: withinServiceArea, checkedAt: new Date() },
         cleaningTierAnswers: (isCleaningService && (lastCleanedOver6MonthsAgo !== undefined || isActivelyLeaking !== undefined)) ? {
           lastCleanedOver6MonthsAgo: lastCleanedOver6MonthsAgo === 'true' || lastCleanedOver6MonthsAgo === true,
@@ -668,11 +687,7 @@ router.get('/mine', auth, async (req, res) => {
       .populate('technician', 'name').populate(ASSIGNMENT_POPULATE)
       .sort({ createdAt: -1 });
 
-    const enriched = bookings.map((b) => {
-      const obj = b.toObject();
-      obj.warranty = getWarrantyStatus(b);
-      return obj;
-    });
+    const enriched = bookings.map((b) => withWarranty(b));
     res.json(enriched.map(toCustomerView));
   } catch (err) {
     sendRouteError(res, err);
@@ -763,9 +778,7 @@ router.get('/:bookingId', auth, async (req, res) => {
 
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
-    const obj = booking.toObject();
-    obj.warranty = getWarrantyStatus(booking);
-    res.json(toCustomerView(obj));
+    res.json(toCustomerView(withWarranty(booking)));
   } catch (err) {
     sendRouteError(res, err);
   }
@@ -972,7 +985,7 @@ router.get('/:bookingId/reference-duplicates', auth, async (req, res) => {
     if (req.userRole !== ROLE.ADMIN) {
       return res.status(403).json({ message: 'Forbidden' });
     }
-    const booking = await Booking.findOne({ bookingId: req.params.bookingId }).select('bookingId referenceNumber balanceReferenceNumber');
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId }).select('bookingId referenceNumber balanceReferenceNumber paymentMode paymentMode2');
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
     res.json({ duplicates: await findSameReference(Booking, booking) });
   } catch (err) {
@@ -1591,11 +1604,7 @@ router.get('/', auth, async (req, res) => {
     }
     const bookings = await query;
 
-    const enriched = bookings.map((b) => {
-      const obj = b.toObject();
-      obj.warranty = getWarrantyStatus(b);
-      return obj;
-    });
+    const enriched = bookings.map((b) => withWarranty(b));
     res.json(enriched);
   } catch (err) {
     sendRouteError(res, err);
@@ -2079,6 +2088,12 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
     // time block starts, Completed when the technician submits the service report.
     const statusProblem = validateAdminStatusChange(booking.status, status);
     if (statusProblem) return sendProblem(res, statusProblem);
+    // A unit the customer asked for that is not in the catalog must be settled by the owner first (a catalog unit, a unit price with a note,
+    // or declined), so a booking is never approved at a price nobody has confirmed.
+    if (status === BOOKING_STATUS.APPROVED && booking.status !== BOOKING_STATUS.APPROVED) {
+      const unitProblem = unitConfirmationProblem(booking.units);
+      if (unitProblem) return sendProblem(res, unitProblem);
+    }
 
     // Technicians are assigned through PATCH /:bookingId/assign, which checks every
     // member for conflicts. This route no longer takes a single technician.
@@ -2091,6 +2106,11 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
     // saved amount actually changes, not on every admin-update touching this route.
     let chargeChanged = false;
     const chargesBefore = { distanceAdjustment: booking.distanceAdjustment || 0, mobilizationFee: booking.mobilizationFee || 0 };
+    if (distanceAdjustment !== undefined && (booking.scopeLines || []).some((l) => l.kind === 'distance')
+      && Number(distanceAdjustment) !== (booking.distanceAdjustment || 0)) {
+      // the distance based charge is the booking's distance line(s) in the scope of works; changing the field here would count it twice
+      return res.status(400).json({ message: 'This booking has a distance line in its scope of works. Change that line instead of the distance based charge.' });
+    }
     if (distanceAdjustment !== undefined) {
       const parsed = Number(distanceAdjustment);
       if (isNaN(parsed) || parsed < 0) {
@@ -2117,6 +2137,10 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
         return res.status(400).json({ message: 'The unit source only applies to an Installation booking.' });
       }
       booking.clientSuppliedUnit = unitSource === 'customer';
+      // The customer's own unit is not bought from Cooling Zone: no supplied unit (and no price for one) stays on the booking.
+      if (booking.clientSuppliedUnit && booking.units.some((u) => u.supplied)) {
+        booking.units.forEach((u) => { u.supplied = undefined; });
+      }
     }
 
     // Pre-service technician instructions (Service Report Module)

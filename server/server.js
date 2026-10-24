@@ -5,6 +5,8 @@ require('dotenv').config({ quiet: true });
 // In production the server stops here, with a message, if JWT_SECRET or MONGO_URI is missing or the secret is too short.
 require('./config/envCheck').enforceEnvironment();
 const express = require('express');
+// Say once, at startup, if the image library could not be loaded (photos are then stored as they came). The server keeps running.
+require('./utils/imageProcessing').warnIfImageProcessingOff();
 const connectDB = require('./config/db');
 
 const databaseReady = connectDB();

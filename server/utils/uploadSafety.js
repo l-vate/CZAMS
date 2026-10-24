@@ -15,7 +15,7 @@ const path = require('path');
 const crypto = require('crypto');
 const multer = require('multer');
 const { getStore } = require('../storage/fileStore');
-const { cleanImage } = require('./imageProcessing');
+const { cleanImage, imageProcessingStatus, OFF_WARNING } = require('./imageProcessing');
 
 const MB = 1024 * 1024;
 // The most one upload may be, before it is shrunk. A phone photo is often 5 to 10 MB; a bigger file is refused with a clear message.
@@ -107,9 +107,12 @@ function verifyUploads(allowedTypes) {
       if (!files.every(verifyBuffer)) {
         return res.status(400).json({ message: `The file is not a real ${describeTypes(allowedTypes)} file.` });
       }
-      // a picture is decoded, shrunk and stripped of its metadata; a picture the library cannot read is refused
+      // a picture is decoded, shrunk and stripped of its metadata; a picture the library cannot read is refused. If the image library could
+      // not be loaded on this host (imageProcessing "off" in /api/health), the picture is kept as it came, and each upload says so in the log.
+      const processing = imageProcessingStatus() === 'on';
+      if (!processing && files.some((f) => f.mimetype !== 'application/pdf')) console.warn(OFF_WARNING);
       for (const file of files) {
-        if (file.mimetype === 'application/pdf') continue;
+        if (file.mimetype === 'application/pdf' || !processing) continue;
         const cleaned = await cleanImage(file.buffer);
         file.buffer = cleaned.buffer;
         file.size = cleaned.buffer.length;

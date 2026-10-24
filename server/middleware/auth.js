@@ -1,4 +1,4 @@
-const jwt = require('jsonwebtoken');
+const { verifyToken } = require('../utils/jwtTokens');
 const User = require('../models/User');
 const { authCache } = require('../utils/authCache');
 
@@ -17,7 +17,7 @@ async function auth(req, res, next) {
 
   let decoded;
   try {
-    decoded = jwt.verify(token, process.env.JWT_SECRET);
+    decoded = verifyToken(token); // HS256 only (utils/jwtTokens.js)
   } catch {
     return res.status(401).json({ message: 'Invalid or expired token' });
   }

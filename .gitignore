@@ -69,3 +69,6 @@ backups/
 *.zip
 *.sql
 *.dump
+
+# Screenshots taken while checking the availability messages (E14). Never tracked.
+e14-screenshots/

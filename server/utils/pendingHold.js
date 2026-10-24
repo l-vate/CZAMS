@@ -4,7 +4,7 @@
 // In Progress (cancelled by the customer, rejected or cancelled by the admin): nothing is stored, the answer is always read live.
 const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const scheduling = require('../constants/scheduling');
-const { isSlotOpen } = require('./availability');
+const { slotState, BLOCK_REASON } = require('./availability');
 
 class PendingLimitError extends Error {
   constructor() {
@@ -13,10 +13,13 @@ class PendingLimitError extends Error {
   }
 }
 
+// The reason matters to the customer: a block nobody can work in (every technician is away) is not "taken by another booking".
+const NO_TECHNICIANS_MESSAGE = 'No technicians are available on that date.';
 class SlotTakenError extends Error {
-  constructor() {
-    super('That date and time is already taken by another booking. Please choose another time or date.');
+  constructor(reason) {
+    super(reason === BLOCK_REASON.NO_TECHNICIANS ? NO_TECHNICIANS_MESSAGE : 'That date and time is already taken by another booking. Please choose another time or date.');
     this.name = 'SlotTakenError';
+    this.reason = reason || BLOCK_REASON.FULLY_BOOKED;
   }
 }
 
@@ -31,7 +34,8 @@ async function assertUnderPendingLimit(Booking, customer) {
 
 // Throws SlotTakenError when no pair of technicians is left in that date and block.
 async function assertSlotOpen(date, time, excludeBookingId) {
-  if (!(await isSlotOpen(date, time, excludeBookingId))) throw new SlotTakenError();
+  const state = await slotState(date, time, excludeBookingId);
+  if (!state.open) throw new SlotTakenError(state.reason);
 }
 
-module.exports = { PendingLimitError, SlotTakenError, slotKey, pendingLimitKey, assertUnderPendingLimit, assertSlotOpen };
+module.exports = { PendingLimitError, SlotTakenError, NO_TECHNICIANS_MESSAGE, slotKey, pendingLimitKey, assertUnderPendingLimit, assertSlotOpen };

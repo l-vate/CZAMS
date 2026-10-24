@@ -95,6 +95,8 @@
 .lp-root .avail-day:focus-visible { outline-color: #fff; }
 .lp-root .avail-day--too-soon { background: rgba(255, 255, 255, 0.1); color: #cbd5e1; }
 .lp-root .avail-day--past { background: rgba(255, 255, 255, 0.04); color: #94a3b8; }
+.lp-root .avail-day--no-technicians { background: rgba(148, 163, 184, 0.22); color: #e2e8f0; border: 2px dotted #cbd5e1; }
+.lp-root .avail-tip { background: #061a33; border-color: rgba(255, 255, 255, 0.5); }
 .lp-root .avail-day--closed, .lp-root .avail-day--shop-closed {
   background: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0 6px, rgba(255, 255, 255, 0.14) 6px 8px);
   color: #cbd5e1;

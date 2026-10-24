@@ -133,12 +133,14 @@ export const AVAILABILITY = {
   errorTitle: 'We could not load the dates right now.',
   errorText: 'Please check your connection and try again.',
   retry: 'Try again',
-  // The legend: four entries. Closed covers both Sundays and dates the shop closed (both are hatched); days that cannot be booked
-  // (past, or under the notice period) are plain grey and are explained when tapped.
+  // The legend: five entries. Closed covers both Sundays and dates the shop closed (both are hatched); a day nobody can work (every
+  // technician is away) has its own dotted look; days that cannot be booked (past, or under the notice period) are plain grey and are
+  // explained when tapped.
   legend: [
     { status: 'open', label: 'Available' },
     { status: 'limited', label: 'Limited' },
     { status: 'full', label: 'Fully booked' },
+    { status: 'no-technicians', label: 'No technicians available' },
     { status: 'closed', label: 'Closed' },
   ],
 };

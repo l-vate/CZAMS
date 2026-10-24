@@ -207,7 +207,7 @@ test('a classroom on one network is not blocked: many people logging in with the
 });
 
 test('one account is still locked after 10 wrong passwords, even from many addresses', () => {
-  let clock = 1_000;
+  const clock = 1_000;
   const limiter = createRateLimiter({ windowMs: RATE_LIMITS.login.windowMs, max: RATE_LIMITS.login.max, maxPerIp: RATE_LIMITS.login.maxPerIp, now: () => clock, countOn: (s) => s === 401 });
   const attempt = (ip, email) => {
     let passed = false;
@@ -220,5 +220,4 @@ test('one account is still locked after 10 wrong passwords, even from many addre
   for (let i = 0; i < 10; i += 1) assert.equal(attempt(`1.1.1.${i}`, 'victim@example.com'), true);
   assert.equal(attempt('2.2.2.2', 'victim@example.com'), false, 'the account is locked whatever the address');
   assert.equal(attempt('2.2.2.2', 'someone-else@example.com'), true, 'while another account from that address is fine');
-  assert.equal(clock, 1_000);
 });

@@ -22,6 +22,15 @@ test.beforeEach(() => {
 });
 
 const D = () => goodDate(10);
+// n different bookable days, so a Sunday rolling forward never makes two of them the same date (that would be a duplicate booking)
+const distinctDates = (n) => {
+  const dates = [];
+  for (let days = 7; dates.length < n; days += 1) {
+    const date = goodDate(days);
+    if (!dates.includes(date)) dates.push(date);
+  }
+  return dates;
+};
 const statusOn = async (date, block) => {
   const [day] = await getAvailability(date, date);
   return block === 'Morning' ? day.morning : day.afternoon;
@@ -68,24 +77,26 @@ test('a customer with 3 Pending bookings is refused a fourth with a clear 400, a
   harness.reset({ users: [customer('CUS1'), tech('T1'), tech('T2'), tech('T3'), tech('T4'), tech('T5'), tech('T6'), tech('T7'), tech('T8')], services: [cleaning] });
   scheduling.MAX_PENDING_PER_CUSTOMER = 3;
   const ids = [];
-  for (const days of [7, 8, 9]) {
-    const res = await post({ date: goodDate(days), time: 'Morning' }, 'CUS1');
+  const [d1, d2, d3, d4] = distinctDates(4);
+  for (const date of [d1, d2, d3]) {
+    const res = await post({ date, time: 'Morning' }, 'CUS1');
     assert.equal(res.status, 201, JSON.stringify(res.body));
     ids.push(res.body.bookingId);
   }
-  const fourth = await post({ date: goodDate(10), time: 'Morning' }, 'CUS1');
+  const fourth = await post({ date: d4, time: 'Morning' }, 'CUS1');
   assert.equal(fourth.status, 400);
   assert.equal(fourth.body.message, 'You have reached the limit of pending bookings. Please wait for confirmation or cancel one.');
   await call('PATCH', `/${ids[0]}/cancel`, 'CUS1');
-  assert.equal((await post({ date: goodDate(10), time: 'Morning' }, 'CUS1')).status, 201);
+  assert.equal((await post({ date: d4, time: 'Morning' }, 'CUS1')).status, 201);
 });
 
 test('only Pending bookings count toward the cap: Approved ones do not', async () => {
   harness.reset({ users: [customer('CUS1'), tech('T1'), tech('T2'), tech('T3'), tech('T4'), tech('T5'), tech('T6'), tech('T7'), tech('T8')], services: [cleaning] });
   scheduling.MAX_PENDING_PER_CUSTOMER = 3;
-  for (const days of [7, 8, 9]) await post({ date: goodDate(days), time: 'Morning' }, 'CUS1');
+  const [d1, d2, d3, d4] = distinctDates(4);
+  for (const date of [d1, d2, d3]) await post({ date, time: 'Morning' }, 'CUS1');
   state.bookings[0].status = 'Approved';
-  assert.equal((await post({ date: goodDate(10), time: 'Morning' }, 'CUS1')).status, 201);
+  assert.equal((await post({ date: d4, time: 'Morning' }, 'CUS1')).status, 201);
 });
 
 test('two customers racing for the last pair: exactly one succeeds', async () => {

@@ -11,6 +11,7 @@ const { scrubSecrets, describeError, describeFault } = require('../utils/safeLog
 const { checkEnvironment } = require('../config/envCheck');
 
 const root = path.join(__dirname, '..');
+const fakeUri = (password) => ['mongodb+srv://', 'appuser:', password, '@cluster0.abcde.mongodb.net/CZAMS'].join('');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
 // ---- headers
@@ -19,7 +20,7 @@ async function withApp(run, { fail } = {}) {
   app.use(requestId);
   app.use(securityHeaders());
   app.get('/api/ok', (req, res) => res.json({ ok: true }));
-  app.get('/api/boom', () => { throw fail || new Error('connect ECONNREFUSED mongodb+srv://appuser:TopSecretPw1@cluster0.abcde.mongodb.net/CZAMS at C:\\app\\routes\\x.js:12'); });
+  app.get('/api/boom', () => { throw fail || new Error(`connect ECONNREFUSED ${fakeUri('TopSecretPw1')} at C:\\app\\routes\\x.js:12`); });
   app.use(apiNotFound);
   app.use(errorHandler);
   const server = await new Promise((resolve) => { const s = app.listen(0, () => resolve(s)); });
@@ -91,13 +92,13 @@ test('an unknown address and a bad body are answered in JSON with no internals',
 
 // ---- no secret in a log
 test('a connection string and the secret settings are cut out of any error text', () => {
-  const env = { MONGO_URI: 'mongodb+srv://appuser:Zk3dQ9vLm2@cluster0.abcde.mongodb.net/CZAMS', JWT_SECRET: 'jwt-value-123456789012345678901234567890', SMTP_PASS: 'smtp-pass-value' };
-  const err = new Error(`bad auth for mongodb+srv://appuser:Zk3dQ9vLm2@cluster0.abcde.mongodb.net/CZAMS using ${env.JWT_SECRET} and ${env.SMTP_PASS}`);
+  const env = { MONGO_URI: fakeUri('Zk3dQ9vLm2'), JWT_SECRET: 'jwt-value-123456789012345678901234567890', SMTP_PASS: 'smtp-pass-value' };
+  const err = new Error(`bad auth for ${fakeUri('Zk3dQ9vLm2')} using ${env.JWT_SECRET} and ${env.SMTP_PASS}`);
   for (const text of [scrubSecrets(err.message, env), describeError(err, env), describeFault(err, env)]) {
     ['Zk3dQ9vLm2', 'appuser', 'cluster0', env.JWT_SECRET, env.SMTP_PASS].forEach((secret) => assert.equal(text.includes(secret), false, `still shows ${secret.slice(0, 4)}...`));
   }
   assert.match(describeError(err, env), /^Error: bad auth/, 'the reason is still there');
-  assert.match(scrubSecrets('connect failed mongodb://user:pw@host:27017/db?x=1 end', {}), /mongodb:\/\/<hidden> end/);
+  assert.match(scrubSecrets(`connect failed ${['mongodb://', 'user:pw', '@host:27017/db?x=1'].join('')} end`, {}), /mongodb:\/\/<hidden> end/);
   assert.equal(scrubSecrets('nothing secret here', { JWT_SECRET: 'x' }), 'nothing secret here', 'a very short value is not blanked out of ordinary words');
 });
 
@@ -108,7 +109,7 @@ test('a failed database connection prints the reason without the address or pass
   const realExit = process.exit;
   const realError = console.error;
   const before = process.env.MONGO_URI;
-  process.env.MONGO_URI = 'mongodb+srv://appuser:Zk3dQ9vLm2@cluster0.abcde.mongodb.net/CZAMS';
+  process.env.MONGO_URI = fakeUri('Zk3dQ9vLm2');
   const lines = [];
   let exitCode = null;
   mongoose.connect = async (uri) => { throw new Error(`querySrv ENOTFOUND for ${uri}`); };

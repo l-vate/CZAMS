@@ -3,11 +3,11 @@
 const PRODUCTION_MIN_SECRET = 32;
 const DEVELOPMENT_MIN_SECRET = 16;
 
-// A value that looks like a placeholder someone forgot to replace: it contains "secret" together with "dev", or contains "change"
-// (as in the "change-this-..." value of .env.example), "test" or "example".
+// A value that looks like a placeholder someone forgot to replace: it is written in angle brackets (as in .env.example), contains "secret"
+// together with "dev", or contains "change", "test" or "example".
 function looksLikePlaceholder(value) {
   const text = String(value).toLowerCase();
-  return (text.includes('secret') && text.includes('dev')) || text.includes('change') || text.includes('test') || text.includes('example');
+  return /<[^>]*>/.test(text) || (text.includes('secret') && text.includes('dev')) || text.includes('change') || text.includes('test') || text.includes('example');
 }
 
 // { errors, warnings }. In production any error means the server must not start; in development there are warnings only.

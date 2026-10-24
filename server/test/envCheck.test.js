@@ -30,6 +30,7 @@ test('development only warns: short secret, and placeholders', () => {
   assert.deepEqual(dev('abc').errors, []);
   assert.match(dev('dev-secret-aaaaaaaaaaaa').warnings.join(' '), /placeholder/);
   assert.match(dev('change-this-to-a-long-random-string').warnings.join(' '), /placeholder/);
+  assert.match(dev('<at-least-32-random-characters>').warnings.join(' '), /placeholder/, 'the value .env.example ships with is caught');
   assert.match(dev('my-test-value-aaaaaaaaaaaa').warnings.join(' '), /placeholder/);
   assert.match(dev('example-value-aaaaaaaaaaaa').warnings.join(' '), /placeholder/);
   assert.deepEqual(dev(GOOD), { errors: [], warnings: [] });

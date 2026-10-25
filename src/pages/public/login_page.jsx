@@ -29,7 +29,9 @@ function LoginPage() {
   const [error, setError] = useState(() => takeSessionNotice());
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const justRegistered = useLocation().state?.registered === true;
+  const locationState = useLocation().state;
+  const justRegistered = locationState?.registered === true;
+  const passwordWasReset = locationState?.passwordReset === true;
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -113,7 +115,7 @@ function LoginPage() {
             <div className="form-group">
               <div className="label-row">
                 <label htmlFor="password">Password</label>
-                <a href="#" className="forgot-link">Forgot password?</a>
+                <Link to="/forgot-password" className="forgot-link">Forgot password?</Link>
               </div>
               <div className="password-wrapper">
                 <input
@@ -136,6 +138,7 @@ function LoginPage() {
             </div>
 
             {justRegistered && !error && <p className="auth-success" role="status">Your account was created. Please sign in to continue.</p>}
+            {passwordWasReset && !justRegistered && !error && <p className="auth-success" role="status">Your password was changed. Please sign in with your new password.</p>}
             {error && <p className="auth-error public-login-page-x1">{error}</p>}
 
             <button

@@ -1881,3 +1881,19 @@
 .email-status-title { font-size: 14px; font-weight: 600; color: var(--ink, #1e293b); margin: 0 0 2px; line-height: 1.4; }
 .email-status-card[data-state='failed'] { border-color: #f0b252; background: #fff8ec; }
 .confirmation-notif-row { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+
+/* E17-9: the cancellation confirmation buttons (navy and coral, wrapping cleanly on a phone) and the read-only cancelled booking record. */
+.cancelled-actions { flex-wrap: wrap; justify-content: center; }
+.cancelled-actions .bs-back-btn,
+.cancelled-actions .bs-next-btn { min-height: 44px; }
+.cancelled-actions .bs-next-btn { background: #0b2545; color: #ffffff; border-color: #0b2545; }
+.cancelled-actions .bs-back-btn { border: 2px solid #0b2545; color: #0b2545; background: #ffffff; }
+.cancelled-actions .cancelled-view-btn { border-color: #e8553a; color: #a8341c; }
+.cancelled-summary { display: grid; gap: 8px; margin-bottom: 14px; border-left: 4px solid #e8553a; }
+.cancelled-summary-line { margin: 0; line-height: 1.6; color: var(--ink, #1e293b); overflow-wrap: anywhere; }
+.cancelled-summary-figures { margin-top: 6px; }
+.cancelled-refund-card { margin-bottom: 14px; }
+@media (max-width: 480px) {
+  .cancelled-actions .bs-back-btn,
+  .cancelled-actions .bs-next-btn { flex: 1 1 100%; justify-content: center; }
+}

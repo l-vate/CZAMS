@@ -4,6 +4,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from './pages/public/landing_page';
 import LoginPage from './pages/public/login_page';
 import RegisterPage from './pages/public/register_page';
+import ForgotPasswordPage from './pages/public/forgot_password_page';
+import ResetPasswordPage from './pages/public/reset_password_page';
 
 import CustomerDashboard from './pages/customer/dashboard';
 import CustomerBookService from './pages/customer/book_service';
@@ -60,6 +62,8 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         {/* Customer Pages */}
         <Route element={<RequireRole role={ROLE.CUSTOMER} />}>

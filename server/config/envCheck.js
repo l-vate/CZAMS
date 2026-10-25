@@ -33,6 +33,9 @@ function checkEnvironment(env = process.env) {
     else if (secret.length < PRODUCTION_MIN_SECRET) errors.push(`JWT_SECRET is shorter than ${PRODUCTION_MIN_SECRET} characters. Use a longer random string.`);
     if (!env.MONGO_URI) errors.push('MONGO_URI is missing. Set it to the database connection string.');
     errors.push(...corsProblems(env.CORS_ORIGINS));
+    // Forgot password sends a link by email: it needs the website address and the SMTP settings, or it quietly sends nothing.
+    if (!String(env.APP_URL || '').trim()) warnings.push('APP_URL is not set, so password reset emails cannot contain a link. Set it to the https address of the web app.');
+    if (!String(env.SMTP_HOST || '').trim() || !String(env.SMTP_FROM || '').trim()) warnings.push('SMTP_HOST or SMTP_FROM is not set, so no email (including password reset) is sent.');
     // Uploaded files kept on the host's disk are lost whenever the host restarts or redeploys.
     if (String(env.FILE_STORE || '').trim().toLowerCase() === 'disk') {
       warnings.push('FILE_STORE is disk in production, so uploaded files will be lost when the host restarts or redeploys. Use gridfs.');

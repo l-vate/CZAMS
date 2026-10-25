@@ -10,6 +10,16 @@ export function register(formData) {
   return request('/api/auth/register', { method: 'POST', body: formData, auth: false });
 }
 
+// Public: { message }, the same for every email.
+export function requestPasswordReset(email) {
+  return request('/api/auth/forgot-password', { method: 'POST', body: { email }, auth: false });
+}
+
+// Public: { message }. `token` comes from the emailed link.
+export function resetPassword({ token, password }) {
+  return request('/api/auth/reset-password', { method: 'POST', body: { token, password }, auth: false });
+}
+
 // Public: the active technicians' names, for the landing page search. No login, so no ids.
 export function listPublicTechnicians() {
   return request('/api/auth/technicians', { auth: false });

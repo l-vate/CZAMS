@@ -246,10 +246,19 @@ async function callPath(method, path, as = 'CUS1', body, { role = 'customer' } =
   return { status: res.status, body: await res.json().catch(() => ({})) };
 }
 
-// A date the booking rules accept: about a week from today in Manila, never a Sunday.
+// A date the booking rules accept: the Nth OPEN day after today in Manila, where a Sunday is not an open day.
+//
+// The rule for every test that needs dates: never write `today + N days`, and never assume that two different N give two different days.
+// A Sunday is skipped, so "today + 7" and "today + 8" are the same Monday when today is a Sunday, and a test that books both then meets its
+// own duplicate-booking rule only on that weekday. Counting open days instead makes goodDate(n) strictly increase with n, whatever day the
+// suite runs on, and the smallest value used (7) is far beyond the 3 day lead time. A test that needs "the day after" must ask for
+// goodDate(n + 1), not addDays(goodDate(n), 1), which can be a Sunday. Admin closures are set up per test, on dates taken from here.
 function goodDate(daysAhead = 7) {
-  let date = addDays(manilaTodayKey(), daysAhead);
-  while (new Date(`${date}T00:00:00Z`).getUTCDay() === 0) date = addDays(date, 1);
+  let date = manilaTodayKey();
+  for (let open = 0; open < daysAhead;) {
+    date = addDays(date, 1);
+    if (new Date(`${date}T00:00:00Z`).getUTCDay() !== 0) open += 1;
+  }
   return date;
 }
 

@@ -43,6 +43,14 @@ test('an expired token (401) ends the session, but only for a request that carri
   assert.equal(sessionEndMessage(401, 'Invalid email or password', false), null); // a wrong password at login
 });
 
+test('a token made stale by a password change or reset says so instead of "expired"', async () => {
+  const { sessionEndMessage } = await load();
+  const message = 'Your password was changed. Please log in again.';
+  assert.equal(sessionEndMessage(401, message, true), message);
+  assert.match(sessionEndMessage(401, 'Invalid or expired token', true), /session has expired/);
+  assert.equal(sessionEndMessage(401, message, false), null);
+});
+
 test('a deactivated account (403) ends the session with the server message', async () => {
   const { sessionEndMessage } = await load();
   const message = 'This account has been deactivated. Please contact the administrator.';

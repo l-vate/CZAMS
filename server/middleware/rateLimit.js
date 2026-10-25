@@ -16,6 +16,10 @@ const RATE_LIMITS = Object.freeze({
   login: Object.freeze({ windowMs: 15 * MINUTE, max: 10, maxPerIp: 60 }),
   // Registrations: `max` per email, `maxPerIp` per IP address (loose, for the same reason).
   register: Object.freeze({ windowMs: 60 * MINUTE, max: 10, maxPerIp: 60 }),
+  // Asking for a password reset link: `max` per email, `maxPerIp` per IP address. Every request counts, whether or not the account exists.
+  passwordResetRequest: Object.freeze({ windowMs: 60 * MINUTE, max: 5, maxPerIp: 30 }),
+  // Using a reset link (an attempt with a token, good or bad), per IP address.
+  passwordResetUse: Object.freeze({ windowMs: 60 * MINUTE, max: 10, maxPerIp: 10 }),
   passwordChange: Object.freeze({ windowMs: 15 * MINUTE, max: 10 }), // per user
   upload: Object.freeze({ windowMs: 10 * MINUTE, max: 30 }), // file uploads, per user
   payment: Object.freeze({ windowMs: 60 * MINUTE, max: 20 }), // payment submissions, per user
@@ -142,7 +146,12 @@ const loginLimiter = createRateLimiter({ windowMs: RATE_LIMITS.login.windowMs, m
 // Registration: every attempt counts, successful or not.
 const registerLimiter = createRateLimiter({ windowMs: RATE_LIMITS.register.windowMs, max: RATE_LIMITS.register.max, maxPerIp: RATE_LIMITS.register.maxPerIp, countOn: () => true, label: 'registration attempts' });
 
+// Forgot password: every request counts, so the count says nothing about whether the account exists.
+const passwordResetRequestLimiter = createRateLimiter({ ...RATE_LIMITS.passwordResetRequest, countOn: () => true, label: 'password reset requests' });
+const passwordResetUseLimiter = createRateLimiter({ ...RATE_LIMITS.passwordResetUse, countOn: () => true, label: 'password reset attempts' });
+
 module.exports = {
+  passwordResetRequestLimiter, passwordResetUseLimiter,
   createRateLimiter, createWindowLimiter, loginLimiter, registerLimiter, passwordChangeLimiter, uploadLimiter, paymentLimiter, availabilityLimiter,
   RATE_LIMITS, WINDOW_MS, MAX_ATTEMPTS, limitsEnabled,
 };

@@ -10,15 +10,18 @@ const auth = require('../middleware/auth');
 const { createUploader, discardUploads, storeUploads, IMAGE_TYPES } = require('../utils/uploadSafety');
 const { KINDS } = require('../storage/fileStore');
 const { clearAuthCache } = require('../utils/authCache');
-const { validateNewPassword } = require('../utils/passwordRules');
+const { validateNewPassword, validateRegistrationPassword } = require('../utils/passwordRules');
+const { RESET_LINK_INVALID, waitForFloor, issueUnusedToken, issueResetToken, consumeResetToken, retireResetTokens, deliverResetLink } = require('../utils/passwordReset');
+const { recordAudit } = require('../utils/audit');
 const { listFieldTechnicians } = require('../utils/technicians');
-const { loginLimiter, registerLimiter, passwordChangeLimiter, uploadLimiter } = require('../middleware/rateLimit');
+const { loginLimiter, registerLimiter, passwordChangeLimiter, uploadLimiter, passwordResetRequestLimiter, passwordResetUseLimiter } = require('../middleware/rateLimit');
 const Booking = require('../models/Booking');
 const BackJob = require('../models/BackJob');
 const { findDeletionBlockers } = require('../utils/deletionBlockers');
 const { normalizeEmail, findUserByEmail, validateRegistration, validateProfileUpdate } = require('../utils/accountInput');
 const { sendProblem } = require('../utils/validation');
 const { sendRouteError } = require('../utils/routeErrors');
+const { describeError } = require('../utils/safeLog');
 const { generateUserId, createWithUniqueUserId, UserIdExhaustedError, isDuplicateOn } = require('../utils/uniqueUserId');
 
 // Profile photos: JPG, PNG or WEBP only, stored under a random name with an extension taken from
@@ -126,6 +129,61 @@ router.post('/login', loginLimiter, async (req, res) => {
     createdAt: user.createdAt,
   },
     });
+  } catch (err) {
+    sendRouteError(res, err);
+  }
+});
+
+// Forgot password. The answer is always the same message and takes about the same time, whether or not the account exists (and for every role),
+// so it cannot be used to find out who has an account. The email is sent after the answer, never awaited.
+const FORGOT_PASSWORD_MESSAGE = 'If that email has an account, we sent a link.';
+
+router.post('/forgot-password', passwordResetRequestLimiter, async (req, res) => {
+  const started = Date.now();
+  try {
+    const { email } = req.body || {};
+    const user = typeof email === 'string' && email.trim() && email.length <= 254 ? await findUserByEmail(User, email) : null;
+    if (user && user.isActive !== false) {
+      const token = await issueResetToken(user._id);
+      deliverResetLink({ to: user.email, token }); // after the answer; deliverResetLink never throws
+      recordAudit({
+        actor: { id: user._id, role: user.role, name: user.name },
+        action: 'password.reset_requested', entityType: 'User', entityId: user._id, summary: 'Password reset link requested',
+      });
+    } else {
+      issueUnusedToken(); // the same kind of work, so an unknown email is not faster
+    }
+    await waitForFloor(started);
+    res.json({ message: FORGOT_PASSWORD_MESSAGE });
+  } catch (err) {
+    // Even a fault answers like success: a different answer would tell the caller something about the account.
+    console.error('Forgot password failed:', describeError(err));
+    await waitForFloor(started);
+    res.json({ message: FORGOT_PASSWORD_MESSAGE });
+  }
+});
+
+router.post('/reset-password', passwordResetUseLimiter, async (req, res) => {
+  try {
+    const { token, password } = req.body || {};
+    // The password is checked first, so a typo in it does not spend the link.
+    const problem = validateRegistrationPassword(password);
+    if (problem) return res.status(problem.status).json({ message: problem.message });
+
+    const userId = await consumeResetToken(token);
+    const user = userId ? await User.findById(userId) : null;
+    if (!user) return res.status(400).json({ message: RESET_LINK_INVALID });
+
+    user.password = await hashPassword(password);
+    user.passwordChangedAt = new Date(); // every login token issued before this stops working (middleware/auth.js)
+    await user.save();
+    await retireResetTokens(user._id);
+    clearAuthCache(user._id);
+    recordAudit({
+      actor: { id: user._id, role: user.role, name: user.name },
+      action: 'password.reset_completed', entityType: 'User', entityId: user._id, summary: 'Password reset with an emailed link',
+    });
+    res.json({ message: 'Your password was changed. Please sign in.' });
   } catch (err) {
     sendRouteError(res, err);
   }

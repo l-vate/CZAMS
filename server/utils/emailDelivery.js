@@ -111,6 +111,12 @@ async function sendEmail(delivery, env = process.env) {
   });
 }
 
+// One message sent right away, outside the queue: used for mail that must not be stored with its content (a password reset link).
+// { to, subject, text, html }. Throws when SMTP is not configured or the send fails.
+function sendEmailNow({ to, subject, text, html }, env = process.env) {
+  return sendEmail({ recipientEmail: to, subject, text, html }, env);
+}
+
 async function processPendingEmailDeliveries({ now = new Date(), send = sendEmail } = {}) {
   let processed = 0;
   const staleBefore = new Date(now.getTime() - PROCESSING_LEASE_MS);
@@ -178,6 +184,7 @@ function startEmailDeliverySchedule() {
 module.exports = {
   EMAIL_NOTIFICATION_TYPES,
   smtpConfig,
+  sendEmailNow,
   queueNotificationEmail,
   processPendingEmailDeliveries,
   startEmailDeliverySchedule,

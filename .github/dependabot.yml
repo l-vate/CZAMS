@@ -1,0 +1,33 @@
+version: 2
+updates:
+  # Web app (root package.json) and server (server/package.json): weekly, grouped, no major upgrades.
+  # Major versions (react, react-router, express, mongoose, vite, jsonwebtoken and the rest) are upgraded by hand.
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      dev-dependencies:
+        dependency-type: development
+      production-minor-patch:
+        dependency-type: production
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: npm
+    directory: "/server"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      dev-dependencies:
+        dependency-type: development
+      production-minor-patch:
+        dependency-type: production
+        update-types: ["minor", "patch"]

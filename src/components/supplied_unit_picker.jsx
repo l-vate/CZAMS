@@ -1,4 +1,5 @@
-import { matchingUnits, groupByBrand, unitLabel, NOT_LISTED_NOTES_MAX, NOT_LISTED_BRAND_MAX } from '../utils/suppliedUnitChoice';
+import { useEffect } from 'react';
+import { matchingUnits, groupByBrand, unitLabel, chosenBrand, NOT_LISTED_NOTES_MAX, NOT_LISTED_BRAND_MAX } from '../utils/suppliedUnitChoice';
 import { formatPeso } from '../utils/bookingPricing';
 
 // The choice of unit for one unit entry of an installation where the company supplies the unit: the catalog items that fit the unit type
@@ -10,10 +11,26 @@ function SuppliedUnitPicker({ unit, index, items, loaded, onChange }) {
   const groups = groupByBrand(matches);
   const requesting = Boolean(supplied?.notListed);
   const name = `unit-choice-${index}`;
+  const brand = chosenBrand(unit);
+  const ready = loaded && Boolean(unit.type && unit.hp && brand);
+
+  // Once the brand is chosen the catalog is matched by type, horsepower and brand: a single match is chosen for the customer, and no match
+  // becomes a request for the owner to confirm (the booking stays Pending with the "unit needs owner confirmation" note).
+  useEffect(() => {
+    if (!ready || supplied) return;
+    if (matches.length === 1) {
+      const item = matches[0];
+      onChange({ catalogId: item._id, brand: item.brand, model: item.model, type: item.type, hp: item.hp, inverter: item.inverter, price: item.price });
+    } else if (matches.length === 0) {
+      onChange({ notListed: true, brand, notes: '' });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, supplied, matches.length, brand]);
 
   if (!unit.type || !unit.hp) {
     return <p className="supplied-picker-hint">Choose the unit type and horsepower to see the units we supply.</p>;
   }
+  if (!brand) return <p className="supplied-picker-hint">Choose the brand to see the units we supply.</p>;
   if (!loaded) return <p className="supplied-picker-hint" role="status">Loading the units we supply...</p>;
 
   const pick = (item) => onChange({ catalogId: item._id, brand: item.brand, model: item.model, type: item.type, hp: item.hp, inverter: item.inverter, price: item.price });
@@ -23,7 +40,7 @@ function SuppliedUnitPicker({ unit, index, items, loaded, onChange }) {
     <fieldset className="supplied-picker">
       <legend>Unit we supply ({unit.type}, {unit.hp} HP)</legend>
       {matches.length === 0 && (
-        <p className="supplied-picker-hint">The unit you want is not listed. Request it and the owner will confirm.</p>
+        <p className="supplied-picker-hint">We do not have this unit listed. Your booking is sent as Pending and the owner will confirm it.</p>
       )}
       {groups.map((group) => (
         <div key={group.brand} className="supplied-picker-group">

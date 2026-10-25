@@ -8,7 +8,7 @@ import SuppliedUnitPicker from '../../components/supplied_unit_picker';
 import QuotationTerms from '../../components/quotation_terms';
 import { standardTerms } from '../../utils/quotationTerms';
 import { listSuppliedUnits } from '../../services/suppliedUnitService';
-import { brandsLine, hasChoice, unitsForSubmit } from '../../utils/suppliedUnitChoice';
+import { brandChoices, brandsLine, chosenBrand, hasChoice, unitsForSubmit } from '../../utils/suppliedUnitChoice';
 import DiscountOption from '../../components/discount_option';
 import { usePublicPromos } from '../../utils/promos';
 import { getCostBreakdown } from '../../utils/costBreakdown';
@@ -250,9 +250,12 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
     return () => { cancelled = true; };
   }, [needsCatalog]);
 
+  // the brands to pick from: for a unit the company supplies, the active catalog brands come first, then the common brands
+  const brandOptions = brandChoices(needsCatalog ? catalog.items : [], AC_BRANDS);
+
   const updateUnit = (index, patch) => {
     // another type or horsepower is another unit: the choice made for the old one no longer applies
-    const resets = 'type' in patch || 'hp' in patch ? { supplied: undefined } : {};
+    const resets = 'type' in patch || 'hp' in patch || 'brandModel' in patch ? { supplied: undefined } : {};
     const updated = units.map((u, i) => (i === index ? { ...u, ...resets, ...patch } : u));
     setForm({ ...form, units: updated });
   };
@@ -304,12 +307,11 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
                 onChange={(e) => updateUnit(index, { quantity: Math.min(MAX_UNIT_QUANTITY, Math.max(1, Math.floor(Number(e.target.value)) || 1)) })}
               />
 
-              {!needsCatalog && (
               <div className="unit-entry-brand">
                 <BelowSelect
-                  ariaLabel="Brand"
-                  value={unit.brandOther ? OTHER_BRAND : (AC_BRANDS.includes(unit.brandModel) ? unit.brandModel : '')}
-                  options={[{ value: '', label: 'Brand' }, ...AC_BRANDS.map((brand) => ({ value: brand, label: brand })), { value: OTHER_BRAND, label: OTHER_BRAND }]}
+                  ariaLabel="Brand (required)"
+                  value={unit.brandOther ? OTHER_BRAND : (brandOptions.includes(unit.brandModel) ? unit.brandModel : '')}
+                  options={[{ value: '', label: 'Brand *' }, ...brandOptions.map((brand) => ({ value: brand, label: brand })), { value: OTHER_BRAND, label: OTHER_BRAND }]}
                   onChange={(brand) => (brand === OTHER_BRAND
                     ? updateUnit(index, { brandOther: true, brandModel: '' })
                     : updateUnit(index, { brandOther: false, brandModel: brand }))}
@@ -319,15 +321,14 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
                     type="text"
                     className="bs-input"
                     placeholder="Type the brand"
-                    aria-label="Other brand"
+                    aria-label="Other brand (required)"
+                    required
                     maxLength={60}
                     value={unit.brandModel}
                     onChange={(e) => updateUnit(index, { brandModel: e.target.value })}
                   />
                 )}
               </div>
-              )}
-              {needsCatalog && <span className="unit-entry-brand" aria-hidden="true" />}
 
               <BelowSelect
                 className="unit-entry-hp"
@@ -895,6 +896,7 @@ const canNext = () => {
       const units = form.units || [];
       if (units.length === 0) return false;
       if (units.some((u) => !u.type || !Number.isInteger(u.quantity) || u.quantity < 1 || u.quantity > MAX_UNIT_QUANTITY)) return false;
+      if (units.some((u) => !chosenBrand(u))) return false; // the brand of every unit is required
       const selectedService = services.find((s) => s.id === form.service);
       const isInstallation = selectedService?.serviceType === SERVICE_TYPE.INSTALLATION;
       if (isInstallation && form.clientSuppliedUnit) {

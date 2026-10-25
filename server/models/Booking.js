@@ -111,6 +111,9 @@ const bookingSchema = new mongoose.Schema({
     units: [{
       type: { type: String, required: true },
       quantity: { type: Number, required: true, min: 1, default: 1 },
+      // The brand chosen for this unit when the booking was made (a list choice, or the text typed after Other). A snapshot: a later
+      // catalog edit never changes it. Bookings made before it existed have none and still show brandModel.
+      brand: String,
       brandModel: String,
       // The unit's horsepower as the customer wrote it, for example "1.5" or "2" (optional, at most 10 characters).
       hp: String,

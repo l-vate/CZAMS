@@ -62,6 +62,7 @@ const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/que
 const { generateBookingId, createWithUniqueBookingId, BookingIdExhaustedError } = require('../utils/bookingId');
 const { invalid, sendProblem } = require('../utils/validation');
 const { readPaymentSubmission, findSameReference } = require('../utils/paymentReference');
+const { readUnitBrand } = require('../utils/unitBrand');
 const { readUnitChoices, brandModelOf, unitConfirmationProblem } = require('../utils/suppliedUnits');
 const { startingQuotation, readSite } = require('../utils/quotation');
 const SuppliedUnit = require('../models/SuppliedUnit');
@@ -362,10 +363,18 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
     }
     // what the customer chose for each unit entry from the supplied unit catalog (checked below, once the service is known)
     const suppliedChoices = units.map((u) => u.supplied);
-    units = units.map((u) => ({
+    // The brand of every unit is required (chosen from the list, or typed after Other), and is kept on the unit entry.
+    const brands = [];
+    for (const u of units) {
+      const read = readUnitBrand(u);
+      if (read.problem) return sendProblem(res, read.problem);
+      brands.push(read.brand);
+    }
+    units = units.map((u, i) => ({
       type: u.type,
       quantity: Number(u.quantity),
-      brandModel: u.brandModel || '',
+      brand: brands[i],
+      brandModel: (typeof u.brandModel === 'string' && u.brandModel.trim().toLowerCase() !== 'other' && u.brandModel.trim()) || brands[i],
       hp: typeof u.hp === 'string' || typeof u.hp === 'number' ? String(u.hp).trim().slice(0, 10) : '',
     }));
 
@@ -411,6 +420,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
       choices: suppliedChoices,
       needsChoice: isInstallationService && !isClientSuppliedUnit,
       findItem: (id) => (mongoose.isValidObjectId(id) ? SuppliedUnit.findById(id) : null),
+      findMatches: (unit) => SuppliedUnit.find({ type: unit.type, isDeleted: { $ne: true }, isActive: { $ne: false } }),
     });
     if (unitChoices.problem) return sendProblem(res, unitChoices.problem);
     units = units.map((u, i) => (unitChoices.supplied[i]

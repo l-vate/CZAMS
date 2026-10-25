@@ -12,7 +12,7 @@ import DiscountOption from '../../components/discount_option';
 import { useServices } from '../../hooks/useServices';
 import { useTechnicians } from '../../hooks/useTechnicians';
 import { getCostBreakdown } from '../../utils/costBreakdown';
-import { hasChoice, unitsForSubmit } from '../../utils/suppliedUnitChoice';
+import { chosenBrand, hasChoice, unitsForSubmit } from '../../utils/suppliedUnitChoice';
 import { usePublicPromos } from '../../utils/promos';
 import { isValidContactNumber } from '../../utils/contact';
 import { usePaymentSettings, getDownPaymentOptions, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
@@ -496,6 +496,7 @@ function WalkInBooking() {
       const units = form.units || [];
       if (units.length === 0) return false;
       if (units.some((u) => !u.type || !u.quantity || u.quantity < 1)) return false;
+      if (units.some((u) => !chosenBrand(u))) return false; // the brand of every unit is required
       const selectedService = services.find((s) => s.id === form.service);
       const isInstallation = selectedService?.serviceType === SERVICE_TYPE.INSTALLATION;
       if (isInstallation && form.clientSuppliedUnit) {

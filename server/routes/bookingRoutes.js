@@ -178,12 +178,15 @@ function openRefundIfEligible(booking) {
   // the proof). On or after the booked date a transportation fee applies (the stored flag is still called isSameDay, and it is true for
   // the booked day and for every day after it: a late cancellation or a no-show). Any earlier day is a full refund. Both dates are YYYY-MM-DD
   // Manila days, so comparing the text compares the days.
+  // An owner-initiated cancellation (the owner cannot supply or cannot serve) is never late: the whole down payment goes back, no fee, on any date.
   const cancelledOn = booking.cancelledAt ? manilaTodayKey(new Date(booking.cancelledAt)) : todayDateString();
-  const isSameDay = cancelledOn >= booking.date;
+  const ownerInitiated = booking.ownerCancelled === true;
+  const isSameDay = !ownerInitiated && cancelledOn >= booking.date;
 
   booking.refund = {
     status: 'Pending',
     isSameDay,
+    ...(ownerInitiated ? { ownerInitiated: true, reason: booking.cancelReason } : {}),
     downPaymentAmount,
     // On or after the booked date: the transportation fee isn't known until admin
     // reviews it, so the refundable amount stays unset until then.
@@ -2057,7 +2060,7 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
 
     const {
       technician, status, paymentStatus, balancePaymentStatus, balancePaid, technicianInstructions,
-      distanceAdjustment, mobilizationFee, unitSource,
+      distanceAdjustment, mobilizationFee, unitSource, ownerInitiated, cancelReason,
     } = req.body;
     const allowedStatuses = BOOKING_STATUS_VALUES;
 
@@ -2104,6 +2107,9 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
     if (status === BOOKING_STATUS.APPROVED && booking.status !== BOOKING_STATUS.APPROVED) {
       const unitProblem = unitConfirmationProblem(booking.units);
       if (unitProblem) return sendProblem(res, unitProblem);
+      if (booking.unitDecline && booking.unitDecline.reason) {
+        return sendProblem(res, invalid('The owner said this unit cannot be supplied. Withdraw that first, or cancel the booking.', 409));
+      }
     }
 
     // Technicians are assigned through PATCH /:bookingId/assign, which checks every
@@ -2187,6 +2193,15 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
       if (![BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status)) {
         return res.status(400).json({ message: 'This booking can no longer be cancelled.' });
       }
+      // The owner cancelling because it cannot supply the unit or cannot serve: a reason is required, and the refund is full with no fee.
+      if (ownerInitiated === true) {
+        const reasonText = typeof cancelReason === 'string' ? cancelReason.trim() : '';
+        if (reasonText.length < 3 || reasonText.length > 200) {
+          return sendProblem(res, invalid('Give a short reason (3 to 200 characters) for cancelling because we cannot supply or serve.'));
+        }
+        booking.ownerCancelled = true;
+        booking.cancelReason = reasonText;
+      }
       adminCancelOutcome = openRefundIfEligible(booking);
     }
 
@@ -2268,7 +2283,9 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
       await sendNotification(
         booking.customer,
         NOTIFICATION_TYPE.BOOKING_CANCELLED,
-        `Your booking ${booking.bookingId} was cancelled by our team.${refundNote}`,
+        booking.ownerCancelled
+          ? `Your booking ${booking.bookingId} was cancelled by our team because we cannot supply or serve it: ${booking.cancelReason}.${booking.refund?.status === REFUND_STATUS.PENDING ? ' Your whole down payment will be refunded, with no transportation fee.' : ''}`
+          : `Your booking ${booking.bookingId} was cancelled by our team.${refundNote}`,
         { booking }
       );
       if (booking.refund?.status === REFUND_STATUS.PENDING) {

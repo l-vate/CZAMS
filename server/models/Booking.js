@@ -270,6 +270,10 @@ const bookingSchema = new mongoose.Schema({
         // Proof the money was actually sent back - required before status can become
         // 'Processed'. Same uploads/proofs storage as customer proof-of-payment.
         proofFile: String,
+        // True when the owner cancelled (cannot supply a unit, cannot serve): the whole verified down payment goes back, with no
+        // transportation fee, whatever the booked date. `reason` is why. Customer cancellations never set either.
+        ownerInitiated: { type: Boolean, default: false },
+        reason: String,
         // A customer can flag a refund that hasn't come through (e.g. marked Processed
         // but never received). Single message + status, not a full ticketing thread.
         customerFlag: {
@@ -288,6 +292,18 @@ const bookingSchema = new mongoose.Schema({
     // cancelled before this existed have neither, and the Cancelled Bookings report says so.
     cancelledAt: Date,
     cancelledBy: { type: String, enum: ['customer', 'admin'] },
+    // True when the owner cancelled because the owner cannot supply the unit or cannot serve (not a customer's choice), with the reason.
+    // Such a cancellation refunds the whole verified down payment with no transportation fee.
+    ownerCancelled: { type: Boolean, default: false },
+    cancelReason: String,
+    // The owner said it cannot supply the unit on this booking (admin action on a Pending booking). The booking is not cancelled: the
+    // customer is told why and can cancel or get in touch. The note may say which units the owner does have.
+    unitDecline: {
+      reason: String,
+      note: String,
+      declinedAt: Date,
+      declinedBy: String,
+    },
 
     // Admin Dashboard + Analytics Module: set once, the first time status
     // transitions to 'Approved' (see admin-update in bookingRoutes.js). Backs the

@@ -32,12 +32,12 @@ const PASS_THROUGH = [
   'downPaymentPercent', 'downPaymentPaidAmount', 'paymentMode', 'paymentMode2', 'paymentStatus', 'balancePaid',
   'balancePaymentStatus', 'proofFile', 'balanceProofFile', 'referenceNumber', 'balanceReferenceNumber',
   'distanceAdjustment', 'mobilizationFee', 'promo', 'isCommercial', 'vatAmount', 'poNumber', 'paymentTermsDays', 'paymentDueAt',
-  'feedback', 'completedAt', 'cancelledAt', 'cancelledBy', 'reportSubmitted', 'isBackJob', 'backJobId',
+  'feedback', 'completedAt', 'cancelledAt', 'cancelledBy', 'ownerCancelled', 'cancelReason', 'reportSubmitted', 'isBackJob', 'backJobId',
   'service', 'customer', 'warranty', 'priceSnapshot', 'quotationTerms', 'taxInclusive', 'site',
 ];
 
 // Fields built piece by piece below, so only the safe parts leave.
-const SHAPED = ['technician', 'assignments', 'discount', 'refund', 'rescheduleRequest', 'disruption', 'extensionRequest', 'extensionDays', 'scopeLines', 'units'];
+const SHAPED = ['unitDecline', 'technician', 'assignments', 'discount', 'refund', 'rescheduleRequest', 'disruption', 'extensionRequest', 'extensionDays', 'scopeLines', 'units'];
 
 // Booking fields a customer never receives. Together with PASS_THROUGH and SHAPED this must cover every field
 // of the Booking model (the test checks it), so a new field cannot reach customers by accident.
@@ -71,10 +71,13 @@ function toCustomerView(booking) {
     out.discount = pick(b.discount, ['type', 'consentGiven', 'status', 'percent', 'amount', 'dpPaidBeforeApproval', 'rejectionReason', 'requestedAt', 'reviewedAt']);
   }
 
+  // The owner's "cannot supply this unit": the reason and the note are for the customer; who said it is not.
+  if (b.unitDecline && b.unitDecline.reason) out.unitDecline = pick(b.unitDecline, ['reason', 'note', 'declinedAt']);
+
   if (b.refund) {
     out.refund = pick(b.refund, [
       'status', 'isSameDay', 'downPaymentAmount', 'dispatchDeduction', 'dispatchReason', 'refundableAmount', 'computedAmount', 'finalAmount',
-      'adjustmentReason', 'receivedConfirmedAt', 'requestedAt', 'processedAt', 'proofFile',
+      'adjustmentReason', 'receivedConfirmedAt', 'requestedAt', 'processedAt', 'proofFile', 'ownerInitiated', 'reason',
     ]);
     if (b.refund.customerFlag) {
       out.refund.customerFlag = pick(b.refund.customerFlag, ['flagged', 'message', 'flaggedAt', 'resolved', 'resolvedAt']);

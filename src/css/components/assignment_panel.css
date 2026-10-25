@@ -55,3 +55,13 @@
   .assignment-row-actions { width: 100%; }
   .assignment-row-actions .sdm-btn { flex: 1 1 0; }
 }
+
+/* E17-3: the owner's notice that a unit cannot be supplied (customer booking detail) and the admin's action panels. */
+.unit-decline-notice { background: #fff4e5; border: 1px solid #f0b252; border-left: 4px solid #e8553a; border-radius: 10px; padding: 14px 16px; margin: 0 0 16px; color: #5a3a00; }
+.unit-decline-title { margin: 0 0 6px; font-size: 1.05rem; color: #8a2f12; }
+.unit-decline-line { margin: 4px 0; overflow-wrap: anywhere; }
+.cannot-supply-panel { margin: 10px 0; }
+.cannot-supply-title { font-weight: 700; margin: 0 0 4px; }
+.cannot-supply-form, .owner-cancel-form { display: grid; gap: 8px; width: 100%; }
+.cannot-supply-form .sdm-btn, .owner-cancel-form .sdm-btn, .cannot-supply-sent .sdm-btn { min-height: 40px; }
+.owner-cancel-form { flex: 1 1 100%; }

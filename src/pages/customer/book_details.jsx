@@ -551,6 +551,14 @@ function BookDetails() {
   return (
     <CustomerLayout title="Booking Details">
       <Notice message={notice} onClose={clearNotice} />
+      {booking.unitDecline?.reason && (
+        <section className="unit-decline-notice" role="alert" aria-label="The owner cannot supply this unit">
+          <h3 className="unit-decline-title">The owner cannot supply this unit</h3>
+          <p className="unit-decline-line"><strong>Reason:</strong> {booking.unitDecline.reason}</p>
+          {booking.unitDecline.note && <p className="unit-decline-line"><strong>Note from the owner:</strong> {booking.unitDecline.note}</p>}
+          <p className="unit-decline-line">Your booking has not been cancelled. You can cancel it below, or contact the owner to choose another unit.</p>
+        </section>
+      )}
       {showCancelConfirm && (
         <CancelConfirmDialog
           onKeep={() => setShowCancel(false)}
@@ -646,7 +654,7 @@ function BookDetails() {
                       <span className="customer-unit-note"> Waiting for the owner to confirm the unit you asked for. The price is added once it is confirmed.</span>
                     )}
                     {li.supplied?.source === 'requested' && li.supplied.status === 'Declined' && (
-                      <span className="customer-unit-note"> The owner could not supply this unit: {li.supplied.declineReason}. You can cancel this booking and book again with a unit from the list.</span>
+                      <span className="customer-unit-note"> The owner cannot supply this unit: {li.supplied.declineReason}. You can cancel this booking, or contact the owner.</span>
                     )}
                   </p>
                 ))

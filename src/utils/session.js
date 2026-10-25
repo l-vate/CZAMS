@@ -64,6 +64,8 @@ export function takeSessionNotice() {
 // request that carried a token, so a wrong password at login is never read as an expired session.
 export function sessionEndMessage(status, message, hadToken) {
   if (!hadToken) return null;
+  // A password that was changed or reset elsewhere says so, so the person is not told the session merely expired.
+  if (status === 401 && /password was changed/i.test(message || '')) return message;
   if (status === 401) return 'Your session has expired. Please log in again.';
   if (status === 403 && /deactivated/i.test(message || '')) return message;
   return null;

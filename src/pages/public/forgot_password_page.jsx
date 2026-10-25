@@ -26,11 +26,15 @@ function ForgotPasswordPage() {
   };
 
   return (
-    <AuthShell title="Forgot your password?" subtitle="Enter your email address and we will send you a link to choose a new one.">
+    <AuthShell
+      title={done ? 'Check your email' : 'Forgot your password?'}
+      subtitle={done ? 'Open the link in the email to choose a new password.' : 'Enter your email address and we will send you a link to choose a new one.'}
+    >
       {done ? (
         <>
           <p className="auth-success" role="status">{done}</p>
-          <p className="auth-switch">The link expires in 30 minutes. <Link to="/login">Back to sign in</Link></p>
+          <p className="auth-switch">The link expires in 30 minutes.</p>
+          <p className="auth-switch"><Link to="/login">Back to sign in</Link></p>
         </>
       ) : (
         <form className="auth-form" onSubmit={handleSubmit}>

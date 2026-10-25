@@ -33,7 +33,7 @@ const PASS_THROUGH = [
   'balancePaymentStatus', 'proofFile', 'balanceProofFile', 'referenceNumber', 'balanceReferenceNumber',
   'distanceAdjustment', 'mobilizationFee', 'promo', 'isCommercial', 'vatAmount', 'poNumber', 'paymentTermsDays', 'paymentDueAt',
   'feedback', 'completedAt', 'cancelledAt', 'cancelledBy', 'ownerCancelled', 'cancelReason', 'reportSubmitted', 'isBackJob', 'backJobId',
-  'service', 'customer', 'warranty', 'priceSnapshot', 'quotationTerms', 'taxInclusive', 'site',
+  'service', 'customer', 'warranty', 'priceSnapshot', 'quotationTerms', 'taxInclusive', 'site', 'mayNeedWorks',
 ];
 
 // Fields built piece by piece below, so only the safe parts leave.

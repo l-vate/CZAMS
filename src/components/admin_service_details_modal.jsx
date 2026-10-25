@@ -8,6 +8,7 @@ import QuotationEditor from './quotation_editor';
 import UnitRequestPanel from './unit_request_panel';
 import CannotSupplyPanel from './cannot_supply_panel';
 import { legacyDistanceAmount } from '../utils/chargeRows';
+import { describeWorks } from '../utils/mayNeedWorks';
 import ClosureDateInput from './closure_date_input';
 import { warrantyStatusText } from '../utils/warrantyText';
 import { BRAND_SHORT } from '../config/company';
@@ -439,6 +440,17 @@ const [report, setReport] = useState(null);
                                     <p className="sdm-row-value">{booking.problemDescription || '-'}</p>
                                 </div>
                             </div>
+
+                            {describeWorks(booking.mayNeedWorks) && (
+                                <div className="sdm-row">
+                                    <div className="sdm-row-icon"><Icon name="info" /></div>
+                                    <div>
+                                        <span className="sdm-row-label">CUSTOMER MAY NEED THESE WORKS</span>
+                                        <p className="sdm-row-value">{describeWorks(booking.mayNeedWorks)}</p>
+                                        <p className="sdm-muted">A heads-up only. It does not change the price. Send a quotation if it applies.</p>
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="sdm-row">
                                 <div className="sdm-row-icon"><Icon name="file" /></div>

@@ -360,6 +360,16 @@ const bookingSchema = new mongoose.Schema({
         attention: String,
     },
 
+    // What the customer ticked on the optional "I may need these works" checklist (a heads-up for the owner's quotation, never a price).
+    mayNeedWorks: {
+        feederLine: Boolean,
+        carpentry: Boolean,
+        masonry: Boolean,
+        electrical: Boolean,
+        other: Boolean,
+        otherText: String,
+    },
+
     scopeLines: [{
       kind: { type: String, enum: ['dismantling', 'installation', 'excessPipe', 'distance', 'other'], required: true },
       description: { type: String, required: true, maxlength: 120 },

@@ -63,6 +63,7 @@ const { generateBookingId, createWithUniqueBookingId, BookingIdExhaustedError } 
 const { invalid, sendProblem } = require('../utils/validation');
 const { readPaymentSubmission, findSameReference } = require('../utils/paymentReference');
 const { readUnitBrand } = require('../utils/unitBrand');
+const { readMayNeedWorks, describeMayNeedWorks } = require('../utils/mayNeedWorks');
 const { readUnitChoices, brandModelOf, unitConfirmationProblem } = require('../utils/suppliedUnits');
 const { startingQuotation, readSite } = require('../utils/quotation');
 const SuppliedUnit = require('../models/SuppliedUnit');
@@ -411,6 +412,10 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
       });
     }
 
+    // The optional "I may need these works" checklist (a heads-up for the owner; it never changes the price).
+    const worksInput = readMayNeedWorks(req.body.mayNeedWorks);
+    if (worksInput.problem) return sendProblem(res, worksInput.problem);
+
     // Site details (optional): the building, the floor or room, and who to ask for.
     const siteInput = readSite({ building: req.body.siteBuilding, floorRoom: req.body.siteFloorRoom, attention: req.body.siteAttention });
     if (siteInput.problem) return sendProblem(res, siteInput.problem);
@@ -596,6 +601,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
         // an Installation starts with the standard duration and exclusions (utils/quotation.js); the admin can change them per booking
         quotation: isInstallationService ? startingQuotation(serviceDoc.serviceType) : undefined,
         site: Object.values(siteInput.site).some(Boolean) ? siteInput.site : undefined,
+        mayNeedWorks: worksInput.value,
         serviceAreaCheck: { withinArea: withinServiceArea, checkedAt: new Date() },
         cleaningTierAnswers: (isCleaningService && (lastCleanedOver6MonthsAgo !== undefined || isActivelyLeaking !== undefined)) ? {
           lastCleanedOver6MonthsAgo: lastCleanedOver6MonthsAgo === 'true' || lastCleanedOver6MonthsAgo === true,
@@ -671,7 +677,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
     if (!isAdminWalkIn) {
       await notifyAdmins(
         NOTIFICATION_TYPE.BOOKING_NEW,
-        `New booking ${populated.bookingId} for ${populated.service?.name || 'a service'} on ${populated.date}, ${populated.time}${bookingCustomer?.name ? ` from ${bookingCustomer.name}` : ''}.`,
+        `New booking ${populated.bookingId} for ${populated.service?.name || 'a service'} on ${populated.date}, ${populated.time}${bookingCustomer?.name ? ` from ${bookingCustomer.name}` : ''}.${worksInput.value ? ` The customer may need: ${describeMayNeedWorks(worksInput.value)}. Send a quotation if it applies.` : ''}`,
         { booking: populated }
       );
     }

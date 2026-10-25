@@ -38,8 +38,9 @@ test('the invoice, the report viewer and the booking search read the customer th
   assert.match(read('pages/admin/service_requests.jsx'), /customerLabel\(req\.customer, ''\)/, 'searching "deleted" finds these bookings');
 });
 
-test('the admin booking page does not offer the distance charge Edit while a distance line exists', () => {
+test('the admin booking page has no distance charge input or Edit at all (E17-4): the Scope of works is the one place for it', () => {
   const text = read('components/admin_service_details_modal.jsx');
-  assert.match(text, /Edit the distance line in Scope of works\./);
-  assert.match(text, /scopeLines \|\| \[\]\)\.some\(\(l\) => l\.kind === 'distance'\)/);
+  assert.doesNotMatch(text, /Distance Based Charge \(₱\)/);
+  assert.doesNotMatch(text, /distanceDraft/);
+  assert.match(text, /legacyDistanceAmount/);
 });

@@ -1,0 +1,27 @@
+name: Dependency audit
+
+# Fails only on high or critical findings in PRODUCTION dependencies. Findings in development tools do not fail the build.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 3 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        folder: [".", "server"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: npm audit (production dependencies, high and critical only)
+        working-directory: ${{ matrix.folder }}
+        run: npm audit --omit=dev --audit-level=high

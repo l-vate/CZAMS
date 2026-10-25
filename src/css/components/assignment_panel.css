@@ -65,3 +65,5 @@
 .cannot-supply-form, .owner-cancel-form { display: grid; gap: 8px; width: 100%; }
 .cannot-supply-form .sdm-btn, .owner-cancel-form .sdm-btn, .cannot-supply-sent .sdm-btn { min-height: 40px; }
 .owner-cancel-form { flex: 1 1 100%; }
+
+.sdm-email-card { margin: 8px 0 12px; max-width: 460px; }

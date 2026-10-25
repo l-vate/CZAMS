@@ -7,6 +7,7 @@ import ScopeOfWorksEditor from './scope_of_works_editor';
 import QuotationEditor from './quotation_editor';
 import UnitRequestPanel from './unit_request_panel';
 import CannotSupplyPanel from './cannot_supply_panel';
+import EmailStatusCard from './email_status_card';
 import { legacyDistanceAmount } from '../utils/chargeRows';
 import { describeWorks } from '../utils/mayNeedWorks';
 import ClosureDateInput from './closure_date_input';
@@ -344,6 +345,7 @@ const [report, setReport] = useState(null);
                             {booking.status}
                         </span>
                     </div>
+                    <div className="sdm-email-card"><EmailStatusCard bookingId={booking.bookingId} admin /></div>
 
                     {booking.isBackJob && (
                         <div className="sdm-notice">

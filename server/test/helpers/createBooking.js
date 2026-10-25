@@ -220,6 +220,7 @@ async function install() {
   app.use('/api/bookings', require('../../routes/bookingRoutes'));
   app.use('/api/bookings', require('../../routes/scopeLineRoutes'));
   app.use('/api/bookings', require('../../routes/unitRequestRoutes'));
+  app.use('/api/bookings', require('../../routes/emailStatusRoutes'));
   app.use('/api/bookings', require('../../routes/quotationRoutes'));
   app.use('/api/supplied-units', require('../../routes/suppliedUnitRoutes'));
   app.use('/api/back-jobs', require('../../routes/backJobRoutes'));

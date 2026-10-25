@@ -174,3 +174,8 @@ export function reportDisruption(bookingId, reason) {
 export function requestExtension(bookingId, reason, slot = {}) {
   return request(`${booking(bookingId)}/extension/request`, { method: 'PATCH', body: { reason, ...slot } });
 }
+
+// The most recent email about this booking for the person looking (masked address, no content): { state, at, maskedTo, ... }.
+export function getEmailStatus(bookingId) {
+  return request(`/api/bookings/${bookingId}/email-status`);
+}

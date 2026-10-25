@@ -34,6 +34,7 @@ import { ProofLink } from '../../components/proof_file';
 import { warrantyStatusText } from '../../utils/warrantyText';
 
 import Notice from '../../components/notice';
+import EmailStatusCard from '../../components/email_status_card';
 import { useNotice } from '../../hooks/useNotice';
 const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -626,6 +627,7 @@ function BookDetails() {
               {bookingNotification ? formatDate(bookingNotification.createdAt) : 'Sent'}
             </p>
           </div>
+          <EmailStatusCard bookingId={booking.bookingId} />
         </div>
 
         <div className="bs-card confirmation-details-card">

@@ -32,6 +32,7 @@ app.use('/api/files', require('./routes/fileRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/services', require('./routes/serviceRoutes'));
 app.use('/api/bookings', require('./routes/bookingRoutes'));
+app.use('/api/bookings', require('./routes/emailStatusRoutes'));
 app.use('/api/bookings', require('./routes/scopeLineRoutes'));
 app.use('/api/bookings', require('./routes/unitRequestRoutes'));
 app.use('/api/bookings', require('./routes/quotationRoutes'));

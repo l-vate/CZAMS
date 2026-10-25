@@ -14,6 +14,7 @@ import { listClosures } from '../../services/closureService';
 import { defaultExtensionDate, manilaTodayKey } from '../../utils/workingDays';
 import { getAssignedNames } from '../../utils/assignments';
 import AssignmentHistory from '../../components/assignment_history';
+import EmailStatusCard from '../../components/email_status_card';
 import { JOB_SORT, JOB_SORT_OPTIONS, sortJobs } from '../../utils/jobSort';
 import { BOOKING_STATUS, BOOKING_STATUS_VALUES } from '../../constants/bookingStatus';
 import { BackJobBadge, BackJobInfo } from '../../components/back_job_info';
@@ -136,6 +137,8 @@ function JobDetailsModal({ job, onClose }) {
             </div>
           </div>
         )}
+
+        <div className="tech-job-detail-cell tech-job-detail-full"><EmailStatusCard bookingId={job.bookingId} /></div>
 
         <AssignmentHistory bookingId={job.bookingId} />
 

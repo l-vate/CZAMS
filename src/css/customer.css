@@ -1875,3 +1875,9 @@
 .bs-works-option { display: flex; align-items: center; gap: 10px; min-height: 40px; cursor: pointer; }
 .bs-works-option input { width: 20px; height: 20px; flex: 0 0 auto; }
 .bs-works-note { margin: 4px 0 0; font-size: 0.8125rem; color: #475569; }
+
+/* E17-7: the Email notification card, in the same style as the in-app card. */
+.email-status-card { overflow-wrap: anywhere; }
+.email-status-title { font-size: 14px; font-weight: 600; color: var(--ink, #1e293b); margin: 0 0 2px; line-height: 1.4; }
+.email-status-card[data-state='failed'] { border-color: #f0b252; background: #fff8ec; }
+.confirmation-notif-row { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }

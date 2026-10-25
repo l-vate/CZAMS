@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { pathToFileURL } = require('node:url');
+const { startSsrServer } = require('./helpers/viteSsr');
 
 const root = path.join(__dirname, '..', '..');
 
@@ -17,7 +17,9 @@ function sourceFiles(dir) {
 }
 
 test('the brand constants are the official name, the short form, and the second line', async () => {
-  const brand = await import(pathToFileURL(path.join(root, 'src', 'config', 'company.js')).href);
+  // company.js reads server/constants/company.json (also read by the notification emails), so it loads through Vite
+  const { vite, close } = await startSsrServer();
+  const brand = await vite.ssrLoadModule('/src/config/company.js').finally(close);
   assert.equal(brand.BRAND_NAME, 'Cooling Zone Aircon Maintenance Services');
   assert.equal(brand.BRAND_SHORT, 'Cooling Zone');
   assert.equal(brand.BRAND_NAME, `${brand.BRAND_SHORT} ${brand.BRAND_SUB}`);

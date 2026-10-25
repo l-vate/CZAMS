@@ -4,7 +4,7 @@
 //     response-time promises, discounts or statistics;
 //   - the warranty numbers are NOT typed here: they are read from server/constants/warrantyWindows.json, the same file the server uses;
 //   - the phone and the business name come from config/company.js.
-import { BRAND_NAME, BRAND_SHORT, COMPANY_PHONE, COMPANY_PHONE_TEL } from './company';
+import { BRAND_NAME, BRAND_SHORT, COMPANY_PHONE, COMPANY_PHONE_TEL, COMPANY_EMAIL, COMPANY_ADDRESS } from './company';
 import { getBusinessHoursText } from './timeBlocks';
 import { CANCEL_POLICY_NOTE } from './cancellation';
 import warranty from '../../server/constants/warrantyWindows.json';
@@ -23,8 +23,8 @@ export const HERO_IMAGE_ALT = 'An aircon technician at work';
 // Bookings need at least this many days of notice. HAND-SYNCED with MIN_LEAD_DAYS in server/constants/scheduling.js.
 export const BOOKING_LEAD_DAYS = 3;
 
-export const EMAIL = 'coolingzoneaircon@yahoo.com';
-export const ADDRESS = 'N.S. Amoranto corner Cadig St., Quezon City, Metro Manila';
+export const EMAIL = COMPANY_EMAIL;
+export const ADDRESS = COMPANY_ADDRESS;
 export const MAP_EMBED_URL = 'https://www.google.com/maps?q=N.S.+Amoranto+corner+Cadig+St.,+Quezon+City,+Metro+Manila&output=embed';
 export const SINCE_YEAR = 2009;
 export const AREA_SERVED = 'Metro Manila and nearby areas';

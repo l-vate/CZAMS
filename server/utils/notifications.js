@@ -19,7 +19,7 @@ async function sendNotification(userId, type, message, options = {}) {
   });
 
   try {
-    await queueNotificationEmail(userId, type, message, notification._id);
+    await queueNotificationEmail(userId, type, message, notification._id, process.env, booking);
   } catch (err) {
     console.error('Email notification enqueue failed:', err.message);
   }

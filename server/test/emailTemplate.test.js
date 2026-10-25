@@ -16,7 +16,7 @@ test('the email has a headline for what happened, the message and the booking nu
 });
 
 test('the message is escaped, so a name or note cannot add markup to the email', () => {
-  const { html } = renderNotificationEmail({ type: NOTIFICATION_TYPE.CHAT_MESSAGE, message: '<script>alert(1)</script> & more' });
+  const { html } = renderNotificationEmail({ type: 'a_kind_nobody_has_made_yet', message: '<script>alert(1)</script> & more' });
   assert.ok(!html.includes('<script>'));
   assert.match(html, /&lt;script&gt;/);
   assert.match(html, /Update from CZAMS/);

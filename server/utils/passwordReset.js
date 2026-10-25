@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const PasswordResetToken = require('../models/PasswordResetToken');
 const { smtpConfig, sendEmailNow } = require('./emailDelivery');
 const { describeError } = require('./safeLog');
+const { buildEmail } = require('./emailTemplate');
 
 const RESET_TOKEN_BYTES = 32;
 const RESET_TOKEN_LIFETIME_MS = 30 * 60 * 1000;
@@ -64,32 +65,18 @@ function resetLink(appUrl, token) {
 const MINUTES = RESET_TOKEN_LIFETIME_MS / 60000;
 
 function renderResetEmail({ link }) {
-  const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-  const text = [
-    'CZAMS | Reset your password',
-    '',
-    'We got a request to reset the password of your CZAMS account. Open this link to choose a new one:',
-    link,
-    '',
-    `The link expires in ${MINUTES} minutes and works once. If you did not ask for this, you can ignore this email: your password stays the same.`,
-  ].join('\n');
-  const html = `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Reset your password</title></head>
-<body style="margin:0;padding:0;background:#eef3f8;font-family:Arial,Helvetica,sans-serif;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef3f8;padding:28px 12px;"><tr><td align="center">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:14px;overflow:hidden;">
-      <tr><td style="background:#0b2545;padding:22px 32px;"><div style="font-size:22px;font-weight:800;color:#ffffff;">CZAMS</div></td></tr>
-      <tr><td style="padding:30px 32px 10px;">
-        <h1 style="margin:0 0 14px;font-size:22px;color:#143a63;">Reset your password</h1>
-        <p style="margin:0 0 22px;font-size:16px;line-height:1.6;color:#1e293b;">We got a request to reset the password of your CZAMS account. Use the button below to choose a new one.</p>
-        <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 18px;"><tr><td style="background:#143a63;border-radius:8px;">
-          <a href="${esc(link)}" style="display:inline-block;padding:12px 26px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;">Choose a new password</a>
-        </td></tr></table>
-        <p style="margin:0 0 22px;font-size:14px;line-height:1.6;color:#475569;">The link expires in ${MINUTES} minutes and works once. If you did not ask for this, ignore this email: your password stays the same.</p>
-      </td></tr>
-    </table>
-  </td></tr></table>
-</body></html>`;
+  const { html, text } = buildEmail({
+    headline: 'Reset your password',
+    tone: 'blue',
+    label: 'PASSWORD RESET',
+    preheader: `Use this link to choose a new password. It expires in ${MINUTES} minutes.`,
+    paragraphs: [
+      'We got a request to reset the password of your CZAMS account. Use the button below to choose a new one.',
+      `The link expires in ${MINUTES} minutes and works once. If you did not ask for this, you can ignore this email: your password stays the same.`,
+    ],
+    cta: { label: 'Choose a new password', url: link },
+    signInLine: false,
+  });
   return { subject: 'CZAMS: Reset your password', text, html };
 }
 

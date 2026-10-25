@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { pathToFileURL } = require('node:url');
+const { startSsrServer } = require('./helpers/viteSsr');
 
 const root = path.join(__dirname, '..', '..');
 
@@ -15,7 +15,9 @@ const sourceFiles = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMa
 });
 
 test('COMPANY_PHONE is the confirmed number and the tel: link is derived from it', async () => {
-  const company = await import(pathToFileURL(path.join(root, 'src', 'config', 'company.js')).href);
+  // company.js reads server/constants/company.json (which the notification emails read too), so it loads through Vite
+  const { vite, close } = await startSsrServer();
+  const company = await vite.ssrLoadModule('/src/config/company.js').finally(close);
   assert.equal(company.COMPANY_PHONE, '0918 499 3509');
   assert.equal(company.COMPANY_PHONE_TEL, 'tel:+639184993509');
 });

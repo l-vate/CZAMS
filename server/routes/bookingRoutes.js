@@ -157,6 +157,15 @@ function computeDownPaymentAmount(booking) {
   return Math.round(getBookingUnitsSubtotal(booking) * ((booking.downPaymentPercent || 0) / 100));
 }
 
+// The reason an owner-initiated cancellation must carry: 3 to 200 characters. { problem } or { reason }.
+function readOwnerCancelReason(raw) {
+  const reason = typeof raw === 'string' ? raw.trim() : '';
+  if (reason.length < 3 || reason.length > 200) {
+    return { problem: invalid('Give a short reason (3 to 200 characters) for cancelling because we cannot supply or serve.') };
+  }
+  return { reason };
+}
+
 // Returns 'opened' when a refund was opened, 'awaiting-check' when the down payment proof is still waiting to be verified (no refund is
 // opened for an amount nobody has checked: the booking is flagged, and the refund opens once an admin verifies the proof), or
 // 'none' when no down payment is on file.
@@ -2200,13 +2209,11 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
         return res.status(400).json({ message: 'This booking can no longer be cancelled.' });
       }
       // The owner cancelling because it cannot supply the unit or cannot serve: a reason is required, and the refund is full with no fee.
-      if (ownerInitiated === true) {
-        const reasonText = typeof cancelReason === 'string' ? cancelReason.trim() : '';
-        if (reasonText.length < 3 || reasonText.length > 200) {
-          return sendProblem(res, invalid('Give a short reason (3 to 200 characters) for cancelling because we cannot supply or serve.'));
-        }
+      const ownerCancel = ownerInitiated === true ? readOwnerCancelReason(cancelReason) : null;
+      if (ownerCancel && ownerCancel.problem) return sendProblem(res, ownerCancel.problem);
+      if (ownerCancel) {
         booking.ownerCancelled = true;
-        booking.cancelReason = reasonText;
+        booking.cancelReason = ownerCancel.reason;
       }
       adminCancelOutcome = openRefundIfEligible(booking);
     }

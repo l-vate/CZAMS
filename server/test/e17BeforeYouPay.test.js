@@ -28,7 +28,7 @@ const users = [{ _id: 'CUS1', role: 'customer', isActive: true, clientType: 'Res
 test.beforeEach(() => harness.reset({ users, services: [install, cleaning] }));
 
 test('step order: an Installation has Before you pay right before Payment (6 steps); every other service keeps 5', async () => {
-  const { bookingSteps, stepCounter, STEP_ID } = await vite.ssrLoadModule('/src/utils/bookingSteps.js');
+  const { bookingSteps, STEP_ID } = await vite.ssrLoadModule('/src/utils/bookingSteps.js');
   const withBlock = bookingSteps({ serviceType: 'Installation' });
   assert.deepEqual(withBlock.map((s) => s.id), [STEP_ID.SERVICE, STEP_ID.UNIT, STEP_ID.SCHEDULE, STEP_ID.BEFORE_YOU_PAY, STEP_ID.PAYMENT, STEP_ID.SUMMARY]);
   assert.deepEqual(withBlock.map((s) => s.label), ['Choose Service', 'Unit Details', 'Location & Schedule', 'Before you pay', 'Payment', 'Booking Summary']);

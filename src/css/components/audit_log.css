@@ -1,0 +1,15 @@
+/* E17-1: the audit log as readable lines. Long values wrap; nothing scrolls sideways. */
+.audit-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.audit-entry { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.audit-entry-line { margin: 0; flex: 1 1 320px; min-width: 0; line-height: 1.5; overflow-wrap: anywhere; color: #1e293b; }
+.audit-entry-when { color: #475569; font-size: 0.875rem; white-space: nowrap; }
+.audit-entry-toggle { min-height: 40px; min-width: 40px; padding: 0 14px; border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff; color: #143a63; font-weight: 600; cursor: pointer; }
+.audit-entry-toggle:hover { background: #f1f5f9; }
+.audit-entry-details { flex: 1 1 100%; margin: 4px 0 0; padding: 10px 12px; background: #f8fafc; border-radius: 8px; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; font-size: 0.875rem; }
+.audit-entry-details dt { color: #475569; font-weight: 600; }
+.audit-entry-details dd { margin: 0; overflow-wrap: anywhere; }
+.audit-entry-json { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.8125rem; }
+@media (max-width: 480px) {
+  .audit-entry-when { white-space: normal; display: block; }
+  .audit-entry-toggle { width: 100%; }
+}

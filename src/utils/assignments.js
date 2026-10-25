@@ -56,3 +56,22 @@ export function getMinTechnicians(service) {
   if (service?.minTechnicians === 1 && type === SERVICE_TYPE.OTHER) return 1;
   return 2;
 }
+
+// ---- the editable list in the admin assignment panel
+
+// A copy of `list` with the item at `from` moved to `to` (the first place is the primary technician). Out of range returns the list unchanged.
+export function moveItem(list, from, to) {
+  if (from === to || from < 0 || to < 0 || from >= list.length || to >= list.length) return list;
+  const next = [...list];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
+
+// Whether a technician can be taken off the list. Never the last one. Once a booking is past Pending, never below the service's minimum
+// (the server refuses it: "choose another technician instead"); on a Pending booking the minimum is only checked at approval.
+export function canRemoveTechnician({ count, service, status }) {
+  if (count <= 1) return false;
+  if (status === 'Pending') return true;
+  return count > getMinTechnicians(service);
+}

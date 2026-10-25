@@ -38,3 +38,20 @@
 .assignment-panel-x5 .sdm-tech-select { flex: 1 1 0; min-width: 0; }
 .assignment-panel-x5 .sdm-btn { flex: 0 0 auto; }
 .assignment-panel-x1 .ma-input { width: 100%; box-sizing: border-box; }
+
+/* E17-1: one editable list. Each row: a Primary or Technician badge, the dropdown, then Up, Down and Remove. On a phone the row wraps
+   (badge and dropdown on the first line, buttons on the second) and every button stays at least 40px tall. */
+.assignment-panel-hint { margin: 2px 0 8px; font-size: 0.8125rem; }
+.assignment-rows { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 8px; }
+.assignment-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.assignment-badge { flex: 0 0 auto; min-width: 82px; text-align: center; padding: 4px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; background: #eef2f7; color: #334155; }
+.assignment-badge--primary { background: #143a63; color: #ffffff; }
+.assignment-row-name { font-weight: 600; overflow-wrap: anywhere; }
+.assignment-row .assignment-row-select { flex: 1 1 180px; min-width: 0; min-height: 40px; }
+.assignment-row-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.assignment-row-actions .sdm-btn { min-height: 40px; min-width: 40px; }
+.assignment-panel-x1 .assignment-row .sdm-btn:disabled { opacity: 0.5; }
+@media (max-width: 480px) {
+  .assignment-row-actions { width: 100%; }
+  .assignment-row-actions .sdm-btn { flex: 1 1 0; }
+}

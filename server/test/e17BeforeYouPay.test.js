@@ -60,7 +60,7 @@ test('the Payment step no longer carries the terms; the new step does, with the 
   const callout = 'If any of these are needed, or your site needs extra work such as longer pipe or a distance charge, the owner will get back to you with a quotation and the updated total. You will see it on your booking.';
   assert.ok(html.includes(callout), 'the callout wording is exact');
   assert.match(html, /role="note"/);
-  assert.equal(/—|–/.test(html), false, 'no dashes of the long kind in the text');
+  assert.equal(/\u2014|\u2013/.test(html), false, 'no dashes of the long kind in the text');
 });
 
 test('the checklist offers feeder line, carpentry, masonry, electrical and Other (with a short text once ticked)', async () => {

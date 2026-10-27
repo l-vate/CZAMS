@@ -227,5 +227,5 @@ test('the preview script renders one sample of every kind with fake data and wri
   assert.match(src, /e17-email-previews/);
   assert.match(src, /SAMPLE-NOT-A-REAL-TOKEN/);
   assert.equal(/nodemailer|sendMail|createTransport/.test(src), false, 'it can never send');
-  assert.equal(/—/.test(src), false);
+  assert.equal(/\u2014/.test(src), false);
 });

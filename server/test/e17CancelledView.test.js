@@ -61,7 +61,7 @@ test('the money in plain words: the amount and what happens next, for every case
   const sent = refundText(cancelled({ refund: refund({ status: 'Processed', isSameDay: true, dispatchDeduction: 350, dispatchReason: 'Fuel', refundableAmount: 650 }) }));
   assert.match(sent, /Your refund of ₱650 has been sent/);
   assert.match(sent, /transportation fee of ₱350 was deducted from your down payment of ₱1,000 \(Fuel\)/);
-  for (const text of [early, lateNoFee, lateFee, owner, sent]) assert.equal(/—|–/.test(text), false, 'no long dashes');
+  for (const text of [early, lateNoFee, lateFee, owner, sent]) assert.equal(/\u2014|\u2013/.test(text), false, 'no long dashes');
 });
 
 test('who cancelled it', async () => {

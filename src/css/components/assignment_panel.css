@@ -48,12 +48,11 @@
 .assignment-badge--primary { background: #143a63; color: #ffffff; }
 .assignment-row-name { font-weight: 600; overflow-wrap: anywhere; }
 .assignment-row .assignment-row-select { flex: 1 1 180px; min-width: 0; min-height: 40px; }
-.assignment-row-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-.assignment-row-actions .sdm-btn { min-height: 40px; min-width: 40px; }
+.assignment-row-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.assignment-row-actions .sdm-btn { min-height: 40px; min-width: 40px; padding-left: 8px; padding-right: 8px; font-size: 0.8125rem; white-space: normal; overflow-wrap: anywhere; box-sizing: border-box; }
 .assignment-panel-x1 .assignment-row .sdm-btn:disabled { opacity: 0.5; }
 @media (max-width: 480px) {
   .assignment-row-actions { width: 100%; }
-  .assignment-row-actions .sdm-btn { flex: 1 1 0; }
 }
 
 /* E17-3: the owner's notice that a unit cannot be supplied (customer booking detail) and the admin's action panels. */

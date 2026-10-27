@@ -1894,6 +1894,7 @@
 .cancelled-summary-figures { margin-top: 6px; }
 .cancelled-refund-card { margin-bottom: 14px; }
 @media (max-width: 480px) {
+  .cancelled-actions { flex-direction: column; align-items: stretch; width: 100%; }
   .cancelled-actions .bs-back-btn,
-  .cancelled-actions .bs-next-btn { flex: 1 1 100%; justify-content: center; }
+  .cancelled-actions .bs-next-btn { flex: 0 0 auto; width: 100%; justify-content: center; box-sizing: border-box; }
 }

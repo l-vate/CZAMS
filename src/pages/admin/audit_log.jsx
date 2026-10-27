@@ -1,15 +1,13 @@
 import { useEffect, useState } from 'react';
 import AdminLayout from './admin_layout';
 import LoadError from '../../components/load_error';
+import AuditEntry from '../../components/audit_entry';
 import { listAuditLog } from '../../services/auditService';
 
 const RECORD_TYPES = ['', 'Booking', 'User', 'PaymentSettings', 'Promo', 'Service', 'Announcement', 'SuppliedUnit', 'Closure', 'TechnicianOff', 'Report', 'BackJob'];
 const EMPTY = { from: '', to: '', actor: '', action: '', entityType: '', entityId: '' };
 
-// When it happened, in Manila time.
-const when = (iso) => new Date(iso).toLocaleString('en-US', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' });
-
-// A read-only list of what admins did: who, what, to which record, when. Newest first, a page at a time.
+// A read-only list of what admins did: who, what in plain words, and when (Manila). Details are folded away. Newest first, a page at a time.
 function AuditLog() {
   const [filters, setFilters] = useState(EMPTY);
   const [applied, setApplied] = useState(EMPTY);
@@ -63,29 +61,9 @@ function AuditLog() {
       ) : data.items.length === 0 ? (
         <p className="tech-job-empty">Nothing recorded for these filters.</p>
       ) : (
-        <div className="table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr><th>When (Manila)</th><th>Who</th><th>Action</th><th>Record</th><th>What</th></tr>
-            </thead>
-            <tbody>
-              {data.items.map((line) => (
-                <tr key={line._id}>
-                  <td>{when(line.createdAt)}</td>
-                  <td>{line.actor?.name || line.actor?.id || 'Unknown'} ({line.actor?.role || '-'})</td>
-                  <td>{line.action}</td>
-                  <td>{line.entityType} {line.entityId || ''}</td>
-                  <td>
-                    {line.summary}
-                    {line.meta && Object.keys(line.meta).length > 0 && (
-                      <small className="sdm-muted"> {JSON.stringify(line.meta)}</small>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ul className="audit-list">
+          {data.items.map((line) => <AuditEntry key={line._id} line={line} />)}
+        </ul>
       )}
 
       <div className="req-filters" aria-label="Pages">

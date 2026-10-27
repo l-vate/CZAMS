@@ -5,10 +5,11 @@ import PaymentModal from '../../components/payment_modal';
 import ClosureDateInput from '../../components/closure_date_input';
 import BelowSelect from '../../components/below_select';
 import SuppliedUnitPicker from '../../components/supplied_unit_picker';
-import QuotationTerms from '../../components/quotation_terms';
-import { standardTerms } from '../../utils/quotationTerms';
+import BeforeYouPayStep from '../../components/before_you_pay_step';
+import { worksToSend, worksIncomplete } from '../../utils/mayNeedWorks';
+import { bookingSteps, stepCounter, STEP_ID } from '../../utils/bookingSteps';
 import { listSuppliedUnits } from '../../services/suppliedUnitService';
-import { brandsLine, hasChoice, unitsForSubmit } from '../../utils/suppliedUnitChoice';
+import { brandChoices, brandsLine, chosenBrand, hasChoice, unitsForSubmit } from '../../utils/suppliedUnitChoice';
 import DiscountOption from '../../components/discount_option';
 import { usePublicPromos } from '../../utils/promos';
 import { getCostBreakdown } from '../../utils/costBreakdown';
@@ -250,9 +251,12 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
     return () => { cancelled = true; };
   }, [needsCatalog]);
 
+  // the brands to pick from: for a unit the company supplies, the active catalog brands come first, then the common brands
+  const brandOptions = brandChoices(needsCatalog ? catalog.items : [], AC_BRANDS);
+
   const updateUnit = (index, patch) => {
     // another type or horsepower is another unit: the choice made for the old one no longer applies
-    const resets = 'type' in patch || 'hp' in patch ? { supplied: undefined } : {};
+    const resets = 'type' in patch || 'hp' in patch || 'brandModel' in patch ? { supplied: undefined } : {};
     const updated = units.map((u, i) => (i === index ? { ...u, ...resets, ...patch } : u));
     setForm({ ...form, units: updated });
   };
@@ -304,12 +308,11 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
                 onChange={(e) => updateUnit(index, { quantity: Math.min(MAX_UNIT_QUANTITY, Math.max(1, Math.floor(Number(e.target.value)) || 1)) })}
               />
 
-              {!needsCatalog && (
               <div className="unit-entry-brand">
                 <BelowSelect
-                  ariaLabel="Brand"
-                  value={unit.brandOther ? OTHER_BRAND : (AC_BRANDS.includes(unit.brandModel) ? unit.brandModel : '')}
-                  options={[{ value: '', label: 'Brand' }, ...AC_BRANDS.map((brand) => ({ value: brand, label: brand })), { value: OTHER_BRAND, label: OTHER_BRAND }]}
+                  ariaLabel="Brand (required)"
+                  value={unit.brandOther ? OTHER_BRAND : (brandOptions.includes(unit.brandModel) ? unit.brandModel : '')}
+                  options={[{ value: '', label: 'Brand *' }, ...brandOptions.map((brand) => ({ value: brand, label: brand })), { value: OTHER_BRAND, label: OTHER_BRAND }]}
                   onChange={(brand) => (brand === OTHER_BRAND
                     ? updateUnit(index, { brandOther: true, brandModel: '' })
                     : updateUnit(index, { brandOther: false, brandModel: brand }))}
@@ -319,15 +322,14 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
                     type="text"
                     className="bs-input"
                     placeholder="Type the brand"
-                    aria-label="Other brand"
+                    aria-label="Other brand (required)"
+                    required
                     maxLength={60}
                     value={unit.brandModel}
                     onChange={(e) => updateUnit(index, { brandModel: e.target.value })}
                   />
                 )}
               </div>
-              )}
-              {needsCatalog && <span className="unit-entry-brand" aria-hidden="true" />}
 
               <BelowSelect
                 className="unit-entry-hp"
@@ -592,7 +594,7 @@ const PAYMENT_STATUS_LABELS = {
 
 function Step4({ form, setForm, services, isReturnCustomer, isCommercial = false, onAgreedTerms, paymentMethods, downPaymentPercentages, promos }) {
   const [showModal, setShowModal] = useState(false);
-  const { selected: selectedService, lineItems, equipment, basePrice, discountAmount, discountLabel, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages), 0, promos);
+  const { lineItems, equipment, basePrice, discountAmount, discountLabel, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages), 0, promos);
   const isNoDownPayment = dpPercent === 0;
   // A customer pays online by GCash or Bank Transfer only, for both payments. Cash and cheque are recorded by our team on site.
   const onlineMethods = paymentMethods.filter((m) => ONLINE_PAYMENT_MODES.includes(m.name));
@@ -628,10 +630,6 @@ const handleSubmitPayment = ({ proof, referenceNumber }) => {
         <div className="bs-card bs-step4-left">
           <h3 className="bs-card-title">Payment</h3>
           <p className="bs-card-sub">Choose payment option.</p>
-
-          {selectedService?.serviceType === SERVICE_TYPE.INSTALLATION && (
-            <QuotationTerms terms={standardTerms({ clientSuppliedUnit: !!form.clientSuppliedUnit })} isCommercial={isCommercial} />
-          )}
 
           {/* Down Payment - 2×2 radio grid (return customers get an extra 0% option) */}
           <div className="bs-field-group">
@@ -887,14 +885,19 @@ function BookService() {
     }
   }, [paymentSettingsReady, downPaymentPercentages, form.downPaymentPercent]);
 
-  const stepLabels = ['Choose Service', 'Unit Details', 'Location & Schedule', 'Payment', 'Booking Summary'];
+  // The steps depend on the service: one with a "Before you pay" block gets that step right before Payment.
+  const steps = bookingSteps(services.find((s) => s.id === form.service));
+  const totalSteps = steps.length;
+  const current = steps[step - 1]?.id;
+  const isLast = step === totalSteps;
 
 const canNext = () => {
-    if (step === 1) return !!form.service;
-    if (step === 2) {
+    if (current === STEP_ID.SERVICE) return !!form.service;
+    if (current === STEP_ID.UNIT) {
       const units = form.units || [];
       if (units.length === 0) return false;
       if (units.some((u) => !u.type || !Number.isInteger(u.quantity) || u.quantity < 1 || u.quantity > MAX_UNIT_QUANTITY)) return false;
+      if (units.some((u) => !chosenBrand(u))) return false; // the brand of every unit is required
       const selectedService = services.find((s) => s.id === form.service);
       const isInstallation = selectedService?.serviceType === SERVICE_TYPE.INSTALLATION;
       if (isInstallation && form.clientSuppliedUnit) {
@@ -906,11 +909,12 @@ const canNext = () => {
       if (isInstallation && !units.every(hasChoice)) return false;
       return true;
     }
-    if (step === 3) {
+    if (current === STEP_ID.SCHEDULE) {
       if (!form.date || !form.time || !form.address || !isValidContactNumber(form.contactNumber)) return false;
       return form.date >= earliestBookingKey(3); // both are Manila day keys, so a plain comparison is right
     }
-    if (step === 4) {
+    if (current === STEP_ID.BEFORE_YOU_PAY) return !worksIncomplete(form.mayNeedWorks);
+    if (current === STEP_ID.PAYMENT) {
       const { dpPercent } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages));
       if (form.discountType && (!form.discountIdFileObj || !form.discountConsent)) return false; // a customer always attaches the ID photo and agrees to its use
       if (dpPercent === 0) return true;
@@ -935,6 +939,7 @@ const canNext = () => {
       formData.append('technician', form.technician || '');
       formData.append('address', form.address);
       formData.append('contactNumber', form.contactNumber || '');
+      if (worksToSend(form.mayNeedWorks)) formData.append('mayNeedWorks', JSON.stringify(worksToSend(form.mayNeedWorks)));
       if (form.siteBuilding) formData.append('siteBuilding', form.siteBuilding);
       if (form.siteFloorRoom) formData.append('siteFloorRoom', form.siteFloorRoom);
       if (form.siteAttention) formData.append('siteAttention', form.siteAttention);
@@ -975,21 +980,22 @@ const canNext = () => {
       <Notice message={notice} onClose={clearNotice} />
       <h1 className="dashboard-welcome">Tell us what you need</h1>
 
-      <StepIndicator current={step} />
+      <StepIndicator current={step} total={totalSteps} />
 
       {loading ? (
         <p>Loading services...</p>
       ) : (
         <>
-          {step === 1 && <Step1 form={form} setForm={setForm} services={services} />}
-          {step === 2 && <Step2 form={form} setForm={setForm} services={services} />}
-          {step === 3 && <Step3 form={form} setForm={setForm} technicians={technicians} />}
-          {step >= 4 && !paymentSettingsReady && (
+          {current === STEP_ID.SERVICE && <Step1 form={form} setForm={setForm} services={services} />}
+          {current === STEP_ID.UNIT && <Step2 form={form} setForm={setForm} services={services} />}
+          {current === STEP_ID.SCHEDULE && <Step3 form={form} setForm={setForm} technicians={technicians} />}
+          {current === STEP_ID.BEFORE_YOU_PAY && <BeforeYouPayStep form={form} setForm={setForm} isCommercial={isCommercialClient} />}
+          {[STEP_ID.PAYMENT, STEP_ID.SUMMARY].includes(current) && !paymentSettingsReady && (
             paymentSettingsFailed
               ? <PaymentSettingsUnavailable onRetry={refetchPaymentSettings} />
               : <p>Loading payment settings...</p>
           )}
-          {step === 4 && paymentSettingsReady && (
+          {current === STEP_ID.PAYMENT && paymentSettingsReady && (
             <Step4
               form={form}
               setForm={setForm}
@@ -1002,13 +1008,13 @@ const canNext = () => {
               promos={promos}
             />
           )}
-          {step === 5 && paymentSettingsReady && <Step5 form={form} services={services} technicians={technicians} downPaymentPercentages={downPaymentPercentages} promos={promos} />}
+          {current === STEP_ID.SUMMARY && paymentSettingsReady && <Step5 form={form} services={services} technicians={technicians} downPaymentPercentages={downPaymentPercentages} promos={promos} />}
         </>
       )}
 
       <div className="bs-nav-row">
         <span className="bs-step-label">
-          Step {step} of {TOTAL_STEPS} - {stepLabels[step - 1]}
+          {stepCounter(steps, step)}
         </span>
 
         <div className="bs-nav-btns">
@@ -1017,13 +1023,13 @@ const canNext = () => {
               <FiArrowLeft /> Back
             </button>
           )}
-          {step < TOTAL_STEPS ? (
+          {!isLast ? (
             <button
               className="bs-next-btn"
               onClick={() => setStep(step + 1)}
-              disabled={!canNext() || (step >= 4 && !paymentSettingsReady)}
+              disabled={!canNext() || ([STEP_ID.PAYMENT, STEP_ID.SUMMARY].includes(current) && !paymentSettingsReady)}
             >
-              {step === 4 ? <>Book <FiArrowRight /></> : <>Next <FiArrowRight /></>}
+              {current === STEP_ID.PAYMENT ? <>Book <FiArrowRight /></> : <>Next <FiArrowRight /></>}
             </button>
           ) : (
             <button className="bs-next-btn" onClick={handleConfirmBooking} disabled={submitting || !paymentSettingsReady}

@@ -166,7 +166,6 @@ test('a catalog choice must exist, be active, and match the unit type and horsep
     [choose(off), /no longer on the list/],
     [[{ type: 'Split Type', quantity: 1, hp: '1', supplied: { catalogId: other._id } }], /does not match/],
     [[{ type: 'Split Type', quantity: 1, hp: '1', supplied: { catalogId: wrongHp._id } }], /does not match/],
-    [[{ type: 'Split Type', quantity: 1, hp: '1' }], /Choose a unit from the list/],
     [[{ type: 'Split Type', quantity: 1, hp: '1', supplied: {} }], /Choose a unit from the list/],
   ];
   for (const [units, message] of attempts) {
@@ -183,7 +182,7 @@ test('every unit entry on the booking needs its own choice', async () => {
   const win = addCatalogUnit({ model: 'W1', type: 'Window Type', hp: '1.5' });
   const units = [
     { type: 'Split Type', quantity: 1, hp: '1', supplied: { catalogId: split._id } },
-    { type: 'Window Type', quantity: 2, hp: '1.5' },
+    { type: 'Window Type', quantity: 2, hp: '1.5', supplied: {} },
   ];
   assert.equal((await book(units)).status, 400);
   units[1].supplied = { catalogId: win._id };
@@ -207,7 +206,7 @@ test('"Not listed" books the unit as a request with no price and a flag for the 
 });
 
 test('a "Not listed" request needs a brand or a note, and is kept short', async () => {
-  assert.equal((await book([{ type: 'Split Type', quantity: 1, supplied: { notListed: true } }])).status, 400);
+  assert.equal((await book([{ type: 'Split Type', quantity: 1, brand: '', supplied: { notListed: true } }])).status, 400, 'a unit with no brand is refused first');
   assert.equal((await book(notListed({ notes: 'x'.repeat(301) }))).status, 400);
   assert.equal((await book([{ type: 'Split Type', quantity: 1, supplied: { notListed: true, notes: 'Any inverter split type' } }])).status, 201);
 });
@@ -329,5 +328,5 @@ test('an installation booked by an admin for a walk-in follows the same rules', 
   assert.equal(walkIn.status, 201, JSON.stringify(walkIn.body));
   assert.equal(state.bookings[0].units[0].supplied.price, 25000);
   addBooking({ bookingId: 'CZ-X', customer: 'CUS1', service: install, status: 'Pending', units: [{ type: 'Split Type', quantity: 1 }] });
-  assert.equal((await book([{ type: 'Split Type', quantity: 1, hp: '1' }], { customer: 'CUS1' }, 'ADM1', asAdmin)).status, 400);
+  assert.equal((await book([{ type: 'Split Type', quantity: 1, hp: '1', supplied: {} }], { customer: 'CUS1' }, 'ADM1', asAdmin)).status, 400);
 });

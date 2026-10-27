@@ -4,7 +4,7 @@ import { getTeamAvailability } from '../services/teamService';
 import { ApiError } from '../services/apiClient';
 import { assignBooking, moveToDate } from '../services/bookingService';
 import SuggestedDates from './suggested_dates';
-import { getMembers } from '../utils/assignments';
+import { getMembers, moveItem, canRemoveTechnician } from '../utils/assignments';
 import { BOOKING_STATUS } from '../constants/bookingStatus';
 
 // The booking's assignment editor: a plain list of technicians. The first one is the primary technician, the only one who files the
@@ -78,7 +78,10 @@ function AssignmentPanel({ booking, onUpdated }) {
   const optionLabel = (t) => `${t.name}${t.position ? ` (${t.position})` : ''}${t.free ? '' : ' - busy'}`;
   const optionsFor = (index, current) => {
     const taken = pickedElsewhere(index);
-    return technicians.filter((t) => !taken.has(t._id)).map((t) => (
+    // A technician already on the booking is always listed, so the name shows even before (or without) the availability answer.
+    const known = new Set(technicians.map((t) => t._id));
+    const saved = members.filter((m) => !known.has(m._id)).map((m) => ({ _id: m._id, name: m.name, free: true }));
+    return [...technicians, ...saved].filter((t) => !taken.has(t._id)).map((t) => (
       <option key={t._id} value={t._id} disabled={!t.free && current !== t._id}>
         {optionLabel(t)}
       </option>
@@ -91,41 +94,52 @@ function AssignmentPanel({ booking, onUpdated }) {
         {booking.needsReassignment && (
           <p className="sdm-error" role="alert">A technician on this job was deactivated. Assign someone else.</p>
         )}
-        <span className="sdm-row-label">ASSIGNED TECHNICIAN{members.length > 1 ? 'S' : ''}</span>
+        <span className="sdm-row-label">ASSIGNED TECHNICIANS</span>
+        <p className="sdm-muted assignment-panel-hint">The first technician is the primary one and files the service report. Move a technician up to make them primary.</p>
 
-        {members.length === 0 ? (
+        {!editable && (members.length === 0 ? (
           <p className="sdm-muted assignment-panel-x3">Nobody assigned yet.</p>
         ) : (
-          <ul className="assignment-list assignment-panel-x4">
+          <ol className="assignment-rows">
             {members.map((m, i) => (
-              <li key={m._id}>
-                {m.name}{members.length > 1 && i === 0 ? ' (primary, files the report)' : ''}
+              <li key={m._id} className="assignment-row">
+                <span className={i === 0 ? 'assignment-badge assignment-badge--primary' : 'assignment-badge'}>{i === 0 ? 'Primary' : 'Technician'}</span>
+                <span className="assignment-row-name">{m.name}</span>
               </li>
             ))}
-          </ul>
-        )}
+          </ol>
+        ))}
 
         {editable && (
           <>
-            {picked.map((id, index) => (
-              <div key={index} className="assignment-panel-x5">
-                <select
-                  className="sdm-tech-select"
-                  value={id}
-                  onChange={(e) => setAt(index, e.target.value)}
-                  disabled={saving}
-                  aria-label={`Technician ${index + 1}`}
-                >
-                  <option value="">Choose a technician</option>
-                  {optionsFor(index, id)}
-                </select>
-                {picked.length > 1 && (
-                  <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setPicked((prev) => prev.filter((_, i) => i !== index))} disabled={saving}>
-                    Remove
-                  </button>
-                )}
-              </div>
-            ))}
+            <ol className="assignment-rows">
+              {picked.map((id, index) => (
+                <li key={index} className="assignment-row">
+                  <span className={index === 0 ? 'assignment-badge assignment-badge--primary' : 'assignment-badge'}>{index === 0 ? 'Primary' : 'Technician'}</span>
+                  <select
+                    className="sdm-tech-select assignment-row-select"
+                    value={id}
+                    onChange={(e) => setAt(index, e.target.value)}
+                    disabled={saving}
+                    aria-label={`Technician ${index + 1}`}
+                  >
+                    <option value="">Choose a technician</option>
+                    {optionsFor(index, id)}
+                  </select>
+                  <span className="assignment-row-actions">
+                    <button type="button" className="sdm-btn sdm-btn-outline assignment-move" onClick={() => setPicked((prev) => moveItem(prev, index, index - 1))} disabled={saving || index === 0} aria-label={index === 1 ? 'Make primary' : `Move technician ${index + 1} up`}>
+                      {index === 1 ? 'Make primary' : 'Up'}
+                    </button>
+                    <button type="button" className="sdm-btn sdm-btn-outline assignment-move" onClick={() => setPicked((prev) => moveItem(prev, index, index + 1))} disabled={saving || index === picked.length - 1} aria-label={`Move technician ${index + 1} down`}>
+                      Down
+                    </button>
+                    <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setPicked((prev) => prev.filter((_, i) => i !== index))} disabled={saving || !canRemoveTechnician({ count: picked.length, service: booking.service, status: booking.status })}>
+                      Remove
+                    </button>
+                  </span>
+                </li>
+              ))}
+            </ol>
 
             <div className="assignment-panel-x6">
               <button

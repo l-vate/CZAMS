@@ -62,6 +62,8 @@ const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/que
 const { generateBookingId, createWithUniqueBookingId, BookingIdExhaustedError } = require('../utils/bookingId');
 const { invalid, sendProblem } = require('../utils/validation');
 const { readPaymentSubmission, findSameReference } = require('../utils/paymentReference');
+const { readUnitBrand } = require('../utils/unitBrand');
+const { readMayNeedWorks, describeMayNeedWorks } = require('../utils/mayNeedWorks');
 const { readUnitChoices, brandModelOf, unitConfirmationProblem } = require('../utils/suppliedUnits');
 const { startingQuotation, readSite } = require('../utils/quotation');
 const SuppliedUnit = require('../models/SuppliedUnit');
@@ -155,6 +157,15 @@ function computeDownPaymentAmount(booking) {
   return Math.round(getBookingUnitsSubtotal(booking) * ((booking.downPaymentPercent || 0) / 100));
 }
 
+// The reason an owner-initiated cancellation must carry: 3 to 200 characters. { problem } or { reason }.
+function readOwnerCancelReason(raw) {
+  const reason = typeof raw === 'string' ? raw.trim() : '';
+  if (reason.length < 3 || reason.length > 200) {
+    return { problem: invalid('Give a short reason (3 to 200 characters) for cancelling because we cannot supply or serve.') };
+  }
+  return { reason };
+}
+
 // Returns 'opened' when a refund was opened, 'awaiting-check' when the down payment proof is still waiting to be verified (no refund is
 // opened for an amount nobody has checked: the booking is flagged, and the refund opens once an admin verifies the proof), or
 // 'none' when no down payment is on file.
@@ -177,12 +188,15 @@ function openRefundIfEligible(booking) {
   // the proof). On or after the booked date a transportation fee applies (the stored flag is still called isSameDay, and it is true for
   // the booked day and for every day after it: a late cancellation or a no-show). Any earlier day is a full refund. Both dates are YYYY-MM-DD
   // Manila days, so comparing the text compares the days.
+  // An owner-initiated cancellation (the owner cannot supply or cannot serve) is never late: the whole down payment goes back, no fee, on any date.
   const cancelledOn = booking.cancelledAt ? manilaTodayKey(new Date(booking.cancelledAt)) : todayDateString();
-  const isSameDay = cancelledOn >= booking.date;
+  const ownerInitiated = booking.ownerCancelled === true;
+  const isSameDay = !ownerInitiated && cancelledOn >= booking.date;
 
   booking.refund = {
     status: 'Pending',
     isSameDay,
+    ...(ownerInitiated ? { ownerInitiated: true, reason: booking.cancelReason } : {}),
     downPaymentAmount,
     // On or after the booked date: the transportation fee isn't known until admin
     // reviews it, so the refundable amount stays unset until then.
@@ -362,10 +376,18 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
     }
     // what the customer chose for each unit entry from the supplied unit catalog (checked below, once the service is known)
     const suppliedChoices = units.map((u) => u.supplied);
-    units = units.map((u) => ({
+    // The brand of every unit is required (chosen from the list, or typed after Other), and is kept on the unit entry.
+    const brands = [];
+    for (const u of units) {
+      const read = readUnitBrand(u);
+      if (read.problem) return sendProblem(res, read.problem);
+      brands.push(read.brand);
+    }
+    units = units.map((u, i) => ({
       type: u.type,
       quantity: Number(u.quantity),
-      brandModel: u.brandModel || '',
+      brand: brands[i],
+      brandModel: (typeof u.brandModel === 'string' && u.brandModel.trim().toLowerCase() !== 'other' && u.brandModel.trim()) || brands[i],
       hp: typeof u.hp === 'string' || typeof u.hp === 'number' ? String(u.hp).trim().slice(0, 10) : '',
     }));
 
@@ -399,6 +421,10 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
       });
     }
 
+    // The optional "I may need these works" checklist (a heads-up for the owner; it never changes the price).
+    const worksInput = readMayNeedWorks(req.body.mayNeedWorks);
+    if (worksInput.problem) return sendProblem(res, worksInput.problem);
+
     // Site details (optional): the building, the floor or room, and who to ask for.
     const siteInput = readSite({ building: req.body.siteBuilding, floorRoom: req.body.siteFloorRoom, attention: req.body.siteAttention });
     if (siteInput.problem) return sendProblem(res, siteInput.problem);
@@ -411,6 +437,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
       choices: suppliedChoices,
       needsChoice: isInstallationService && !isClientSuppliedUnit,
       findItem: (id) => (mongoose.isValidObjectId(id) ? SuppliedUnit.findById(id) : null),
+      findMatches: (unit) => SuppliedUnit.find({ type: unit.type, isDeleted: { $ne: true }, isActive: { $ne: false } }),
     });
     if (unitChoices.problem) return sendProblem(res, unitChoices.problem);
     units = units.map((u, i) => (unitChoices.supplied[i]
@@ -583,6 +610,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
         // an Installation starts with the standard duration and exclusions (utils/quotation.js); the admin can change them per booking
         quotation: isInstallationService ? startingQuotation(serviceDoc.serviceType) : undefined,
         site: Object.values(siteInput.site).some(Boolean) ? siteInput.site : undefined,
+        mayNeedWorks: worksInput.value,
         serviceAreaCheck: { withinArea: withinServiceArea, checkedAt: new Date() },
         cleaningTierAnswers: (isCleaningService && (lastCleanedOver6MonthsAgo !== undefined || isActivelyLeaking !== undefined)) ? {
           lastCleanedOver6MonthsAgo: lastCleanedOver6MonthsAgo === 'true' || lastCleanedOver6MonthsAgo === true,
@@ -658,7 +686,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
     if (!isAdminWalkIn) {
       await notifyAdmins(
         NOTIFICATION_TYPE.BOOKING_NEW,
-        `New booking ${populated.bookingId} for ${populated.service?.name || 'a service'} on ${populated.date}, ${populated.time}${bookingCustomer?.name ? ` from ${bookingCustomer.name}` : ''}.`,
+        `New booking ${populated.bookingId} for ${populated.service?.name || 'a service'} on ${populated.date}, ${populated.time}${bookingCustomer?.name ? ` from ${bookingCustomer.name}` : ''}.${worksInput.value ? ` The customer may need: ${describeMayNeedWorks(worksInput.value)}. Send a quotation if it applies.` : ''}`,
         { booking: populated }
       );
     }
@@ -2047,7 +2075,7 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
 
     const {
       technician, status, paymentStatus, balancePaymentStatus, balancePaid, technicianInstructions,
-      distanceAdjustment, mobilizationFee, unitSource,
+      distanceAdjustment, mobilizationFee, unitSource, ownerInitiated, cancelReason,
     } = req.body;
     const allowedStatuses = BOOKING_STATUS_VALUES;
 
@@ -2094,6 +2122,9 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
     if (status === BOOKING_STATUS.APPROVED && booking.status !== BOOKING_STATUS.APPROVED) {
       const unitProblem = unitConfirmationProblem(booking.units);
       if (unitProblem) return sendProblem(res, unitProblem);
+      if (booking.unitDecline && booking.unitDecline.reason) {
+        return sendProblem(res, invalid('The owner said this unit cannot be supplied. Withdraw that first, or cancel the booking.', 409));
+      }
     }
 
     // Technicians are assigned through PATCH /:bookingId/assign, which checks every
@@ -2177,6 +2208,13 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
       if (![BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status)) {
         return res.status(400).json({ message: 'This booking can no longer be cancelled.' });
       }
+      // The owner cancelling because it cannot supply the unit or cannot serve: a reason is required, and the refund is full with no fee.
+      const ownerCancel = ownerInitiated === true ? readOwnerCancelReason(cancelReason) : null;
+      if (ownerCancel && ownerCancel.problem) return sendProblem(res, ownerCancel.problem);
+      if (ownerCancel) {
+        booking.ownerCancelled = true;
+        booking.cancelReason = ownerCancel.reason;
+      }
       adminCancelOutcome = openRefundIfEligible(booking);
     }
 
@@ -2258,7 +2296,9 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
       await sendNotification(
         booking.customer,
         NOTIFICATION_TYPE.BOOKING_CANCELLED,
-        `Your booking ${booking.bookingId} was cancelled by our team.${refundNote}`,
+        booking.ownerCancelled
+          ? `Your booking ${booking.bookingId} was cancelled by our team because we cannot supply or serve it: ${booking.cancelReason}.${booking.refund?.status === REFUND_STATUS.PENDING ? ' Your whole down payment will be refunded, with no transportation fee.' : ''}`
+          : `Your booking ${booking.bookingId} was cancelled by our team.${refundNote}`,
         { booking }
       );
       if (booking.refund?.status === REFUND_STATUS.PENDING) {

@@ -3,7 +3,11 @@ const { NOTIFICATION_TYPE } = require('../constants/notificationTypes');
 const EmailDelivery = require('../models/EmailDelivery');
 const User = require('../models/User');
 const { TIMEZONE } = require('./timeBlocks');
-const { renderNotificationEmail } = require('./emailTemplate');
+const path = require('path');
+const { renderNotificationEmail, LOGO_CID, LOGO_FILE } = require('./emailTemplate');
+
+// The company logo, attached to every message inline (referenced in the HTML as cid:czams-logo) so it shows without a hosted address.
+const LOGO_PATH = path.join(__dirname, '..', 'assets', LOGO_FILE);
 
 const EMAIL_NOTIFICATION_TYPES = new Set([
   NOTIFICATION_TYPE.BOOKING_CREATED,
@@ -70,13 +74,14 @@ function subjectFor(type) {
   return `CZAMS: ${type.split('_').map((part) => part[0].toUpperCase() + part.slice(1)).join(' ')}`;
 }
 
-async function queueNotificationEmail(userId, type, message, notificationId, env = process.env) {
+// `booking` (optional) is the booking the notification is about, so the email can show its details. It is read here and never stored.
+async function queueNotificationEmail(userId, type, message, notificationId, env = process.env, booking = null) {
   if (!EMAIL_NOTIFICATION_TYPES.has(type) || !smtpConfig(env)) return null;
 
-  const recipient = await User.findById(userId).select('email');
+  const recipient = await User.findById(userId).select('email role');
   if (!recipient?.email) return null;
 
-  const { html, text } = renderNotificationEmail({ type, message, appUrl: env.APP_URL });
+  const { html, text } = renderNotificationEmail({ type, message, appUrl: env.APP_URL, booking, recipientRole: recipient.role });
   return EmailDelivery.create({
     notification: notificationId,
     recipientEmail: recipient.email,
@@ -102,13 +107,17 @@ async function sendEmail(delivery, env = process.env) {
     transporterConfig = currentConfig;
   }
 
-  await transporter.sendMail({
-    from: config.from,
-    to: delivery.recipientEmail,
-    subject: delivery.subject,
-    text: delivery.text,
-    html: delivery.html,
-  });
+  await transporter.sendMail(buildMessage(delivery, config));
+}
+
+// The message handed to the mail transport: the sender, the recipient, the subject, the plain text and the HTML (a multipart message, so a
+// text-only client and a spam filter get the plain version), and the logo as an inline attachment when the HTML refers to it.
+function buildMessage(delivery, config) {
+  const message = { from: config.from, to: delivery.recipientEmail, subject: delivery.subject, text: delivery.text, html: delivery.html };
+  if (String(delivery.html || '').includes(`cid:${LOGO_CID}`)) {
+    message.attachments = [{ filename: LOGO_FILE, path: LOGO_PATH, cid: LOGO_CID, contentDisposition: 'inline' }];
+  }
+  return message;
 }
 
 // One message sent right away, outside the queue: used for mail that must not be stored with its content (a password reset link).
@@ -184,6 +193,7 @@ function startEmailDeliverySchedule() {
 module.exports = {
   EMAIL_NOTIFICATION_TYPES,
   smtpConfig,
+  buildMessage,
   sendEmailNow,
   queueNotificationEmail,
   processPendingEmailDeliveries,

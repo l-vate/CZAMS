@@ -220,6 +220,7 @@ async function install() {
   app.use('/api/bookings', require('../../routes/bookingRoutes'));
   app.use('/api/bookings', require('../../routes/scopeLineRoutes'));
   app.use('/api/bookings', require('../../routes/unitRequestRoutes'));
+  app.use('/api/bookings', require('../../routes/emailStatusRoutes'));
   app.use('/api/bookings', require('../../routes/quotationRoutes'));
   app.use('/api/supplied-units', require('../../routes/suppliedUnitRoutes'));
   app.use('/api/back-jobs', require('../../routes/backJobRoutes'));
@@ -246,6 +247,9 @@ async function callPath(method, path, as = 'CUS1', body, { role = 'customer' } =
   return { status: res.status, body: await res.json().catch(() => ({})) };
 }
 
+// The brand of the catalog unit a test unit picked, so a unit that names a catalog item agrees with it (the server refuses a mismatch).
+const catalogBrandOf = (u) => (u.supplied && u.supplied.catalogId ? (state.catalog.find((c) => String(c._id) === String(u.supplied.catalogId)) || {}).brand : undefined);
+
 // A date the booking rules accept: the Nth OPEN day after today in Manila, where a Sunday is not an open day.
 //
 // The rule for every test that needs dates: never write `today + N days`, and never assume that two different N give two different days.
@@ -270,6 +274,12 @@ async function post(fields = {}, as = 'CUS1', { role = 'customer' } = {}) {
     service: 'S-CLEAN', units: [{ type: 'Split Type', quantity: 1, brandModel: 'Carrier' }], date: goodDate(), time: 'Morning', address: 'Quezon City',
     contactNumber: '09171234567', downPaymentPercent: 50, paymentMode: 'GCash', lastCleanedOver6MonthsAgo: false, isActivelyLeaking: false, ...fields,
   };
+  // Every unit needs a brand (E17-2). A test that is not about the brand does not repeat it on each unit: one without any brand gets a
+  // default here. A test of the brand rule itself sends `brand: ''` to leave it empty.
+  const rawUnits = typeof body.units === 'string' ? (() => { try { return JSON.parse(body.units); } catch { return null; } })() : body.units;
+  if (Array.isArray(rawUnits)) {
+    body.units = rawUnits.map((u) => (u && typeof u === 'object' && u.brand === undefined && u.brandModel === undefined ? { ...u, brand: catalogBrandOf(u) || 'Carrier' } : u));
+  }
   const form = new FormData();
   Object.entries(body).forEach(([k, v]) => {
     if (v === undefined) return;

@@ -14,6 +14,7 @@ const HP_PATTERN = /^\d+(\.\d+)?$/;
 const hpNumber = (hp) => (HP_PATTERN.test(String(hp ?? '').trim()) ? Number(String(hp).trim()) : NaN);
 // "1", "1.0" and "1.00" are the same horsepower
 const sameHp = (a, b) => Number.isFinite(hpNumber(a)) && hpNumber(a) === hpNumber(b);
+const sameBrand = (a, b) => clean(a).toLowerCase() === clean(b).toLowerCase() && clean(a) !== '';
 const clean = (v) => (typeof v === 'string' ? v.trim() : '');
 
 // What an admin may send for a catalog item. `unitTypes` are the allowed unit types. Returns { problem, values }.
@@ -52,17 +53,28 @@ const brandModelText = (s) => [s.brand, s.model].filter(Boolean).join(' ');
 // `units` are the validated unit entries, `findItem(id)` returns the catalog item (or null). Only an Installation with a Cooling Zone
 // unit needs a choice for every entry; any other booking keeps no supplied unit. Returns { problem, supplied } where supplied[i] is the
 // snapshot (or request) to store on unit entry i.
-async function readUnitChoices({ units, choices, needsChoice, findItem, now = new Date() }) {
+async function readUnitChoices({ units, choices, needsChoice, findItem, findMatches, now = new Date() }) {
   if (!needsChoice) return { problem: null, supplied: units.map(() => undefined) };
   const supplied = [];
   for (let i = 0; i < units.length; i += 1) {
     const unit = units[i];
     const choice = Array.isArray(choices) ? choices[i] : undefined;
+    if ((!choice || typeof choice !== 'object') && unit.brand && findMatches) {
+      // No unit was picked, but the brand was chosen: match the catalog by type, horsepower and brand. One match is used (its price is
+      // copied now); none leaves the booking Pending with the "unit needs owner confirmation" request; several need the customer to pick.
+      const matches = (await findMatches(unit)).filter((item) => item.type === unit.type && sameHp(item.hp, unit.hp) && sameBrand(item.brand, unit.brand));
+      if (matches.length === 1) { supplied.push(snapshotOf(matches[0], now)); continue; }
+      if (matches.length === 0) {
+        supplied.push({ source: 'requested', status: 'Pending', request: { brand: unit.brand, type: unit.type, hp: clean(String(unit.hp ?? '')), notes: '' }, chosenAt: now });
+        continue;
+      }
+      return { problem: invalid('More than one of our units fits that brand, type and horsepower. Choose one from the list.') };
+    }
     if (!choice || typeof choice !== 'object') {
       return { problem: invalid('Choose a unit from the list for each unit you want Cooling Zone to supply, or ask the owner if yours is not listed.') };
     }
     if (choice.notListed === true) {
-      const brand = clean(choice.brand);
+      const brand = clean(choice.brand) || clean(unit.brand);
       const type = clean(choice.type) || unit.type;
       const hp = clean(String(choice.hp ?? '')) || clean(String(unit.hp ?? ''));
       const notes = clean(choice.notes);
@@ -82,6 +94,9 @@ async function readUnitChoices({ units, choices, needsChoice, findItem, now = ne
     }
     if (item.type !== unit.type || !sameHp(item.hp, unit.hp)) {
       return { problem: invalid('That unit does not match the type and horsepower you chose. Choose one from the list for this unit.') };
+    }
+    if (unit.brand && !sameBrand(item.brand, unit.brand)) {
+      return { problem: invalid('That unit is a different brand from the one you chose. Choose one from the list for this unit.') };
     }
     supplied.push(snapshotOf(item, now));
   }

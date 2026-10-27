@@ -6,6 +6,10 @@ import PaymentReference from './payment_reference';
 import ScopeOfWorksEditor from './scope_of_works_editor';
 import QuotationEditor from './quotation_editor';
 import UnitRequestPanel from './unit_request_panel';
+import CannotSupplyPanel from './cannot_supply_panel';
+import EmailStatusCard from './email_status_card';
+import { legacyDistanceAmount } from '../utils/chargeRows';
+import { describeWorks } from '../utils/mayNeedWorks';
 import ClosureDateInput from './closure_date_input';
 import { warrantyStatusText } from '../utils/warrantyText';
 import { BRAND_SHORT } from '../config/company';
@@ -70,6 +74,7 @@ function Icon({ name }) {
 function AdminServiceDetailsModal({ booking, onClose, onUpdated, asPage = false }) {
     
     const [saving, setSaving] = useState(false);
+    const [ownerCancel, setOwnerCancel] = useState(null); // cancelling because we cannot supply or serve: null, or the reason being typed
     const [offeredDates, setOfferedDates] = useState([]); // dates offered after an approval is refused because nobody is free
     const [recordDraft, setRecordDraft] = useState(null); // a payment being recorded: received in person
     const [error, setError] = useState('');
@@ -82,7 +87,6 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated, asPage = false 
     const [extraTime, setExtraTime] = useState(booking?.extensionRequest?.requestedTime || booking?.time || 'Morning');
     const [editingInstructions, setEditingInstructions] = useState(false);
     const [editingCharges, setEditingCharges] = useState(false);
-    const [distanceDraft, setDistanceDraft] = useState(booking?.distanceAdjustment || 0);
     const [mobilizationDraft, setMobilizationDraft] = useState(booking?.mobilizationFee || 0);
     const [uploadingProof, setUploadingProof] = useState(false);
     const [showReceipt, setShowReceipt] = useState(false);
@@ -93,7 +97,6 @@ const [report, setReport] = useState(null);
     useEffect(() => {
         setInstructionsDraft(booking?.technicianInstructions || '');
         setEditingInstructions(false);
-        setDistanceDraft(booking?.distanceAdjustment || 0);
         setMobilizationDraft(booking?.mobilizationFee || 0);
         setEditingCharges(false);
         fetchReport();
@@ -184,7 +187,8 @@ const [report, setReport] = useState(null);
 
     // Distance/Mobilization Charges: admin-entered, not system-computed.
     const handleSaveCharges = async () => {
-        const success = await patchBooking({ distanceAdjustment: distanceDraft, mobilizationFee: mobilizationDraft });
+        // Only the mobilization fee is edited here. A distance charge is a "distance" line in the Scope of works (the one place for it).
+        const success = await patchBooking({ mobilizationFee: mobilizationDraft });
         if (success) {
             setEditingCharges(false);
         }
@@ -217,6 +221,13 @@ const [report, setReport] = useState(null);
         if (window.confirm('Cancel this booking? This cannot be undone.')) {
             patchBooking({ status: 'Cancelled' });
         }
+    };
+
+    // Cancelling because the owner cannot supply the unit or cannot serve: a reason is required, and the whole verified down payment is
+    // refunded with no transportation fee, whatever the booked date.
+    const handleOwnerCancel = async () => {
+        const ok = await patchBooking({ status: 'Cancelled', ownerInitiated: true, cancelReason: ownerCancel.trim() });
+        if (ok) setOwnerCancel(null);
     };
 
     const handleDisruptionReschedule = async () => {
@@ -334,6 +345,7 @@ const [report, setReport] = useState(null);
                             {booking.status}
                         </span>
                     </div>
+                    <div className="sdm-email-card"><EmailStatusCard bookingId={booking.bookingId} admin /></div>
 
                     {booking.isBackJob && (
                         <div className="sdm-notice">
@@ -346,7 +358,7 @@ const [report, setReport] = useState(null);
                         && !isWithinQuezonCity(booking.address)
                         && !booking.distanceAdjustment && !booking.mobilizationFee && (
                         <div className="sdm-notice">
-                            ⚠ This address is outside Quezon City - add a {booking.service?.serviceType === SERVICE_TYPE.INSTALLATION ? 'mobilization fee' : 'distance based charge'} below before approving, if one applies.
+                            ⚠ This address is outside Quezon City - add {booking.service?.serviceType === SERVICE_TYPE.INSTALLATION ? 'a mobilization fee' : 'a distance line in the Scope of works'} below before approving, if one applies.
                         </div>
                     )}
 
@@ -376,6 +388,7 @@ const [report, setReport] = useState(null);
                     />
 
                     <UnitRequestPanel booking={booking} onUpdated={onUpdated} />
+                    <CannotSupplyPanel booking={booking} onUpdated={onUpdated} />
 
                     <div className="sdm-customer-line">
                         <Icon name="user" />
@@ -429,6 +442,17 @@ const [report, setReport] = useState(null);
                                     <p className="sdm-row-value">{booking.problemDescription || '-'}</p>
                                 </div>
                             </div>
+
+                            {describeWorks(booking.mayNeedWorks) && (
+                                <div className="sdm-row">
+                                    <div className="sdm-row-icon"><Icon name="info" /></div>
+                                    <div>
+                                        <span className="sdm-row-label">CUSTOMER MAY NEED THESE WORKS</span>
+                                        <p className="sdm-row-value">{describeWorks(booking.mayNeedWorks)}</p>
+                                        <p className="sdm-muted">A heads-up only. It does not change the price. Send a quotation if it applies.</p>
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="sdm-row">
                                 <div className="sdm-row-icon"><Icon name="file" /></div>
@@ -727,20 +751,10 @@ const [report, setReport] = useState(null);
                                                             onChange={(e) => setMobilizationDraft(Number(e.target.value) || 0)}
                                                         />
                                                     </label>
-                                                ) : (
-                                                    <label className="admin-service-details-modal-x16">
-                                                        Distance Based Charge (₱)
-                                                        <input
-                                                            type="number" min="0" className="ma-input admin-service-details-modal-x17"
-                                                            value={distanceDraft}
-                                                            onChange={(e) => setDistanceDraft(Number(e.target.value) || 0)}
-                                                        />
-                                                    </label>
-                                                )}
+                                                ) : null}
                                                 <div className="admin-service-details-modal-x18">
                                                     <button className="sdm-btn sdm-btn-outline" onClick={() => {
                                                         setEditingCharges(false);
-                                                        setDistanceDraft(booking.distanceAdjustment || 0);
                                                         setMobilizationDraft(booking.mobilizationFee || 0);
                                                     }}>Cancel</button>
                                                     <button className="sdm-btn sdm-btn-primary" onClick={handleSaveCharges} disabled={saving}>Save</button>
@@ -748,22 +762,28 @@ const [report, setReport] = useState(null);
                                             </div>
                                         </div>
                                     ) : (
-                                        (!isWithinQuezonCity(booking.address) || booking.distanceAdjustment > 0 || booking.mobilizationFee > 0) && (
-                                            <div
-                                                className="sdm-list-row admin-service-details-modal-x19"
-                                            >
-                                                <span className="admin-service-details-modal-x20">
-                                                    {booking.service?.serviceType === SERVICE_TYPE.INSTALLATION ? 'Mobilization Fee' : 'Distance Based Charge'}
-                                                </span>
-                                                <span className="sdm-list-value admin-service-details-modal-x21">
-                                                    ₱{(booking.service?.serviceType === SERVICE_TYPE.INSTALLATION ? (booking.mobilizationFee || 0) : (booking.distanceAdjustment || 0)).toLocaleString()}
-                                                    {booking.service?.serviceType !== SERVICE_TYPE.INSTALLATION && (booking.scopeLines || []).some((l) => l.kind === 'distance') ? (
-                                                        <small className="sdm-muted"> Edit the distance line in Scope of works.</small>
-                                                    ) : (
+                                        booking.service?.serviceType === SERVICE_TYPE.INSTALLATION ? (
+                                            (!isWithinQuezonCity(booking.address) || booking.mobilizationFee > 0) && (
+                                                <div className="sdm-list-row admin-service-details-modal-x19">
+                                                    <span className="admin-service-details-modal-x20">Mobilization Fee</span>
+                                                    <span className="sdm-list-value admin-service-details-modal-x21">
+                                                        ₱{(booking.mobilizationFee || 0).toLocaleString()}
                                                         <button className="sdm-btn sdm-btn-outline admin-service-details-modal-x22" onClick={() => setEditingCharges(true)}>Edit</button>
-                                                    )}
-                                                </span>
-                                            </div>
+                                                    </span>
+                                                </div>
+                                            )
+                                        ) : (
+                                            // An older booking that holds a value in the old distance field shows it read-only. A booking with a distance line in
+                                            // its Scope of works shows the charge there, once. Nothing new is entered here.
+                                            legacyDistanceAmount(booking) !== null && (
+                                                <div className="sdm-list-row admin-service-details-modal-x19">
+                                                    <span className="admin-service-details-modal-x20">Distance Based Charge</span>
+                                                    <span className="sdm-list-value admin-service-details-modal-x21">
+                                                        ₱{legacyDistanceAmount(booking).toLocaleString()}
+                                                        <small className="sdm-muted"> Entered before the Scope of works had a distance line.</small>
+                                                    </span>
+                                                </div>
+                                            )
                                         )
                                     )
                                 )}
@@ -1114,9 +1134,27 @@ const [report, setReport] = useState(null);
 </div>
 
                 <div className="sdm-footer">
-                    {canCancel && (
+                    {canCancel && ownerCancel !== null && (
+                        <div className="owner-cancel-form">
+                            <label className="scope-form-wide">
+                                Why can we not supply or serve this booking? (required, the customer is told)
+                                <input className="ma-input" type="text" maxLength={200} value={ownerCancel} onChange={(e) => setOwnerCancel(e.target.value)} />
+                            </label>
+                            <p className="sdm-muted">The whole verified down payment is refunded with no transportation fee, whatever the booked date.</p>
+                            <div className="scope-actions">
+                                <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setOwnerCancel(null)} disabled={saving}>Back</button>
+                                <button type="button" className="sdm-btn sdm-btn-danger" onClick={handleOwnerCancel} disabled={saving || ownerCancel.trim().length < 3}>Cancel and refund in full</button>
+                            </div>
+                        </div>
+                    )}
+                    {canCancel && ownerCancel === null && (
                         <button className="sdm-btn sdm-btn-danger" onClick={handleCancel} disabled={saving}>
                             Cancel Booking
+                        </button>
+                    )}
+                    {canCancel && ownerCancel === null && (
+                        <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setOwnerCancel('')} disabled={saving}>
+                            Cancel: we cannot supply or serve
                         </button>
                     )}
                     <div className="sdm-footer-actions">

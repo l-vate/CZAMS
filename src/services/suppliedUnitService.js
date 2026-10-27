@@ -35,3 +35,14 @@ export function deleteSuppliedUnit(id) {
 export function resolveUnitRequest(bookingId, index, body) {
   return request(`/api/bookings/${bookingId}/units/${index}/resolve`, { method: 'PATCH', body });
 }
+
+// Admin: tell the customer the owner cannot supply the unit on a Pending booking: { reason, note }. The note is optional (it can say which
+// units the owner does have). Nothing is cancelled.
+export function cannotSupplyUnit(bookingId, { reason, note }) {
+  return request(`/api/bookings/${bookingId}/cannot-supply`, { method: 'PATCH', body: { reason, note } });
+}
+
+// Admin: take that notice back.
+export function withdrawCannotSupply(bookingId) {
+  return request(`/api/bookings/${bookingId}/cannot-supply`, { method: 'DELETE' });
+}

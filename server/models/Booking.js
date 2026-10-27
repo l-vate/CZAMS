@@ -111,6 +111,9 @@ const bookingSchema = new mongoose.Schema({
     units: [{
       type: { type: String, required: true },
       quantity: { type: Number, required: true, min: 1, default: 1 },
+      // The brand chosen for this unit when the booking was made (a list choice, or the text typed after Other). A snapshot: a later
+      // catalog edit never changes it. Bookings made before it existed have none and still show brandModel.
+      brand: String,
       brandModel: String,
       // The unit's horsepower as the customer wrote it, for example "1.5" or "2" (optional, at most 10 characters).
       hp: String,
@@ -267,6 +270,10 @@ const bookingSchema = new mongoose.Schema({
         // Proof the money was actually sent back - required before status can become
         // 'Processed'. Same uploads/proofs storage as customer proof-of-payment.
         proofFile: String,
+        // True when the owner cancelled (cannot supply a unit, cannot serve): the whole verified down payment goes back, with no
+        // transportation fee, whatever the booked date. `reason` is why. Customer cancellations never set either.
+        ownerInitiated: { type: Boolean, default: false },
+        reason: String,
         // A customer can flag a refund that hasn't come through (e.g. marked Processed
         // but never received). Single message + status, not a full ticketing thread.
         customerFlag: {
@@ -285,6 +292,18 @@ const bookingSchema = new mongoose.Schema({
     // cancelled before this existed have neither, and the Cancelled Bookings report says so.
     cancelledAt: Date,
     cancelledBy: { type: String, enum: ['customer', 'admin'] },
+    // True when the owner cancelled because the owner cannot supply the unit or cannot serve (not a customer's choice), with the reason.
+    // Such a cancellation refunds the whole verified down payment with no transportation fee.
+    ownerCancelled: { type: Boolean, default: false },
+    cancelReason: String,
+    // The owner said it cannot supply the unit on this booking (admin action on a Pending booking). The booking is not cancelled: the
+    // customer is told why and can cancel or get in touch. The note may say which units the owner does have.
+    unitDecline: {
+      reason: String,
+      note: String,
+      declinedAt: Date,
+      declinedBy: String,
+    },
 
     // Admin Dashboard + Analytics Module: set once, the first time status
     // transitions to 'Approved' (see admin-update in bookingRoutes.js). Backs the
@@ -339,6 +358,16 @@ const bookingSchema = new mongoose.Schema({
         building: String,
         floorRoom: String,
         attention: String,
+    },
+
+    // What the customer ticked on the optional "I may need these works" checklist (a heads-up for the owner's quotation, never a price).
+    mayNeedWorks: {
+        feederLine: Boolean,
+        carpentry: Boolean,
+        masonry: Boolean,
+        electrical: Boolean,
+        other: Boolean,
+        otherText: String,
     },
 
     scopeLines: [{

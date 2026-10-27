@@ -1867,3 +1867,34 @@
 .quotation-terms { margin: 0 0 18px; padding: 14px 16px; border: 1.5px solid var(--mist); border-radius: 12px; background: var(--frost); display: grid; gap: 8px; }
 .quotation-term { margin: 0; font-size: 0.9rem; line-height: 1.5; }
 .quotation-term ul { margin: 4px 0 0; padding-left: 20px; }
+
+/* E17-5: the Before you pay step: a clear callout and the optional works checklist. */
+.bs-callout { background: #eef5ff; border: 1px solid #b6d0f5; border-left: 4px solid #143a63; border-radius: 10px; padding: 14px 16px; margin: 16px 0; color: #12304f; line-height: 1.5; }
+.bs-works { border: 0; padding: 0; margin: 16px 0 0; display: grid; gap: 6px; }
+.bs-works legend { padding: 0; margin-bottom: 6px; }
+.bs-works-option { display: flex; align-items: center; gap: 10px; min-height: 40px; cursor: pointer; }
+.bs-works-option input { width: 20px; height: 20px; flex: 0 0 auto; }
+.bs-works-note { margin: 4px 0 0; font-size: 0.8125rem; color: #475569; }
+
+/* E17-7: the Email notification card, in the same style as the in-app card. */
+.email-status-card { overflow-wrap: anywhere; }
+.email-status-title { font-size: 14px; font-weight: 600; color: var(--ink, #1e293b); margin: 0 0 2px; line-height: 1.4; }
+.email-status-card[data-state='failed'] { border-color: #f0b252; background: #fff8ec; }
+.confirmation-notif-row { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+
+/* E17-9: the cancellation confirmation buttons (navy and coral, wrapping cleanly on a phone) and the read-only cancelled booking record. */
+.cancelled-actions { flex-wrap: wrap; justify-content: center; }
+.cancelled-actions .bs-back-btn,
+.cancelled-actions .bs-next-btn { min-height: 44px; }
+.cancelled-actions .bs-next-btn { background: #0b2545; color: #ffffff; border-color: #0b2545; }
+.cancelled-actions .bs-back-btn { border: 2px solid #0b2545; color: #0b2545; background: #ffffff; }
+.cancelled-actions .cancelled-view-btn { border-color: #e8553a; color: #a8341c; }
+.cancelled-summary { display: grid; gap: 8px; margin-bottom: 14px; border-left: 4px solid #e8553a; }
+.cancelled-summary-line { margin: 0; line-height: 1.6; color: var(--ink, #1e293b); overflow-wrap: anywhere; }
+.cancelled-summary-figures { margin-top: 6px; }
+.cancelled-refund-card { margin-bottom: 14px; }
+@media (max-width: 480px) {
+  .cancelled-actions { flex-direction: column; align-items: stretch; width: 100%; }
+  .cancelled-actions .bs-back-btn,
+  .cancelled-actions .bs-next-btn { flex: 0 0 auto; width: 100%; justify-content: center; box-sizing: border-box; }
+}

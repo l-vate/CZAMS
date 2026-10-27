@@ -38,3 +38,31 @@
 .assignment-panel-x5 .sdm-tech-select { flex: 1 1 0; min-width: 0; }
 .assignment-panel-x5 .sdm-btn { flex: 0 0 auto; }
 .assignment-panel-x1 .ma-input { width: 100%; box-sizing: border-box; }
+
+/* E17-1: one editable list. Each row: a Primary or Technician badge, the dropdown, then Up, Down and Remove. On a phone the row wraps
+   (badge and dropdown on the first line, buttons on the second) and every button stays at least 40px tall. */
+.assignment-panel-hint { margin: 2px 0 8px; font-size: 0.8125rem; }
+.assignment-rows { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 8px; }
+.assignment-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.assignment-badge { flex: 0 0 auto; min-width: 82px; text-align: center; padding: 4px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; background: #eef2f7; color: #334155; }
+.assignment-badge--primary { background: #143a63; color: #ffffff; }
+.assignment-row-name { font-weight: 600; overflow-wrap: anywhere; }
+.assignment-row .assignment-row-select { flex: 1 1 180px; min-width: 0; min-height: 40px; }
+.assignment-row-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.assignment-row-actions .sdm-btn { min-height: 40px; min-width: 40px; padding-left: 8px; padding-right: 8px; font-size: 0.8125rem; white-space: normal; overflow-wrap: anywhere; box-sizing: border-box; }
+.assignment-panel-x1 .assignment-row .sdm-btn:disabled { opacity: 0.5; }
+@media (max-width: 480px) {
+  .assignment-row-actions { width: 100%; }
+}
+
+/* E17-3: the owner's notice that a unit cannot be supplied (customer booking detail) and the admin's action panels. */
+.unit-decline-notice { background: #fff4e5; border: 1px solid #f0b252; border-left: 4px solid #e8553a; border-radius: 10px; padding: 14px 16px; margin: 0 0 16px; color: #5a3a00; }
+.unit-decline-title { margin: 0 0 6px; font-size: 1.05rem; color: #8a2f12; }
+.unit-decline-line { margin: 4px 0; overflow-wrap: anywhere; }
+.cannot-supply-panel { margin: 10px 0; }
+.cannot-supply-title { font-weight: 700; margin: 0 0 4px; }
+.cannot-supply-form, .owner-cancel-form { display: grid; gap: 8px; width: 100%; }
+.cannot-supply-form .sdm-btn, .owner-cancel-form .sdm-btn, .cannot-supply-sent .sdm-btn { min-height: 40px; }
+.owner-cancel-form { flex: 1 1 100%; }
+
+.sdm-email-card { margin: 8px 0 12px; max-width: 460px; }

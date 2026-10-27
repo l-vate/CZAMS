@@ -6,6 +6,7 @@ export function bookingHeading(status) {
     case 'Approved': return 'Booking Confirmed';
     case 'In Progress': return 'Service In Progress';
     case 'Completed': return 'Service Completed';
+    case 'Cancelled': return 'Booking Cancelled';
     default: return 'Booking Details';
   }
 }

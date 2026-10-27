@@ -39,6 +39,7 @@ test('a Bank Transfer reference keeps the flexible rule and is not held to 13 di
   assert.equal(referenceError('bpi-12ab', 'Bank Transfer'), '');
   assert.equal(normalizeReference('bpi-12ab', 'Bank Transfer'), 'BPI-12AB');
   assert.match(referenceError('12', 'Bank Transfer'), /4 to 30/);
-  assert.match(referenceHint('GCash'), /13 digit/);
+  assert.equal(referenceHint('GCash'), 'The 13 digit reference number on your GCash receipt.', 'the exact helper text, with no sentence about spaces');
+  assert.doesNotMatch(referenceHint('GCash'), /paste|spaces/i);
   assert.match(referenceHint('Bank Transfer'), /4 to 30/);
 });

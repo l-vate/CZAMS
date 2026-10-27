@@ -12,10 +12,22 @@ export const sameHp = (a, b) => Number.isFinite(hpNumber(a)) && hpNumber(a) === 
 // itself when no choice equals it.
 export const hpChoiceFor = (options, hp) => (options || []).find((o) => sameHp(o, hp)) ?? String(hp ?? '');
 
-// The catalog items that fit a unit entry: its type and its horsepower.
+// The brand chosen for a unit entry: the list choice, or the text typed after Other ('' while it is still empty).
+export const chosenBrand = (unit) => String(unit?.brandModel || '').trim();
+
+// The catalog items that fit a unit entry: its type and its horsepower, and its brand once one is chosen.
 export function matchingUnits(items, unit) {
   if (!unit?.type || !unit?.hp) return [];
-  return (items || []).filter((i) => i.type === unit.type && sameHp(i.hp, unit.hp));
+  const brand = chosenBrand(unit).toLowerCase();
+  return (items || []).filter((i) => i.type === unit.type && sameHp(i.hp, unit.hp) && (!brand || String(i.brand).toLowerCase() === brand));
+}
+
+// The brands to offer in the Brand dropdown: the active catalog brands first (for a unit the company supplies), then the common brands
+// not already listed. "Other" is added by the form.
+export function brandChoices(catalogItems, commonBrands) {
+  const fromCatalog = [...new Set((catalogItems || []).map((i) => i.brand))].sort((a, b) => a.localeCompare(b));
+  const seen = new Set(fromCatalog.map((b) => b.toLowerCase()));
+  return [...fromCatalog, ...commonBrands.filter((b) => !seen.has(b.toLowerCase()))];
 }
 
 // The matching items grouped by brand, brands in order: [{ brand, items }].
@@ -46,10 +58,11 @@ export function choiceToSend(supplied) {
 // The units as the server wants them. A customer's own unit carries no choice, whatever the form still holds.
 export function unitsForSubmit(units, clientSuppliedUnit) {
   return (units || []).map((u) => {
-    const { supplied, brandOther, ...rest } = u; // brandOther is only for the brand box
-    void brandOther;
+    const { supplied, brandOther, ...rest } = u; // brandOther says the brand was typed after choosing Other
     const choice = clientSuppliedUnit ? undefined : choiceToSend(supplied);
-    return choice ? { ...rest, supplied: choice } : rest;
+    // the brand as the server reads it: a list choice as it is, or "Other" with the typed text
+    const brand = brandOther ? { brand: 'Other', brandOther: rest.brandModel } : { brand: rest.brandModel };
+    return choice ? { ...rest, ...brand, supplied: choice } : { ...rest, ...brand };
   });
 }
 

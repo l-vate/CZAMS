@@ -21,7 +21,11 @@ const adminUpdate = audited({
     if (b.balancePaymentStatus === 'rejected') lines.push({ action: 'payment.reject', summary: 'Rejected the balance proof', meta: { track: 'balance', reason: b.reason } });
     else if (b.balancePaymentStatus) lines.push({ action: 'payment.verify', summary: 'Verified the balance', meta: { track: 'balance' } });
     if (b.status === 'Approved') lines.push({ action: 'booking.approve', summary: 'Approved the booking' });
-    if (b.status === 'Cancelled') lines.push({ action: 'booking.cancel', summary: `Cancelled the booking (by ${req.userRole})`, meta: { by: req.userRole } });
+    if (b.status === 'Cancelled') {
+      lines.push(b.ownerInitiated === true
+        ? { action: 'booking.cancel', summary: 'Cancelled the booking because we cannot supply or serve it', meta: { by: req.userRole, ownerInitiated: true, reason: b.cancelReason } }
+        : { action: 'booking.cancel', summary: `Cancelled the booking (by ${req.userRole})`, meta: { by: req.userRole } });
+    }
     if (b.distanceAdjustment !== undefined || b.mobilizationFee !== undefined) {
       lines.push({ action: 'booking.charges', summary: 'Changed the distance or mobilization charge', meta: { distanceAdjustment: num(b.distanceAdjustment), mobilizationFee: num(b.mobilizationFee) } });
     }

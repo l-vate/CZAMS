@@ -44,7 +44,7 @@ export function referenceError(raw, mode) {
 // The short hint under the reference box, by payment method.
 export function referenceHint(mode) {
   return isGcashMode(mode)
-    ? `The ${GCASH_REFERENCE_DIGITS} digit reference number on your GCash receipt. You can paste it with spaces.`
+    ? `The ${GCASH_REFERENCE_DIGITS} digit reference number on your GCash receipt.`
     : `${REFERENCE_MIN} to ${REFERENCE_MAX} letters, digits or dashes, as shown on your transfer receipt.`;
 }
 

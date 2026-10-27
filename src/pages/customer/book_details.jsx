@@ -11,7 +11,7 @@ import { vatInside } from '../../utils/quotationTerms';
 import { getMemberNames } from '../../utils/assignments';
 import { earliestBookingKey, manilaTodayKey } from '../../utils/manilaTime';
 import { bookingHeading } from '../../utils/bookingHeading';
-import { SAME_DAY_CANCEL_WARNING, CANCEL_POLICY_NOTE, sameDayCancelledMessage, showsSameDayWarning } from '../../config/cancellation';
+import { SAME_DAY_CANCEL_WARNING, CANCEL_POLICY_NOTE, showsSameDayWarning } from '../../config/cancellation';
 import { usePaymentSettings, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
 import {
   FiCheck, FiBell, FiPrinter,
@@ -34,6 +34,8 @@ import { ProofLink } from '../../components/proof_file';
 import { warrantyStatusText } from '../../utils/warrantyText';
 
 import Notice from '../../components/notice';
+import EmailStatusCard from '../../components/email_status_card';
+import { refundText, refundFigures, cancelledByText } from '../../utils/cancelledSummary';
 import { useNotice } from '../../hooks/useNotice';
 const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -189,46 +191,11 @@ function CancelConfirmDialog({ onKeep, onConfirmCancel, sameDayWarning = false }
   );
 }
 
-function RefundStatusMessage({ refund }) {
-  if (!refund || refund.status === REFUND_STATUS.NONE) {
-    return (
-      <p className="cancelled-message">
-        Your booking has been successfully cancelled. No down payment was on file for
-        this booking, so there's nothing to refund.
-      </p>
-    );
-  }
-
-  if (refund.status === REFUND_STATUS.PROCESSED) {
-    return (
-      <p className="cancelled-message">
-        Your booking has been successfully cancelled. Your refund of{' '}
-        <strong>₱{refund.refundableAmount?.toLocaleString()}</strong> has been processed.
-        {refund.adjustmentReason && (
-          <>
-            {' '}It was adjusted from ₱{refund.computedAmount?.toLocaleString()}. Reason: {refund.adjustmentReason}
-            {refund.dispatchReason ? `. Note on the transportation fee: ${refund.dispatchReason}` : ''}
-          </>
-        )}
-      </p>
-    );
-  }
-
-  // Pending
-  if (refund.isSameDay) {
-    return (
-      <p className="cancelled-message">
-        Your booking has been successfully cancelled. {sameDayCancelledMessage(`₱${refund.downPaymentAmount?.toLocaleString()}`)}{' '}
-        Our admin team will review this and process your refund shortly.
-      </p>
-    );
-  }
-
+// The confirmation screen's message right after cancelling: it states what happens to the down payment and the next step.
+function RefundStatusMessage({ booking }) {
   return (
     <p className="cancelled-message">
-      Your booking has been successfully cancelled. Your down payment of{' '}
-      <strong>₱{refund.downPaymentAmount?.toLocaleString()}</strong> is being reviewed
-      for a refund by our admin team.
+      Your booking has been successfully cancelled. {refundText(booking)}
     </p>
   );
 }
@@ -344,7 +311,7 @@ function RefundFlagForm({ bookingId, refund, onFlagged }) {
   );
 }
 
-function BookingCancelled({ bookingId, refund, onBookAgain, onBackToDashboard, onRefundFlagged }) {
+export function BookingCancelled({ booking, bookingId, refund, onBookAgain, onBackToDashboard, onViewDetails, onRefundFlagged }) {
   return (
     <div className="confirmation-wrap">
       <div className="confirmation-heading">
@@ -353,7 +320,7 @@ function BookingCancelled({ bookingId, refund, onBookAgain, onBackToDashboard, o
         <p className="confirmation-id">Booking ID: {bookingId}</p>
       </div>
       <div className="bs-card cancelled-card">
-        <RefundStatusMessage refund={refund} />
+        <RefundStatusMessage booking={booking} />
         {refund && refund.status !== REFUND_STATUS.NONE && (
           <RefundReceivedConfirm bookingId={bookingId} refund={refund} onConfirmed={onRefundFlagged} />
         )}
@@ -362,10 +329,33 @@ function BookingCancelled({ bookingId, refund, onBookAgain, onBackToDashboard, o
         )}
         <div className="cancelled-actions">
           <button className="bs-back-btn" onClick={onBackToDashboard}>Back to Dashboard</button>
+          <button className="bs-back-btn cancelled-view-btn" onClick={onViewDetails}>View booking details</button>
           <button className="bs-next-btn" onClick={onBookAgain}>Book Another Service <FiArrowRight /></button>
         </div>
       </div>
     </div>
+  );
+}
+
+// The read-only record of a cancelled booking: who cancelled it, when, why (when the owner did) and what happens to the down payment.
+export function CancelledSummary({ booking, formatWhen }) {
+  const figures = refundFigures(booking);
+  return (
+    <section className="bs-card cancelled-summary" aria-label="Cancellation">
+      <h3 className="bs-card-title">Cancellation</h3>
+      <p className="cancelled-summary-line"><strong>{cancelledByText(booking)}</strong></p>
+      {booking.cancelledAt && <p className="cancelled-summary-line">Cancelled on {formatWhen(booking.cancelledAt)}.</p>}
+      {booking.ownerCancelled && booking.cancelReason && <p className="cancelled-summary-line"><strong>Reason:</strong> {booking.cancelReason}</p>}
+      <p className="cancelled-summary-line">{refundText(booking)}</p>
+      {figures.length > 0 && (
+        <div className="cancelled-summary-figures">
+          {figures.map(([label, value]) => <div className="summary-row" key={label}><span>{label}</span><span>{value}</span></div>)}
+        </div>
+      )}
+      {booking.refund && booking.refund.status !== REFUND_STATUS.NONE && booking.refund.status === REFUND_STATUS.PROCESSED && (
+        <p className="cancelled-summary-line">This booking is closed. Nothing more can be changed on it.</p>
+      )}
+    </section>
   );
 }
 
@@ -379,6 +369,8 @@ function BookDetails() {
   const [booking, setBooking] = useState(location.state?.booking || null);
   const [loading, setLoading] = useState(!location.state?.booking);
   const [showCancelConfirm, setShowCancel] = useState(false);
+  // true right after this customer cancelled in this visit (the confirmation screen), until they choose to see the booking details
+  const [justCancelled, setJustCancelled] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [showReschedule, setShowReschedule] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -489,6 +481,7 @@ function BookDetails() {
       const data = await cancelBooking(booking.bookingId);
       setBooking(data);
       setShowCancel(false);
+      setJustCancelled(true);
     } catch (err) {
       showNotice(err instanceof ApiError ? err.message || 'Failed to cancel booking' : 'Could not connect to server.');
     } finally {
@@ -534,14 +527,18 @@ function BookDetails() {
     }
   };
 
-  if (cancelled) {
+  // Right after cancelling: the confirmation, with a way to keep looking at the booking. Opened any other way (My Bookings, an email), a cancelled
+  // booking shows its details, read-only.
+  if (cancelled && justCancelled) {
     return (
       <CustomerLayout title="Book Service">
         <BookingCancelled
+          booking={booking}
           bookingId={booking.bookingId}
           refund={booking.refund}
           onBookAgain={() => navigate('/customer/book_service')}
           onBackToDashboard={() => navigate('/customer/dashboard')}
+          onViewDetails={() => setJustCancelled(false)}
           onRefundFlagged={(data) => setBooking(data)}
         />
       </CustomerLayout>
@@ -551,6 +548,14 @@ function BookDetails() {
   return (
     <CustomerLayout title="Booking Details">
       <Notice message={notice} onClose={clearNotice} />
+      {booking.unitDecline?.reason && !cancelled && (
+        <section className="unit-decline-notice" role="alert" aria-label="The owner cannot supply this unit">
+          <h3 className="unit-decline-title">The owner cannot supply this unit</h3>
+          <p className="unit-decline-line"><strong>Reason:</strong> {booking.unitDecline.reason}</p>
+          {booking.unitDecline.note && <p className="unit-decline-line"><strong>Note from the owner:</strong> {booking.unitDecline.note}</p>}
+          <p className="unit-decline-line">Your booking has not been cancelled. You can cancel it below, or contact the owner to choose another unit.</p>
+        </section>
+      )}
       {showCancelConfirm && (
         <CancelConfirmDialog
           onKeep={() => setShowCancel(false)}
@@ -606,7 +611,9 @@ function BookDetails() {
 
       <div className="confirmation-wrap">
         <div className="confirmation-heading">
-          <span className="confirmation-check-icon"><FiCheck /></span>
+          {cancelled
+            ? <span className="confirmation-cancel-icon"><FiX /></span>
+            : <span className="confirmation-check-icon"><FiCheck /></span>}
           <h2>{bookingHeading(booking.status)}</h2>
           <p className="confirmation-id">Booking ID: {booking.bookingId}</p>
         </div>
@@ -618,7 +625,22 @@ function BookDetails() {
               {bookingNotification ? formatDate(bookingNotification.createdAt) : 'Sent'}
             </p>
           </div>
+          <EmailStatusCard bookingId={booking.bookingId} />
         </div>
+
+        {cancelled && (
+          <>
+            <CancelledSummary booking={booking} formatWhen={formatDate} />
+            {booking.refund && booking.refund.status !== REFUND_STATUS.NONE && (
+              <div className="bs-card cancelled-refund-card">
+                <RefundReceivedConfirm bookingId={booking.bookingId} refund={booking.refund} onConfirmed={(data) => setBooking(data)} />
+                {booking.refund.status === REFUND_STATUS.PROCESSED && (
+                  <RefundFlagForm bookingId={booking.bookingId} refund={booking.refund} onFlagged={(data) => setBooking(data)} />
+                )}
+              </div>
+            )}
+          </>
+        )}
 
         <div className="bs-card confirmation-details-card">
           <div className="confirmation-details-header">
@@ -627,7 +649,7 @@ function BookDetails() {
               <button className="receipt-icon-btn" title="Print Receipt" onClick={() => setShowReceipt(true)}>
                 <FiPrinter />
               </button>
-              <span className="status-badge pending">{booking.status || 'Pending'}</span>
+              <span className={`status-badge ${cancelled ? 'cancelled' : 'pending'}`}>{booking.status || 'Pending'}</span>
             </div>
           </div>
 
@@ -646,7 +668,7 @@ function BookDetails() {
                       <span className="customer-unit-note"> Waiting for the owner to confirm the unit you asked for. The price is added once it is confirmed.</span>
                     )}
                     {li.supplied?.source === 'requested' && li.supplied.status === 'Declined' && (
-                      <span className="customer-unit-note"> The owner could not supply this unit: {li.supplied.declineReason}. You can cancel this booking and book again with a unit from the list.</span>
+                      <span className="customer-unit-note"> The owner cannot supply this unit: {li.supplied.declineReason}. You can cancel this booking, or contact the owner.</span>
                     )}
                   </p>
                 ))
@@ -809,7 +831,7 @@ function BookDetails() {
             </>
           )}
 
-          {rescheduleStatus === 'Denied' && (
+          {rescheduleStatus === 'Denied' && !cancelled && (
             <div className="cancel-confirm-text customer-book-details-x10">
               Your reschedule request was denied by the admin. Please pick a new date/time,
               or cancel this booking instead.

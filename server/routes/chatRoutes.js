@@ -7,8 +7,28 @@ requireObjectId(router, 'id');
 const auth = require('../middleware/auth');
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
+const Booking = require('../models/Booking');
 const User = require('../models/User');
 const { sendNotification, notifyAdmins } = require('../utils/notifications');
+
+// The booking a customer attached to a message: only a booking of their own, and only short plain values are kept (it is shown as a card).
+const BOOKING_NUMBER = /^CZ-\d{4}-\d+$/;
+const short = (value, max) => (typeof value === 'string' ? value.trim().slice(0, max) : undefined);
+async function readBookingRef(raw, userId) {
+  if (!raw || typeof raw !== 'object' || !BOOKING_NUMBER.test(String(raw.bookingId || ''))) return undefined;
+  const owns = await Booking.exists({ bookingId: raw.bookingId, customer: userId });
+  if (!owns) return undefined;
+  const total = Number(raw.total);
+  return {
+    bookingId: raw.bookingId,
+    service: short(raw.service, 80),
+    items: short(raw.items, 160),
+    total: Number.isFinite(total) ? total : undefined,
+    status: short(raw.status, 30),
+    when: short(raw.when, 40),
+    placed: short(raw.placed, 40),
+  };
+}
 
 // ============================================
 // PARTICIPANT SIDE (customer / staff) - always operates on "their" conversation,
@@ -66,6 +86,7 @@ router.post('/conversations/mine/messages', auth, async (req, res) => {
       senderId: req.userId,
       senderRole: req.userRole,
       text: text.trim(),
+      bookingRef: await readBookingRef(req.body.bookingRef, req.userId),
     });
 
     conversation.lastMessageAt = message.createdAt;

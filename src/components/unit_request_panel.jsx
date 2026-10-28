@@ -6,7 +6,7 @@ import { matchingUnits, unitLabel } from '../utils/suppliedUnitChoice';
 import { BOOKING_STATUS } from '../constants/bookingStatus';
 
 // "Unit needs owner confirmation": the unit entries of a booking where the customer asked for a unit that is not in the catalog. The owner
-// settles each one here: pick a catalog unit that fits, enter a unit price with a short note, or decline with a reason. Until every request
+// settles each one here: pick a catalog unit that fits, enter the unit and its price (a short note is optional), or decline with a reason. Until every request
 // is settled the booking cannot be approved. The customer is told in the app. The server enforces all of it.
 function UnitRequestPanel({ booking, onUpdated }) {
   const entries = (booking.units || []).map((unit, index) => ({ unit, index })).filter(({ unit }) => unit.supplied?.source === 'requested');
@@ -61,20 +61,20 @@ function UnitRequestPanel({ booking, onUpdated }) {
 
             {canSettle && open?.index !== index && (
               <div className="scope-actions">
-                <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setOpen({ index, mode: 'catalog', catalogId: '', price: '', note: '', reason: '' })}>Settle this request</button>
+                <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setOpen({ index, mode: 'catalog', catalogId: '', brand: request.brand || '', model: '', hp: String(unit.hp || ''), price: '', note: '', reason: '' })}>Settle this request</button>
               </div>
             )}
 
             {open?.index === index && (
               <div className="unit-request-form">
                 <div className="time-toggle" role="group" aria-label="How to settle it">
-                  {[['catalog', 'Pick a catalog unit'], ['price', 'Enter a unit price'], ['decline', 'Decline']].map(([mode, label]) => (
+                  {[['catalog', 'Pick a catalog unit'], ['price', 'Enter a unit here'], ['decline', 'Decline']].map(([mode, label]) => (
                     <button key={mode} type="button" className={`time-btn ${open.mode === mode ? 'selected' : ''}`} onClick={() => setOpen({ ...open, mode })}>{label}</button>
                   ))}
                 </div>
                 {open.mode === 'catalog' && (
                   fits.length === 0 ? (
-                    <p className="sdm-muted">No active catalog unit matches {unit.type} at {unit.hp || '?'} HP. Enter a unit price instead, or decline.</p>
+                    <p className="sdm-muted">No active catalog unit matches {unit.type} at {unit.hp || '?'} HP. Enter the unit here instead (the list may be out of date), or decline.</p>
                   ) : (
                     <label className="scope-form-wide">
                       Catalog unit
@@ -88,11 +88,23 @@ function UnitRequestPanel({ booking, onUpdated }) {
                 {open.mode === 'price' && (
                   <div className="scope-form">
                     <label>
+                      Brand
+                      <input className="ma-input" type="text" maxLength={40} value={open.brand || ''} onChange={(e) => setOpen({ ...open, brand: e.target.value })} />
+                    </label>
+                    <label>
+                      Model (optional)
+                      <input className="ma-input" type="text" maxLength={40} value={open.model || ''} onChange={(e) => setOpen({ ...open, model: e.target.value })} />
+                    </label>
+                    <label>
+                      Horsepower (HP)
+                      <input className="ma-input" type="text" inputMode="decimal" maxLength={10} placeholder="For example 1 or 1.5" value={open.hp || ''} onChange={(e) => setOpen({ ...open, hp: e.target.value })} />
+                    </label>
+                    <label>
                       Price of one unit (₱)
                       <input className="ma-input" type="number" min="0" step="any" value={open.price} onChange={(e) => setOpen({ ...open, price: e.target.value })} />
                     </label>
                     <label className="scope-form-wide">
-                      Short note about this price (required)
+                      Short note about this price (optional)
                       <input className="ma-input" type="text" maxLength={200} value={open.note} onChange={(e) => setOpen({ ...open, note: e.target.value })} />
                     </label>
                   </div>
@@ -108,7 +120,7 @@ function UnitRequestPanel({ booking, onUpdated }) {
                   <button
                     type="button" className={`sdm-btn ${open.mode === 'decline' ? 'sdm-btn-danger' : 'sdm-btn-primary'}`} disabled={saving}
                     onClick={() => settle(index, open.mode === 'catalog' ? { catalogId: open.catalogId }
-                      : open.mode === 'price' ? { price: open.price, note: open.note } : { decline: true, reason: open.reason })}
+                      : open.mode === 'price' ? { brand: open.brand, model: open.model, hp: open.hp, price: open.price, note: open.note } : { decline: true, reason: open.reason })}
                   >{open.mode === 'decline' ? 'Decline request' : 'Confirm'}</button>
                 </div>
               </div>

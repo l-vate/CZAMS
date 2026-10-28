@@ -13,6 +13,7 @@ function AdminSidebar({ onNavigate }) {
     location.pathname.startsWith("/admin/services/manage") ||
     location.pathname.startsWith("/admin/services/units") ||
     location.pathname.startsWith("/admin/services/reports") ||
+    location.pathname.startsWith("/admin/promotions") ||
     location.pathname.startsWith("/admin/payment-settings");
 
   // Keep the dropdown open automatically if we're already on a services sub-route
@@ -115,12 +116,16 @@ function AdminSidebar({ onNavigate }) {
               >
                 Service Reports
               </NavLink>
+              <NavLink
+                to="/admin/promotions"
+                className={subLinkClass}
+                onClick={onNavigate}
+              >
+                Promotions
+              </NavLink>
             </div>
           </div>
 
-          <NavLink to="/admin/promotions" className={linkClass} onClick={onNavigate}>
-            Promotions
-          </NavLink>
           <NavLink to="/admin/payments" className={linkClass} onClick={onNavigate}>
             Payments
           </NavLink>

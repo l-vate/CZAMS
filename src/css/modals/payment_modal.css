@@ -230,3 +230,14 @@
   color: #e05a5a;
   margin-top: 2px;
 }
+
+/* the hint under the reference number field */
+#payment-reference-hint {
+  font-size: 12px;
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
+/* the amount the customer has to send now stands out from the other lines of the cost breakdown */
+.modal-cost-row--highlight { margin: 6px 0; padding: 10px 12px; border: 1px solid #bcd3ea; border-left: 4px solid var(--navy-soft); border-radius: 10px; background: #eef5ff; color: var(--navy); font-weight: 700; }
+.modal-cost-row--highlight span:last-child { font-size: 1.0625rem; }

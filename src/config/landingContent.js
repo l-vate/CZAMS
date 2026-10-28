@@ -57,9 +57,8 @@ export const HERO = {
   secondaryCta: 'Check Available Dates',
 };
 
-// ---- trust strip: four facts, nothing else -----------------------------------------------------------------------------------------
+// ---- quick facts shown under the About Us text (the year is already in the text above) ---------------------------------------------
 export const TRUST_ITEMS = [
-  { icon: 'calendar', title: `Since ${SINCE_YEAR}`, text: `Serving ${AREA_SERVED}` },
   { icon: 'home', title: 'Homes and businesses', text: 'Residential and commercial clients' },
   { icon: 'shield', title: 'Workmanship warranty', text: 'Shown on your booking after the job' },
   { icon: 'clock', title: HOURS_TEXT, text: 'Closed on Sundays' },
@@ -67,7 +66,6 @@ export const TRUST_ITEMS = [
 
 // ---- about -----------------------------------------------------------------------------------------------------------------------------
 export const ABOUT = {
-  eyebrow: 'Who We Are',
   title: 'About Us',
   paragraphs: [
     `${BRAND_NAME} has been serving ${AREA_SERVED} since ${SINCE_YEAR}.`,
@@ -79,16 +77,15 @@ export const ABOUT = {
 
 // ---- services (four cards). `serviceType` is how the optional price is looked up in the public services list. ---------------------
 export const SERVICES = {
-  eyebrow: 'What We Offer',
   title: 'Our Services',
   note: 'Base price only. The final cost may vary depending on scope and materials.',
   items: [
-    { key: 'cleaning', icon: 'sparkle', serviceType: 'Cleaning', title: 'Aircon Cleaning', text: 'Cleaning for healthier, more efficient air circulation.' },
-    { key: 'repair', icon: 'wrench', serviceType: 'Repair', title: 'Repair & Diagnostics', text: 'Diagnosis and repair for aircon units.' },
-    { key: 'installation', icon: 'install', serviceType: 'Installation', title: 'New Installation', text: 'Installation of a new unit, set up for your home or business.' },
-    { key: 'checkup', icon: 'check', serviceType: 'Check-up', title: 'Preventive Check-Up', text: 'A scheduled check-up to catch problems early.' },
+    { key: 'cleaning', serviceType: 'Cleaning', title: 'Aircon Cleaning', text: 'Cleaning for healthier, more efficient air circulation.', photo: '/images/units/split.webp' },
+    { key: 'repair', serviceType: 'Repair', title: 'Repair & Diagnostics', text: 'Diagnosis and repair for aircon units.', photo: '/images/units/window.webp' },
+    { key: 'installation', serviceType: 'Installation', title: 'New Installation', text: 'Installation of a new unit, set up for your home or business.', photo: '/images/units/cassette.webp' },
+    { key: 'checkup', serviceType: 'Check-up', title: 'Preventive Check-Up', text: 'A scheduled check-up to catch problems early.', photo: '/images/units/floor-mounted.webp' },
   ],
-  linkLabel: 'Book this service',
+  linkLabel: 'Book now',
 };
 
 // Optional photo slots under the services. A slot with no `src` is not shown at all. Suggested files: see the report of the E12 batch.
@@ -111,12 +108,11 @@ const LANDING_UNIT_PHOTOS = {
 
 // ---- unit types -------------------------------------------------------------------------------------------------------------------------
 export const UNITS = {
-  eyebrow: 'Coverage',
   title: 'Unit Types We Service',
   items: [
-    { type: UNIT_TYPE.WINDOW, alt: 'A window-type aircon unit' },
-    { type: UNIT_TYPE.SPLIT, alt: 'A split-type aircon indoor unit mounted on a wall' },
     { type: UNIT_TYPE.FLOOR_MOUNTED, alt: 'A floor-mounted aircon unit' },
+    { type: UNIT_TYPE.SPLIT, alt: 'A split-type aircon indoor unit mounted on a wall' },
+    { type: UNIT_TYPE.WINDOW, alt: 'A window-type aircon unit' },
     { type: UNIT_TYPE.CASSETTE, alt: 'A ceiling cassette-type aircon unit' },
     { type: UNIT_TYPE.PORTABLE, alt: 'A portable aircon unit' },
   ].map((item) => ({ ...item, src: LANDING_UNIT_PHOTOS[item.type] })),
@@ -124,7 +120,6 @@ export const UNITS = {
 
 // ---- why choose us: four cards, each backed by something the system really does ----------------------------------------------------
 export const WHY = {
-  eyebrow: 'Why Choose Us',
   title: 'What you can count on',
   items: [
     { icon: 'shield', title: 'A workmanship warranty', text: `Cleaning is covered ${WARRANTY.cleaning}. Installation is covered for ${months(warranty.installationCompanyUnit.months)} (${months(warranty.installationCustomerUnit.months)} if you supply the unit).` },
@@ -135,7 +130,6 @@ export const WHY = {
 
 // ---- availability section --------------------------------------------------------------------------------------------------------------
 export const AVAILABILITY = {
-  eyebrow: 'Plan Ahead',
   title: 'Available Dates',
   subtitle: `Bookings need at least ${BOOKING_LEAD_DAYS} days notice. Morning and Afternoon are booked separately.`,
   errorTitle: 'We could not load the dates right now.',
@@ -155,7 +149,6 @@ export const AVAILABILITY = {
 
 // ---- how it works: every step checked against the booking flow ---------------------------------------------------------------------
 export const HOW = {
-  eyebrow: 'The Process',
   title: 'How It Works',
   subtitle: 'From booking to after-service support, in four steps.',
   steps: [
@@ -168,7 +161,6 @@ export const HOW = {
 
 // ---- FAQ -------------------------------------------------------------------------------------------------------------------------------
 export const FAQ = {
-  eyebrow: 'Questions',
   title: 'Frequently Asked Questions',
   items: [
     {

@@ -4,7 +4,8 @@ import { formatPeso } from '../utils/bookingPricing';
 import { needsReference, normalizeReference, referenceError, referenceHint, referencePlaceholder, isGcashMode, REFERENCE_MAX } from '../utils/paymentReference';
 import { shrinkPhoto } from '../utils/photoShrink';
 
-function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], onClose, onSubmit }) {
+// `initialProof` and `initialReference` are what the customer entered the last time this window was open, so opening it again keeps them.
+function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], onClose, onSubmit, initialProof = null, initialReference = '' }) {
   const basePrice = form.basePrice || 0;
   // The booking's stored down payment percent. No invented default: when it is missing the
   // percent shows as "Not set" and the amount comes from the stored figures only.
@@ -22,10 +23,10 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
   const selectedModeName = isBalance ? form.paymentMode2 : form.paymentMode;
   const accountDetails = paymentMethods.find((m) => m.name === selectedModeName)?.accountDetails || [];
 
-  const [proof, setProof] = useState(null);
+  const [proof, setProof] = useState(initialProof);
   const [preparing, setPreparing] = useState(false);
   const [fileError, setFileError] = useState('');
-  const [referenceNumber, setReferenceNumber] = useState('');
+  const [referenceNumber, setReferenceNumber] = useState(initialReference || '');
 
   // GCash and Bank Transfer need the proof file and the reference number together. Cash needs
   // neither. A booking with no mode on record keeps the old rule (proof required, no reference).
@@ -35,7 +36,7 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
   const canSubmit = (!proofRequired || !!proof) && !referenceProblem && !preparing;
 
   const MAX_SIZE = 5 * 1024 * 1024; // 5MB
-  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+  const ALLOWED_TYPES = ['image/jpeg', 'image/png'];
 
   const handleProofChange = async (e) => {
     const picked = e.target.files[0];
@@ -45,7 +46,7 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
       return;
     }
     if (!ALLOWED_TYPES.includes(picked.type)) {
-      setFileError('Only images (JPG, PNG) or PDF files are allowed.');
+      setFileError('Only JPG or PNG files are allowed.');
       setProof(null);
       return;
     }
@@ -84,10 +85,10 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
           <div className="modal-cost-row"><span>Down Payment</span><span>{dpPercent === null ? 'Not set' : `${dpPercent}%`}</span></div>
 
           {isBalance ? (
-            <div className="modal-cost-row"><span>Remaining Balance Due</span><span>₱{amountDue.toLocaleString()}.00</span></div>
+            <div className="modal-cost-row modal-cost-row--highlight"><span>Remaining Balance Due</span><span>₱{amountDue.toLocaleString()}.00</span></div>
           ) : (
             <>
-              <div className="modal-cost-row"><span>Amount to Pay Now</span><span>₱{toPayNow.toLocaleString()}.00</span></div>
+              <div className="modal-cost-row modal-cost-row--highlight"><span>Amount to Pay Now</span><span>₱{toPayNow.toLocaleString()}.00</span></div>
               <div className="modal-cost-row"><span>Balance</span><span>₱{remaining.toLocaleString()}.00</span></div>
             </>
           )}
@@ -116,7 +117,7 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
             {proof ? proof.name : '[Choose a file]'}
             <input
               type="file"
-              accept="image/jpeg,image/png,image/webp,.pdf"
+              accept="image/jpeg,image/png"
               className="payment-modal-x1"
               onChange={handleProofChange}
             />

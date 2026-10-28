@@ -596,6 +596,8 @@ function Step4({ form, setForm, services, isReturnCustomer, isCommercial = false
   const [showModal, setShowModal] = useState(false);
   const { lineItems, equipment, basePrice, discountAmount, discountLabel, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages), 0, promos);
   const isNoDownPayment = dpPercent === 0;
+  // An installation is confirmed by the owner first (the unit and the price), so its down payment is sent later from Payment & Billing.
+  const isInstallationBooking = services.find((x) => x.id === form.service)?.serviceType === SERVICE_TYPE.INSTALLATION;
   // A customer pays online by GCash or Bank Transfer only, for both payments. Cash and cheque are recorded by our team on site.
   const onlineMethods = paymentMethods.filter((m) => ONLINE_PAYMENT_MODES.includes(m.name));
 
@@ -619,6 +621,8 @@ const handleSubmitPayment = ({ proof, referenceNumber }) => {
             discountLabel,
           }}
           paymentMethods={paymentMethods}
+          initialProof={form.proofFileObj || null}
+          initialReference={form.referenceNumber || ''}
           onClose={() => setShowModal(false)}
           onSubmit={handleSubmitPayment}
         />
@@ -731,7 +735,12 @@ const handleSubmitPayment = ({ proof, referenceNumber }) => {
 
           <div className="cost-divider" />
 
-          {isNoDownPayment ? (
+          {isInstallationBooking && !isNoDownPayment ? (
+            <div className="bs-callout" role="note">
+              <strong>Wait for our confirmation before paying.</strong> We first confirm your installation (the unit, the price and the date). Once it is
+              confirmed, send your down payment of ₱{toPayNow.toLocaleString()}.00 from Payment &amp; Billing.
+            </div>
+          ) : isNoDownPayment ? (
             <p className="customer-book-service-x4">
               As a return customer, no down payment is required. The full amount will be due upon completion of service.
             </p>
@@ -918,6 +927,7 @@ const canNext = () => {
       const { dpPercent } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages));
       if (form.discountType && (!form.discountIdFileObj || !form.discountConsent)) return false; // a customer always attaches the ID photo and agrees to its use
       if (dpPercent === 0) return true;
+      if (services.find((x) => x.id === form.service)?.serviceType === SERVICE_TYPE.INSTALLATION) return true; // paid after the owner confirms it
       return form.paymentStatus === PAYMENT_STATUS.TO_VERIFY || form.paymentStatus === PAYMENT_STATUS.FULLY_PAID;
     }
     return true;

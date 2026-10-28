@@ -23,6 +23,7 @@ const NOTIFICATION_TYPE = Object.freeze({
   DISCOUNT_REJECTED: 'discount_rejected',
   REFUND_REQUESTED: 'refund_requested',
   REFUND_PROCESSED: 'refund_processed',
+  REFUND_REJECTED: 'refund_rejected',
   REFUND_CONFIRMED: 'refund_confirmed',
   RESCHEDULE_REQUESTED: 'reschedule_requested',
   RESCHEDULE_RECEIVED: 'reschedule_received',

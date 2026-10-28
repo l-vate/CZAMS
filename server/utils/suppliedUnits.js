@@ -144,8 +144,16 @@ async function readResolution(body = {}, unit, findItem, now = new Date()) {
   const price = body.price === undefined || body.price === null || body.price === '' ? NaN : Number(body.price);
   const note = clean(body.note);
   if (!Number.isFinite(price) || price < 0 || price > LIMITS.maxPrice) return { problem: invalid('Pick a catalog unit, enter the price of one unit, or decline the request.') };
-  if (note.length < REASON_MIN || note.length > LIMITS.note) return { problem: invalid(`Add a short note of ${REASON_MIN} to ${LIMITS.note} characters about this price.`) };
-  return { problem: null, kind: 'manual', price: Math.round(price * 100) / 100, note };
+  // the note about the price is optional (for the owner and admins only); when given it is kept short
+  if (note.length > LIMITS.note) return { problem: invalid(`Keep the note about this price to ${LIMITS.note} characters or fewer.`) };
+  // The unit the owner will really supply, typed here when the catalog is out of date. Both are optional: with no brand the customer's own is kept.
+  const brand = clean(body.brand);
+  const model = clean(body.model);
+  if (brand.length > LIMITS.brand) return { problem: invalid(`Keep the brand to ${LIMITS.brand} characters or fewer.`) };
+  if (model.length > LIMITS.model) return { problem: invalid(`Keep the model to ${LIMITS.model} characters or fewer.`) };
+  const hp = clean(String(body.hp ?? ''));
+  if (hp !== '' && (!HP_PATTERN.test(hp) || hp.length > LIMITS.hpText || !(Number(hp) > 0))) return { problem: invalid('Enter the horsepower as a number such as 1 or 1.5.') };
+  return { problem: null, kind: 'manual', price: Math.round(price * 100) / 100, note, brand, model, hp };
 }
 
 module.exports = {

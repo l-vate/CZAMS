@@ -23,12 +23,12 @@ const STATUS_LABEL = {
   closed: 'Closed on Sundays',
   'shop-closed': 'Closed by the shop',
   'too-soon': 'Not available (under the notice period)',
-  past: 'Not available (past)',
+  past: 'Not available',
 };
 
 // What a day says to a visitor: on hover, on keyboard focus, in its accessible label, and in the detail under the calendar.
 function messageOf(day) {
-  if (!day || day.status === 'past') return 'Not available (past)';
+  if (!day || day.status === 'past') return STATUS_LABEL.past;
   if (day.status === 'closed' || day.status === 'shop-closed') return closedDayText(day);
   if (day.status === 'too-soon') return `${STATUS_LABEL['too-soon']}. Bookings need at least ${BOOKING_LEAD_DAYS} days notice`;
   return day.morning !== undefined ? blocksText(day) : STATUS_LABEL[day.status];
@@ -113,6 +113,7 @@ function AvailabilityCalendar() {
             const message = status === 'ready' ? messageOf(day) : '';
             const column = (leadingBlanks + i) % 7;
             const edge = column <= 1 ? ' avail-cell--left' : column >= 5 ? ' avail-cell--right' : '';
+            // a day that is already gone is greyed out and cannot be picked (look is 'past' for it)
             const showTip = status === 'ready' && day && day.status !== 'open' && day.status !== 'past';
             return (
               <span className={`avail-cell${edge}`} key={key}>
@@ -120,7 +121,7 @@ function AvailabilityCalendar() {
                   type="button"
                   className={`avail-day avail-day--${look}${selected === key ? ' avail-day--selected' : ''}`}
                   onClick={() => setSelected(key)}
-                  disabled={status !== 'ready'}
+                  disabled={status !== 'ready' || look === 'past'}
                   aria-label={`${Number(key.slice(8))} ${monthLabel}: ${status === 'ready' ? message : 'loading'}`}
                 >
                   {Number(key.slice(8))}

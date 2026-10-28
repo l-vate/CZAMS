@@ -249,6 +249,12 @@ const bookingSchema = new mongoose.Schema({
         status: { type: String, enum: REFUND_STATUS_VALUES, default: REFUND_STATUS.NONE },
         // true when the cancellation was on or after the booked date (a transportation fee applies); the name is from when only the booked day counted
         isSameDay: { type: Boolean, default: false },
+        // true while the customer's down payment proof has not been verified: the refund can be asked for, but is not paid out until the proof is
+        // verified, and the owner can reject it when the payment never came through
+        paymentUnverified: { type: Boolean, default: false },
+        rejectedAt: Date,
+        rejectedBy: String,
+        rejectionReason: String,
         downPaymentAmount: Number,
         // The transportation fee the owner deducted for a cancellation on or after the booked date (0 up to the down payment), and why.
         dispatchDeduction: Number,

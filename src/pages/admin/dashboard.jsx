@@ -164,7 +164,7 @@ function Dashboard() {
 
         <div className="recent-bookings">
           <h2>Technician Workload</h2>
-          <p className="recent-bookings-body admin-dashboard-x1">
+          <p className="recent-bookings-body admin-dashboard-x1 workload-note">
             Approved and in-progress bookings from today onward. Not affected by the client type filter.
           </p>
           <table className="analytics-table">

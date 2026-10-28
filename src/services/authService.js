@@ -20,6 +20,11 @@ export function resetPassword({ token, password }) {
   return request('/api/auth/reset-password', { method: 'POST', body: { token, password }, auth: false });
 }
 
+// Public: { valid }. Whether the emailed reset link can still be used. Asking does not use it up.
+export function checkResetLink(token) {
+  return request('/api/auth/reset-password/check', { method: 'POST', body: { token }, auth: false });
+}
+
 // Public: the active technicians' names, for the landing page search. No login, so no ids.
 export function listPublicTechnicians() {
   return request('/api/auth/technicians', { auth: false });

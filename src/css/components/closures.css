@@ -7,7 +7,7 @@
   margin-bottom: 16px;
 }
 .closure-manager-title { margin: 0 0 4px; }
-.closure-manager-sub { margin: 0 0 12px; color: var(--ink-soft); font-size: 0.875rem; }
+.closure-manager-sub { margin: 0 0 12px; color: var(--ink-soft); font-size: 0.8125rem; line-height: 1.5; }
 .closure-manager-form {
   display: flex;
   flex-wrap: wrap;
@@ -47,7 +47,7 @@
   font-size: 0.75rem;
   cursor: pointer;
 }
-.closure-empty { color: var(--ink-soft); margin: 8px 0 0; }
+.closure-empty { color: var(--ink-soft); margin: 8px 0 0; font-size: 0.8125rem; }
 .closure-notice { margin: 6px 0 0; color: var(--status-cancel-txt); font-size: 0.8125rem; }
 .closure-upcoming { margin: 6px 0 0; color: var(--ink-soft); font-size: 0.8125rem; }
 
@@ -68,37 +68,69 @@
 .customer-history-stats {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
-  margin: 4px 0 12px;
+  gap: 14px;
+  margin: 4px 0 18px;
 }
+/* each figure is a small card with a colored bar on top, so the five read as different things at a glance */
 .customer-history-stat {
-  background: var(--frost);
+  --stat-accent: var(--navy-soft);
+  position: relative;
+  background: #fff;
   border: 1px solid var(--card-border);
-  border-radius: var(--radius-sm);
-  padding: 10px 12px;
+  border-radius: 14px;
+  padding: 18px 16px 14px;
   min-width: 0;
+  box-shadow: 0 2px 10px rgba(11, 37, 69, 0.05);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
-.customer-history-stat dt { font-size: 0.8125rem; color: var(--ink-soft); }
-.customer-history-stat dd { margin: 2px 0 0; font-size: 1.125rem; font-weight: 700; color: var(--navy); overflow-wrap: anywhere; }
-.customer-history-links { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; }
-.customer-history-links li + li { border-left: 1px solid var(--card-border); margin-left: 16px; padding-left: 16px; }
+/* a small colored tab at the top of each figure */
+.customer-history-stat::before {
+  content: '';
+  position: absolute;
+  left: 16px;
+  top: 0;
+  width: 28px;
+  height: 4px;
+  border-radius: 0 0 4px 4px;
+  background: var(--stat-accent);
+}
+.customer-history-stat:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(11, 37, 69, 0.1); }
+.customer-history-stat:nth-child(1) { --stat-accent: #143a63; }
+.customer-history-stat:nth-child(2) { --stat-accent: #16a34a; }
+.customer-history-stat:nth-child(3) { --stat-accent: #2563eb; }
+.customer-history-stat:nth-child(4) { --stat-accent: #94a3b8; }
+.customer-history-stat:nth-child(5) { --stat-accent: #0e8c8c; }
+.customer-history-stat dt { font-size: 0.8125rem; font-weight: 600; white-space: nowrap; color: var(--ink-soft); }
+.customer-history-stat dd { margin: 8px 0 0; font-family: 'Outfit', sans-serif; font-size: 1.5rem; font-weight: 700; line-height: 1.1; color: var(--stat-accent); overflow-wrap: anywhere; }
+.customer-history-links { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.customer-history-links li + li { border-left: 0; margin-left: 0; padding-left: 0; }
 .customer-history-links a,
 .customer-history-links a:visited {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  background: var(--frost);
   color: var(--navy-soft);
+  font-size: 0.875rem;
   font-weight: 600;
   text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
-.customer-history-links a:hover { text-decoration: underline; }
-.customer-history-links a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 2px; text-decoration: underline; }
+.customer-history-links a::after { content: '→'; font-weight: 700; }
+.customer-history-links a:hover { background: var(--navy-soft); border-color: var(--navy-soft); color: #fff; text-decoration: none; }
+.customer-history-links a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; text-decoration: none; }
 
+.profile-card--history { flex-direction: column; align-items: stretch; gap: 14px; }
 .profile-card--history .customer-history { flex: 1; min-width: 0; }
 
 @media (max-width: 600px) {
   .profile-card--history { flex-direction: column; align-items: stretch; gap: 12px; }
   .customer-history-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .customer-history-links { flex-direction: column; }
-  .customer-history-links li + li { border-left: 0; margin-left: 0; padding-left: 0; border-top: 1px solid var(--card-border); }
-  .customer-history-links a { width: 100%; }
+  .customer-history-links a { width: 100%; justify-content: space-between; }
 }
 
 /* the date picker: closed days are greyed out and cannot be clicked */
@@ -172,3 +204,10 @@
 .tech-off-day { display: grid; gap: 6px; }
 .tech-off-entries { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .tech-off-entries li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+
+/* the Technician Availability list: smaller lines under the date */
+.closure-item { font-size: 0.875rem; }
+.closure-item .closure-days { font-size: 0.8125rem; }
+.closure-item .closure-reason { font-size: 0.8125rem; }
+/* the job calendar sits inside its card */
+.admin-calendar-card .admin-calendar-x1.admin-calendar-x1 { height: calc(100vh - 13rem); min-height: 520px; margin-top: 8px; }

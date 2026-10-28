@@ -732,6 +732,7 @@
 .summary-row.total span { font-size: 15px; font-weight: 700; color: var(--navy); }
 
 .summary-note {
+  text-align: center;
   font-size: 13px;
   color: var(--ink-soft);
   line-height: 1.7;
@@ -1869,7 +1870,7 @@
 .quotation-term ul { margin: 4px 0 0; padding-left: 20px; }
 
 /* E17-5: the Before you pay step: a clear callout and the optional works checklist. */
-.bs-callout { background: #eef5ff; border: 1px solid #b6d0f5; border-left: 4px solid #143a63; border-radius: 10px; padding: 14px 16px; margin: 16px 0; color: #12304f; line-height: 1.5; }
+.bs-callout { background: #eef5ff; border: 1px solid #b6d0f5; border-left: 4px solid #143a63; border-radius: 12px; padding: 14px 18px; margin: 16px 0; color: #12304f; font-size: 0.8125rem; line-height: 1.55; }
 .bs-works { border: 0; padding: 0; margin: 16px 0 0; display: grid; gap: 6px; }
 .bs-works legend { padding: 0; margin-bottom: 6px; }
 .bs-works-option { display: flex; align-items: center; gap: 10px; min-height: 40px; cursor: pointer; }
@@ -1898,3 +1899,130 @@
   .cancelled-actions .bs-back-btn,
   .cancelled-actions .bs-next-btn { flex: 0 0 auto; width: 100%; justify-content: center; box-sizing: border-box; }
 }
+
+/* ---------- Booking Details (customer): a calmer, better organized card ---------- */
+.confirmation-details-card .confirmation-details-header { padding-bottom: 14px; border-bottom: 1px solid var(--border-subtle); }
+
+/* the quotation terms: the time on top, then what is not included and the warranty side by side */
+.quotation-terms {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px 24px;
+  margin: 0;
+  padding: 16px 18px;
+  border: 1px solid #cfe3ee;
+  border-left: 4px solid var(--navy-soft);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f6fbff, #eef6fb);
+}
+.quotation-terms .summary-section-title,
+.quotation-terms > .quotation-term:first-of-type:not(:has(ul)) { grid-column: 1 / -1; }
+.quotation-terms .summary-section-title { margin: 0; }
+.quotation-term { font-size: 0.875rem; color: var(--ink-soft); }
+.quotation-term strong { color: var(--navy); }
+.quotation-term ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 0; }
+.quotation-term li { padding: 5px 0; border-bottom: 1px solid #dbe8f1; }
+.quotation-term li:last-child { border-bottom: 0; }
+
+/* the two columns: what was booked, and the payment panel */
+.confirmation-details-grid { gap: 28px; align-items: start; }
+.confirmation-details-grid > div:first-child .summary-section-title { margin-bottom: 8px; font-size: 14px; }
+.confirmation-details-grid > div:first-child .confirmation-detail-line {
+  display: inline-block;
+  margin: 0 0 14px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: var(--frost);
+  border: 1px solid var(--mist);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--navy);
+  font-weight: 600;
+}
+.confirmation-details-grid > div:first-child .customer-unit-note { font-weight: 500; color: var(--ink-soft); }
+
+.confirmation-detail-item {
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border: 1px solid #eef2f6;
+  border-radius: 12px;
+  background: #fff;
+}
+.confirmation-detail-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  margin: 0;
+  border-radius: 10px;
+  background: var(--frost);
+  color: var(--navy-soft);
+  font-size: 16px;
+}
+.confirmation-detail-label { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-soft); }
+.confirmation-detail-value { margin: 2px 0 0; font-size: 14px; font-weight: 600; color: var(--navy); overflow-wrap: anywhere; }
+
+.confirmation-details-grid > div:last-child {
+  padding: 16px 18px;
+  border: 1px solid var(--mist);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 2px 12px rgba(11, 37, 69, 0.04);
+}
+.confirmation-details-grid > div:last-child .summary-section-title { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.confirmation-details-grid > div:last-child .summary-row { padding: 9px 0; font-size: 13.5px; }
+.confirmation-details-grid > div:last-child .summary-row:last-child { border-bottom: 0; }
+.confirmation-details-grid > div:last-child .summary-row:nth-last-child(n+3) { border-bottom: 1px solid #eef2f6; }
+/* the figures that matter most */
+.confirmation-details-card .cost-link a,
+.confirmation-details-card .cost-link button {
+  display: inline-block;
+  padding: 3px 12px;
+  border: 1px solid #bcd3ea;
+  border-radius: 999px;
+  background: #eef5ff;
+  color: var(--navy-soft);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.confirmation-details-card .cost-link a:hover,
+.confirmation-details-card .cost-link button:hover { background: var(--navy-soft); border-color: var(--navy-soft); color: #fff; }
+.confirmation-details-card .cost-link { text-decoration: none; }
+
+/* Account Settings: the title on top, the two buttons side by side, and the reason a delete is blocked as a note under them */
+.profile-page .profile-card--account { display: flex; flex-direction: column; align-items: stretch; gap: 16px; }
+.profile-card--account .section-title { margin: 0; text-align: left; }
+.profile-card--account .account-actions { margin: 0; flex-wrap: wrap; gap: 12px; justify-content: flex-start; }
+.profile-card--account .change-password-btn,
+.profile-card--account .delete-account-btn { justify-content: center; min-width: 170px; white-space: nowrap; }
+.profile-card--account .change-password-btn svg,
+.profile-card--account .delete-account-btn svg { flex: 0 0 auto; width: 16px; height: 16px; }
+.profile-card--account .delete-account-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+.profile-card--account .delete-account-block {
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px solid #f3d4a8;
+  border-left: 4px solid #d97706;
+  border-radius: 10px;
+  background: #fff8ec;
+  color: #7a4b00;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  text-align: center;
+}
+.profile-card--account .delete-account-block a { color: var(--navy-soft); font-weight: 700; text-decoration: underline; white-space: nowrap; }
+
+/* Booking Details: a wider page, and the pay button under the payment figures */
+.confirmation-wrap { width: 100%; max-width: 1100px; }
+.booking-pay-action { display: grid; gap: 6px; margin: 12px 0 4px; }
+.booking-pay-action .pay-down-btn { width: 100%; }
+.booking-pay-action small, .booking-pay-note { color: var(--ink-soft); font-size: 0.8125rem; line-height: 1.5; }
+.booking-pay-note { margin: 12px 0 4px; padding: 10px 12px; border-radius: 10px; background: var(--frost); border: 1px solid var(--mist); }
+
+/* what was asked for and what we supply instead, under a unit in the booking summary */
+.unit-change-note { display: grid; gap: 2px; margin-top: 6px; padding: 8px 12px; border-left: 3px solid #d97706; border-radius: 8px; background: #fff8ec; font-size: 0.8125rem; line-height: 1.5; color: #7a4b00; }
+.unit-change-note span:last-child { font-weight: 600; color: var(--navy); }

@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 import { SERVICES, SHOWCASE, SHOW_PUBLIC_PRICES } from '../../config/landingContent';
-import LandingIcon from './icons';
 import PhotoSlot from './photo_slot';
 import SectionHeading from './section_heading';
 
@@ -17,17 +16,21 @@ function lowestPrice(services, serviceType) {
 function ServicesSection({ services }) {
   return (
     <section id="services" data-nav="services" className="lp-section lp-services" aria-labelledby="services-title">
-      <SectionHeading eyebrow={SERVICES.eyebrow} title={SERVICES.title} subtitle={SERVICES.note} id="services-title" />
+      <SectionHeading title={SERVICES.title} subtitle={SERVICES.note} id="services-title" />
       <ul className="lp-card-grid lp-card-grid--four">
         {SERVICES.items.map((item, i) => {
           const price = SHOW_PUBLIC_PRICES ? lowestPrice(services, item.serviceType) : null;
           return (
             <li className="lp-card lp-service-card" key={item.key} data-reveal style={{ '--reveal-i': i }}>
-              <span className="lp-card-icon"><LandingIcon name={item.icon} /></span>
-              <h3>{item.title}</h3>
-              <p>{item.text}</p>
-              {price !== null && <span className="lp-price">From PHP {price.toLocaleString()}</span>}
-              <Link className="lp-card-link" to="/login">{SERVICES.linkLabel}<span aria-hidden="true"> &rarr;</span></Link>
+              <img className="lp-service-photo" src={item.photo} alt="" loading="lazy" />
+              <div className="lp-service-body">
+                <div className="lp-service-head">
+                  <h3>{item.title}</h3>
+                  {price !== null && <span className="lp-service-price">PHP {price.toLocaleString()}</span>}
+                </div>
+                <p>{item.text}</p>
+                <Link className="lp-service-book" to="/login">{SERVICES.linkLabel}</Link>
+              </div>
             </li>
           );
         })}

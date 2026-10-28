@@ -45,6 +45,14 @@ async function consumeResetToken(token, now = new Date()) {
   return row ? row.user : null;
 }
 
+// Whether this token could still be used right now, without spending it: the reset page asks this when it opens, so a link that has
+// expired or was already used is told so at once instead of after the person has typed a new password.
+async function isResetTokenLive(token, now = new Date()) {
+  if (typeof token !== 'string' || !RESET_TOKEN_PATTERN.test(token)) return false;
+  const row = await PasswordResetToken.findOne({ tokenHash: hashToken(token), usedAt: null, expiresAt: { $gt: now } });
+  return !!row;
+}
+
 // After a successful reset every other link for that user is dead as well.
 function retireResetTokens(userId, now = new Date()) {
   return PasswordResetToken.updateMany({ user: String(userId), usedAt: null }, { $set: { usedAt: now } });
@@ -111,5 +119,5 @@ async function deliverResetLink({ to, token, env = process.env }) {
 
 module.exports = {
   RESET_LINK_INVALID, RESET_TIMING, waitForFloor, issueUnusedToken, setResetMailer, deliverResetLink,
-  RESET_TOKEN_BYTES, RESET_TOKEN_LIFETIME_MS, RESET_PATH, hashToken, issueResetToken, consumeResetToken, retireResetTokens, resetLink, renderResetEmail,
+  RESET_TOKEN_BYTES, RESET_TOKEN_LIFETIME_MS, RESET_PATH, hashToken, issueResetToken, consumeResetToken, isResetTokenLive, retireResetTokens, resetLink, renderResetEmail,
 };

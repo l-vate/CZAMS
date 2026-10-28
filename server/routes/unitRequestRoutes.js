@@ -61,9 +61,10 @@ router.patch('/:bookingId/units/:index/resolve', auth, allowRoles(ROLE.ADMIN), a
       unit.supplied = resolution.kind === 'catalog'
         ? { ...resolution.snapshot, status: 'Resolved', request, ...who }
         : {
-          source: 'manual', status: 'Resolved', brand: request.brand || '', model: '', type: request.type || unit.type, hp: request.hp || unit.hp || '',
+          source: 'manual', status: 'Resolved', brand: resolution.brand || request.brand || '', model: resolution.model || '', type: request.type || unit.type, hp: resolution.hp || request.hp || unit.hp || '',
           price: resolution.price, chosenAt: now, adminNote: resolution.note, request, ...who,
         };
+      if (resolution.kind === 'manual' && resolution.hp) unit.hp = resolution.hp; // the horsepower the owner entered is the booking's
       unit.brandModel = brandModelOf(unit);
       // once no unit on the booking is declined any more, the customer's "cannot supply" notice goes
       if (!(booking.units || []).some((u) => u.supplied && u.supplied.status === 'Declined')) booking.unitDecline = undefined;
@@ -127,7 +128,7 @@ router.patch('/:bookingId/cannot-supply', auth, allowRoles(ROLE.ADMIN), async (r
     await sendNotification(
       booking.customer,
       NOTIFICATION_TYPE.UNIT_REQUEST_DECLINED,
-      `Booking ${booking.bookingId}: we do not have the unit you chose. Reason: ${reason}.${note ? ` ${note}` : ''} You can cancel this booking, or contact us.`,
+      `Booking ${booking.bookingId}: we do not have the unit you chose. Reason: ${reason}.${note ? ` ${/[.!?]$/.test(note) ? note : `${note}.`}` : ''} You can cancel this booking, or contact us.`,
       { booking },
     );
 

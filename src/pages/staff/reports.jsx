@@ -842,16 +842,16 @@ function Reports() {
               </div>
 
               {r.status === UNKNOWN_STATUS ? (
-                <button className="tech-job-view-link staff-reports-x21" onClick={retryLoad}>
-                  <FiFileText /> Retry
+                <button type="button" className="view-details-btn" onClick={retryLoad}>
+                  <FiFileText size={14} /> Retry
                 </button>
               ) : (
                 <button
-                  className="tech-job-view-link staff-reports-x21"
+                  type="button"
+                  className={r.status === 'Pending' ? 'tech-job-primary-btn' : 'view-details-btn'}
                   onClick={() => handleOpenReport(r)}
                 >
-                  <FiFileText />{' '}
-                  {r.status === 'Pending' ? 'Submit Report' : 'View Report'}
+                  <FiFileText size={14} /> {r.status === 'Pending' ? 'Submit Report' : 'View Report'}
                 </button>
               )}
             </div>

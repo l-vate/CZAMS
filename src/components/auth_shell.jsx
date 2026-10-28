@@ -20,9 +20,11 @@ function AuthShell({ title, subtitle, children, backTo = '/login', backLabel = '
     <div className="ap-page">
       <div className="ap-backdrop" aria-hidden="true"><Snowfall /></div>
 
-      <header className="ap-top">
-        <Link to={backTo} className="ap-back"><FiArrowLeft aria-hidden="true" /> {backLabel}</Link>
-      </header>
+      {backTo && (
+        <header className="ap-top">
+          <Link to={backTo} className="ap-back"><FiArrowLeft aria-hidden="true" /> {backLabel}</Link>
+        </header>
+      )}
 
       <main className={`ap-main${wide ? ' ap-main--wide' : ''}`}>
         <section className="ap-brand" aria-label={BRAND_NAME}>

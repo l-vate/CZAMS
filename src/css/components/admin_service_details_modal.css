@@ -164,3 +164,60 @@
 /* Quotation details (components/quotation_editor.jsx). */
 .quotation-summary { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; font-size: 0.9rem; }
 .quotation-check { display: flex; align-items: center; gap: 8px; }
+
+/* The forms to settle a requested unit or to say a unit cannot be supplied: every label sits above its field, and the fields fill the width. */
+.unit-request-form label,
+.cannot-supply-form label,
+.unit-request-form .scope-form-wide {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--navy);
+}
+.unit-request-form .ma-input,
+.cannot-supply-form .ma-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1.5px solid var(--mist);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--navy);
+  font: inherit;
+  font-weight: 500;
+}
+.cannot-supply-form textarea.ma-input { min-height: 84px; resize: vertical; line-height: 1.45; }
+.unit-request-form .ma-input:focus,
+.cannot-supply-form .ma-input:focus { outline: none; border-color: var(--navy-soft); box-shadow: 0 0 0 3px rgba(20, 58, 99, 0.12); }
+.unit-request-form .scope-form { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.unit-request-form .time-toggle { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.unit-request-form .scope-actions,
+.cannot-supply-form .scope-actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 4px; }
+.cannot-supply-form { padding: 14px 16px; border: 1px solid var(--mist); border-radius: 12px; background: #fff; gap: 12px; }
+.cannot-supply-form .sdm-muted { margin: 0; font-size: 0.8125rem; line-height: 1.5; }
+
+.unit-request-panel .sdm-muted { font-size: 0.8125rem; line-height: 1.5; }
+
+/* Quotation details: a label and its value on each row, instead of one run of text */
+.quotation-summary { list-style: none; margin: 0 0 14px; padding: 0; }
+.quotation-summary li { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 12px; padding: 9px 0; border-bottom: 1px solid #eef2f6; font-size: 0.875rem; line-height: 1.5; color: var(--navy); }
+.quotation-summary li:last-child { border-bottom: 0; }
+.quotation-summary li strong { font-weight: 600; color: var(--ink-soft); }
+@media (max-width: 600px) { .quotation-summary li { grid-template-columns: 1fr; gap: 2px; } }
+/* the empty note under Scope of works */
+.scope-editor > .sdm-muted { font-size: 0.8125rem; line-height: 1.5; margin: 6px 0 10px; }
+
+/* "Job disrupted? Reschedule it now": the reason on its own line at full width, then the new date, the new time and the button on one row */
+.sdm-notice textarea.sdm-tech-select { display: block; width: 100%; box-sizing: border-box; min-height: 68px; padding: 10px 12px; margin-bottom: 12px; font-family: inherit; font-size: 0.875rem; line-height: 1.5; resize: vertical; background: #fff; border: 1.5px solid var(--mist); border-radius: 10px; color: var(--navy); }
+.sdm-notice .admin-service-details-modal-x9.admin-service-details-modal-x9 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 12px; align-items: end; }
+.sdm-notice .admin-service-details-modal-x9 .ma-input,
+.sdm-notice .admin-service-details-modal-x9 .sdm-tech-select { width: 100%; box-sizing: border-box; min-height: 42px; }
+.sdm-notice .admin-service-details-modal-x9 .sdm-btn { min-height: 42px; white-space: nowrap; }
+@media (max-width: 700px) { .sdm-notice .admin-service-details-modal-x9.admin-service-details-modal-x9 { grid-template-columns: 1fr; } }
+
+/* the quantity, rate and "not discounted" next to a scope line's name: smaller than the name */
+.scope-line-main .sdm-muted { font-size: 0.8125rem; }

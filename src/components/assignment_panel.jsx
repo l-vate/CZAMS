@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { FiArrowUp, FiArrowDown, FiX } from 'react-icons/fi';
 import { orFallback } from '../services/apiClient';
 import { getTeamAvailability } from '../services/teamService';
 import { ApiError } from '../services/apiClient';
@@ -127,14 +128,18 @@ function AssignmentPanel({ booking, onUpdated }) {
                     {optionsFor(index, id)}
                   </select>
                   <span className="assignment-row-actions">
-                    <button type="button" className="sdm-btn sdm-btn-outline assignment-move" onClick={() => setPicked((prev) => moveItem(prev, index, index - 1))} disabled={saving || index === 0} aria-label={index === 1 ? 'Make primary' : `Move technician ${index + 1} up`}>
-                      {index === 1 ? 'Make primary' : 'Up'}
-                    </button>
-                    <button type="button" className="sdm-btn sdm-btn-outline assignment-move" onClick={() => setPicked((prev) => moveItem(prev, index, index + 1))} disabled={saving || index === picked.length - 1} aria-label={`Move technician ${index + 1} down`}>
-                      Down
-                    </button>
-                    <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setPicked((prev) => prev.filter((_, i) => i !== index))} disabled={saving || !canRemoveTechnician({ count: picked.length, service: booking.service, status: booking.status })}>
-                      Remove
+                    {index > 0 && (
+                      <button type="button" className="assignment-icon-btn" onClick={() => setPicked((prev) => moveItem(prev, index, index - 1))} disabled={saving} aria-label={index === 1 ? 'Make primary' : `Move technician ${index + 1} up`} title={index === 1 ? 'Make primary' : 'Move up'}>
+                        <FiArrowUp aria-hidden="true" />
+                      </button>
+                    )}
+                    {index < picked.length - 1 && (
+                      <button type="button" className="assignment-icon-btn" onClick={() => setPicked((prev) => moveItem(prev, index, index + 1))} disabled={saving} aria-label={`Move technician ${index + 1} down`} title="Move down">
+                        <FiArrowDown aria-hidden="true" />
+                      </button>
+                    )}
+                    <button type="button" className="assignment-icon-btn assignment-icon-btn--remove" onClick={() => setPicked((prev) => prev.filter((_, i) => i !== index))} disabled={saving || !canRemoveTechnician({ count: picked.length, service: booking.service, status: booking.status })} aria-label={`Remove technician ${index + 1}`} title="Remove">
+                      <FiX aria-hidden="true" />
                     </button>
                   </span>
                 </li>

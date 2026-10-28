@@ -230,12 +230,20 @@ test('the booking cannot be approved while a unit request is open, and can once 
 
   const approved = await call('PATCH', `/${bid()}/admin-update`, 'ADM1', { status: 'Approved' }, asAdmin);
   assert.doesNotMatch(approved.body.message || '', /owner confirmation/);
+  // a booking is approved only once its down payment is paid and verified
+  assert.equal(approved.status, 409);
+  assert.match(approved.body.message, /down payment has to be paid and verified/);
+  assert.equal(state.bookings[0].status, 'Pending');
+  state.bookings[0].paymentStatus = 'partially_paid';
+  const afterPaying = await call('PATCH', `/${bid()}/admin-update`, 'ADM1', { status: 'Approved' }, asAdmin);
+  assert.equal(afterPaying.status, 200, JSON.stringify(afterPaying.body));
 });
 
-test('the owner can settle a request with a unit price and a note instead of a catalog unit', async () => {
+test('the owner can settle a request with a unit price (the note is optional) instead of a catalog unit', async () => {
   await book(notListed());
-  assert.equal((await call('PATCH', `/${bid()}/units/0/resolve`, 'ADM1', { price: 18000 }, asAdmin)).status, 400, 'a price needs a note');
+  assert.equal((await call('PATCH', `/${bid()}/units/0/resolve`, 'ADM1', {}, asAdmin)).status, 400, 'a price is needed');
   assert.equal((await call('PATCH', `/${bid()}/units/0/resolve`, 'ADM1', { price: -5, note: 'quoted by phone' }, asAdmin)).status, 400);
+  assert.equal((await call('PATCH', `/${bid()}/units/0/resolve`, 'ADM1', { price: 18000, hp: 'abc' }, asAdmin)).status, 400, 'the horsepower is a number');
   const res = await call('PATCH', `/${bid()}/units/0/resolve`, 'ADM1', { price: 18000, note: 'Quoted by the supplier' }, asAdmin);
   assert.equal(res.status, 200, JSON.stringify(res.body));
   const s = state.bookings[0].units[0].supplied;

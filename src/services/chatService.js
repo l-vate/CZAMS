@@ -12,6 +12,6 @@ export function listMessages(conversationId) {
   return request(`${conversationPath(conversationId)}/messages`);
 }
 
-export function sendMessage(conversationId, text) {
-  return request(`${conversationPath(conversationId)}/messages`, { method: 'POST', body: { text } });
+export function sendMessage(conversationId, text, bookingRef) {
+  return request(`${conversationPath(conversationId)}/messages`, { method: 'POST', body: { text, ...(bookingRef ? { bookingRef } : {}) } });
 }

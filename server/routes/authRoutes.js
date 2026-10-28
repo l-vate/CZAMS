@@ -11,7 +11,7 @@ const { createUploader, discardUploads, storeUploads, IMAGE_TYPES } = require('.
 const { KINDS } = require('../storage/fileStore');
 const { clearAuthCache } = require('../utils/authCache');
 const { validateNewPassword, validateRegistrationPassword } = require('../utils/passwordRules');
-const { RESET_LINK_INVALID, waitForFloor, issueUnusedToken, issueResetToken, consumeResetToken, retireResetTokens, deliverResetLink } = require('../utils/passwordReset');
+const { RESET_LINK_INVALID, waitForFloor, issueUnusedToken, issueResetToken, consumeResetToken, isResetTokenLive, retireResetTokens, deliverResetLink } = require('../utils/passwordReset');
 const { recordAudit } = require('../utils/audit');
 const { listFieldTechnicians } = require('../utils/technicians');
 const { loginLimiter, registerLimiter, passwordChangeLimiter, uploadLimiter, passwordResetRequestLimiter, passwordResetUseLimiter } = require('../middleware/rateLimit');
@@ -160,6 +160,15 @@ router.post('/forgot-password', passwordResetRequestLimiter, async (req, res) =>
     console.error('Forgot password failed:', describeError(err));
     await waitForFloor(started);
     res.json({ message: FORGOT_PASSWORD_MESSAGE });
+  }
+});
+
+// Is this reset link still good? Answers only yes or no and never spends the link.
+router.post('/reset-password/check', passwordResetUseLimiter, async (req, res) => {
+  try {
+    res.json({ valid: await isResetTokenLive((req.body || {}).token) });
+  } catch (err) {
+    sendRouteError(res, err);
   }
 });
 

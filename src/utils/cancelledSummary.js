@@ -23,6 +23,12 @@ export function refundText(booking) {
   }
   const paid = formatPeso(refund.downPaymentAmount || 0);
   const fee = Number(refund.dispatchDeduction) || 0;
+  if (refund.status === 'Rejected') {
+    return `Your refund request was not approved: ${refund.rejectionReason || 'the payment did not go through'}${/[.!?]$/.test(refund.rejectionReason || '') ? '' : '.'} You can contact the owner if you think this is a mistake.`;
+  }
+  if (refund.paymentUnverified) {
+    return `We received your refund request for your down payment of ${paid}. Your payment proof is still being checked: once our team confirms the payment came through, we will send the refund. If the payment did not go through, there is nothing to refund and the request cannot be approved. You will be told here and in the app.`;
+  }
   if (refund.status === 'Processed') {
     const sent = formatPeso(refund.refundableAmount ?? 0);
     const feeNote = fee > 0 ? ` A transportation fee of ${formatPeso(fee)} was deducted from your down payment of ${paid}${refund.dispatchReason ? ` (${refund.dispatchReason})` : ''}.` : '';
@@ -53,6 +59,7 @@ export function refundFigures(booking) {
   }
   if (refund.ownerInitiated) rows.push(['Transportation fee', 'None (the owner cancelled)']);
   if (Number.isFinite(refund.refundableAmount)) rows.push(['Refund amount', formatPeso(refund.refundableAmount)]);
-  rows.push(['Refund status', refund.status === 'Processed' ? 'Sent' : 'Being processed']);
+  rows.push(['Refund status', refund.status === 'Processed' ? 'Sent' : refund.status === 'Rejected' ? 'Not approved' : refund.paymentUnverified ? 'Waiting for the payment to be checked' : 'Being processed']);
+  if (refund.status === 'Rejected' && refund.rejectionReason) rows.push(['Reason', refund.rejectionReason]);
   return rows;
 }

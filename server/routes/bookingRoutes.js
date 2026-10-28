@@ -8,6 +8,7 @@ const { BOOKING_STATUS, BOOKING_STATUS_VALUES } = require('../constants/bookingS
 const mongoose = require('mongoose');
 const multer = require('multer');
 const auditSpecs = require('../utils/auditSpecs');
+const { recordAudit } = require('../utils/audit');
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
@@ -97,6 +98,20 @@ const upload = createUploader({
   allowedTypes: PROOF_TYPES,
 });
 
+// A customer's proof of payment is a JPG or PNG picture only (no WEBP, no PDF).
+const PAYMENT_PROOF_TYPES = Object.freeze(['image/jpeg', 'image/png']);
+const paymentUpload = createUploader({ allowedTypes: PAYMENT_PROOF_TYPES });
+// For the booking form, whose one upload middleware also carries the ID photo: refuses a customer's `proof` that is not a JPG or PNG.
+// An admin booking on a customer's behalf keeps the wider list.
+const customerProofImagesOnly = (req, res, next) => {
+  const proof = req.files?.proof?.[0];
+  if (req.userRole === ROLE.CUSTOMER && proof && !PAYMENT_PROOF_TYPES.includes(proof.mimetype)) {
+    discardUploads(req);
+    return res.status(400).json({ message: 'Only JPG or PNG files are allowed.' });
+  }
+  return next();
+};
+
 // Validate date: a real YYYY-MM-DD date at least MIN_LEAD_DAYS (constants/scheduling.js) after today in Manila (utils/manilaDate.js),
 // whatever time zone the server runs in.
 const isDateAllowed = (dateStr) => isAtLeastDaysAhead(dateStr, scheduling.MIN_LEAD_DAYS);
@@ -166,19 +181,17 @@ function readOwnerCancelReason(raw) {
   return { reason };
 }
 
-// Returns 'opened' when a refund was opened, 'awaiting-check' when the down payment proof is still waiting to be verified (no refund is
-// opened for an amount nobody has checked: the booking is flagged, and the refund opens once an admin verifies the proof), or
-// 'none' when no down payment is on file.
+// Returns 'opened' when a refund request was opened, or 'none' when no down payment is on file. A customer who cancels can ask for a refund even
+// while their down payment proof is still waiting to be verified: the request is opened and marked paymentUnverified. It is not paid out until
+// the proof is verified, and the owner rejects it when the payment never came through.
 function openRefundIfEligible(booking) {
-  if (booking.downPaymentPercent > 0 && booking.paymentStatus === PAYMENT_STATUS.TO_VERIFY) {
-    booking.paymentCheckAfterCancel = true;
-    return 'awaiting-check';
-  }
+  const unverified = booking.downPaymentPercent > 0 && booking.paymentStatus === PAYMENT_STATUS.TO_VERIFY;
   const hasDownPaymentOnFile =
     booking.downPaymentPercent > 0 &&
     [PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(booking.paymentStatus);
 
-  if (!hasDownPaymentOnFile) return 'none';
+  if (!unverified && !hasDownPaymentOnFile) return 'none';
+  if (unverified) booking.paymentCheckAfterCancel = true;
 
   // What the customer actually paid when they submitted it, else (older bookings) the current figure.
   const downPaymentAmount = typeof booking.downPaymentPaidAmount === 'number'
@@ -198,6 +211,7 @@ function openRefundIfEligible(booking) {
     isSameDay,
     ...(ownerInitiated ? { ownerInitiated: true, reason: booking.cancelReason } : {}),
     downPaymentAmount,
+    ...(unverified ? { paymentUnverified: true } : {}),
     // On or after the booked date: the transportation fee isn't known until admin
     // reviews it, so the refundable amount stays unset until then.
     dispatchDeduction: isSameDay ? undefined : 0,
@@ -261,12 +275,13 @@ router.post('/status-check/run', auth, async (req, res) => {
   }
 });
 
-// Admin-only per-technician reviews, including the customer's name, for the
-// Performance Review modal (Manage Accounts). Nothing per-technician is public:
-// the landing page only gets the company-wide aggregate (/public/feedback-summary).
+// A technician's reviews, including the customer's name: an admin reads any technician's (Performance Review modal in Manage Accounts),
+// a technician reads only their own (their dashboard). Nothing per-technician is public: the landing page only gets the company-wide
+// aggregate (/public/feedback-summary).
 router.get('/technicians/:id/feedback', auth, async (req, res) => {
   try {
-    if (req.userRole !== ROLE.ADMIN) {
+    const own = req.userRole === ROLE.STAFF && String(req.params.id) === String(req.userId);
+    if (req.userRole !== ROLE.ADMIN && !own) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
@@ -305,7 +320,7 @@ router.get('/technicians/:id/feedback', auth, async (req, res) => {
 router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (req, res, next) => {
   req.generatedBookingId = generateBookingId();
   next();
-}, upload.fields([{ name: 'proof', maxCount: 1 }, { name: 'discountId', maxCount: 1 }]), async (req, res) => {
+}, upload.fields([{ name: 'proof', maxCount: 1 }, { name: 'discountId', maxCount: 1 }]), customerProofImagesOnly, async (req, res) => {
   try {
     // A refused request must not leave its uploaded file behind.
     res.on('finish', () => { if (res.statusCode >= 400) discardUploads(req); });
@@ -517,6 +532,11 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
       return res.status(400).json({ message: 'Choose a valid payment mode for the second payment.' });
     }
 
+    // A customer's installation is confirmed by our team first, so no payment comes with it: the down payment is sent later from Billing.
+    if (req.userRole === ROLE.CUSTOMER && isInstallationService && (req.files?.proof?.[0] || String(referenceNumber || '').trim())) {
+      discardUploads(req);
+      return res.status(400).json({ message: 'An installation has to be confirmed by our team first. You can send the down payment once it is confirmed.' });
+    }
     const proofFile = req.files?.proof?.[0] ? `/uploads/proofs/${req.files.proof[0].filename}` : undefined;
 
     // A customer who submits a payment now (proof or reference given) must give both for GCash and
@@ -857,11 +877,9 @@ router.patch('/:bookingId/cancel', auth, auditSpecs.customerCancel, allowRoles(R
     if (booking.refund?.status === REFUND_STATUS.PENDING) {
       await notifyAdmins(
         NOTIFICATION_TYPE.REFUND_REQUESTED,
-        `Booking ${booking.bookingId} was cancelled by the customer and a refund request is waiting for review${booking.refund.isSameDay ? ' (cancelled on or after the booked date, transportation fee needed)' : ''}.`,
+        `Booking ${booking.bookingId} was cancelled by the customer and a refund request is waiting for review${booking.refund.isSameDay ? ' (cancelled on or after the booked date, transportation fee needed)' : ''}.${booking.refund.paymentUnverified ? ' Its down payment has not been verified yet: check whether the payment came through, then process the refund or reject it.' : ''}`,
         { booking }
       );
-    } else if (refundOutcome === 'awaiting-check') {
-      await notifyAdmins(NOTIFICATION_TYPE.PAYMENT_SUBMITTED, `Booking ${booking.bookingId} was cancelled by the customer while its down payment proof is still waiting. Verify or reject the proof; a refund opens once it is verified.`, { booking });
     } else {
       await notifyAdmins(NOTIFICATION_TYPE.BOOKING_CANCELLED, `Booking ${booking.bookingId} was cancelled by the customer.`, { booking });
     }
@@ -881,7 +899,7 @@ router.patch('/:bookingId/cancel', auth, auditSpecs.customerCancel, allowRoles(R
 // Approved, and only while no proof is waiting or verified (nothing yet, or the admin rejected the last one). The
 // status change is one conditional update, so two submissions at once cannot both pass, and a verified proof is
 // never overwritten. The amount on file is not touched here: it is set when the admin verifies the payment.
-router.patch('/:bookingId/pay', auth, allowRoles(ROLE.CUSTOMER), paymentLimiter, uploadLimiter, upload.single('proof'), async (req, res) => {
+router.patch('/:bookingId/pay', auth, allowRoles(ROLE.CUSTOMER), paymentLimiter, uploadLimiter, paymentUpload.single('proof'), async (req, res) => {
   const refuse = (problem) => { discardUploads(req); return sendProblem(res, problem); };
   try {
     const proofFile = req.file ? `/uploads/proofs/${req.file.filename}` : undefined;
@@ -926,7 +944,7 @@ router.patch('/:bookingId/pay', auth, allowRoles(ROLE.CUSTOMER), paymentLimiter,
 // Customer: Submit/upload final balance payment proof. Only for the owner, only when a balance is really due (the
 // down payment is verified and the balance is not waiting or verified), on an Approved, In Progress or Completed
 // booking. Same atomic update and same file cleanup as the down payment.
-router.patch('/:bookingId/pay-balance', auth, allowRoles(ROLE.CUSTOMER), paymentLimiter, uploadLimiter, upload.single('proof'), async (req, res) => {
+router.patch('/:bookingId/pay-balance', auth, allowRoles(ROLE.CUSTOMER), paymentLimiter, uploadLimiter, paymentUpload.single('proof'), async (req, res) => {
   const refuse = (problem) => { discardUploads(req); return sendProblem(res, problem); };
   try {
     const proofFile = req.file ? `/uploads/proofs/${req.file.filename}` : undefined;
@@ -2125,6 +2143,12 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
       if (booking.unitDecline && booking.unitDecline.reason) {
         return sendProblem(res, invalid('The owner said this unit cannot be supplied. Withdraw that first, or cancel the booking.', 409));
       }
+      // The down payment has to be paid (and verified) before a booking is approved. A booking with no down payment due is the exception.
+      const dpDue = booking.downPaymentPercent > 0 && getPaymentBreakdown(booking).downPayment > 0;
+      const dpPaid = [PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(paymentStatus || booking.paymentStatus);
+      if (dpDue && !dpPaid) {
+        return sendProblem(res, invalid('The down payment has to be paid and verified before this booking can be approved.', 409));
+      }
     }
 
     // Technicians are assigned through PATCH /:bookingId/assign, which checks every
@@ -2251,20 +2275,43 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
       });
     }
 
-    // The proof a cancelled booking was waiting on has been checked: a verified one opens the refund, a rejected one means nothing was
-    // paid. Either way the booking no longer waits.
-    let refundOpenedAfterCheck = false;
+    // The proof a cancelled booking was waiting on has been checked. A verified one lets the refund that was already asked for go ahead; a
+    // rejected one means the payment never came through, so the refund request is rejected with that reason.
+    let refundReadyAfterCheck = false;
+    let refundRejectedAfterCheck = false;
     if (checkingAfterCancel) {
       booking.paymentCheckAfterCancel = false;
-      if (paymentPlan.plan && paymentPlan.plan.action === 'verify') refundOpenedAfterCheck = openRefundIfEligible(booking) === 'opened';
+      if (booking.refund?.status === REFUND_STATUS.PENDING && booking.refund.paymentUnverified) {
+        if (paymentPlan.plan && paymentPlan.plan.action === 'verify') {
+          booking.refund.paymentUnverified = false;
+          refundReadyAfterCheck = true;
+        } else if (paymentPlan.plan && paymentPlan.plan.action === 'reject') {
+          booking.refund.status = REFUND_STATUS.REJECTED;
+          booking.refund.paymentUnverified = false;
+          booking.refund.rejectedAt = new Date();
+          booking.refund.rejectedBy = req.userId;
+          booking.refund.rejectionReason = 'The payment did not go through, so there is nothing to refund.';
+          refundRejectedAfterCheck = true;
+        }
+      } else if (paymentPlan.plan && paymentPlan.plan.action === 'verify') {
+        refundReadyAfterCheck = openRefundIfEligible(booking) === 'opened';
+      }
     }
 
     await booking.save();
 
-    if (refundOpenedAfterCheck) {
+    if (refundReadyAfterCheck && booking.refund?.status === REFUND_STATUS.PENDING) {
       await notifyAdmins(
         NOTIFICATION_TYPE.REFUND_REQUESTED,
-        `Booking ${booking.bookingId}: the down payment was verified after the booking was cancelled, so a refund request is waiting for review${booking.refund.isSameDay ? ' (cancelled on or after the booked date, transportation fee needed)' : ''}.`,
+        `Booking ${booking.bookingId}: the down payment was verified after the booking was cancelled, so its refund request is ready for review${booking.refund.isSameDay ? ' (cancelled on or after the booked date, transportation fee needed)' : ''}.`,
+        { booking }
+      );
+    }
+    if (refundRejectedAfterCheck) {
+      await sendNotification(
+        booking.customer,
+        NOTIFICATION_TYPE.REFUND_REJECTED,
+        `Your refund request for booking ${booking.bookingId} was not approved: the payment did not go through, so there is nothing to refund.`,
         { booking }
       );
     }
@@ -2307,9 +2354,6 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
           `Booking ${booking.bookingId} was cancelled and a refund request is waiting for review${booking.refund.isSameDay ? ' (cancelled on or after the booked date, transportation fee needed)' : ''}.`,
           { booking }
         );
-      }
-      if (adminCancelOutcome === 'awaiting-check') {
-        await notifyAdmins(NOTIFICATION_TYPE.PAYMENT_SUBMITTED, `Booking ${booking.bookingId} was cancelled while its down payment proof is still waiting. Verify or reject the proof; a refund opens once it is verified.`, { booking });
       }
     }
     const downPaymentNowVerified = [PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(booking.paymentStatus)
@@ -2363,6 +2407,46 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
 // Processed. A cancellation on or after the booked date also requires a transportation
 // deduction before the refundable amount is finalized; pre-service cancellations
 // refund the down payment in full.
+// Admin: reject a refund request, with a reason the customer is told (for example, the payment never came through).
+router.patch('/:bookingId/refund/reject', auth, allowRoles(ROLE.ADMIN), async (req, res) => {
+  try {
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId });
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    if (booking.refund?.status !== REFUND_STATUS.PENDING) {
+      return res.status(400).json({ message: 'No pending refund for this booking.' });
+    }
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+    if (reason.length < 3 || reason.length > 200) {
+      return sendProblem(res, invalid('Give a short reason (3 to 200 characters) for rejecting the refund.'));
+    }
+    booking.refund.status = REFUND_STATUS.REJECTED;
+    booking.refund.paymentUnverified = false;
+    booking.refund.rejectedAt = new Date();
+    booking.refund.rejectedBy = req.userId;
+    booking.refund.rejectionReason = reason;
+    booking.paymentCheckAfterCancel = false;
+    await booking.save();
+
+    await recordAudit({ actor: { id: req.userId, role: req.userRole }, action: 'refund.reject', entityType: 'Booking', entityId: booking.bookingId, summary: 'Rejected a refund request', meta: { reason } });
+    await sendNotification(
+      booking.customer,
+      NOTIFICATION_TYPE.REFUND_REJECTED,
+      `Your refund request for booking ${booking.bookingId} was not approved: ${reason}${/[.!?]$/.test(reason) ? '' : '.'}`,
+      { booking }
+    );
+
+    const populated = await booking.populate([
+      { path: 'service' },
+      { path: 'customer', select: 'name email phone clientType companyName representativeName' },
+      { path: 'technician', select: 'name' },
+      ...ASSIGNMENT_POPULATE,
+    ]);
+    res.json(withWarranty(populated));
+  } catch (err) {
+    sendRouteError(res, err);
+  }
+});
+
 router.patch('/:bookingId/refund', auth, auditSpecs.refundProcess, allowRoles(ROLE.ADMIN), uploadLimiter, upload.single('proof'), async (req, res) => {
   try {
     // A refused request must not leave its uploaded file behind.
@@ -2377,6 +2461,10 @@ router.patch('/:bookingId/refund', auth, auditSpecs.refundProcess, allowRoles(RO
 
     if (booking.refund?.status !== REFUND_STATUS.PENDING) {
       return res.status(400).json({ message: 'No pending refund for this booking.' });
+    }
+
+    if (booking.refund.paymentUnverified) {
+      return res.status(400).json({ message: 'This down payment has not been verified yet. Verify the payment first, or reject the refund if the payment did not go through.' });
     }
 
     if (!req.file) {

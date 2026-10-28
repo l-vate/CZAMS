@@ -647,201 +647,7 @@
   color: rgba(255,255,255,0.45);
 }
 
-/* ============ AUTH PAGES (Login + Register) ============ */
-.auth-split-page {
-  position: relative;
-  isolation: isolate;
-  min-height: 100vh;
-  min-height: 100dvh;
-  background: #0b2545;
-}
-
-/* the same navy gradient with the teal and coral glows as the landing page backdrop (.lp-backdrop), plus the snow */
-.auth-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  overflow: hidden;
-  pointer-events: none;
-  background:
-    radial-gradient(900px 520px at 88% 12%, rgba(14, 140, 140, 0.42), transparent 62%),
-    radial-gradient(760px 520px at 0% 100%, rgba(255, 107, 74, 0.2), transparent 60%),
-    linear-gradient(155deg, #0b2545 0%, #143a63 58%, #0b2545 100%);
-}
-
-/* two soft glows drift slowly so the page feels alive */
-.auth-backdrop::before,
-.auth-backdrop::after {
-  content: '';
-  position: absolute;
-  width: 46vmax;
-  height: 46vmax;
-  border-radius: 50%;
-  filter: blur(40px);
-  opacity: 0.5;
-}
-.auth-backdrop::before { top: -18vmax; left: -10vmax; background: radial-gradient(circle, rgba(14, 140, 140, 0.45), transparent 65%); animation: auth-drift-a 22s ease-in-out infinite; }
-.auth-backdrop::after { bottom: -22vmax; right: -12vmax; background: radial-gradient(circle, rgba(255, 107, 74, 0.28), transparent 65%); animation: auth-drift-b 26s ease-in-out infinite; }
-@keyframes auth-drift-a { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(8vmax, 6vmax); } }
-@keyframes auth-drift-b { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-7vmax, -6vmax); } }
-
-.auth-split-right {
-  position: relative;
-  min-height: 100vh;
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 20px 16px 14px;
-}
-
-.auth-split-back {
-  position: absolute;
-  top: 18px;
-  left: 24px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: rgba(255,255,255,0.75);
-  text-decoration: none;
-  transition: color 0.2s;
-}
-
-.auth-split-back svg { width: 18px; height: 18px; flex-shrink: 0; transition: transform 0.2s; }
-.auth-split-back:hover { color: #fff; }
-.auth-split-back:hover svg { transform: translateX(-3px); }
-
-/* the logo and the company name side by side, with a glowing ring behind the logo */
-.auth-split-brand {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 14px;
-  text-align: center;
-  animation: auth-rise 0.6s ease both;
-}
-
-.auth-split-logo-wrap { display: block; animation: auth-float 6s ease-in-out infinite; }
-
-/* the full colour logo, big, with the same soft glow as on the landing page's About Us */
-.auth-split-logo {
-  display: block;
-  width: 210px;
-  height: auto;
-  filter: brightness(1.3) saturate(1.1) drop-shadow(0 0 22px rgba(147, 197, 253, 0.28));
-}
-
-/* the company name and the tagline line: one font, one size, one color */
-.auth-split-brand-text { display: flex; flex-direction: column; gap: 4px; }
-
-.auth-split-brand-name,
-.auth-split-brand-sub {
-  font-family: 'Outfit', sans-serif;
-  font-weight: 700;
-  font-size: 20px;
-  line-height: 1.15;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #fff;
-}
-
-.auth-split-copy {
-  font-size: 12px;
-  color: rgba(255,255,255,0.5);
-  margin-top: 2px;
-}
-
-@keyframes auth-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
-@keyframes auth-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
-
-@media (prefers-reduced-motion: reduce) {
-  .auth-backdrop::before, .auth-backdrop::after, .auth-split-logo-wrap, .auth-split-brand, .auth-split-form-box { animation: none; }
-}
-
-/* a wide screen: the logo and name on the left, the card right beside them (stacked on a narrower one). The create account card is wider,
-   so it needs a wider screen before it goes beside the brand. */
-@media (min-width: 1101px) {
-  .auth-split-right:not(:has(.auth-split-form-box--wide)) {
-    display: grid;
-    grid-template-columns: max-content max-content;
-    justify-content: center;
-    align-content: center;
-    align-items: center;
-    column-gap: 88px;
-    row-gap: 8px;
-  }
-  .auth-split-right:not(:has(.auth-split-form-box--wide)) .auth-split-brand { align-items: flex-start; text-align: left; }
-  .auth-split-right:not(:has(.auth-split-form-box--wide)) .auth-split-form-box { width: 440px; margin: 0; }
-  .auth-split-right:not(:has(.auth-split-form-box--wide)) .auth-split-copy { grid-column: 1 / -1; }
-}
-@media (min-width: 1280px) {
-  .auth-split-right:has(.auth-split-form-box--wide) {
-    display: grid;
-    grid-template-columns: max-content max-content;
-    justify-content: center;
-    align-content: center;
-    align-items: center;
-    column-gap: 72px;
-    row-gap: 8px;
-  }
-  .auth-split-right:has(.auth-split-form-box--wide) .auth-split-brand { align-items: flex-start; text-align: left; }
-  .auth-split-right:has(.auth-split-form-box--wide) .auth-split-form-box { width: 720px; margin: 0; }
-  .auth-split-right:has(.auth-split-form-box--wide) .auth-split-copy { grid-column: 1 / -1; }
-}
-@media (min-width: 1101px) {
-  .auth-split-logo { width: 400px; }
-  .auth-split-brand-text { align-items: flex-start; }
-}
-
-/* a short screen: tighter so the sign-in and create account pages still fit without scrolling */
-@media (max-height: 700px) {
-  .auth-split-right { gap: 10px; padding-top: 14px; padding-bottom: 10px; }
-  .auth-split-logo { width: min(210px, 34vh); }
-  .auth-split-brand-name, .auth-split-brand-sub { font-size: 17px; }
-  .auth-split-form-box { padding-top: 20px; padding-bottom: 16px; }
-  .auth-split-header { margin-bottom: 12px; }
-  .auth-split-header h2 { font-size: 22px; }
-}
-
-.auth-split-form-box {
-  background: var(--white);
-  border-radius: 20px;
-  padding: 28px 36px 22px;
-  width: 100%;
-  max-width: 440px;
-  margin: 0 auto;
-  animation: auth-rise 0.6s ease 0.1s both;
-  box-shadow: 0 8px 40px rgba(11,37,69,0.1);
-  border: 1px solid rgba(11,37,69,0.06);
-}
-
-.auth-split-header {
-  margin-bottom: 18px;
-}
-
-/* forgot and reset password: the heading and the messages are centered */
-.auth-split-form-box--center .auth-split-header,
-.auth-split-form-box--center .auth-success,
-.auth-split-form-box--center .auth-error { text-align: center; }
-
-.auth-split-header h2 {
-  font-family: 'Outfit', sans-serif;
-  font-size: 26px;
-  font-weight: 700;
-  color: var(--navy);
-  margin-bottom: 6px;
-}
-
-.auth-split-header p {
-  font-size: 14px;
-  color: var(--ink-soft);
-}
-
+/* ============ FORM PIECES (the sign in pages have their own stylesheet, auth.css; these are still used by the change password dialog and the staff profile) ============ */
 .auth-form {
   display: flex;
   flex-direction: column;
@@ -849,10 +655,7 @@
   margin-bottom: 14px;
 }
 
-/* the create account form: a wider card with two fields to a row, so it fits the screen without scrolling */
-.auth-split-form-box--wide { max-width: 720px; }
-.auth-form--two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
-.auth-form--two .form-row { display: contents; }
+.form-row { display: contents; }
 .auth-form--two > .form-group:nth-child(4) { grid-column: 1 / -1; }
 .auth-form--two > .password-rules, .auth-form--two > .auth-submit-btn { grid-column: 1 / -1; }
 .auth-form--two > .password-rules { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: -4px 0 0; padding: 0; list-style: none; }
@@ -1030,7 +833,6 @@
 @media (max-width: 860px) {
   .slide-content h1, .slide-content h2 { font-size: 32px; }
   .footer { padding: 40px 22px 20px; }
-  .auth-split-form-box { padding: 32px 22px; max-width: 480px; }
   .form-row { flex-direction: column; }
 }
 
@@ -1047,13 +849,6 @@
   .footer { padding: 32px 16px 20px; }
   .footer-grid { grid-template-columns: 1fr; gap: 32px; }
   .auth-role-btns { flex-direction: column; }
-}
-
-/* Extracted from inline styles in pages/public/login_page.jsx.
-   The class is doubled so it keeps the priority the inline style had over other rules. */
-.public-login-page-x1.public-login-page-x1 {
-  color: red;
-  font-size: 0.9rem;
 }
 
 /* ============ NAVBAR: laptop widths and the hamburger menu ============ */

@@ -34,7 +34,6 @@ function Profile() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const [passwordChanged, setPasswordChanged] = useState(false);
 
   const handleEditClick = () => {
     setEditForm(profile);
@@ -216,19 +215,15 @@ function Profile() {
           <button
             type="button"
             className="change-password-btn"
-            onClick={() => { setPasswordChanged(false); setShowChangePassword(true); }}
+            onClick={() => setShowChangePassword(true)}
           >
             <FiLock size={14} /> Change Password
           </button>
         </div>
-        {passwordChanged && <p className="sdm-muted">Your password was updated.</p>}
       </div>
 
       {showChangePassword && (
-        <ChangePasswordModal
-          onClose={() => setShowChangePassword(false)}
-          onChanged={() => setPasswordChanged(true)}
-        />
+        <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
       )}
     </StaffLayout>
   );

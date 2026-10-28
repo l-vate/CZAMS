@@ -50,6 +50,11 @@ export function changePassword(passwords) {
   return request('/api/auth/change-password', { method: 'PUT', body: passwords });
 }
 
+// Emails the signed-in user a link to choose a new password.
+export function requestPasswordChangeEmail() {
+  return request('/api/auth/change-password/email', { method: 'POST' });
+}
+
 export function deleteAccount() {
   return request('/api/auth/account', { method: 'DELETE' });
 }

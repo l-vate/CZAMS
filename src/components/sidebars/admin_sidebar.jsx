@@ -1,10 +1,15 @@
 import { useState } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom"; 
 import { BRAND_NAME, BRAND_SHORT, BRAND_SUB } from '../../config/company';
+import { useNeedsAttention, resetNeedsAttention } from '../../hooks/useNeedsAttention';
+import { badgeText } from '../../utils/needsAttention';
 
 function AdminSidebar({ onNavigate }) {
   const navigate = useNavigate();
   const location = useLocation();
+  // the total of Today plus Needs a decision, on the Dashboard link (the same answer the dashboard panel shows)
+  const attention = useNeedsAttention();
+  const attentionBadge = badgeText(attention.data?.total);
 
   // Routes that live under the "Services" dropdown - deliberately excludes
   // /admin/services/requests, which is its own top-level "Service Requests"
@@ -22,6 +27,7 @@ function AdminSidebar({ onNavigate }) {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    resetNeedsAttention();
     if (onNavigate) onNavigate();
     navigate("/login");
   };
@@ -51,6 +57,9 @@ function AdminSidebar({ onNavigate }) {
         <nav className="sidebar-nav">
           <NavLink to="/admin/dashboard" className={linkClass} onClick={onNavigate}>
             Dashboard
+            {attentionBadge && (
+              <span className="sidebar-badge" aria-label={`${attentionBadge} items need attention`}>{attentionBadge}</span>
+            )}
           </NavLink>
           <NavLink to="/admin/calendar" className={linkClass} onClick={onNavigate}>
             Calendar

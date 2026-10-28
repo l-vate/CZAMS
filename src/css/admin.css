@@ -2885,3 +2885,7 @@
 .recent-bookings h2 { font-size: 1.0625rem; }
 .recent-bookings .analytics-table th { font-size: 0.75rem; letter-spacing: 0.04em; }
 .recent-bookings .analytics-table td { font-size: 0.875rem; }
+
+/* the note under the booking filters when the list was opened from "Needs attention" with today and tomorrow only */
+.req-soon-note { margin: 0 0 12px; padding: 10px 14px; border: 1px solid #cfe3ee; border-left: 4px solid var(--navy-soft); border-radius: 10px; background: #f3f9fd; font-size: 0.875rem; color: var(--ink-soft); }
+.req-soon-clear { padding: 0; border: 0; background: none; color: var(--primary); font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }

@@ -11,13 +11,19 @@ import { getMembers, getMemberNames } from '../../utils/assignments';
 import PendingQueue from '../../components/pending_queue';
 import { customerLabel } from '../../utils/customerLabel';
 import { BOOKING_STATUS_VALUES } from '../../constants/bookingStatus';
+import { manilaTodayKey } from '../../utils/manilaTime';
+import { addDaysKey } from '../../utils/needsAttention';
 
 function ServiceRequests() {
     const navigate = useNavigate();
     const location = useLocation();
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [activeFilter, setActiveFilter] = useState('All');
+    // The "Needs attention" panel links here with ?filter=<status> (View all) and ?when=soon (bookings dated today or tomorrow).
+    const [linkParams] = useSearchParams();
+    const linkedFilter = linkParams.get('filter');
+    const [activeFilter, setActiveFilter] = useState(BOOKING_STATUS_VALUES.includes(linkedFilter) ? linkedFilter : 'All');
+    const [soonOnly, setSoonOnly] = useState(linkParams.get('when') === 'soon');
     const [searchQuery, setSearchQuery] = useState('');
     // 'all' = every booking; 'queue' = the Pending queue (first come, first served, reorderable)
     const [view, setView] = useState('all');
@@ -41,6 +47,11 @@ function ServiceRequests() {
 
     const filteredRequests = requests
         .filter((req) => activeFilter === 'All' || req.status === activeFilter)
+        .filter((req) => {
+            if (!soonOnly) return true;
+            const today = manilaTodayKey();
+            return ['Pending', 'Approved'].includes(req.status) && Boolean(req.date) && req.date <= addDaysKey(today, 1);
+        })
         .filter((req) => {
             if (!personFilter) return true;
             if (personFilter.type === 'technician') return getMembers(req).some((m) => m._id === personFilter.id);
@@ -120,6 +131,13 @@ function ServiceRequests() {
                         + New Booking
                     </button>
                 </div>
+
+                {soonOnly && (
+                    <p className="req-soon-note" role="status">
+                        Showing the Pending and Approved bookings dated today or tomorrow, and any that missed their date.{' '}
+                        <button type="button" className="req-soon-clear" onClick={() => setSoonOnly(false)}>Show all</button>
+                    </p>
+                )}
 
                 <PersonFilterBanner filter={personFilter} onClear={() => setPersonFilter(null)} />
 

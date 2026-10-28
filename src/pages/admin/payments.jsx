@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import AdminLayout from './admin_layout';
 import PersonFilterBanner from '../../components/person_filter_banner';
 import PaymentReference from '../../components/payment_reference';
@@ -362,7 +362,10 @@ function PaymentCard({ payment, onReviewRequest, onReviewRefund, onViewInvoice }
 }
 
 function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
-  const [activeFilter, setActiveFilter] = useState('all');
+  // The "Needs attention" panel links here with ?filter=<key> (To Verify, Refunds) and ?q=<booking number>.
+  const [linkParams] = useSearchParams();
+  const linkedFilter = linkParams.get('filter');
+  const [activeFilter, setActiveFilter] = useState(PAYMENT_FILTERS.some((f) => f.key === linkedFilter) ? linkedFilter : 'all');
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [selectedRefund, setSelectedRefund] = useState(null);
   const [invoicePayment, setInvoicePayment] = useState(null);
@@ -926,7 +929,8 @@ function Payments() {
   // Manage Accounts' "Billing History" (client accounts) lands here with a person
   // filter pre-applied via navigation state.
   const [personFilter, setPersonFilter] = useState(location.state?.personFilter || null);
-  const [search, setSearch] = useState('');
+  const [searchLink] = useSearchParams();
+  const [search, setSearch] = useState(searchLink.get('q') || '');
 
   return (
     <AdminLayout

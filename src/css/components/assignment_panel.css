@@ -48,7 +48,12 @@
 .assignment-badge--primary { background: #143a63; color: #ffffff; }
 .assignment-row-name { font-weight: 600; overflow-wrap: anywhere; }
 .assignment-row .assignment-row-select { flex: 1 1 180px; min-width: 0; min-height: 40px; }
-.assignment-row-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.assignment-row-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.assignment-icon-btn { display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 1.5px solid var(--mist); border-radius: 9px; background: #fff; color: var(--navy-soft); font-size: 16px; cursor: pointer; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
+.assignment-icon-btn:hover:not(:disabled) { background: var(--navy-soft); border-color: var(--navy-soft); color: #fff; }
+.assignment-icon-btn--remove:hover:not(:disabled) { background: var(--danger); border-color: var(--danger); }
+.assignment-icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.assignment-icon-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .assignment-row-actions .sdm-btn { min-height: 40px; min-width: 40px; padding-left: 8px; padding-right: 8px; font-size: 0.8125rem; white-space: normal; overflow-wrap: anywhere; box-sizing: border-box; }
 .assignment-panel-x1 .assignment-row .sdm-btn:disabled { opacity: 0.5; }
 @media (max-width: 480px) {
@@ -66,3 +71,45 @@
 .owner-cancel-form { flex: 1 1 100%; }
 
 .sdm-email-card { margin: 8px 0 12px; max-width: 460px; }
+
+/* The notice that the customer was told a unit cannot be supplied: a card with the reason and the note laid out as labelled lines. */
+.cannot-supply-sent {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid #f0cfcf;
+  border-left: 4px solid var(--danger);
+  border-radius: 12px;
+  background: #fff7f7;
+}
+.cannot-supply-sent .cannot-supply-title { margin: 0; font-size: 0.9375rem; font-weight: 700; color: var(--navy); }
+.cannot-supply-details { margin: 0; display: grid; gap: 6px; }
+.cannot-supply-details { gap: 10px; }
+.cannot-supply-details > div { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; font-size: 0.875rem; line-height: 1.5; }
+.cannot-supply-details dt { color: var(--ink-soft); font-weight: 600; }
+.cannot-supply-details dd { margin: 0; color: var(--navy); overflow-wrap: anywhere; }
+.cannot-supply-sent .sdm-btn { justify-self: start; }
+
+/* the customer's notice that a unit cannot be supplied: the text and a Contact owner button */
+.unit-decline-notice { display: grid; gap: 4px; }
+.unit-decline-title { font-size: 0.95rem; }
+.unit-decline-line { font-size: 0.875rem; }
+.unit-decline-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.unit-decline-contact {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--navy-soft);
+  color: #fff;
+  font-family: 'Outfit', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.unit-decline-contact:hover { background: var(--navy); }
+.unit-decline-contact:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }

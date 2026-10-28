@@ -16,7 +16,7 @@ export function UnitTypesSection() {
   const [picked, setPicked] = useState(null);
   return (
     <section id="unit-types" data-nav="services" className="lp-section lp-units" aria-labelledby="units-title">
-      <SectionHeading eyebrow={UNITS.eyebrow} title={UNITS.title} id="units-title" />
+      <SectionHeading title={UNITS.title} id="units-title" />
       <ul className="lp-unit-grid">
         {UNITS.items.map((unit, i) => (
           <li className="lp-unit" key={unit.type} data-reveal style={{ '--reveal-i': i }}>
@@ -39,7 +39,7 @@ export function UnitTypesSection() {
 export function WhySection() {
   return (
     <section id="why" data-nav="services" className="lp-section lp-why" aria-labelledby="why-title">
-      <SectionHeading eyebrow={WHY.eyebrow} title={WHY.title} id="why-title" />
+      <SectionHeading title={WHY.title} id="why-title" />
       <ul className="lp-card-grid lp-card-grid--three">
         {WHY.items.map((item, i) => (
           <li className="lp-card lp-why-card" key={item.title} data-reveal style={{ '--reveal-i': i }}>

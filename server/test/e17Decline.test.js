@@ -33,7 +33,7 @@ const suppliedBooking = (over = {}) => {
   const item = addCatalogUnit({ brand: 'Daikin' });
   return addBooking({
     bookingId: 'CZ-1', customer: 'CUS1', service: install, status: 'Pending', clientSuppliedUnit: false, date: goodDate(9), time: 'Morning', downPaymentPercent: 50,
-    paymentStatus: 'to_verify', balancePaymentStatus: 'None', refund: { status: 'None' },
+    paymentStatus: 'partially_paid', balancePaymentStatus: 'None', refund: { status: 'None' },
     units: [{ type: 'Split Type', quantity: 1, hp: '1', brand: 'Daikin', brandModel: 'Daikin T100 (inverter)', supplied: { source: 'catalog', catalogId: String(item._id), brand: 'Daikin', model: 'T100', type: 'Split Type', hp: '1', inverter: true, price: 25000 } }],
     ...over,
   });
@@ -185,14 +185,16 @@ test('an admin cancelling for another reason (not owner-initiated) keeps the lat
   assert.equal(b.refund.isSameDay, true);
 });
 
-test('owner-initiated with the proof still waiting: the refund opens at the full amount once the proof is verified', async () => {
+test('owner-initiated with the proof still waiting: the refund request is open at the full amount, ready once the proof is verified', async () => {
   // the date is in the future for the proof check (the date does not matter to an owner-initiated refund)
   const b = paid(manilaTodayKey(), { paymentStatus: 'to_verify', proofFile: '/uploads/proofs/a.png', downPaymentPaidAmount: undefined });
   assert.equal((await ownerCancel()).status, 200);
-  assert.equal(b.refund.status, 'None');
+  assert.equal(b.refund.status, 'Pending', 'asked for at once, though the proof is not verified yet');
+  assert.equal(b.refund.paymentUnverified, true);
   assert.equal(b.paymentCheckAfterCancel, true);
   assert.equal((await call('PATCH', '/CZ-1/admin-update', 'ADM1', { paymentStatus: 'partially_paid' }, asAdmin)).status, 200);
   assert.equal(b.refund.status, 'Pending');
+  assert.equal(b.refund.paymentUnverified, false);
   assert.equal(b.refund.isSameDay, false);
   assert.equal(b.refund.refundableAmount, 1000);
 });

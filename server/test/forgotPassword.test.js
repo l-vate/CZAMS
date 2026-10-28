@@ -44,6 +44,7 @@ test.before(async () => {
     row.usedAt = update.$set.usedAt;
     return row;
   };
+  PasswordResetToken.findOne = async (filter) => tokens.find((t) => t.tokenHash === filter.tokenHash && t.usedAt === null && t.expiresAt > filter.expiresAt.$gt) || null;
   AuditLog.create = async (doc) => { audits.push(doc); return doc; };
   reset.setResetMailer(stubMailer);
 
@@ -210,6 +211,20 @@ test('an expired link is refused', async () => {
   assert.equal(res.status, 400);
   assert.match(res.body.message, /invalid or has expired/);
   assert.equal(await bcrypt.compare(OLD, users[0].password), true);
+});
+
+test('the page can ask whether a link is still good: yes while it lives, no after it expired or was used, and asking never spends it', async () => {
+  await forgot('ana@example.com');
+  await settle();
+  const token = tokenOf(sent[0].link);
+  assert.deepEqual((await post('/reset-password/check', { token })).body, { valid: true });
+  assert.deepEqual((await post('/reset-password/check', { token })).body, { valid: true }); // asking twice changes nothing
+  tokens[0].expiresAt = new Date(Date.now() - 1000);
+  assert.deepEqual((await post('/reset-password/check', { token })).body, { valid: false });
+  tokens[0].expiresAt = new Date(Date.now() + 60000);
+  assert.equal((await post('/reset-password', { token, password: NEW })).status, 200);
+  assert.deepEqual((await post('/reset-password/check', { token })).body, { valid: false }); // used once
+  assert.deepEqual((await post('/reset-password/check', { token: 'x' })).body, { valid: false });
 });
 
 test('a wrong, tampered, truncated or non-text token is refused with the same answer', async () => {

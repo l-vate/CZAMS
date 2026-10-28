@@ -60,9 +60,13 @@ function Calendar() {
 {loading ? (
         <p>Loading schedule…</p>
       ) : (
-        <div className="admin-calendar-x1">
-          <CalendarView jobs={jobs} title="Job Calendar" />
-        </div>
+        <section className="closure-manager admin-calendar-card">
+          <h3 className="closure-manager-title">Job Calendar</h3>
+          <p className="closure-manager-sub">Every booking by date, with who is assigned to it.</p>
+          <div className="admin-calendar-x1">
+            <CalendarView jobs={jobs} title="Schedule" />
+          </div>
+        </section>
       )}
     </AdminLayout>
   );

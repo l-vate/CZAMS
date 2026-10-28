@@ -13,10 +13,15 @@ import { earliestBookingKey, manilaTodayKey } from '../../utils/manilaTime';
 import { bookingHeading } from '../../utils/bookingHeading';
 import { SAME_DAY_CANCEL_WARNING, CANCEL_POLICY_NOTE, showsSameDayWarning } from '../../config/cancellation';
 import { usePaymentSettings, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
+import PaymentModal from '../../components/payment_modal';
+import { unitChangeOf } from '../../utils/suppliedUnitChoice';
+import { submitPayment } from '../../services/paymentService';
+import { PAYMENT_STATUS } from '../../constants/paymentStatus';
+import { SERVICE_TYPE } from '../../constants/serviceTypes';
 import {
   FiCheck, FiBell, FiPrinter,
   FiCalendar, FiClock, FiMapPin, FiInfo, FiCreditCard,
-  FiUser, FiAlertTriangle, FiX, FiArrowRight, FiStar, FiPhone, FiFileText,
+  FiUser, FiAlertTriangle, FiX, FiArrowRight, FiStar, FiPhone, FiFileText, FiMessageCircle,
 } from 'react-icons/fi';
 import { ApiError, orFallback } from '../../services/apiClient';
 import { getBooking, cancelBooking, rescheduleBooking, submitFeedback, requestDiscount } from '../../services/bookingService';
@@ -363,8 +368,9 @@ function BookDetails() {
   const { bookingId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const { downPaymentPercentages } = usePaymentSettings();
+  const { downPaymentPercentages, paymentMethods } = usePaymentSettings();
   const { notice, showNotice, clearNotice } = useNotice();
+  const [showPay, setShowPay] = useState(false);
 
   const [booking, setBooking] = useState(location.state?.booking || null);
   const [loading, setLoading] = useState(!location.state?.booking);
@@ -447,6 +453,21 @@ function BookDetails() {
   const { downPayment: toPayNow, balance: remaining } = getPaymentBreakdown({ ...booking, downPaymentPercent: dpPercent });
 
   const isFullyPaid = isBookingFullyPaid(booking);
+
+  // The down payment can be sent while nothing has been sent (or the last proof was rejected). An installation is confirmed by our team first.
+  // The down payment is the percent of the service units only: the price of a unit we supply is not part of it.
+  const downPaymentOpen = [PAYMENT_STATUS.UNPAID, PAYMENT_STATUS.REJECTED].includes(booking.paymentStatus) && dpPercent > 0 && toPayNow > 0
+    && [BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED].includes(booking.status);
+  const waitingForConfirmation = downPaymentOpen && booking.service?.serviceType === SERVICE_TYPE.INSTALLATION && booking.status === BOOKING_STATUS.PENDING;
+  const handlePaySubmit = async ({ proof, referenceNumber }) => {
+    try {
+      await submitPayment(booking.bookingId, proof, referenceNumber);
+      setShowPay(false);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      showNotice(err instanceof ApiError ? err.message || 'Failed to submit payment' : 'Could not connect to server.');
+    }
+  };
 
   const receiptForm = {
     id: booking.bookingId,
@@ -554,7 +575,33 @@ function BookDetails() {
           <p className="unit-decline-line"><strong>Reason:</strong> {booking.unitDecline.reason}</p>
           {booking.unitDecline.note && <p className="unit-decline-line"><strong>Note from the owner:</strong> {booking.unitDecline.note}</p>}
           <p className="unit-decline-line">Your booking has not been cancelled. You can cancel it below, or contact the owner to choose another unit.</p>
+          <div className="unit-decline-actions">
+            <button type="button" className="unit-decline-contact" onClick={() => navigate('/customer/chat', {
+                state: {
+                  // the chat opens with this booking attached as the reference
+                  bookingRef: {
+                    bookingId: booking.bookingId,
+                    service: booking.service?.name,
+                    items: lineItems.filter((li) => !li.isCharge).map((li) => `${li.quantity}× ${li.type}`).join(', '),
+                    total: basePrice,
+                    status: booking.status,
+                    when: [formatDate(booking.date), booking.time].filter(Boolean).join(' '),
+                    placed: booking.createdAt ? new Date(booking.createdAt).toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }) : '',
+                  },
+                },
+              })}>
+              <FiMessageCircle size={16} /> Contact owner
+            </button>
+          </div>
         </section>
+      )}
+      {showPay && (
+        <PaymentModal
+          form={{ ...receiptForm, paymentMode2: booking.paymentMode2 }}
+          paymentMethods={paymentMethods}
+          onClose={() => setShowPay(false)}
+          onSubmit={handlePaySubmit}
+        />
       )}
       {showCancelConfirm && (
         <CancelConfirmDialog
@@ -664,6 +711,12 @@ function BookDetails() {
                 lineItems.filter((li) => !li.isCharge).map((li, i) => (
                   <p className="confirmation-detail-line" key={i}>
                     Unit: {li.quantity}× {li.type}{li.brandModel ? ` - ${li.brandModel}` : ''}{li.hp ? ` - ${li.hp} HP` : ''}
+                    {unitChangeOf(li) && (
+                      <span className="unit-change-note">
+                        <span>Requested: {unitChangeOf(li).requested} (not available)</span>
+                        <span>Changed to: {unitChangeOf(li).changedTo}</span>
+                      </span>
+                    )}
                     {li.supplied?.source === 'requested' && li.supplied.status !== 'Declined' && (
                       <span className="customer-unit-note"> Waiting for the owner to confirm the unit you asked for. The price is added once it is confirmed.</span>
                     )}
@@ -752,9 +805,21 @@ function BookDetails() {
                 <div className="summary-row"><span>Payment Terms</span><span>{booking.paymentTermsDays} days after completion</span></div>
               )}
               <div className="summary-row"><span>Down Payment</span><span>{dpPercent === null ? 'Not set' : `${dpPercent}%`}</span></div>
-              <div className="summary-row"><span>Amount Paid</span><span>₱{toPayNow.toLocaleString()}</span></div>
+              <div className="summary-row"><span>{downPaymentOpen ? 'Down Payment Due' : 'Amount Paid'}</span><span>₱{toPayNow.toLocaleString()}</span></div>
               <div className="summary-row"><span>Remaining Balance</span><span>₱{remaining.toLocaleString()}</span></div>
               <div className="summary-row"><span>Payment Mode</span><span>{booking.paymentMode || '-'}</span></div>
+              {downPaymentOpen && (
+                waitingForConfirmation ? (
+                  <p className="booking-pay-note">Our team has to confirm your installation first. You can pay the down payment once it is confirmed.</p>
+                ) : (
+                  <div className="booking-pay-action">
+                    <button type="button" className="pay-down-btn" onClick={() => setShowPay(true)} disabled={!paymentMethods || paymentMethods.length === 0}>
+                      Pay Down Payment
+                    </button>
+                    <small>{dpPercent}% of the service only: the price of a unit we supply is not included.</small>
+                  </div>
+                )
+              )}
               <div className="summary-row">
                 <span>Proof of Payment</span>
                 <span className="cost-link">

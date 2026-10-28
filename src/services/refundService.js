@@ -26,3 +26,8 @@ export function processRefund(bookingId, { proof, dispatchDeduction, dispatchRea
   if (adjustmentReason) formData.append('adjustmentReason', adjustmentReason);
   return upload(`/api/bookings/${bookingId}/refund`, formData, { method: 'PATCH' });
 }
+
+// Admin: reject a refund request, with the reason the customer is told (for example, the payment never came through).
+export function rejectRefund(bookingId, reason) {
+  return request(`/api/bookings/${bookingId}/refund/reject`, { method: 'PATCH', body: { reason } });
+}

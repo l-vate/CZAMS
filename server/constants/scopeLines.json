@@ -6,7 +6,7 @@
     "dismantling": { "label": "Dismantling", "description": "Dismantling of the existing unit", "unitLabel": "unit" },
     "installation": { "label": "Installation", "description": "Installation of the unit", "unitLabel": "unit" },
     "excessPipe": { "label": "Excess pipe", "description": "Excess pipe", "unitLabel": "foot" },
-    "distance": { "label": "Distance based charge", "description": "Distance based charge", "unitLabel": "trip" },
+    "distance": { "label": "Mobilization fee", "description": "Mobilization fee", "unitLabel": "trip" },
     "other": { "label": "Other", "description": "", "unitLabel": "unit" }
   },
   "limits": { "description": 120, "unitLabel": 20, "maxQuantity": 9999, "maxAmount": 10000000, "reason": 200 }

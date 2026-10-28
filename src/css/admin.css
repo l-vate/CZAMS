@@ -2659,6 +2659,7 @@
 .admin-promotions-x2.admin-promotions-x2 {
   display: flex;
   gap: 8px;
+  margin-top: 16px;
 }
 .admin-promotions-x3.admin-promotions-x3 {
   display: flex;
@@ -2823,3 +2824,64 @@
   .payment-card__action { display: flex; flex-wrap: wrap; gap: 8px; }
   .payment-card__review-btn { flex: 1 1 120px; min-height: 40px; }
 }
+
+/* ---------- Service Reports: the resolution badge is a pill, and the card lines share one type scale ---------- */
+.resolution-badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.resolution-badge--complete { background: var(--status-complete-bg); color: var(--status-complete-txt); }
+.resolution-badge--partial { background: var(--status-pending-bg); color: var(--warning-hover); }
+.resolution-badge--unresolved { background: var(--status-cancel-bg); color: var(--danger); }
+.report-card { padding: 18px 24px; gap: 24px; grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) auto; }
+.report-card__header { margin-bottom: 8px; }
+.report-card__booking-id { font-family: 'Outfit', sans-serif; font-size: 15px; }
+.report-card__main { display: grid; gap: 4px; min-width: 0; }
+.report-card__service, .report-card__customer, .report-card__technician, .report-card__summary { margin: 0; font-size: 13px; line-height: 1.45; }
+.report-card__service-type { font-weight: 600; color: #0f172a; }
+.report-card__detail { font-size: 13px; }
+.report-card__technician { color: #64748b; }
+.report-card__summary { color: #64748b; }
+.report-card__meta { gap: 6px; font-size: 13px; color: #64748b; }
+.report-card__date { color: #64748b; }
+.report-card__followup { font-size: 13px; }
+.report-card__view-btn { padding: 9px 18px; font-size: 13px; border: 1px solid #dbe3ec; }
+
+/* ---------- Payments list: one type scale across the card, and a tidy column of buttons ---------- */
+.payment-card { padding: 18px 24px; gap: 20px; grid-template-columns: minmax(0, 2fr) minmax(0, 0.8fr) minmax(0, 1.1fr) minmax(0, 1fr) 150px; }
+.payment-card__header { flex-wrap: wrap; margin-bottom: 6px; }
+.payment-card__client { font-family: 'Outfit', sans-serif; font-size: 16px; }
+.payment-card__dash { display: none; }
+.payment-card__service { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-bottom: 4px; font-size: 13px; }
+.payment-card__service-type { font-weight: 600; color: #0f172a; font-size: 13px; }
+.payment-card__dot { color: #94a3b8; }
+.payment-card__detail { font-size: 13px; color: #475569; }
+.payment-card__booking, .payment-card__technician { font-size: 12.5px; line-height: 1.5; }
+.payment-card__amount { font-family: 'Outfit', sans-serif; font-size: 17px; }
+.payment-card__datetime, .payment-card__attachment { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #475569; }
+.payment-card__attachment .payment-card__link--muted { color: #94a3b8; }
+.payment-card__action { display: grid; gap: 8px; }
+.payment-card__review-btn { width: 100%; padding: 9px 14px; text-align: center; border: 1px solid #dbe3ec; }
+.payment-card__review-btn:hover { background: var(--navy-soft); border-color: var(--navy-soft); color: #fff; }
+
+/* ---------- Analytics: calmer spacing and one type scale ---------- */
+.analytics-page { display: flex; flex-direction: column; gap: 0; padding: 20px 24px 32px; }
+.analytics-page .dashboard-welcome { margin: 0 0 18px; }
+.analytics-filters { margin-bottom: 18px; }
+.analytics-range { gap: 10px 14px; margin: 0 0 22px; padding: 12px 16px; background: #fff; border: 1px solid var(--card-border); border-radius: 12px; }
+.analytics-range label { font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+.analytics-range input, .analytics-range select { min-height: 38px; padding: 6px 10px; font-size: 14px; background: #fff; color: var(--navy); }
+.analytics-cards { gap: 18px; margin-bottom: 18px; }
+.analytics-card { padding: 20px 22px; }
+.analytics-card h3 { font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.02em; color: var(--ink-soft); }
+.analytics-card p { margin: 10px 0 4px; font-family: 'Outfit', sans-serif; font-size: 1.75rem; line-height: 1.15; }
+.analytics-card small { display: block; font-size: 0.8125rem; color: var(--ink-soft); }
+.analytics-page .chart-note { margin: 0 0 22px; font-size: 0.8125rem; line-height: 1.55; color: var(--ink-soft); }
+.analytics-page .chart-card { margin-bottom: 22px; padding: 18px 20px; }
+.analytics-page .chart-card-title { margin-bottom: 14px; font-size: 1rem; }
+.analytics-section { padding: 22px 24px; margin-bottom: 22px; }
+.analytics-section h2 { font-size: 1.125rem; margin-bottom: 16px; }
+.analytics-callout { font-size: 0.9375rem; }
+
+/* Technician Workload: the note and the table in a smaller, even type size */
+.workload-note { font-size: 0.8125rem; line-height: 1.5; color: var(--ink-soft); }
+.recent-bookings h2 { font-size: 1.0625rem; }
+.recent-bookings .analytics-table th { font-size: 0.75rem; letter-spacing: 0.04em; }
+.recent-bookings .analytics-table td { font-size: 0.875rem; }

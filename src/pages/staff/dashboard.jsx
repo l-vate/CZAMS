@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import StaffLayout from './staff_layout';
-import { FiUser, FiTool, FiCheckCircle, FiFileText, FiEye, FiCalendar, FiClock, FiMapPin, FiRotateCcw } from 'react-icons/fi';
+import { FiUser, FiTool, FiCheckCircle, FiFileText, FiEye, FiCalendar, FiClock, FiMapPin, FiRotateCcw, FiStar } from 'react-icons/fi';
 import { orFallback } from '../../services/apiClient';
 import LoadError from '../../components/load_error';
-import { getTechnicianStats, listTechnicianJobs } from '../../services/bookingService';
+import { getTechnicianStats, listTechnicianJobs, getTechnicianFeedback } from '../../services/bookingService';
 import { listPublicAnnouncements } from '../../services/announcementService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
 import { BackJobBadge } from '../../components/back_job_info';
@@ -50,6 +50,7 @@ function Dashboard() {
   const [jobs, setJobs] = useState([]);
   const [jobsFailed, setJobsFailed] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
+  const [reviews, setReviews] = useState([]);
 
   // A failed load is an error state, never data: the error reply is not stored as the stats.
   const fetchStats = () => getTechnicianStats()
@@ -89,6 +90,13 @@ function Dashboard() {
     fetchStats();
 
     fetchJobs();
+
+    // This technician's own customer feedback (the server gives a technician only their own).
+    if (user?._id || user?.id) {
+      orFallback(getTechnicianFeedback(user._id || user.id), [])
+        .then((data) => setReviews(Array.isArray(data) ? data : []))
+        .catch(() => setReviews([]));
+    }
 
     // Same public endpoint the landing page uses - no reason to gate this behind
     // a technician-only route, and it keeps the "active announcements" logic in
@@ -228,6 +236,34 @@ function Dashboard() {
           )}
         </div>
       </div>
+
+      {reviews.length > 0 && (
+        <>
+          <h2 className="tech-section-title tech-section-title--tight">Customer Feedback</h2>
+          <p className="tech-feedback-summary">
+            Average rating <strong>{(reviews.reduce((sum, rv) => sum + rv.rating, 0) / reviews.length).toFixed(1)}</strong> out of 5 from {reviews.length} {reviews.length === 1 ? 'review' : 'reviews'}
+          </p>
+          <div className="tech-feedback-list">
+            {reviews.slice(0, 5).map((rv, i) => (
+              <div className={`tech-feedback-card ${rv.rating >= 4 ? 'tech-feedback-card--good' : rv.rating === 3 ? 'tech-feedback-card--mid' : 'tech-feedback-card--low'}`} key={`${rv.createdAt}-${i}`}>
+                <div className="tech-feedback-left">
+                  <div className="tech-feedback-avatar"><FiUser /></div>
+                  <div>
+                    <div className="tech-feedback-name">{rv.name}</div>
+                    {rv.text && <div className="tech-feedback-text">&ldquo;{rv.text}&rdquo;</div>}
+                  </div>
+                </div>
+                <div className="tech-feedback-right">
+                  <div className="tech-stars" aria-label={`${rv.rating} out of 5`}>
+                    {[1, 2, 3, 4, 5].map((n) => <FiStar key={n} fill={n <= rv.rating ? 'currentColor' : 'none'} aria-hidden="true" />)}
+                  </div>
+                  {rv.createdAt && <div className="tech-feedback-date">{new Date(rv.createdAt).toLocaleDateString('en-US')}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Announcement board - Announcement model + admin-side creation already
           exist for the Landing Page Module; this just also renders them here.

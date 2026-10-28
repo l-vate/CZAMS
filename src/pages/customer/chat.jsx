@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
 import ChatPanel from '../../components/chat_panel';
 import { usePaymentSettings } from '../../utils/paymentSettings';
@@ -45,7 +46,9 @@ function buildQuickQuestions(paymentMethods) {
 function CustomerChat() {
   const { paymentMethods } = usePaymentSettings();
   const [selected, setSelected] = useState(null); // { question, answer } | null
-  const [chatStarted, setChatStarted] = useState(false);
+  // "Contact owner" on a booking opens the chat with that booking as the reference, so the picker of common questions is skipped.
+  const bookingRef = useLocation().state?.bookingRef || null;
+  const [chatStarted, setChatStarted] = useState(Boolean(bookingRef));
 
   const quickQuestions = buildQuickQuestions(paymentMethods);
 
@@ -56,6 +59,7 @@ function CustomerChat() {
           <ChatPanel
             emptyText="No messages yet. Send a message to reach the CZA team."
             initialMessage={selected?.question || null}
+            reference={bookingRef}
           />
         </div>
       </CustomerLayout>

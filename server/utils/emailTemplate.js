@@ -126,8 +126,8 @@ function detailRows({ type, bookingId, booking }) {
 function detailsTable(rows, tone) {
   if (rows.length === 0) return '';
   const body = rows.map(([label, value], i) => `<tr>
-        <td class="stack t-muted box-text" style="width:38%;padding:9px 14px;font-size:13px;line-height:1.4;color:${LIGHT.muted};${i > 0 ? `border-top:1px solid ${LIGHT.rule};` : ''}" valign="top">${escapeHtml(label)}</td>
-        <td class="stack t-body box-text" style="padding:9px 14px;font-size:15px;line-height:1.4;font-weight:600;color:${LIGHT.body};${i > 0 ? `border-top:1px solid ${LIGHT.rule};` : ''}" valign="top">${escapeHtml(value)}</td>
+        <td class="stack t-muted box-text" align="center" style="text-align:center;width:38%;padding:9px 14px;font-size:13px;line-height:1.4;color:${LIGHT.muted};${i > 0 ? `border-top:1px solid ${LIGHT.rule};` : ''}" valign="top">${escapeHtml(label)}</td>
+        <td class="stack t-body box-text" align="center" style="text-align:center;padding:9px 14px;font-size:15px;line-height:1.4;font-weight:600;color:${LIGHT.body};${i > 0 ? `border-top:1px solid ${LIGHT.rule};` : ''}" valign="top">${escapeHtml(value)}</td>
       </tr>`).join('');
   return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="detail-box" style="margin:0 0 20px;background:${LIGHT.box};border-left:4px solid ${TONES[tone].bar};border-radius:6px;">${body}</table>`;
 }
@@ -135,7 +135,7 @@ function detailsTable(rows, tone) {
 // A button that works in Outlook too: a VML rounded rectangle for Outlook, a padded table cell for everything else.
 function button(label, url) {
   const href = escapeHtml(url);
-  return `<table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 10px;"><tr><td class="btn-cell" align="center" bgcolor="${LIGHT.button}" style="background:${LIGHT.button};border-radius:8px;">
+  return `<table role="presentation" align="center" cellspacing="0" cellpadding="0" style="margin:0 auto 10px;"><tr><td class="btn-cell" align="center" bgcolor="${LIGHT.button}" style="background:${LIGHT.button};border-radius:8px;">
         <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:46px;v-text-anchor:middle;width:220px;" arcsize="18%" stroke="f" fillcolor="${LIGHT.button}"><w:anchorlock/><center style="color:${LIGHT.buttonText};font-family:Arial,sans-serif;font-size:16px;font-weight:bold;">${escapeHtml(label)}</center></v:roundrect><![endif]-->
         <!--[if !mso]><!--><a href="${href}" style="display:inline-block;padding:13px 28px;font-family:${FONT};font-size:16px;font-weight:700;line-height:1.2;color:${LIGHT.buttonText};text-decoration:none;border-radius:8px;">${escapeHtml(label)}</a><!--<![endif]-->
       </td></tr></table>`;
@@ -172,10 +172,10 @@ function buildEmail({ headline, tone = 'blue', label, preheader, paragraphs = []
   const preheaderText = String(preheader || '').slice(0, 140);
   const ctaBlock = cta
     ? `${button(cta.label, cta.url)}
-        <p class="t-muted" style="margin:0 0 22px;font-size:12px;line-height:1.5;color:${LIGHT.muted};word-break:break-all;">If the button does not work, open this address: <a class="t-link" href="${escapeHtml(cta.url)}" style="color:${LIGHT.link};">${escapeHtml(cta.url)}</a></p>`
+        <p class="t-muted" style="margin:0 0 22px;text-align:center;font-size:12px;line-height:1.5;color:${LIGHT.muted};word-break:break-all;">If the button does not work, open this address: <a class="t-link" href="${escapeHtml(cta.url)}" style="color:${LIGHT.link};">${escapeHtml(cta.url)}</a></p>`
     : '';
   const nextBlock = next
-    ? `<p class="t-body" style="margin:0 0 22px;font-size:15px;line-height:1.6;color:${LIGHT.body};"><strong class="t-head" style="color:${LIGHT.head};">What happens next:</strong> ${escapeHtml(next)}</p>`
+    ? `<p class="t-body" style="margin:0 0 22px;text-align:center;font-size:15px;line-height:1.6;color:${LIGHT.body};"><strong class="t-head" style="color:${LIGHT.head};">What happens next:</strong> ${escapeHtml(next)}</p>`
     : '';
 
   const html = `<!doctype html>
@@ -187,8 +187,8 @@ ${darkCss()}
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;font-size:1px;line-height:1px;color:${LIGHT.page};">${escapeHtml(preheaderText)}${'&nbsp;&zwnj;'.repeat(20)}</div>
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="bg" style="background:${LIGHT.page};"><tr><td align="center" style="padding:24px 12px;">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="container card" style="width:600px;max-width:600px;background:${LIGHT.card};border-radius:14px;overflow:hidden;">
-      <tr><td style="background:${NAVY};padding:18px 28px;" class="px" bgcolor="${NAVY}">
-        <table role="presentation" cellspacing="0" cellpadding="0"><tr>
+      <tr><td align="center" style="background:${NAVY};padding:18px 28px;text-align:center;" class="px" bgcolor="${NAVY}">
+        <table role="presentation" align="center" cellspacing="0" cellpadding="0" style="margin:0 auto;"><tr>
           <td valign="middle" style="background:#ffffff;border-radius:10px;padding:6px 10px;" bgcolor="#ffffff"><img src="cid:${LOGO_CID}" alt="${escapeHtml(LOGO_ALT)}" width="96" height="50" style="display:block;border:0;width:96px;height:50px;"></td>
           <td valign="middle" style="padding-left:14px;">
             <div class="head-name" style="font-family:${FONT};font-size:17px;line-height:1.25;font-weight:700;color:#ffffff;">${escapeHtml(company.name)}</div>
@@ -197,15 +197,15 @@ ${darkCss()}
         </tr></table>
       </td></tr>
       <tr><td style="height:5px;background:${t.bar};font-size:0;line-height:0;" bgcolor="${t.bar}">&nbsp;</td></tr>
-      <tr><td class="px" style="padding:28px 28px 8px;">
-        <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 14px;"><tr><td style="background:${t.chipBg};color:${t.chipText};border-radius:999px;padding:5px 12px;font-size:12px;font-weight:700;letter-spacing:.06em;" bgcolor="${t.chipBg}">${escapeHtml(label)}</td></tr></table>
+      <tr><td class="px" align="center" style="padding:28px 28px 8px;text-align:center;">
+        <table role="presentation" align="center" cellspacing="0" cellpadding="0" style="margin:0 auto 14px;"><tr><td style="background:${t.chipBg};color:${t.chipText};border-radius:999px;padding:5px 12px;font-size:12px;font-weight:700;letter-spacing:.06em;" bgcolor="${t.chipBg}">${escapeHtml(label)}</td></tr></table>
         <h1 class="t-head" style="margin:0 0 12px;font-size:24px;line-height:1.25;color:${LIGHT.head};">${escapeHtml(headline)}</h1>
         ${paragraphs.map((p) => `<p class="t-body" style="margin:0 0 18px;font-size:16px;line-height:1.6;color:${LIGHT.body};">${escapeHtml(p)}</p>`).join('\n        ')}
         ${detailsTable(details, tone)}
         ${nextBlock}
         ${ctaBlock}
       </td></tr>
-      <tr><td class="footer px" style="padding:20px 28px 26px;background:${LIGHT.footerBg};border-top:1px solid ${LIGHT.rule};">
+      <tr><td class="footer px" align="center" style="text-align:center;padding:20px 28px 26px;background:${LIGHT.footerBg};border-top:1px solid ${LIGHT.rule};">
         <p class="t-footer" style="margin:0 0 6px;font-size:13px;line-height:1.6;font-weight:700;color:${LIGHT.footerText};">${escapeHtml(company.name)}</p>
         <p class="t-footer" style="margin:0 0 10px;font-size:13px;line-height:1.7;color:${LIGHT.footerText};">Tel. ${escapeHtml(company.phone)}<br>${escapeHtml(company.email)}<br>${escapeHtml(company.address)}<br>${escapeHtml(company.hours)}</p>
         <p class="t-footer" style="margin:0;font-size:12px;line-height:1.6;color:${LIGHT.footerText};">You are receiving this because of activity on your ${escapeHtml(company.short)} Aircon account. This message was sent automatically, so please do not reply to it. To reach us, call or email using the details above.</p>

@@ -92,8 +92,8 @@
   display: block;
   width: min(100%, 260px);
   height: auto;
-  filter: brightness(1.25) saturate(1.1);   /* a brightness change only: no glow, so the edges stay sharp */
-  animation: ap-float 7s ease-in-out infinite;
+  filter: brightness(1.25) saturate(1.1) drop-shadow(0 0 4px rgba(255, 255, 255, 0.2)) drop-shadow(0 0 7px rgba(56, 189, 248, 0.2)) drop-shadow(0 0 16px rgba(59, 130, 246, 0.16));   /* a blue glow that follows the shape of the logo */
+  animation: ap-float 7s ease-in-out infinite, ap-logo-glow 4s ease-in-out infinite;
 }
 .ap-brand-name {
   margin: 0;
@@ -115,9 +115,9 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: rgba(29, 78, 137, 0.35);
-  border: 1px solid rgba(147, 197, 253, 0.55);
-  color: #bfdbfe;
+  background: #fff;
+  border: 1px solid #fff;
+  color: var(--navy);
   font-size: 16px;
 }
 
@@ -135,8 +135,29 @@
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
   animation: ap-rise 0.6s ease 0.1s both;
 }
-.ap-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 5px; background: linear-gradient(90deg, #0b2545, #1d4e89); }
-.ap-card--wide { max-width: 720px; }
+.ap-card--wide { max-width: 440px; padding: 22px 24px 12px; }
+/* the create account card: small, and it never changes size. The company fields are always on the page (hidden for a Residential client)
+   and the message areas keep their room, so nothing moves when a message, a Caps Lock warning or a client type appears. */
+.ap-card--wide .ap-header { margin-bottom: 10px; }
+.ap-card--wide .ap-title { font-size: 22px; margin-bottom: 4px; }
+.ap-card--wide .ap-subtitle { font-size: 14px; }
+.ap-card--wide .ap-form, .ap-card--wide .ap-form--two { gap: 8px 10px; }
+.ap-card--wide .ap-field { gap: 3px; }
+.ap-card--wide .ap-label { font-size: 13px; }
+.ap-card--wide .ap-input { height: 38px; font-size: 14px; padding: 0 12px; border-radius: 9px; }
+.ap-card--wide .ap-input::placeholder { font-size: 13px; }
+.ap-card--wide .ap-toggle { width: 36px; right: 2px; }
+.ap-card--wide .ap-reserve { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+.ap-card--wide .ap-reserve--off { visibility: hidden; }
+.ap-card--wide .ap-rules { display: flex; flex-direction: row; flex-wrap: wrap; gap: 2px 14px; font-size: 12px; }
+.ap-card--wide .ap-slot { position: relative; min-height: 0; }
+/* an error message sits over the password rules, just above the button, so it takes no room of its own */
+.ap-card--wide .ap-form > .ap-slot { height: 0; z-index: 2; }
+.ap-card--wide .ap-form > .ap-slot .ap-alert { position: absolute; left: 0; right: 0; bottom: 6px; margin: 0; padding: 8px 10px; font-size: 12.5px; background: #fdecea; }
+.ap-card--wide .ap-caps { position: absolute; top: 0; left: 0; margin: 2px 0 0; font-size: 12px; }
+.ap-card--wide .ap-submit { min-height: 42px; font-size: 15px; }
+.ap-card--wide .ap-switch { margin-top: 4px; font-size: 14px; }
+.ap-card--wide .ap-switch .ap-link { min-height: 36px; }
 .ap-header { margin-bottom: 18px; }
 .ap-card--center .ap-header { text-align: center; }
 .ap-title { margin: 0 0 6px; font-family: 'Outfit', sans-serif; font-size: 28px; font-weight: 700; line-height: 1.15; color: var(--ap-ink); }
@@ -266,14 +287,11 @@ select.ap-input {
   color: var(--ap-link);
   font-size: 15px;
   font-weight: 700;
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
-  text-decoration-color: var(--ap-accent);
-  text-underline-offset: 4px;
+  text-decoration: none;
   border-radius: 4px;
   transition: color 0.2s ease, text-decoration-color 0.2s ease;
 }
-.ap-link:hover { color: var(--ap-hover); text-decoration-color: currentColor; }
+.ap-link:hover { color: var(--ap-hover); }
 .ap-link--tap { display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; margin: -10px -4px; }
 .ap-switch { margin: 14px 0 0; text-align: center; font-size: 15px; color: var(--ap-ink-soft); }
 .ap-switch .ap-link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 6px; }
@@ -293,8 +311,8 @@ select.ap-input {
 
 /* ---------- a desktop: the brand on the left, the card on the right, both centered on the same line ---------- */
 @media (min-width: 1024px) {
-  .ap-main { grid-template-columns: minmax(280px, 460px) minmax(0, 480px); gap: 72px; padding: 8px 40px 24px; }
-  .ap-main--wide { grid-template-columns: minmax(280px, 400px) minmax(0, 720px); gap: 56px; }
+  .ap-main { grid-template-columns: minmax(280px, 460px) minmax(0, 480px); gap: 72px; padding: 64px 40px 24px; }
+  .ap-main--wide { grid-template-columns: minmax(280px, 460px) 440px; gap: 72px; padding-top: 24px; }
   .ap-brand { align-items: flex-start; text-align: left; gap: 18px; }
   .ap-logo { width: min(100%, 400px); }   /* the file is 484 px wide: this stays under it, so it is not stretched */
   .ap-brand-name { font-size: 26px; }
@@ -302,6 +320,11 @@ select.ap-input {
   .ap-facts { flex-direction: column; justify-content: flex-start; gap: 12px; margin-top: 8px; }
   .ap-fact { font-size: 15px; }
   .ap-card { margin: 0; padding: 36px 36px 26px; }
+}
+
+@keyframes ap-logo-glow {
+  0%, 100% { filter: brightness(1.25) saturate(1.1) drop-shadow(0 0 3px rgba(255, 255, 255, 0.14)) drop-shadow(0 0 6px rgba(56, 189, 248, 0.14)) drop-shadow(0 0 14px rgba(59, 130, 246, 0.1)); }
+  50% { filter: brightness(1.27) saturate(1.12) drop-shadow(0 0 5px rgba(255, 255, 255, 0.26)) drop-shadow(0 0 9px rgba(56, 189, 248, 0.26)) drop-shadow(0 0 20px rgba(59, 130, 246, 0.2)); }
 }
 
 /* a short desktop window: tighter, so the page still fits without scrolling */

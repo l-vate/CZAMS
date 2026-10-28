@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthShell from '../../components/auth_shell';
 import { ApiError } from '../../services/apiClient';
-import { resetPassword } from '../../services/authService';
+import { resetPassword, checkResetLink } from '../../services/authService';
 import { passwordIsAcceptable } from '../../utils/passwordChecks';
 import { PasswordField, PasswordRules, FormAlert, SubmitButton } from '../../components/auth_fields';
 
@@ -19,7 +19,18 @@ function ResetPasswordPage() {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  // 'checking' until the server says whether the link can still be used; a link that has expired is shown as expired straight away
+  const [linkState, setLinkState] = useState(token ? 'checking' : 'none');
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!token) return undefined;
+    let cancelled = false;
+    checkResetLink(token)
+      .then((res) => { if (!cancelled) setLinkState(res.valid ? 'valid' : 'expired'); })
+      .catch(() => { if (!cancelled) setLinkState('valid'); }); // cannot tell (no connection): let the person try; the server decides when they submit
+    return () => { cancelled = true; };
+  }, [token]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -40,6 +51,14 @@ function ResetPasswordPage() {
   if (!token) {
     return (
       <AuthShell centered title="Reset link needed" subtitle="Open the link from your email, or ask for a new one.">
+        <p className="ap-switch"><Link to="/forgot-password" className="ap-link">Send me a new link</Link></p>
+      </AuthShell>
+    );
+  }
+
+  if (linkState === 'expired') {
+    return (
+      <AuthShell centered title="This link has expired" subtitle="Reset links last 30 minutes and work once. Ask for a new one.">
         <p className="ap-switch"><Link to="/forgot-password" className="ap-link">Send me a new link</Link></p>
       </AuthShell>
     );

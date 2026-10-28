@@ -14,7 +14,9 @@ function CannotSupplyPanel({ booking, onUpdated }) {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
-  if (booking.status !== BOOKING_STATUS.PENDING || !supplies) return null;
+  // once the owner has set the unit (picked it or entered it) there is nothing left to say no to
+  const unitSettled = (booking.units || []).some((u) => u.supplied?.resolvedAt);
+  if (booking.status !== BOOKING_STATUS.PENDING || !supplies || (unitSettled && !booking.unitDecline?.reason)) return null;
   const decline = booking.unitDecline;
 
   const run = async (promise, fallback, done) => {
@@ -37,8 +39,10 @@ function CannotSupplyPanel({ booking, onUpdated }) {
       {decline?.reason ? (
         <div className="cannot-supply-sent">
           <p className="cannot-supply-title">The customer was told we cannot supply this unit</p>
-          <p className="sdm-muted">Reason: {decline.reason}</p>
-          {decline.note && <p className="sdm-muted">Note to the customer: {decline.note}</p>}
+          <dl className="cannot-supply-details">
+            <div><dt>Reason</dt><dd>{decline.reason}</dd></div>
+            {decline.note && <div><dt>Note to the customer</dt><dd>{decline.note}</dd></div>}
+          </dl>
           <button type="button" className="sdm-btn sdm-btn-outline" disabled={saving} onClick={() => run(withdrawCannotSupply(booking.bookingId), 'Could not withdraw it.')}>
             Withdraw this notice
           </button>

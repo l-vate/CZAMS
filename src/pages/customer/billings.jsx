@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
 import PaymentModal from '../../components/payment_modal';
 import ReceiptModal from '../../components/receipt_modal';
-import { FiClock, FiMapPin, FiFileText, FiCreditCard, FiEye } from 'react-icons/fi';
+import { FiClock, FiFileText, FiCreditCard, FiEye } from 'react-icons/fi';
 import { getBookingLineItems, getPaymentBreakdown } from '../../utils/bookingPricing';
 import { usePaymentSettings } from '../../utils/paymentSettings';
 import PaymentSettingsUnavailable from '../../components/payment_settings_unavailable';
@@ -12,6 +12,7 @@ import { ApiError } from '../../services/apiClient';
 import { listMyBookings } from '../../services/bookingService';
 import { submitPayment, submitBalancePayment } from '../../services/paymentService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
+import { SERVICE_TYPE } from '../../constants/serviceTypes';
 import { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } from '../../constants/paymentStatus';
 import { REFUND_STATUS } from '../../constants/refundStatus';
 
@@ -66,6 +67,7 @@ function Billings() {
 
           let status = 'Unpaid';
           if (isRefunded) status = 'Refunded';
+          else if (isCancelled && b.refund?.status === REFUND_STATUS.REJECTED) status = 'Cancelled – Refund Rejected';
           else if (isRefundPending) status = 'Cancelled – Refund Pending';
           else if (isCancelled) status = 'Cancelled';
           else if (isFullyPaid) status = 'Fully Paid';
@@ -92,6 +94,7 @@ function Billings() {
           return {
             id: b.bookingId,
             service: b.service?.name || b.service?.category || '-',
+            awaitingConfirmation: b.service?.serviceType === SERVICE_TYPE.INSTALLATION && b.status === BOOKING_STATUS.PENDING,
             customerName: storedUser.name || '-',
             address: b.address,
             contactNumber: storedUser.phone || '-',
@@ -174,13 +177,15 @@ paymentStatus: b.paymentStatus,
         bill.id.toLowerCase().includes(term) ||
         bill.service.toLowerCase().includes(term) ||
         bill.customerName.toLowerCase().includes(term) ||
-        bill.address.toLowerCase().includes(term)
+        String(bill.basePrice).includes(term.replace(/[₱,\s]/g, ''))
       );
     });
 
   const BILL_STATUS_ORDER = { unpaid: 0, partial: 1, paid: 2 };
+  const isCancelledBill = (bill) => bill.isCancelled || bill.isRefunded;
   const sortedBills = [...filteredBills].sort((a, b) => {
     const rankOf = (bill) => {
+      if (isCancelledBill(bill)) return 3; // cancelled and refunded bills always come last
       if (bill.isFullyPaid) return BILL_STATUS_ORDER.paid;
       if (bill.isPartiallyPaid) return BILL_STATUS_ORDER.partial;
       return BILL_STATUS_ORDER.unpaid;
@@ -190,6 +195,7 @@ paymentStatus: b.paymentStatus,
     if (rankA !== rankB) return rankA - rankB;
     return new Date(b.createdAt) - new Date(a.createdAt); // newest first within same group
   });
+  const lastActiveBillIndex = sortedBills.reduce((last, bill, i) => (isCancelledBill(bill) ? last : i), -1);
 
   // Payment-status colors, converged with admin.css's .status-pill--* (same
   // tokens from index.css) so the two files can't drift apart again: Partially
@@ -233,7 +239,7 @@ paymentStatus: b.paymentStatus,
       title="Billings"
       searchValue={searchTerm}
       onSearchChange={setSearchTerm}
-      searchPlaceholder="Search by ID, service, or address..."
+      searchPlaceholder="Search by ID, service, or price..."
     >
       <div className="customer-billings-x1">
         {paymentSettingsFailed && <PaymentSettingsUnavailable onRetry={refetchPaymentSettings} />}
@@ -261,10 +267,27 @@ paymentStatus: b.paymentStatus,
         <p className="customer-billings-x3">No matching bills found.</p>
       ) : (
         <div className="tech-job-list">
-          {filteredBills.map((bill) => (
+          {sortedBills.map((bill, i) => {
+            const payDown = !bill.paid && !bill.isCancelled && !bill.isBackJob;
+            const payBalance = bill.isPartiallyPaid && !bill.isBalancePaid && !bill.isBalanceToVerify && !bill.isCancelled;
+            const waitingForConfirmation = payDown && bill.awaitingConfirmation; // an installation is paid after our team confirms it
+            const canPay = (payDown || payBalance) && !waitingForConfirmation;
+            const openPayment = () => {
+              setSelectedBill(bill);
+              setPaymentType(payDown ? 'downpayment' : 'balance');
+              setShowPayment(true);
+            };
+            return (
+            <div key={bill.id}>
+              {i === lastActiveBillIndex + 1 && isCancelledBill(bill) && (
+                <div className="customer-my-bookings-x4">
+                  <div className="customer-my-bookings-x5" />
+                  CANCELLED
+                  <div className="customer-my-bookings-x5" />
+                </div>
+              )}
             <div
-              key={bill.id}
-              className="tech-job-card"
+              className={`tech-job-card ${isCancelledBill(bill) ? 'tech-job-card--dimmed' : ''}`}
               style={{ borderLeftColor: bill.isBackJob ? 'var(--success)' : getStatusColor(bill) }}
             >
               <div className="tech-job-info">
@@ -297,17 +320,32 @@ paymentStatus: b.paymentStatus,
               </div>
 
               <div className="tech-job-meta">
-                <FiMapPin /> {bill.address}
+                Price: ₱{(bill.basePrice || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
 
               <div className="customer-billings-x7">
-                <button
-                  type="button"
-                  className="view-details-btn"
-                  onClick={() => navigate(`/customer/book_details/${bill.id}`)}
-                >
-                  <FiEye size={14} /> View Details
-                </button>
+                {waitingForConfirmation ? (
+                  <button type="button" className="view-details-btn" disabled title="Our team has to confirm your installation first">
+                    <FiClock size={14} /> Waiting for confirmation
+                  </button>
+                ) : canPay ? (
+                  <button
+                    type="button"
+                    className="bs-next-btn customer-billings-x9"
+                    onClick={openPayment}
+                    disabled={!paymentSettingsReady}
+                  >
+                    <FiCreditCard size={14} /> {bill.isRejected || bill.isBalanceRejected ? 'Resubmit' : 'Pay Now'}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="view-details-btn"
+                    onClick={() => navigate(`/customer/book_details/${bill.id}`)}
+                  >
+                    <FiEye size={14} /> View Details
+                  </button>
+                )}
 
                 {bill.isFullyPaid && !bill.isCancelled && (
                   <button
@@ -320,39 +358,11 @@ paymentStatus: b.paymentStatus,
                     <FiFileText size={14} /> Invoice
                   </button>
                 )}
-
-                {!bill.paid && !bill.isCancelled && !bill.isBackJob && (
-                  <button
-                    type="button"
-                    className="bs-next-btn customer-billings-x9"
-                    onClick={() => {
-                      setSelectedBill(bill);
-                      setPaymentType('downpayment');
-                      setShowPayment(true);
-                    }}
-                    disabled={!paymentSettingsReady}
-                  >
-                    <FiCreditCard size={14} /> {bill.isRejected ? 'Resubmit' : 'Settle'}
-                  </button>
-                )}
-
-                {bill.isPartiallyPaid && !bill.isBalancePaid && !bill.isCancelled && (
-                  <button
-                    type="button"
-                    className="bs-next-btn customer-billings-x9"
-                    onClick={() => {
-                      setSelectedBill(bill);
-                      setPaymentType('balance');
-                      setShowPayment(true);
-                    }}
-                    disabled={bill.isBalanceToVerify || !paymentSettingsReady}
-                  >
-                    <FiCreditCard size={14} /> {bill.isBalanceRejected ? 'Resubmit Balance' : 'Pay Balance'}
-                  </button>
-                )}
               </div>
             </div>
-          ))}
+            </div>
+            );
+          })}
         </div>
       )}
 

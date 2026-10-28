@@ -6,15 +6,14 @@ import PaymentReference from './payment_reference';
 import ScopeOfWorksEditor from './scope_of_works_editor';
 import QuotationEditor from './quotation_editor';
 import UnitRequestPanel from './unit_request_panel';
+import { unitChangeOf } from '../utils/suppliedUnitChoice';
 import CannotSupplyPanel from './cannot_supply_panel';
-import EmailStatusCard from './email_status_card';
 import { legacyDistanceAmount } from '../utils/chargeRows';
 import { describeWorks } from '../utils/mayNeedWorks';
 import ClosureDateInput from './closure_date_input';
 import { warrantyStatusText } from '../utils/warrantyText';
 import { BRAND_SHORT } from '../config/company';
 import ReceiptModal from './receipt_modal';
-import AssignmentHistory from './assignment_history';
 import { buildReceiptForm } from '../utils/receiptData';
 import { getMemberIds } from '../utils/assignments';
 import { isWithinQuezonCity } from '../utils/serviceArea';
@@ -345,7 +344,6 @@ const [report, setReport] = useState(null);
                             {booking.status}
                         </span>
                     </div>
-                    <div className="sdm-email-card"><EmailStatusCard bookingId={booking.bookingId} admin /></div>
 
                     {booking.isBackJob && (
                         <div className="sdm-notice">
@@ -353,20 +351,20 @@ const [report, setReport] = useState(null);
                         </div>
                     )}
 
-                    {!booking.isBackJob
-                        && booking.status === BOOKING_STATUS.PENDING
-                        && !isWithinQuezonCity(booking.address)
-                        && !booking.distanceAdjustment && !booking.mobilizationFee && (
-                        <div className="sdm-notice">
-                            ⚠ This address is outside Quezon City - add {booking.service?.serviceType === SERVICE_TYPE.INSTALLATION ? 'a mobilization fee' : 'a distance line in the Scope of works'} below before approving, if one applies.
-                        </div>
-                    )}
-
-                    {booking.serviceAreaCheck && !booking.serviceAreaCheck.withinArea && (
-                        <div className="sdm-notice">
-                            ⚠ This address didn't match any of CZA's confirmed service areas at booking time - flagged for review.
-                        </div>
-                    )}
+                    {/* One notice for an address outside Quezon City or outside the confirmed service areas: both mean the same thing for the
+                        owner (check whether a mobilization fee belongs in the Scope of works). */}
+                    {(() => {
+                        const noDistanceYet = !booking.distanceAdjustment && !booking.mobilizationFee;
+                        const outsideToPrice = !booking.isBackJob && booking.status === BOOKING_STATUS.PENDING && !isWithinQuezonCity(booking.address) && noDistanceYet;
+                        const flagged = booking.serviceAreaCheck && !booking.serviceAreaCheck.withinArea;
+                        if (outsideToPrice) {
+                            return <div className="sdm-notice">⚠ This address is outside Quezon City or CZA's confirmed service areas. Add a mobilization fee in the Scope of works before approving, if one applies.</div>;
+                        }
+                        if (flagged) {
+                            return <div className="sdm-notice">⚠ This address didn't match any of CZA's confirmed service areas at booking time - flagged for review.</div>;
+                        }
+                        return null;
+                    })()}
 
                     {error && <div className="sdm-error">{error}</div>}
                     <SuggestedDates
@@ -387,7 +385,8 @@ const [report, setReport] = useState(null);
                         }}
                     />
 
-                    <UnitRequestPanel booking={booking} onUpdated={onUpdated} />
+                    {/* once the customer was told the unit cannot be supplied, there is nothing left to settle for the requested unit */}
+                    {!booking.unitDecline?.reason && <UnitRequestPanel booking={booking} onUpdated={onUpdated} />}
                     <CannotSupplyPanel booking={booking} onUpdated={onUpdated} />
 
                     <div className="sdm-customer-line">
@@ -408,6 +407,12 @@ const [report, setReport] = useState(null);
                                     {li.brandModel ? ` · ${li.brandModel}` : ''}
                                     {li.hp ? ` · ${li.hp} HP` : ''}
                                     {li.supplied?.source === 'requested' ? ` · ${li.supplied.status === 'Declined' ? 'request declined' : 'needs owner confirmation'}` : ''}
+                                    {unitChangeOf(li) && (
+                                        <span className="unit-change-note">
+                                            <span>Requested: {unitChangeOf(li).requested} (not available)</span>
+                                            <span>Changed to: {unitChangeOf(li).changedTo}</span>
+                                        </span>
+                                    )}
                                 </p>
                             ))}
 
@@ -763,12 +768,14 @@ const [report, setReport] = useState(null);
                                         </div>
                                     ) : (
                                         booking.service?.serviceType === SERVICE_TYPE.INSTALLATION ? (
-                                            (!isWithinQuezonCity(booking.address) || booking.mobilizationFee > 0) && (
+                                            // A distance charge is a line in the Scope of works. Only an older booking that already holds a mobilization fee
+                                            // shows it here, read-only, so the figure in the total is still explained.
+                                            booking.mobilizationFee > 0 && (
                                                 <div className="sdm-list-row admin-service-details-modal-x19">
                                                     <span className="admin-service-details-modal-x20">Mobilization Fee</span>
                                                     <span className="sdm-list-value admin-service-details-modal-x21">
                                                         ₱{(booking.mobilizationFee || 0).toLocaleString()}
-                                                        <button className="sdm-btn sdm-btn-outline admin-service-details-modal-x22" onClick={() => setEditingCharges(true)}>Edit</button>
+                                                        <small className="sdm-muted"> Entered before the Scope of works had a mobilization fee.</small>
                                                     </span>
                                                 </div>
                                             )
@@ -777,10 +784,10 @@ const [report, setReport] = useState(null);
                                             // its Scope of works shows the charge there, once. Nothing new is entered here.
                                             legacyDistanceAmount(booking) !== null && (
                                                 <div className="sdm-list-row admin-service-details-modal-x19">
-                                                    <span className="admin-service-details-modal-x20">Distance Based Charge</span>
+                                                    <span className="admin-service-details-modal-x20">Mobilization Fee</span>
                                                     <span className="sdm-list-value admin-service-details-modal-x21">
                                                         ₱{legacyDistanceAmount(booking).toLocaleString()}
-                                                        <small className="sdm-muted"> Entered before the Scope of works had a distance line.</small>
+                                                        <small className="sdm-muted"> Entered before the Scope of works had a mobilization fee.</small>
                                                     </span>
                                                 </div>
                                             )
@@ -1130,7 +1137,6 @@ const [report, setReport] = useState(null);
                     <QuotationEditor booking={booking} onUpdated={onUpdated} />
 
                     <AssignmentPanel booking={booking} onUpdated={onUpdated} />
-                    <AssignmentHistory bookingId={booking.bookingId} admin refreshKey={JSON.stringify(booking.assignments || [])} />
 </div>
 
                 <div className="sdm-footer">
@@ -1152,7 +1158,8 @@ const [report, setReport] = useState(null);
                             Cancel Booking
                         </button>
                     )}
-                    {canCancel && ownerCancel === null && (
+                    {/* once the owner has set the unit, "we cannot supply" no longer applies */}
+                    {canCancel && ownerCancel === null && !(booking.units || []).some((u) => u.supplied?.resolvedAt) && (
                         <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setOwnerCancel('')} disabled={saving}>
                             Cancel: we cannot supply or serve
                         </button>

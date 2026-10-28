@@ -53,7 +53,7 @@ test.describe('two admins at once', () => {
   });
   const booking = (over = {}) => addBooking({
     bookingId: 'CZ-1', customer: 'CUS1', service: cleaning, status: 'Pending', date: D(), time: 'Morning', units: [{ type: 'Split Type', quantity: 1 }],
-    downPaymentPercent: 50, paymentStatus: 'Unpaid', balancePaymentStatus: 'None', technician: 'T1', assignments: [{ lead: 'T1', helper: 'T2' }], ...over,
+    downPaymentPercent: 50, paymentStatus: 'partially_paid', balancePaymentStatus: 'None', technician: 'T1', assignments: [{ lead: 'T1', helper: 'T2' }], ...over,
   });
 
   test('approving the same booking', async () => {

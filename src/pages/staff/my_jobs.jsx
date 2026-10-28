@@ -399,8 +399,11 @@ function MyJobs() {
       filtered = filtered.filter((job) => job.status === activeFilter);
     }
 
-    return sortJobs(filtered, sortBy);
+    const sorted = sortJobs(filtered, sortBy);
+    // cancelled jobs always come last, in the order the sort gave them
+    return [...sorted.filter((j) => j.status !== BOOKING_STATUS.CANCELLED), ...sorted.filter((j) => j.status === BOOKING_STATUS.CANCELLED)];
   }, [jobs, searchTerm, activeFilter, sortBy]);
+  const lastActiveJobIndex = visibleJobs.reduce((last, job, i) => (job.status === BOOKING_STATUS.CANCELLED ? last : i), -1);
 
   const handleViewDetails = (job) => setSelectedJob(job);
 
@@ -489,8 +492,16 @@ function MyJobs() {
         ) : visibleJobs.length === 0 ? (
           <p className="tech-job-empty">No jobs match your search or filter.</p>
         ) : (
-          visibleJobs.map((job) => (
-            <div className="tech-job-card" key={job.bookingId}>
+          visibleJobs.map((job, i) => (
+            <div key={job.bookingId}>
+              {i === lastActiveJobIndex + 1 && job.status === BOOKING_STATUS.CANCELLED && (
+                <div className="tech-job-divider">
+                  <div className="tech-job-divider-line" />
+                  CANCELLED
+                  <div className="tech-job-divider-line" />
+                </div>
+              )}
+            <div className={`tech-job-card ${job.status === BOOKING_STATUS.CANCELLED ? 'tech-job-card--dimmed' : ''}`}>
               <div className="tech-job-info">
                 <div className="tech-job-top-row">
                   <small className="tech-job-date-label">{job.date}</small>
@@ -512,28 +523,26 @@ function MyJobs() {
                 <FiEye size={14} /> View Details
               </button>
 
-              {job.reportSubmitted && !(job.myRole === 'Lead' && job.isPrimaryLead) && (
-                <button className="tech-job-view-link staff-my-jobs-x6" onClick={() => setViewingReport(job)}>
-                  <FiInfo /> View service report
-                </button>
+              {((job.reportSubmitted && !(job.myRole === 'Lead' && job.isPrimaryLead)) || (job.status === BOOKING_STATUS.IN_PROGRESS && job.myRole === 'Lead')) && (
+                <div className="tech-job-actions">
+                  {job.reportSubmitted && !(job.myRole === 'Lead' && job.isPrimaryLead) && (
+                    <button type="button" className="tech-job-action-btn" onClick={() => setViewingReport(job)}>
+                      <FiInfo /> View service report
+                    </button>
+                  )}
+                  {job.status === BOOKING_STATUS.IN_PROGRESS && job.myRole === 'Lead' && (
+                    <>
+                      <button type="button" className="tech-job-action-btn" onClick={() => setReportModal({ kind: 'disruption', job })}>
+                        <FiInfo /> {disruptionLabel(job)}
+                      </button>
+                      <button type="button" className="tech-job-action-btn" onClick={() => setReportModal({ kind: 'extension', job })}>
+                        <FiInfo /> {extensionLabel(job)}
+                      </button>
+                    </>
+                  )}
+                </div>
               )}
-
-              {job.status === BOOKING_STATUS.IN_PROGRESS && job.myRole === 'Lead' && (
-                <>
-                  <button
-                    className="tech-job-view-link staff-my-jobs-x6"
-                    onClick={() => setReportModal({ kind: 'disruption', job })}
-                  >
-                    <FiInfo /> {disruptionLabel(job)}
-                  </button>
-                  <button
-                    className="tech-job-view-link staff-my-jobs-x6"
-                    onClick={() => setReportModal({ kind: 'extension', job })}
-                  >
-                    <FiInfo /> {extensionLabel(job)}
-                  </button>
-                </>
-              )}
+            </div>
             </div>
           ))
         )}

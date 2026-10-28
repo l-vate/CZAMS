@@ -281,10 +281,13 @@ test('notifications carry no booking contents, only the message and a reference'
   assert.deepEqual(fields, ['message', 'read', 'readAt', 'relatedBooking', 'relatedBookingId', 'type', 'user']);
 });
 
-test('chat messages carry only text, never booking fields', () => {
+test('chat messages carry text and, when a customer attached one of their own bookings, a short card snapshot and nothing else of the booking', () => {
   const Message = require('../models/Message');
   const fields = Object.keys(Message.schema.paths).filter((f) => !['_id', '__v', 'createdAt', 'updatedAt'].includes(f)).sort();
-  assert.deepEqual(fields, ['conversationId', 'senderId', 'senderRole', 'text']);
+  assert.deepEqual(fields, ['bookingRef', 'conversationId', 'senderId', 'senderRole', 'text']);
+  // the snapshot is only what the card shows: no address, phone, payment, proof or ID photo
+  assert.deepEqual(Object.keys(Message.schema.path('bookingRef').schema.paths).filter((f) => f !== '_id').sort(),
+    ['bookingId', 'items', 'placed', 'service', 'status', 'total', 'when']);
 });
 
 // ---- the technician still sees the instructions

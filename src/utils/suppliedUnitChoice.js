@@ -80,3 +80,22 @@ export function equipmentLines(units) {
     .filter((u) => u.supplied && !u.supplied.notListed && Number.isFinite(u.supplied.price))
     .map((u) => ({ label: unitLabel(u.supplied), quantity: u.quantity || 0, unitPrice: u.supplied.price, subtotal: u.supplied.price * (u.quantity || 0) }));
 }
+
+// When a customer asked for a unit we do not have and the owner settled it with a different one: what was asked for and what we supply
+// instead, for the booking summary ("Requested: ... (not available)", "Changed to: ..."). null when nothing changed.
+export function unitChangeOf(unit) {
+  const s = unit?.supplied;
+  const asked = s?.request;
+  if (!s || s.status !== 'Resolved' || !asked) return null;
+  const hpText = (hp) => (hp ? `${hp} HP` : '');
+  const requested = [asked.brand, hpText(asked.hp)].filter(Boolean).join(' ') || 'the unit asked for';
+  const changedTo = [[s.brand, s.model].filter(Boolean).join(' '), hpText(s.hp || unit.hp)].filter(Boolean).join(', ');
+  // shown whenever what was asked for and what we supply are not the same thing: a different brand, a model that was not asked for, or another horsepower
+  const words = (text) => String(text || '').toLowerCase().replace(/[^a-z0-9.]+/g, ' ').trim();
+  const askedHp = Number(asked.hp);
+  const gotHp = Number(s.hp || unit.hp);
+  const hpSame = !(askedHp > 0) || !(gotHp > 0) || askedHp === gotHp;
+  const sameThing = words(asked.brand) === words([s.brand, s.model].filter(Boolean).join(' ')) && hpSame;
+  if (!changedTo || sameThing) return null;
+  return { requested, changedTo };
+}

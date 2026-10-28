@@ -26,6 +26,7 @@ const KINDS = {
   [T.REFUND_REQUESTED]: ['Refund requested', 'amber', 'REFUND REQUESTED', 'Open the booking to review and process the refund.', 'A refund request is waiting.'],
   [T.REFUND_FLAGGED]: ['Refund flagged', 'coral', 'REFUND FLAGGED', 'Open the booking to follow up.', 'A customer flagged a refund.'],
   [T.REFUND_PROCESSED]: ['Refund processed', 'green', 'REFUND SENT', 'Please confirm in the app once the money arrives.', 'Your refund was sent.'],
+  [T.REFUND_REJECTED]: ['Refund not approved', 'coral', 'REFUND NOT APPROVED', 'Open the booking to see the reason. You can contact us if you think this is a mistake.', 'Your refund request was not approved.'],
   [T.REFUND_CONFIRMED]: ['Refund confirmed', 'green', 'REFUND CONFIRMED', null, 'A customer confirmed receiving the refund.'],
   [T.RESCHEDULE_REQUESTED]: ['Reschedule requested', 'amber', 'RESCHEDULE REQUESTED', 'Open the booking to approve or deny it.', 'A reschedule request is waiting.'],
   [T.RESCHEDULE_RECEIVED]: ['Reschedule request received', 'blue', 'REQUEST RECEIVED', 'We will review it and let you know.', 'We received your reschedule request.'],

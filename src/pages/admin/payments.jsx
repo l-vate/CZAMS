@@ -11,7 +11,7 @@ import { getFilterPillStyle } from '../../utils/statusColors';
 import { usePaymentSettings, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
 import { withFallback } from '../../services/apiClient';
 import { listBookings, adminUpdateBooking } from '../../services/bookingService';
-import { processRefund, resolveRefundFlag } from '../../services/refundService';
+import { processRefund, resolveRefundFlag, rejectRefund } from '../../services/refundService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
 import { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } from '../../constants/paymentStatus';
 import { REFUND_STATUS } from '../../constants/refundStatus';
@@ -86,6 +86,7 @@ const PAYMENT_STATUS_META = {
   // right before cancellation and no longer means what it used to - these three
   // override it so the badge reflects the booking's actual current state instead.
   refunded: { label: 'Refunded', className: 'status-pill status-pill--refunded' },
+  refund_rejected: { label: 'Refund Rejected', className: 'status-pill status-pill--rejected' },
   cancelled: { label: 'Cancelled', className: 'status-pill status-pill--cancelled' },
   cancelled_refund_pending: { label: 'Cancelled – Refund Pending', className: 'status-pill status-pill--cancelled' },
   // A warranty repair visit (back job) is free: nothing to collect or verify. Shown
@@ -284,7 +285,8 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
 function PaymentCard({ payment, onReviewRequest, onReviewRefund, onViewInvoice }) {
   const isFlagged = Boolean(payment.refund?.customerFlag?.flagged && !payment.refund?.customerFlag?.resolved);
   const isPendingRefund = payment.status === 'cancelled_refund_pending';
-  const isProcessedRefund = payment.status === 'refunded';
+  const isProcessedRefund = payment.status === 'refunded' || payment.status === 'refund_rejected';
+  const proofStillToCheck = isPendingRefund && Boolean(payment.raw?.paymentCheckAfterCancel);
 
   return (
     <div className="payment-card">
@@ -326,6 +328,15 @@ function PaymentCard({ payment, onReviewRequest, onReviewRefund, onViewInvoice }
         >
           Invoice
         </button>
+        {proofStillToCheck && (
+          <button
+            type="button"
+            className="payment-card__link payment-card__review-btn"
+            onClick={() => onReviewRequest(payment)}
+          >
+            Check Payment
+          </button>
+        )}
         {isPendingRefund || isProcessedRefund ? (
           <button
             type="button"
@@ -388,8 +399,10 @@ function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
         status = 'free_back_job';
       } else if (b.refund?.status === REFUND_STATUS.PROCESSED) {
         status = 'refunded';
-      } else if (b.status === BOOKING_STATUS.CANCELLED && b.paymentCheckAfterCancel) {
-        status = 'to_verify'; // cancelled while its proof was still waiting: the admin checks the proof, then a refund can open
+      } else if (b.status === BOOKING_STATUS.CANCELLED && b.refund?.status === REFUND_STATUS.REJECTED) {
+        status = 'refund_rejected';
+      } else if (b.status === BOOKING_STATUS.CANCELLED && b.paymentCheckAfterCancel && b.refund?.status !== REFUND_STATUS.PENDING) {
+        status = 'to_verify'; // cancelled while its proof was still waiting: the admin checks the proof
       } else if (b.status === BOOKING_STATUS.CANCELLED) {
         status = b.refund?.status === REFUND_STATUS.PENDING ? 'cancelled_refund_pending' : 'cancelled';
       } else if (b.paymentStatus === PAYMENT_STATUS.REJECTED) {
@@ -437,7 +450,7 @@ function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
         activeFilter === 'all' ||
         payment.status === activeFilter ||
         (activeFilter === 'rejected' && payment.status === 'balance_rejected') ||
-        (activeFilter === 'refund' && (payment.status === 'refunded' || payment.status === 'cancelled_refund_pending'));
+        (activeFilter === 'refund' && (payment.status === 'refunded' || payment.status === 'cancelled_refund_pending' || payment.status === 'refund_rejected'));
       const query = search.trim().toLowerCase();
       const matchesSearch =
         !query ||
@@ -449,6 +462,13 @@ function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
       return matchesFilter && matchesSearch && matchesPerson;
     });
   }, [paymentsList, activeFilter, search, personFilter]);
+
+  // Under Refunds, the requests still waiting come first and the ones already refunded (or rejected) are set apart below them.
+  const isDoneRefund = (payment) => payment.status === 'refunded' || payment.status === 'refund_rejected';
+  const orderedPayments = activeFilter === 'refund'
+    ? [...filteredPayments.filter((p) => !isDoneRefund(p)), ...filteredPayments.filter(isDoneRefund)]
+    : filteredPayments;
+  const firstDoneRefundIndex = orderedPayments.findIndex(isDoneRefund) > 0 ? orderedPayments.findIndex(isDoneRefund) : -1;
 
   const handleReviewRequest = (payment) => {
     setSelectedPayment(payment);
@@ -493,14 +513,22 @@ function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
           {filteredPayments.length === 0 ? (
             <div className="payments-empty">No payment requests match your search.</div>
           ) : (
-            filteredPayments.map((payment) => (
-              <PaymentCard
-                key={payment.id}
-                payment={payment}
-                onReviewRequest={handleReviewRequest}
-                onReviewRefund={handleReviewRefund}
-                onViewInvoice={setInvoicePayment}
-              />
+            orderedPayments.map((payment, i) => (
+              <div key={payment.id}>
+                {activeFilter === 'refund' && i === firstDoneRefundIndex && (
+                  <div className="tech-job-divider">
+                    <div className="tech-job-divider-line" />
+                    REFUNDED
+                    <div className="tech-job-divider-line" />
+                  </div>
+                )}
+                <PaymentCard
+                  payment={payment}
+                  onReviewRequest={handleReviewRequest}
+                  onReviewRefund={handleReviewRefund}
+                  onViewInvoice={setInvoicePayment}
+                />
+              </div>
             ))
           )}
         </div>
@@ -550,6 +578,7 @@ function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
 const REFUND_STATUS_META = {
   Pending: { label: 'Pending', className: 'status-pill status-pill--verify' },
   Processed: { label: 'Processed', className: 'status-pill status-pill--full' },
+  Rejected: { label: 'Rejected', className: 'status-pill status-pill--rejected' },
 };
 
 /* ── Refund Review Modal ──────────────────────────────── */
@@ -562,10 +591,15 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
   const [submitting, setSubmitting] = useState(false);
   const [resolvingFlag, setResolvingFlag] = useState(false);
   const [error, setError] = useState('');
+  const [rejecting, setRejecting] = useState(null); // null, or the reason being typed for rejecting the refund
 
   if (!refund) return null;
 
   const isPending = refund.status === REFUND_STATUS.PENDING;
+  const isRejected = refund.status === REFUND_STATUS.REJECTED;
+  const isProcessed = refund.status === REFUND_STATUS.PROCESSED;
+  // the customer asked for this refund before their down payment was verified: it cannot be paid out until it is
+  const paymentUnverified = isPending && Boolean(refund.paymentUnverified);
   const isFlagged = Boolean(refund.customerFlag?.flagged && !refund.customerFlag?.resolved);
   const deductionNum = Number(dispatchDeduction) || 0;
   const previewRefundable = refund.isSameDay
@@ -615,6 +649,26 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
     }
   };
 
+  const handleReject = async () => {
+    const reason = (rejecting || '').trim();
+    if (reason.length < 3 || reason.length > 200) {
+      setError('Give a short reason of 3 to 200 characters for rejecting the refund.');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    try {
+      await rejectRefund(refund.bookingId, reason).catch(withFallback('Failed to reject the refund.'));
+      onSuccess?.();
+      onClose();
+    } catch (err) {
+      console.error('Error rejecting refund:', err);
+      setError(err.message || 'Network error while rejecting the refund.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleResolveFlag = async () => {
     setResolvingFlag(true);
     setError('');
@@ -650,6 +704,20 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
           <div className="refund-flag-notice">
             <strong>Customer flagged this refund:</strong> "{refund.customerFlag.message}"
             <div className="refund-flag-notice-time">{formatDate(refund.customerFlag.flaggedAt)}</div>
+          </div>
+        )}
+
+        {paymentUnverified && (
+          <div className="refund-flag-notice">
+            <strong>The down payment has not been verified yet.</strong> The customer cancelled while their payment proof was waiting. Check the
+            payment first ("Check Payment" on the list). If it never came through, reject this refund.
+          </div>
+        )}
+
+        {isRejected && (
+          <div className="refund-flag-notice">
+            <strong>Refund rejected:</strong> {refund.rejectionReason || 'No reason recorded.'}
+            {refund.rejectedAt && <div className="refund-flag-notice-time">{formatDate(refund.rejectedAt)}</div>}
           </div>
         )}
 
@@ -702,13 +770,14 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
           </div>
         )}
 
-        {refund.isSameDay && !isPending && (
+        {refund.isSameDay && isProcessed && (
           <div className="payment-review-cell admin-payments-x14">
             <span className="confirmation-detail-label">Transportation fee</span>
             <span className="confirmation-detail-value">₱{refund.dispatchDeduction?.toLocaleString()}{refund.dispatchReason ? ` (${refund.dispatchReason})` : ''}</span>
           </div>
         )}
 
+        {!isRejected && (
         <div className="payment-review-cell admin-payments-x15">
           <span className="confirmation-detail-label">
             {isPending ? 'Refundable Amount' : 'Refunded Amount'}
@@ -717,6 +786,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
             ₱{(isPending ? previewRefundable : refund.refundableAmount)?.toLocaleString()}
           </span>
         </div>
+        )}
 
         {isPending && (
           <div className="bs-field-group">
@@ -768,7 +838,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
           </div>
         )}
 
-        {!isPending && refund.adjustmentReason && (
+        {isProcessed && refund.adjustmentReason && (
           <div className="payment-review-cell admin-payments-x14">
             <span className="confirmation-detail-label">
               Adjusted from ₱{refund.computedAmount?.toLocaleString()} to ₱{refund.finalAmount?.toLocaleString()} on {formatDate(refund.adjustedAt)}
@@ -777,7 +847,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
           </div>
         )}
 
-        {!isPending && (
+        {isProcessed && (
           <div className="payment-review-cell admin-payments-x14">
             <span className="confirmation-detail-label">Customer confirmation</span>
             <span className="confirmation-detail-value">
@@ -786,21 +856,47 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
           </div>
         )}
 
-        {!isPending && refund.proofFile && (
+        {isProcessed && refund.proofFile && (
           <div className="payment-review-cell admin-payments-x14">
             <span className="confirmation-detail-label">Proof of Refund</span>
             <ProofLink path={refund.proofFile} className="sdm-link">View File</ProofLink>
           </div>
         )}
 
+        {isPending && rejecting !== null && (
+          <div className="bs-field-group">
+            <label className="bs-label" htmlFor="refund-reject-reason">Reason for rejecting <span className="bs-label-hint">(the customer is told, for example: the payment did not go through)</span></label>
+            <input
+              id="refund-reject-reason"
+              type="text"
+              maxLength={200}
+              className="bs-input"
+              placeholder="e.g. The payment did not go through"
+              value={rejecting}
+              onChange={(e) => setRejecting(e.target.value)}
+            />
+          </div>
+        )}
+
         {isPending ? (
           <div className="cancel-confirm-actions">
-            <button type="button" className="bs-back-btn" onClick={onClose} disabled={submitting}>
-              Cancel
+            <button type="button" className="bs-back-btn" onClick={rejecting !== null ? () => setRejecting(null) : onClose} disabled={submitting}>
+              {rejecting !== null ? 'Back' : 'Cancel'}
             </button>
-            <button type="button" className="bs-next-btn" onClick={handleProcess} disabled={submitting || !proof}>
-              {submitting ? 'Processing...' : 'Mark as Processed'}
-            </button>
+            {rejecting !== null ? (
+              <button type="button" className="cancel-booking-btn" onClick={handleReject} disabled={submitting || rejecting.trim().length < 3}>
+                {submitting ? 'Rejecting...' : 'Reject refund'}
+              </button>
+            ) : (
+              <>
+                <button type="button" className="bs-back-btn" onClick={() => setRejecting(paymentUnverified ? 'The payment did not go through' : '')} disabled={submitting}>
+                  Reject refund
+                </button>
+                <button type="button" className="bs-next-btn" onClick={handleProcess} disabled={submitting || !proof || paymentUnverified}>
+                  {submitting ? 'Processing...' : 'Mark as Processed'}
+                </button>
+              </>
+            )}
           </div>
         ) : isFlagged ? (
           <div className="cancel-confirm-actions">

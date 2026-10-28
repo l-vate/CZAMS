@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { FiBell, FiChevronRight } from 'react-icons/fi';
+import { FiChevronRight } from 'react-icons/fi';
+import { IoNotifications } from 'react-icons/io5';
+import GlassIcons from './glass_icons';
 
 const CATEGORY_LABEL = {
   Holiday: 'Holiday',
@@ -25,7 +27,18 @@ function AnnouncementCard({ announcements }) {
 
   return (
     <section className="lp-announce" aria-label="Announcement">
-      <span className="lp-announce-icon"><FiBell aria-hidden="true" /></span>
+      <span className="lp-announce-icon">
+        <GlassIcons
+          items={[{ icon: <IoNotifications />, color: 'linear-gradient(135deg, #1e4f8f, #0b2545)', label: 'Announcement' }]}
+          plate="none"
+          size={56}
+          gap={0}
+          columns={1}
+          labels="none"
+          intro={false}
+          theme="dark"
+        />
+      </span>
       <div className="lp-announce-body" aria-live="polite">
         <div className="lp-announce-tags">
           <span className="lp-announce-tag">{CATEGORY_LABEL[announcement.category] || announcement.category}</span>

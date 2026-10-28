@@ -63,18 +63,14 @@ test('the Payment step no longer carries the terms; the new step does, with the 
   assert.equal(/\u2014|\u2013/.test(html), false, 'no dashes of the long kind in the text');
 });
 
-test('the checklist offers feeder line, carpentry, masonry, electrical and Other (with a short text once ticked)', async () => {
+test('the step has no "I may need these works" checklist: a customer cannot be expected to know which works a site needs', async () => {
   const React = fromRoot('react');
   const { renderToStaticMarkup } = fromRoot('react-dom/server');
   const Step = (await vite.ssrLoadModule('/src/components/before_you_pay_step.jsx')).default;
-  const plain = renderToStaticMarkup(React.createElement(Step, { form: {}, setForm() {} }));
-  for (const label of ['Feeder line', 'Carpentry', 'Masonry', 'Electrical', 'Other']) assert.match(plain, new RegExp(`<span>${label}</span>`));
-  assert.match(plain, /I may need these works \(optional\)/);
-  assert.doesNotMatch(plain, /What other work\?/, 'no text box until Other is ticked');
-  const ticked = renderToStaticMarkup(React.createElement(Step, { form: { mayNeedWorks: { other: true, otherText: 'new outlet' } }, setForm() {} }));
-  assert.match(ticked, /What other work\?/);
-  assert.match(ticked, /value="new outlet"/);
-  assert.match(plain, /does not change your price/);
+  const html = renderToStaticMarkup(React.createElement(Step, { form: {}, setForm() {} }));
+  assert.doesNotMatch(html, /I may need these works/);
+  assert.doesNotMatch(html, /type="checkbox"/);
+  assert.doesNotMatch(html, /Ticking these/);
 });
 
 test('the checklist is optional: nothing ticked sends nothing, and Other needs its text to go on', async () => {

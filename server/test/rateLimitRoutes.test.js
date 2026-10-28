@@ -130,8 +130,8 @@ test('the real limiter instances stop at their numbers when switched on (public 
 test('the limiters sit on the routes that need them, after the login check and before the file is read', () => {
   const read = (file) => fs.readFileSync(path.join(__dirname, '..', 'routes', file), 'utf8');
   const bookings = read('bookingRoutes.js');
-  assert.match(bookings, /'\/:bookingId\/pay', auth, allowRoles\(ROLE\.CUSTOMER\), paymentLimiter, uploadLimiter, upload\.single/);
-  assert.match(bookings, /'\/:bookingId\/pay-balance', auth, allowRoles\(ROLE\.CUSTOMER\), paymentLimiter, uploadLimiter, upload\.single/);
+  assert.match(bookings, /'\/:bookingId\/pay', auth, allowRoles\(ROLE\.CUSTOMER\), paymentLimiter, uploadLimiter, paymentUpload\.single/);
+  assert.match(bookings, /'\/:bookingId\/pay-balance', auth, allowRoles\(ROLE\.CUSTOMER\), paymentLimiter, uploadLimiter, paymentUpload\.single/);
   assert.match(bookings, /router\.post\('\/', auth, allowRoles\(ROLE\.CUSTOMER, ROLE\.ADMIN\), uploadLimiter,/);
   assert.match(bookings, /discount\/request', auth, allowRoles\(ROLE\.CUSTOMER\), uploadLimiter, upload\.single/);
   assert.match(bookings, /unit-purchase-proof', auth, auditSpecs\.unitPurchaseProof, allowRoles\(ROLE\.ADMIN\), uploadLimiter, upload\.single/);

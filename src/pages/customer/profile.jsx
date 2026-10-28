@@ -344,7 +344,7 @@ const [user, setUser] = useState(loadUserFromStorage);
         </div>
 
         {/* Account Settings */}
-        <div className="profile-card">
+        <div className="profile-card profile-card--account">
           <h3 className="section-title">Account Settings</h3>
 
           <div className="account-actions">

@@ -56,11 +56,11 @@ test('the card: empty state, one booking, many bookings, and where the links go'
   const render = (h) => renderToStaticMarkup(React.createElement(MemoryRouter, null, React.createElement(Card, { history: h })));
   const linkTargets = (html) => [...html.matchAll(/<a href="([^"]+)"[^>]*>([^<]*(?:<!-- -->[^<]*)*)<\/a>/g)].map((m) => [m[1], m[2].replace(/<!-- -->/g, '')]);
 
-  // no bookings: the message and the My Bookings link only
+  // no bookings: the message only
   const empty = render(history({}));
   assert.match(empty, /You have no booking history yet./);
   assert.doesNotMatch(empty, /Completed|Cancelled|Total paid|<dl/);
-  assert.deepEqual(linkTargets(empty), [['/customer/bookings', 'My Bookings']]);
+  assert.deepEqual(linkTargets(empty), []);
 
   // one booking: "1 booking" for the accessible name, never "1 bookings", and the figures are labelled
   const one = render(history({ total: 1, pending: 1 }, { totalPaid: 0 }));
@@ -81,10 +81,6 @@ test('the card: empty state, one booking, many bookings, and where the links go'
   assert.match(many, /<dt>Open<\/dt><dd>4<\/dd>/);
   assert.match(many, /<dt>Cancelled<\/dt><dd>2<\/dd>/);
   assert.match(many, /<dt>Total paid<\/dt><dd>₱15,234\.50<\/dd>/);
-  assert.deepEqual(linkTargets(many), [
-    ['/customer/bookings', 'My Bookings'],
-    ['/customer/billings', 'Billings'],
-    ['/customer/bookings', 'Feedback you gave (2)'],
-  ]);
+  assert.deepEqual(linkTargets(many), [], 'the card has no buttons or links under the figures');
   assert.equal(/[\u2013\u2014]/.test(many + one + empty), false, 'no en or em dashes in the card');
 });

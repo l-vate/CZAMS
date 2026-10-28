@@ -7,7 +7,7 @@ import SectionHeading from './section_heading';
 export function HowSection() {
   return (
     <section id="how" data-nav="availability" className="lp-section lp-how" aria-labelledby="how-title">
-      <SectionHeading eyebrow={HOW.eyebrow} title={HOW.title} subtitle={HOW.subtitle} id="how-title" />
+      <SectionHeading title={HOW.title} subtitle={HOW.subtitle} id="how-title" />
       <ol className="lp-steps">
         {HOW.steps.map((step, i) => (
           <li className="lp-step" key={step.title} data-reveal style={{ '--reveal-i': i }}>
@@ -35,7 +35,7 @@ export function FaqSection() {
 
   return (
     <section id="faq" data-nav="availability" className="lp-section lp-faq" aria-labelledby="faq-title">
-      <SectionHeading eyebrow={FAQ.eyebrow} title={FAQ.title} id="faq-title" />
+      <SectionHeading title={FAQ.title} id="faq-title" />
       <div className="lp-faq-list">
         {FAQ.items.map((item, i) => {
           const isOpen = open.has(i);

@@ -1,24 +1,34 @@
 import { TRUST_ITEMS, ABOUT, BRAND_NAME } from '../../config/landingContent';
+import GlassIcons from './glass_icons';
 import LandingIcon from './icons';
 import PhotoSlot from './photo_slot';
 import SectionHeading from './section_heading';
 
-// Four facts directly under the hero.
-export function TrustStrip() {
+// The quick facts about the company, shown under the About Us text, each with a glass icon.
+function AboutFacts() {
   return (
-    <section className="lp-trust" aria-label="At a glance" data-nav="home">
-      <ul className="lp-trust-list">
-        {TRUST_ITEMS.map((item, i) => (
-          <li className="lp-trust-item" key={item.title} data-reveal style={{ '--reveal-i': i }}>
-            <span className="lp-trust-icon"><LandingIcon name={item.icon} /></span>
-            <span>
-              <strong>{item.title}</strong>
-              <small>{item.text}</small>
-            </span>
-          </li>
-        ))}
-      </ul>
-    </section>
+    <ul className="lp-about-facts">
+      {TRUST_ITEMS.map((item, i) => (
+        <li className="lp-fact" key={item.title} data-reveal style={{ '--reveal-i': i }}>
+          <span className="lp-fact-icon">
+            <GlassIcons
+              items={[{ icon: <LandingIcon name={item.icon} />, label: item.title }]}
+              plate="none"
+              size={56}
+              gap={0}
+              columns={1}
+              labels="none"
+              intro={false}
+              theme="dark"
+            />
+          </span>
+          <span>
+            <strong>{item.title}</strong>
+            <small>{item.text}</small>
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -36,8 +46,9 @@ export function AboutSection() {
     <section id="about" data-nav="about" className="lp-section lp-about" aria-labelledby="about-title">
       <div className="lp-about-grid">
         <div className="lp-about-copy">
-          <SectionHeading eyebrow={ABOUT.eyebrow} title={ABOUT.title} id="about-title" align="left" />
+          <SectionHeading title={ABOUT.title} id="about-title" align="left" />
           {ABOUT.paragraphs.map((text) => <p key={text} data-reveal>{text}</p>)}
+          <AboutFacts />
         </div>
         <div className="lp-about-visual" data-reveal>
           <PhotoSlot photo={ABOUT.photo} className="lp-about-photo" fallback={<LogoPanel />} />

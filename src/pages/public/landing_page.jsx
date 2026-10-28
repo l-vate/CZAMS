@@ -22,7 +22,7 @@ import { useReveal } from '../../hooks/useReveal';
 import { useScrollSpy } from '../../hooks/useScrollSpy';
 import Hero from '../../components/landing/hero';
 import Snowfall from '../../components/landing/snowfall';
-import { TrustStrip, AboutSection } from '../../components/landing/trust_and_about';
+import { AboutSection } from '../../components/landing/trust_and_about';
 import ServicesSection from '../../components/landing/services_section';
 import { UnitTypesSection, WhySection } from '../../components/landing/units_and_why';
 import { HowSection, FaqSection, CtaBand } from '../../components/landing/how_faq_cta';
@@ -312,14 +312,13 @@ function LandingPage() {
 
       <main id="main" tabIndex={-1}>
         <Hero announcements={announcements} onBook={goLogin} />
-        <TrustStrip />
         <AboutSection />
         <ServicesSection services={serviceCards} />
 
         {/* current promos: real data from the admin pages, only shown when there are any */}
         {promos.length > 0 && (
           <section id="promos" data-nav="services" className="lp-section lp-promos" aria-labelledby="promos-title">
-            <SectionHeading eyebrow="Current Promos" title="Promos right now" id="promos-title" />
+            <SectionHeading title="Promos right now" id="promos-title" />
             <ul className="lp-card-grid">
               {promos.map((promo, i) => (
                 <li className="lp-card" key={promo._id} data-reveal style={{ '--reveal-i': i }}>
@@ -337,7 +336,7 @@ function LandingPage() {
         <WhySection />
 
         <section id="availability" data-nav="availability" className="lp-section lp-availability" aria-labelledby="availability-title">
-          <SectionHeading eyebrow={AVAILABILITY.eyebrow} title={AVAILABILITY.title} subtitle={AVAILABILITY.subtitle} id="availability-title" />
+          <SectionHeading title={AVAILABILITY.title} subtitle={AVAILABILITY.subtitle} id="availability-title" />
           <AvailabilityCalendar />
         </section>
 

@@ -9,7 +9,6 @@ import { getBusinessHoursText } from './timeBlocks';
 import { CANCEL_POLICY_NOTE } from './cancellation';
 import warranty from '../../server/constants/warrantyWindows.json';
 import { UNIT_TYPE } from '../constants/unitTypes';
-import { UNIT_TYPE_IMAGES } from '../utils/unitTypeImages';
 
 // ---- switches the owner may change -------------------------------------------------------------------------------------------------
 // Show a "From PHP X" price on the service cards. Keep false until the real price list is entered in the admin pages.
@@ -101,6 +100,15 @@ export const SHOWCASE = {
   ],
 };
 
+// The company's own square photos for the unit types section (public/images/units, resized from the originals in public/images).
+const LANDING_UNIT_PHOTOS = {
+  [UNIT_TYPE.WINDOW]: '/images/units/window.webp',
+  [UNIT_TYPE.SPLIT]: '/images/units/split.webp',
+  [UNIT_TYPE.FLOOR_MOUNTED]: '/images/units/floor-mounted.webp',
+  [UNIT_TYPE.CASSETTE]: '/images/units/cassette.webp',
+  [UNIT_TYPE.PORTABLE]: '/images/units/portable.webp',
+};
+
 // ---- unit types -------------------------------------------------------------------------------------------------------------------------
 export const UNITS = {
   eyebrow: 'Coverage',
@@ -111,7 +119,7 @@ export const UNITS = {
     { type: UNIT_TYPE.FLOOR_MOUNTED, alt: 'A floor-mounted aircon unit' },
     { type: UNIT_TYPE.CASSETTE, alt: 'A ceiling cassette-type aircon unit' },
     { type: UNIT_TYPE.PORTABLE, alt: 'A portable aircon unit' },
-  ].map((item) => ({ ...item, src: UNIT_TYPE_IMAGES[item.type] })),
+  ].map((item) => ({ ...item, src: LANDING_UNIT_PHOTOS[item.type] })),
 };
 
 // ---- why choose us: four cards, each backed by something the system really does ----------------------------------------------------

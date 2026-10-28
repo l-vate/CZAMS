@@ -647,191 +647,18 @@
   color: rgba(255,255,255,0.45);
 }
 
-/* ============ AUTH PAGES (Login + Register) ============ */
-.auth-split-page {
-  display: flex;
-  min-height: 100vh;
-}
-
-.auth-split-left {
-  width: 500px;
-  min-width: 500px;
-  background: linear-gradient(155deg, var(--navy) 0%, var(--navy-soft) 55%, var(--navy) 100%);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 36px 44px 32px;
-  position: relative;
-  overflow: hidden;
-}
-
-.auth-split-left--register {
-  justify-content: flex-start;
-  gap: 28px;
-  position: fixed;
-  height: 100vh;
-  overflow: hidden;
-}
-
-.auth-split-left::after {
-  content: '';
-  position: absolute;
-  bottom: -80px;
-  right: -80px;
-  width: 280px;
-  height: 280px;
-  background: radial-gradient(circle, rgba(14,140,140,0.3) 0%, transparent 70%);
-  pointer-events: none;
-}
-
-.auth-split-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: rgba(255,255,255,0.55);
-  text-decoration: none;
-  position: relative;
-  z-index: 1;
-  transition: color 0.2s;
-}
-
-.auth-split-back svg { width: 18px; height: 18px; flex-shrink: 0; }
-.auth-split-back:hover { color: rgba(255,255,255,0.9); }
-
-.auth-split-brand {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  position: relative;
-  z-index: 1;
-}
-
-.auth-split-logo {
-  width: 56px;
-  height: 56px;
-  object-fit: contain;
-  filter: brightness(0) invert(1);
-  opacity: 0.9;
-  margin-bottom: 8px;
-}
-
-.auth-split-brand-name {
-  font-family: 'Outfit', sans-serif;
-  font-weight: 800;
-  font-size: 20px;
-  color: white;
-  letter-spacing: 0.06em;
-}
-
-.auth-split-brand-sub {
-  font-size: 12px;
-  color: rgba(255,255,255,0.5);
-  letter-spacing: 0.02em;
-}
-
-.auth-split-tagline {
-  position: relative;
-  z-index: 1;
-}
-
-.auth-split-tagline h1 {
-  font-family: 'Outfit', sans-serif;
-  font-size: 44px;
-  font-weight: 800;
-  color: white;
-  line-height: 1.1;
-  margin-bottom: 16px;
-}
-
-.auth-split-tagline p {
-  font-size: 15px;
-  color: rgba(255,255,255,0.65);
-  line-height: 1.7;
-  max-width: 300px;
-}
-
-.auth-split-features {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  position: relative;
-  z-index: 1;
-}
-
-.auth-feature-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 14px;
-  color: rgba(255,255,255,0.75);
-  font-weight: 500;
-}
-
-.auth-feature-item span { font-size: 18px; }
-
-.auth-split-copy {
-  font-size: 11px;
-  color: rgba(255,255,255,0.28);
-  position: relative;
-  z-index: 1;
-}
-
-.auth-split-right {
-  flex: 1;
-  background: #f0f4f8;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 32px;
-  overflow-y: auto;
-}
-
-.auth-split-page:has(.auth-split-left--register) .auth-split-right {
-  margin-left: 420px;
-  overflow-y: auto;
-  height: 100vh;
-  align-items: flex-start;
-  padding-top: 40px;
-  padding-bottom: 40px;
-}
-
-.auth-split-form-box {
-  background: var(--white);
-  border-radius: 20px;
-  padding: 44px 40px 36px;
-  width: 100%;
-  max-width: 440px;
-  margin: 0 auto;
-  box-shadow: 0 8px 40px rgba(11,37,69,0.1);
-  border: 1px solid rgba(11,37,69,0.06);
-}
-
-.auth-split-header {
-  margin-bottom: 28px;
-}
-
-.auth-split-header h2 {
-  font-family: 'Outfit', sans-serif;
-  font-size: 26px;
-  font-weight: 700;
-  color: var(--navy);
-  margin-bottom: 6px;
-}
-
-.auth-split-header p {
-  font-size: 14px;
-  color: var(--ink-soft);
-}
-
+/* ============ FORM PIECES (the sign in pages have their own stylesheet, auth.css; these are still used by the change password dialog and the staff profile) ============ */
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  margin-bottom: 20px;
+  gap: 14px;
+  margin-bottom: 14px;
 }
+
+.form-row { display: contents; }
+.auth-form--two > .form-group:nth-child(4) { grid-column: 1 / -1; }
+.auth-form--two > .password-rules, .auth-form--two > .auth-submit-btn { grid-column: 1 / -1; }
+.auth-form--two > .password-rules { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: -4px 0 0; padding: 0; list-style: none; }
 
 .form-row {
   display: flex;
@@ -843,7 +670,7 @@
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 5px;
 }
 
 .form-group label {
@@ -1006,14 +833,7 @@
 @media (max-width: 860px) {
   .slide-content h1, .slide-content h2 { font-size: 32px; }
   .footer { padding: 40px 22px 20px; }
-  .auth-split-page { flex-direction: column; }
-  .auth-split-left { width: 100%; min-width: unset; padding: 32px 28px; min-height: 220px; }
-  .auth-split-tagline h1 { font-size: 30px; }
-  .auth-split-right { padding: 28px 16px; }
-  .auth-split-form-box { padding: 32px 22px; max-width: 480px; }
   .form-row { flex-direction: column; }
-  .auth-split-left--register { position: static; height: auto; overflow: visible;}
-  .auth-split-page:has(.auth-split-left--register) .auth-split-right { margin-left: 0; height: auto; overflow-y: visible; align-items: center; padding-top: 28px; padding-bottom: 28px; }
 }
 
 @media (max-width: 520px) {
@@ -1028,15 +848,7 @@
   .card, .step { width: 100%; max-width: 320px; }
   .footer { padding: 32px 16px 20px; }
   .footer-grid { grid-template-columns: 1fr; gap: 32px; }
-  .auth-split-tagline h1 { font-size: 24px; }
   .auth-role-btns { flex-direction: column; }
-}
-
-/* Extracted from inline styles in pages/public/login_page.jsx.
-   The class is doubled so it keeps the priority the inline style had over other rules. */
-.public-login-page-x1.public-login-page-x1 {
-  color: red;
-  font-size: 0.9rem;
 }
 
 /* ============ NAVBAR: laptop widths and the hamburger menu ============ */

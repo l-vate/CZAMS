@@ -4,23 +4,31 @@ import { UNITS, WHY } from '../../config/landingContent';
 import LandingIcon from './icons';
 import SectionHeading from './section_heading';
 
-// One unit type photo. All of them are shown in the same 4:3 frame (object-fit: cover) with the same soft overlay, so photos of mixed
-// quality look like a set. If a photo does not load, a plain icon takes its place.
+// One unit type photo. All of them are shown in the same 1:1 frame (object-fit: contain on white), so the photos look like a set. If a photo does not load, a plain icon takes its place.
 function UnitPhoto({ src, alt }) {
   const [failed, setFailed] = useState(false);
   if (!src || failed) return <span className="lp-unit-fallback" role="img" aria-label={alt}><FiWind aria-hidden="true" /></span>;
-  return <img src={src} alt={alt} width="400" height="300" loading="lazy" decoding="async" onError={() => setFailed(true)} />;
+  return <img src={src} alt={alt} width="320" height="320" loading="lazy" decoding="async" onError={() => setFailed(true)} />;
 }
 
 export function UnitTypesSection() {
+  // Tapping a unit lifts it and rings it in coral; tapping it again (or another one) lets go. It only highlights, nothing else changes.
+  const [picked, setPicked] = useState(null);
   return (
     <section id="unit-types" data-nav="services" className="lp-section lp-units" aria-labelledby="units-title">
       <SectionHeading eyebrow={UNITS.eyebrow} title={UNITS.title} id="units-title" />
       <ul className="lp-unit-grid">
         {UNITS.items.map((unit, i) => (
           <li className="lp-unit" key={unit.type} data-reveal style={{ '--reveal-i': i }}>
-            <span className="lp-unit-frame"><UnitPhoto src={unit.src} alt={unit.alt} /></span>
-            <span className="lp-unit-label">{unit.type}</span>
+            <button
+              type="button"
+              className={`lp-unit-btn${picked === unit.type ? ' is-picked' : ''}`}
+              aria-pressed={picked === unit.type}
+              onClick={() => setPicked((current) => (current === unit.type ? null : unit.type))}
+            >
+              <span className="lp-unit-frame"><UnitPhoto src={unit.src} alt={unit.alt} /></span>
+              <span className="lp-unit-label">{unit.type}</span>
+            </button>
           </li>
         ))}
       </ul>

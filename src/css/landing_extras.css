@@ -1,27 +1,6 @@
 /* More color and life for the landing page, layered on landing.css. Everything that moves is switched off again in the reduced-motion
    block at the end, and the content stays fully visible without it. */
 
-/* ---------- snowfall (components/landing/snowfall.jsx), inside the fixed page backdrop ---------- */
-.lp-snow { position: absolute; inset: 0; overflow: hidden; pointer-events: none; container-type: size; z-index: 0; }
-.lp-flake {
-  position: absolute;
-  top: 0;
-  left: var(--x);
-  width: var(--s);
-  height: var(--s);
-  opacity: var(--o);
-  animation: lp-fall var(--d) linear var(--delay) infinite;
-}
-.lp-flake--flake {
-  background: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%27-10 -10 20 20%27%3E%3Cpath d=%27M0 -9V9M-7.8 -4.5L7.8 4.5M-7.8 4.5L7.8 -4.5%27 stroke=%27white%27 stroke-width=%271.6%27 stroke-linecap=%27round%27 fill=%27none%27/%3E%3C/svg%3E") center / contain no-repeat;
-}
-.lp-flake--dot { background: radial-gradient(circle, #ffffff 0 45%, transparent 50%); }
-@keyframes lp-fall {
-  0% { transform: translate3d(0, -40px, 0) rotate(0deg); }
-  50% { transform: translate3d(var(--sway), 50cqh, 0) rotate(140deg); }
-  100% { transform: translate3d(0, 105cqh, 0) rotate(280deg); }
-}
-
 /* ---------- hero: the unit floats a little ---------- */
 .lp-hero-visual { animation: lp-bob 8s ease-in-out infinite; }
 @keyframes lp-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
@@ -81,7 +60,7 @@
 .lp-card-link:hover { color: var(--coral); }
 .lp-price { background: rgba(94, 234, 212, 0.12); color: #5eead4; }
 .lp-about-logo img { filter: brightness(1.3) saturate(1.1) drop-shadow(0 0 22px rgba(147, 197, 253, 0.28)); }
-.lp-unit-frame { background: rgba(255, 255, 255, 0.08); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3); }
+.lp-unit-frame { background: transparent; box-shadow: none; }
 .lp-unit-fallback { color: #5eead4; }
 .lp-faq-item--open { border-color: rgba(255, 255, 255, 0.13); }
 
@@ -135,9 +114,18 @@
 .lp-trust-item:nth-child(3) .lp-trust-icon { background: rgba(147, 197, 253, 0.15); color: #93c5fd; }
 .lp-trust-item:nth-child(4) .lp-trust-icon { background: rgba(196, 181, 253, 0.15); color: #c4b5fd; }
 
-/* unit photos zoom a little on hover */
-.lp-unit-frame img { transition: transform 0.5s ease; }
-.lp-unit:hover .lp-unit-frame img { transform: scale(1.07); }
+/* unit photos (cut out, no box): hover or keyboard focus lifts the unit, zooms it and lights a coral glow that follows its shape; a press squeezes it; a tap keeps the glow */
+.lp-unit-frame img { transition: transform 0.5s ease, filter 0.3s ease; }
+.lp-unit-btn { border-radius: 16px; }
+.lp-unit-btn:focus-visible { outline: 2px solid var(--coral); outline-offset: 4px; }
+.lp-unit-btn:hover .lp-unit-frame, .lp-unit-btn:focus-visible .lp-unit-frame, .lp-unit-btn.is-picked .lp-unit-frame { transform: translateY(-6px); }
+.lp-unit-btn:hover .lp-unit-frame img, .lp-unit-btn:focus-visible .lp-unit-frame img, .lp-unit-btn.is-picked .lp-unit-frame img {
+  filter: drop-shadow(0 0 3px rgba(255, 107, 74, 0.9)) drop-shadow(0 12px 18px rgba(255, 107, 74, 0.35));
+}
+.lp-unit-btn:hover .lp-unit-frame img, .lp-unit-btn:focus-visible .lp-unit-frame img, .lp-unit-btn.is-picked .lp-unit-frame img { transform: scale(1.08); }
+.lp-unit-btn:active .lp-unit-frame { transform: translateY(-2px) scale(0.97); }
+.lp-unit-label { transition: color 0.2s ease; }
+.lp-unit-btn:hover .lp-unit-label, .lp-unit-btn.is-picked .lp-unit-label { color: var(--coral); }
 
 /* how it works: gradient markers with a soft pulsing ring */
 .lp-step-marker { background: linear-gradient(145deg, #1f5a96, #143a63 60%, #0e8c8c 140%); border: 1px solid rgba(255, 255, 255, 0.25); }
@@ -246,9 +234,8 @@
 
 /* ---------- reduced motion: nothing moves, everything stays visible ---------- */
 @media (prefers-reduced-motion: reduce) {
-  .lp-flake { animation: none; top: calc(var(--delay) * -8px); }
   .lp-hero-visual, .lp-step-marker::before { animation: none; }
   .lp-step-marker::before { opacity: 0; }
   .lp-btn--primary::before, .lp-card::before, .lp-card-icon, .lp-unit-frame img { transition: none; }
-  .lp-card:hover .lp-card-icon, .lp-unit:hover .lp-unit-frame img { transform: none; }
+  .lp-card:hover .lp-card-icon, .lp-unit-btn:hover .lp-unit-frame img, .lp-unit-btn.is-picked .lp-unit-frame img { transform: none; }
 }

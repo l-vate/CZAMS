@@ -1,0 +1,26 @@
+/* The falling snow. Imported by components/landing/snowfall.jsx, so every page that shows the snow gets these rules. */
+
+/* ---------- snowfall (components/landing/snowfall.jsx) (the landing page backdrop and the sign-in pages) ---------- */
+.lp-snow { position: absolute; inset: 0; overflow: hidden; pointer-events: none; container-type: size; z-index: 0; }
+.lp-flake {
+  position: absolute;
+  top: 0;
+  left: var(--x);
+  width: var(--s);
+  height: var(--s);
+  opacity: var(--o);
+  animation: lp-fall var(--d) linear var(--delay) infinite;
+}
+.lp-flake--flake {
+  background: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%27-10 -10 20 20%27%3E%3Cpath d=%27M0 -9V9M-7.8 -4.5L7.8 4.5M-7.8 4.5L7.8 -4.5%27 stroke=%27white%27 stroke-width=%271.6%27 stroke-linecap=%27round%27 fill=%27none%27/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.lp-flake--dot { background: radial-gradient(circle, #ffffff 0 45%, transparent 50%); }
+@keyframes lp-fall {
+  0% { transform: translate3d(0, -40px, 0) rotate(0deg); }
+  50% { transform: translate3d(var(--sway), 50cqh, 0) rotate(140deg); }
+  100% { transform: translate3d(0, 105cqh, 0) rotate(280deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-flake { animation: none; top: calc(var(--delay) * -8px); }
+}

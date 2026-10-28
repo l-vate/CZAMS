@@ -27,6 +27,7 @@ function ForgotPasswordPage() {
 
   return (
     <AuthShell
+      centered
       title={done ? 'Check your email' : 'Forgot your password?'}
       subtitle={done ? 'Open the link in the email to choose a new password.' : 'Enter your email address and we will send you a link to choose a new one.'}
     >

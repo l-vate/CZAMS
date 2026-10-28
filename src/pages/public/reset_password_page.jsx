@@ -40,14 +40,14 @@ function ResetPasswordPage() {
 
   if (!token) {
     return (
-      <AuthShell title="Reset link needed" subtitle="Open the link from your email, or ask for a new one.">
+      <AuthShell centered title="Reset link needed" subtitle="Open the link from your email, or ask for a new one.">
         <p className="auth-switch"><Link to="/forgot-password">Send me a new link</Link></p>
       </AuthShell>
     );
   }
 
   return (
-    <AuthShell title="Choose a new password" subtitle="Pick a password you have not used here before.">
+    <AuthShell centered title="Choose a new password" subtitle="Pick a password you have not used here before.">
       <form className="auth-form" onSubmit={handleSubmit}>
         <div className="form-group">
           <label htmlFor="password">New password</label>

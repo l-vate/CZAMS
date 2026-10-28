@@ -1,26 +1,12 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import {
-  FiThermometer,
-  FiCalendar,
-  FiTool,
-  FiEye,
-  FiEyeOff,
-  FiArrowLeft,
-} from 'react-icons/fi';
+import { FiEye, FiEyeOff } from 'react-icons/fi';
 import '../../css/public.css'
 import { ApiError } from '../../services/apiClient';
 import { login } from '../../services/authService';
 import { ROLE } from '../../constants/roles';
 import { takeSessionNotice } from '../../utils/session';
-import { BRAND_NAME, BRAND_SHORT, BRAND_SUB } from '../../config/company';
-
-/* ── Static Content ─────────────────────────────────────── */
-const FEATURES = [
-  { icon: <FiThermometer />, text: 'Cleaning, repair & installation' },
-  { icon: <FiCalendar />, text: 'Easy online scheduling' },
-  { icon: <FiTool />, text: 'Trusted technicians since 2009' },
-];
+import AuthShell from '../../components/auth_shell';
 
 function LoginPage() {
   const [formData, setFormData] = useState({ email: '', password: '' });
@@ -60,43 +46,7 @@ function LoginPage() {
   };
 
   return (
-    <div className="auth-split-page">
-
-      {/* ── Left Panel ── */}
-      <div className="auth-split-left">
-        <Link to="/" className="auth-split-back"><FiArrowLeft aria-hidden="true" /> Back to site</Link>
-
-        <div className="auth-split-brand">
-          <img src="/images/logo.png" alt={`${BRAND_NAME} logo`} className="auth-split-logo" />
-          <span className="auth-split-brand-name">{BRAND_SHORT.toUpperCase()}</span>
-          <span className="auth-split-brand-sub">{BRAND_SUB}</span>
-        </div>
-
-        <div className="auth-split-tagline">
-          <h1>Cool comfort,<br />at your service.</h1>
-          <p>Book, manage, and track your aircon maintenance - all in one place.</p>
-        </div>
-
-        <div className="auth-split-features">
-          {FEATURES.map((feature) => (
-            <div className="auth-feature-item" key={feature.text}>
-              <span>{feature.icon}</span> {feature.text}
-            </div>
-          ))}
-        </div>
-
-        <p className="auth-split-copy">© 2009 {BRAND_SHORT}. All Rights Reserved.</p>
-      </div>
-
-      {/* ── Right Panel ── */}
-      <div className="auth-split-right">
-        <div className="auth-split-form-box">
-
-          <div className="auth-split-header">
-            <h2>Welcome back</h2>
-            <p>Sign in to your account to continue.</p>
-          </div>
-
+    <AuthShell title="Welcome back" subtitle="Sign in to your account to continue." backTo="/" backLabel="Back to site">
           {/* ── Login Form ── */}
           <form className="auth-form" onSubmit={handleSubmit}>
             <div className="form-group">
@@ -154,10 +104,7 @@ function LoginPage() {
             Don't have an account?{' '}
             <Link to="/register">Create one here</Link>
           </p>
-
-        </div>
-      </div>
-    </div>
+    </AuthShell>
   );
 }
 

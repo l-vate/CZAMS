@@ -1,19 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiClipboard, FiMapPin, FiCreditCard, FiEye, FiEyeOff, FiArrowLeft } from 'react-icons/fi';
+import { FiEye, FiEyeOff } from 'react-icons/fi';
 import '../../css/public.css'
 import { ApiError } from '../../services/apiClient';
 import { COMPANY_NAME_MAX, REPRESENTATIVE_NAME_MAX } from '../../constants/profileFields';
 import { register } from '../../services/authService';
-import { BRAND_NAME, BRAND_SHORT, BRAND_SUB } from '../../config/company';
+import AuthShell from '../../components/auth_shell';
 import { passwordChecks, passwordIsAcceptable } from '../../utils/passwordChecks';
-
-/* ── Static Content ─────────────────────────────────────── */
-const FEATURES = [
-  { icon: <FiClipboard />, text: 'Book services in minutes' },
-  { icon: <FiMapPin />, text: 'Real-time service tracking' },
-  { icon: <FiCreditCard />, text: 'Flexible payment options' },
-];
 
 function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -58,45 +51,9 @@ const handleSubmit = async (e) => {
 };
 
   return (
-    <div className="auth-split-page">
-
-      {/* ── Left Panel ── */}
-      <div className="auth-split-left auth-split-left--register">
-        <Link to="/" className="auth-split-back"><FiArrowLeft aria-hidden="true" /> Back to site</Link>
-
-        <div className="auth-split-brand">
-          <img src="/images/logo.png" alt={`${BRAND_NAME} logo`} className="auth-split-logo" />
-          <span className="auth-split-brand-name">{BRAND_SHORT.toUpperCase()}</span>
-          <span className="auth-split-brand-sub">{BRAND_SUB}</span>
-        </div>
-
-        <div className="auth-split-tagline">
-          <h1>Join us today.</h1>
-          <p>Create an account to book services, track your requests, and stay cool all year round.</p>
-        </div>
-
-        <div className="auth-split-features">
-          {FEATURES.map((feature) => (
-            <div className="auth-feature-item" key={feature.text}>
-              <span>{feature.icon}</span> {feature.text}
-            </div>
-          ))}
-        </div>
-
-        <p className="auth-split-copy">© 2009 {BRAND_SHORT}. All Rights Reserved.</p>
-      </div>
-
-      {/* ── Right Panel ── */}
-      <div className="auth-split-right">
-        <div className="auth-split-form-box">
-
-          <div className="auth-split-header">
-            <h2>Create your account</h2>
-            <p>Fill in your details to get started.</p>
-          </div>
-
+    <AuthShell title="Create your account" subtitle="Fill in your details to get started." backTo="/" backLabel="Back to site" wide>
           {/* ── Registration Form ── */}
-          <form className="auth-form" onSubmit={handleSubmit}>
+          <form className="auth-form auth-form--two" onSubmit={handleSubmit}>
 
             {/* First + Last name */}
             <div className="form-row">
@@ -214,13 +171,6 @@ const handleSubmit = async (e) => {
                   {showPassword ? <FiEyeOff /> : <FiEye />}
                 </button>
               </div>
-              <ul className="password-rules" aria-live="polite">
-                {passwordChecks(formData.password).map((check) => (
-                  <li key={check.id} className={check.met ? 'password-rule password-rule--met' : 'password-rule'}>
-                    {check.met ? '✓' : '•'} {check.label}
-                  </li>
-                ))}
-              </ul>
             </div>
 
             <div className="form-group">
@@ -245,6 +195,14 @@ const handleSubmit = async (e) => {
               </div>
             </div>
 
+            <ul className="password-rules" aria-live="polite">
+              {passwordChecks(formData.password).map((check) => (
+                <li key={check.id} className={check.met ? 'password-rule password-rule--met' : 'password-rule'}>
+                  {check.met ? '✓' : '•'} {check.label}
+                </li>
+              ))}
+            </ul>
+
             <button type="submit" className="auth-submit-btn">
               Create Account
             </button>
@@ -253,12 +211,9 @@ const handleSubmit = async (e) => {
 
           <p className="auth-switch">
             Already have an account?{' '}
-            <Link to="/register">Sign in here</Link>
+            <Link to="/login">Sign in here</Link>
           </p>
-
-        </div>
-      </div>
-    </div>
+    </AuthShell>
   );
 }
 

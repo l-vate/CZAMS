@@ -271,6 +271,27 @@ router.post('/profile/photo', auth, uploadLimiter, upload.single('photo'), async
   }
 });
 
+// Change password from the profile: emails the signed-in user a reset link to their own address, so the change is confirmed through
+// the inbox rather than with the current password. The link is the same one-time, 30 minute link as forgot password.
+router.post('/change-password/email', auth, passwordChangeLimiter, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user || user.isActive === false) return res.status(404).json({ message: 'User not found' });
+    if (!user.email) return res.status(400).json({ message: 'Your account has no email address. Please add one to your profile first.' });
+
+    const token = await issueResetToken(user._id);
+    deliverResetLink({ to: user.email, token }); // after the answer; deliverResetLink never throws
+    recordAudit({
+      actor: { id: user._id, role: user.role, name: user.name },
+      action: 'password.reset_requested', entityType: 'User', entityId: user._id, summary: 'Password change link requested from the profile',
+    });
+    res.json({ message: `We sent a link to ${user.email}. Open it to choose a new password. It expires in 30 minutes.` });
+  } catch (err) {
+    console.error('Password change email failed:', describeError(err));
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 router.put('/change-password', auth, passwordChangeLimiter, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;

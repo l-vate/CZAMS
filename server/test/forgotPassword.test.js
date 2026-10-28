@@ -348,12 +348,11 @@ test('requests made while testing never log the token or the password', async ()
   assert.equal(lines.join('\n').includes(NEW), false);
 });
 
-test('outside production no real email is sent: the sender is only reached on the production branch', () => {
+test('a real email is sent only when SMTP is set, in any environment', () => {
   const src = fs.readFileSync(require.resolve('../utils/passwordReset'), 'utf8');
-  const production = src.indexOf('if (production) {');
-  assert.ok(production > 0);
-  assert.ok(src.indexOf('sendEmailNow({', production) > production);
-  assert.equal(src.slice(0, production).includes('sendEmailNow({'), false);
+  const guard = src.indexOf('if (link && smtpConfig(env)) return await sendEmailNow({');
+  assert.ok(guard > 0);
+  assert.equal(src.split('sendEmailNow({').length - 1, 1, 'no other path reaches the sender');
 });
 
 test('production warns when APP_URL or the SMTP settings are missing, naming the variable and no value', () => {

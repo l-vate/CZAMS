@@ -86,20 +86,18 @@ const setResetMailer = (fn) => { mailer = fn; };
 
 const DEV_APP_URL = 'http://localhost:5173';
 
-// Sends the link. Production sends a real email, and only when SMTP and APP_URL are set; otherwise it says so and sends nothing. Outside
-// production no email is ever sent: the link is printed to the console instead, with no recipient, so a developer can open it. The link
+// Sends the link as a real email whenever SMTP is set (and, in production, APP_URL). Production without them says so and sends nothing.
+// Outside production with no SMTP the link is printed to the console instead, with no recipient, so a developer can open it. The link
 // is never printed in production. A failure is logged without the link.
 async function deliverResetLink({ to, token, env = process.env }) {
   const production = env.NODE_ENV === 'production';
   const link = resetLink(env.APP_URL || (production ? '' : DEV_APP_URL), token);
   try {
     if (mailer) return await mailer({ to, link });
+    if (link && smtpConfig(env)) return await sendEmailNow({ to, ...renderResetEmail({ link }) }, env);
     if (production) {
-      if (!link || !smtpConfig(env)) {
-        console.warn('Password reset email not sent: set APP_URL and the SMTP settings.');
-        return null;
-      }
-      return await sendEmailNow({ to, ...renderResetEmail({ link }) }, env);
+      console.warn('Password reset email not sent: set APP_URL and the SMTP settings.');
+      return null;
     }
     if (link && !env.NODE_TEST_CONTEXT) console.warn(`[dev] Password reset link (no email sent): ${link}`);
     return null;

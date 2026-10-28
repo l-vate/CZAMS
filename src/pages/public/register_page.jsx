@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiEye, FiEyeOff } from 'react-icons/fi';
-import '../../css/public.css'
 import { ApiError } from '../../services/apiClient';
 import { COMPANY_NAME_MAX, REPRESENTATIVE_NAME_MAX } from '../../constants/profileFields';
 import { register } from '../../services/authService';
 import AuthShell from '../../components/auth_shell';
-import { passwordChecks, passwordIsAcceptable } from '../../utils/passwordChecks';
+import { TextField, SelectField, PasswordField, PasswordRules, FormAlert, SubmitButton } from '../../components/auth_fields';
+import { passwordIsAcceptable } from '../../utils/passwordChecks';
 
 function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -20,199 +19,156 @@ function RegisterPage() {
     password: '',
     confirmPassword: '',
   });
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  if (formData.password !== formData.confirmPassword) {
-    alert('Passwords do not match.');
-    return;
-  }
-  if (!passwordIsAcceptable(formData.password)) {
-    alert('Use a password of at least 8 characters with at least 1 number and 1 special character.');
-    return;
-  }
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+    if (!passwordIsAcceptable(formData.password)) {
+      setError('Use a password of at least 8 characters with at least 1 number and 1 special character.');
+      return;
+    }
 
-  try {
-    await register(formData);
+    setLoading(true);
+    try {
+      await register(formData);
 
-    // The new customer is not signed in by registering: they sign in with the account they just made.
-    navigate('/login', { state: { registered: true } });
-
-  } catch (err) {
-    alert(err instanceof ApiError ? err.message || 'Registration failed' : 'Could not connect to server. Is the backend running?');
-  }
-};
+      // The new customer is not signed in by registering: they sign in with the account they just made.
+      navigate('/login', { state: { registered: true } });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message || 'Registration failed' : 'Could not connect to server. Is the backend running?');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <AuthShell title="Create your account" subtitle="Fill in your details to get started." backTo="/" backLabel="Back to site" wide>
-          {/* ── Registration Form ── */}
-          <form className="auth-form auth-form--two" onSubmit={handleSubmit}>
+      <form className="ap-form ap-form--two" onSubmit={handleSubmit}>
+        <TextField
+          id="firstName"
+          name="firstName"
+          label="First Name"
+          placeholder="Juan"
+          autoComplete="given-name"
+          value={formData.firstName}
+          onChange={handleChange}
+          required
+        />
+        <TextField
+          id="lastName"
+          name="lastName"
+          label="Last Name"
+          placeholder="Dela Cruz"
+          autoComplete="family-name"
+          value={formData.lastName}
+          onChange={handleChange}
+          required
+        />
 
-            {/* First + Last name */}
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="firstName">First Name</label>
-                <input
-                  type="text"
-                  id="firstName"
-                  name="firstName"
-                  placeholder="Juan"
-                  value={formData.firstName}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="lastName">Last Name</label>
-                <input
-                  type="text"
-                  id="lastName"
-                  name="lastName"
-                  placeholder="Dela Cruz"
-                  value={formData.lastName}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-            </div>
+        <TextField
+          id="email"
+          name="email"
+          type="email"
+          label="Email address"
+          placeholder="you@example.com"
+          autoComplete="email"
+          inputMode="email"
+          autoCapitalize="none"
+          spellCheck={false}
+          value={formData.email}
+          onChange={handleChange}
+          required
+        />
+        <TextField
+          id="phone"
+          name="phone"
+          type="tel"
+          label="Phone number"
+          placeholder="e.g. 0917 123 4567"
+          autoComplete="tel"
+          inputMode="tel"
+          value={formData.phone}
+          onChange={handleChange}
+          required
+        />
 
-            <div className="form-group">
-              <label htmlFor="email">Email address</label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                placeholder="you@example.com"
-                value={formData.email}
-                onChange={handleChange}
-                required
-              />
-            </div>
+        <SelectField
+          id="clientType"
+          name="clientType"
+          label="Client type"
+          className="ap-span-2"
+          autoComplete="off"
+          value={formData.clientType}
+          onChange={handleChange}
+        >
+          <option value="Residential">Residential</option>
+          <option value="Commercial">Commercial</option>
+        </SelectField>
 
-            <div className="form-group">
-              <label htmlFor="phone">Phone number</label>
-              <input
-                type="tel"
-                id="phone"
-                name="phone"
-                placeholder="e.g. 0917 123 4567"
-                value={formData.phone}
-                onChange={handleChange}
-                required
-              />
-            </div>
+        {formData.clientType === 'Commercial' && (
+          <>
+            <TextField
+              id="companyName"
+              name="companyName"
+              label="Company name"
+              autoComplete="organization"
+              maxLength={COMPANY_NAME_MAX}
+              value={formData.companyName}
+              onChange={handleChange}
+            />
+            <TextField
+              id="representativeName"
+              name="representativeName"
+              label="Representative name"
+              autoComplete="name"
+              maxLength={REPRESENTATIVE_NAME_MAX}
+              value={formData.representativeName}
+              onChange={handleChange}
+            />
+          </>
+        )}
 
-            <div className="form-group">
-              <label htmlFor="clientType">Client type</label>
-              <select
-                id="clientType"
-                name="clientType"
-                value={formData.clientType}
-                onChange={handleChange}
-                className="form-select"
-              >
-                <option value="Residential">Residential</option>
-                <option value="Commercial">Commercial</option>
-              </select>
-            </div>
+        <PasswordField
+          id="password"
+          name="password"
+          label="Password"
+          placeholder="Create a password"
+          autoComplete="new-password"
+          minLength={8}
+          value={formData.password}
+          onChange={handleChange}
+          required
+        />
+        <PasswordField
+          id="confirmPassword"
+          name="confirmPassword"
+          label="Confirm password"
+          placeholder="Re-enter your password"
+          autoComplete="new-password"
+          value={formData.confirmPassword}
+          onChange={handleChange}
+          required
+        />
 
-            {formData.clientType === 'Commercial' && (
-              <>
-                <div className="form-group">
-                  <label htmlFor="companyName">Company name</label>
-                  <input
-                    type="text"
-                    id="companyName"
-                    name="companyName"
-                    maxLength={COMPANY_NAME_MAX}
-                    value={formData.companyName}
-                    onChange={handleChange}
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="representativeName">Representative name</label>
-                  <input
-                    type="text"
-                    id="representativeName"
-                    name="representativeName"
-                    maxLength={REPRESENTATIVE_NAME_MAX}
-                    value={formData.representativeName}
-                    onChange={handleChange}
-                  />
-                </div>
-              </>
-            )}
+        <PasswordRules password={formData.password} className="ap-span-2" />
+        <FormAlert className="ap-span-2">{error}</FormAlert>
+        <SubmitButton loading={loading} loadingText="Creating account..." className="ap-span-2">Create Account</SubmitButton>
+      </form>
 
-            <div className="form-group">
-              <label htmlFor="password">Password</label>
-              <div className="password-wrapper">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  id="password"
-                  name="password"
-                  placeholder="Create a password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                  minLength={8}
-                />
-                <button
-                  type="button"
-                  className="toggle-password"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <FiEyeOff /> : <FiEye />}
-                </button>
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="confirmPassword">Confirm password</label>
-              <div className="password-wrapper">
-                <input
-                  type={showConfirm ? 'text' : 'password'}
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  placeholder="Re-enter your password"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  required
-                />
-                <button
-                  type="button"
-                  className="toggle-password"
-                  onClick={() => setShowConfirm(!showConfirm)}
-                >
-                  {showConfirm ? <FiEyeOff /> : <FiEye />}
-                </button>
-              </div>
-            </div>
-
-            <ul className="password-rules" aria-live="polite">
-              {passwordChecks(formData.password).map((check) => (
-                <li key={check.id} className={check.met ? 'password-rule password-rule--met' : 'password-rule'}>
-                  {check.met ? '✓' : '•'} {check.label}
-                </li>
-              ))}
-            </ul>
-
-            <button type="submit" className="auth-submit-btn">
-              Create Account
-            </button>
-
-          </form>
-
-          <p className="auth-switch">
-            Already have an account?{' '}
-            <Link to="/login">Sign in here</Link>
-          </p>
+      <p className="ap-switch">
+        Already have an account? <Link to="/login" className="ap-link">Sign in here</Link>
+      </p>
     </AuthShell>
   );
 }

@@ -211,3 +211,70 @@
 .closure-item .closure-reason { font-size: 0.8125rem; }
 /* the job calendar sits inside its card */
 .admin-calendar-card .admin-calendar-x1.admin-calendar-x1 { height: calc(100vh - 13rem); min-height: 520px; margin-top: 8px; }
+
+/* ===== Calendar page panels (E23): the lists fold away, the actions are one button style ===== */
+.closure-manager .ma-submit-btn { background: var(--navy); min-height: 44px; }
+.closure-manager .ma-submit-btn:hover { background: var(--navy-soft); }
+.closure-manager .ma-submit-btn:disabled { opacity: 0.6; cursor: default; }
+
+.cal-panel { margin-top: 12px; border-top: 1px solid var(--border, #e5e7eb); padding-top: 4px; }
+.cal-panel-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 4px;
+  border: none;
+  background: none;
+  color: var(--navy);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.cal-panel-summary { min-width: 0; }
+.cal-panel-chevron { flex-shrink: 0; font-size: 20px; transition: transform 0.15s ease; }
+.cal-panel-toggle[aria-expanded="true"] .cal-panel-chevron { transform: rotate(180deg); }
+.cal-panel-body[hidden] { display: none; }
+.cal-panel-body > .closure-list { margin-top: 4px; }
+
+/* Available again, Open all again, Open single days, Open, Show all, Show past entries: one button style */
+.cal-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1.5px solid var(--navy);
+  border-radius: 8px;
+  background: var(--white, #fff);
+  color: var(--navy);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.cal-action-btn::-webkit-details-marker { display: none; }
+.cal-action-btn:hover { background: var(--frost); }
+.cal-more-btn { margin-top: 10px; }
+.cal-panel-toggle:focus-visible,
+.cal-action-btn:focus-visible,
+.closure-manager .ma-submit-btn:focus-visible {
+  outline: 3px solid var(--coral);
+  outline-offset: 2px;
+}
+
+.closure-item-text,
+.tech-off-entry-text { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
+.closure-days-detail summary.cal-action-btn { display: inline-flex; margin-top: 6px; }
+.closure-day-list li { flex-wrap: wrap; justify-content: space-between; }
+
+@media (max-width: 768px) {
+  .cal-action-btn { min-height: 44px; padding: 0 16px; }
+  .closure-item > .cal-action-btn { width: 100%; }
+  .tech-off-entries li > .cal-action-btn { width: 100%; }
+}

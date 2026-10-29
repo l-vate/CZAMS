@@ -360,7 +360,8 @@ const [report, setReport] = useState(null);
                     {(() => {
                         const noDistanceYet = !booking.distanceAdjustment && !booking.mobilizationFee;
                         const outsideToPrice = !booking.isBackJob && booking.status === BOOKING_STATUS.PENDING && !isWithinQuezonCity(booking.address) && noDistanceYet;
-                        const flagged = booking.serviceAreaCheck && !booking.serviceAreaCheck.withinArea;
+                        // a cancelled booking is already decided, so the review flag is no longer shown
+                        const flagged = booking.status !== BOOKING_STATUS.CANCELLED && booking.serviceAreaCheck && !booking.serviceAreaCheck.withinArea;
                         if (outsideToPrice) {
                             return <div className="sdm-notice">⚠ This address is outside Quezon City or CZA's confirmed service areas. Add a mobilization fee in the Scope of works before approving, if one applies.</div>;
                         }

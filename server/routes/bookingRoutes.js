@@ -181,6 +181,27 @@ function readOwnerCancelReason(raw) {
   return { reason };
 }
 
+// The reason an admin gives for any other cancellation: 3 to 200 characters. { problem } or { reason }.
+function readCancelNote(raw) {
+  const reason = typeof raw === 'string' ? raw.trim() : '';
+  if (reason.length < 3 || reason.length > 200) {
+    return { problem: invalid('Give a short reason (3 to 200 characters) for cancelling.') };
+  }
+  return { reason };
+}
+
+// What an admin's cancellation carries: { problem }, or { ownerCancelled, reason } for the owner cancelling because it cannot supply or serve (a reason is
+// required and the refund is full with no fee), or { reason } for any other cancellation that says why (Customer request, or a short text), or {} for one
+// that does not. A reason changes no refund rule: it is only shown to the customer and written in the audit entry.
+function readAdminCancelReason(ownerInitiated, cancelReason) {
+  if (ownerInitiated === true) {
+    const owner = readOwnerCancelReason(cancelReason);
+    return owner.problem ? owner : { ...owner, ownerCancelled: true };
+  }
+  if (cancelReason === undefined || cancelReason === null || cancelReason === '') return {};
+  return readCancelNote(cancelReason);
+}
+
 // Returns 'opened' when a refund request was opened, or 'none' when no down payment is on file. A customer who cancels can ask for a refund even
 // while their down payment proof is still waiting to be verified: the request is opened and marked paymentUnverified. It is not paid out until
 // the proof is verified, and the owner rejects it when the payment never came through.
@@ -2233,12 +2254,10 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
         return res.status(400).json({ message: 'This booking can no longer be cancelled.' });
       }
       // The owner cancelling because it cannot supply the unit or cannot serve: a reason is required, and the refund is full with no fee.
-      const ownerCancel = ownerInitiated === true ? readOwnerCancelReason(cancelReason) : null;
-      if (ownerCancel && ownerCancel.problem) return sendProblem(res, ownerCancel.problem);
-      if (ownerCancel) {
-        booking.ownerCancelled = true;
-        booking.cancelReason = ownerCancel.reason;
-      }
+      const given = readAdminCancelReason(ownerInitiated, cancelReason);
+      if (given.problem) return sendProblem(res, given.problem);
+      if (given.ownerCancelled) booking.ownerCancelled = true;
+      if (given.reason) booking.cancelReason = given.reason;
       adminCancelOutcome = openRefundIfEligible(booking);
     }
 

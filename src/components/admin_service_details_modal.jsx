@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { FiArrowLeft, FiArrowRight } from 'react-icons/fi';
 import { getBookingLineItems, getPaymentBreakdown, formatPeso } from '../utils/bookingPricing';
 import AssignmentPanel from './assignment_panel';
+import CancelBookingDialog from './cancel_booking_dialog';
 import SuggestedDates from './suggested_dates';
 import PaymentReference from './payment_reference';
 import ScopeOfWorksEditor from './scope_of_works_editor';
@@ -78,6 +79,7 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated, asPage = false 
     const [offeredDates, setOfferedDates] = useState([]); // dates offered after an approval is refused because nobody is free
     const [recordDraft, setRecordDraft] = useState(null); // a payment being recorded: received in person
     const [error, setError] = useState('');
+    const [cancelOpen, setCancelOpen] = useState(false);
     const [disruptionDate, setDisruptionDate] = useState('');
     const [disruptionTime, setDisruptionTime] = useState('');
     const [disruptionReason, setDisruptionReason] = useState('');
@@ -217,10 +219,13 @@ const [report, setReport] = useState(null);
         }
     };
 
+    // Cancel Booking opens a dialog that asks why (see components/cancel_booking_dialog.jsx) and is the confirmation step.
     const handleCancel = () => {
-        if (window.confirm('Cancel this booking? This cannot be undone.')) {
-            patchBooking({ status: 'Cancelled' });
-        }
+        setError('');
+        setCancelOpen(true);
+    };
+    const confirmCancel = async (body) => {
+        if (await patchBooking(body)) setCancelOpen(false);
     };
 
     const handleDisruptionReschedule = async () => {
@@ -365,7 +370,7 @@ const [report, setReport] = useState(null);
                         return null;
                     })()}
 
-                    {error && <div className="sdm-error">{error}</div>}
+                    {error && !cancelOpen && <div className="sdm-error">{error}</div>}
                     {(/down payment/i.test(error) || booking.paymentStatus === 'to_verify' || booking.balancePaymentStatus === 'to_verify') && (
                         <Link to={`/admin/payments?filter=to_verify&q=${encodeURIComponent(booking.bookingId)}`} className="sdm-verify-payment">
                             Verify payment <FiArrowRight aria-hidden="true" />
@@ -1173,6 +1178,9 @@ const [report, setReport] = useState(null);
                 </div>
             </div>
         </div>
+        {cancelOpen && (
+            <CancelBookingDialog bookingId={booking.bookingId} saving={saving} error={error} onConfirm={confirmCancel} onClose={() => setCancelOpen(false)} />
+        )}
         {showReceipt && (
             <ReceiptModal
                 form={buildReceiptForm(booking, {

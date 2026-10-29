@@ -350,7 +350,7 @@ export function CancelledSummary({ booking, formatWhen }) {
       <h3 className="bs-card-title">Cancellation</h3>
       <p className="cancelled-summary-line"><strong>{cancelledByText(booking)}</strong></p>
       {booking.cancelledAt && <p className="cancelled-summary-line">Cancelled on {formatWhen(booking.cancelledAt)}.</p>}
-      {booking.ownerCancelled && booking.cancelReason && <p className="cancelled-summary-line"><strong>Reason:</strong> {booking.cancelReason}</p>}
+      {booking.cancelReason && (booking.ownerCancelled || booking.cancelledBy === 'admin') && <p className="cancelled-summary-line"><strong>Reason:</strong> {booking.cancelReason}</p>}
       <p className="cancelled-summary-line">{refundText(booking)}</p>
       {figures.length > 0 && (
         <div className="cancelled-summary-figures">

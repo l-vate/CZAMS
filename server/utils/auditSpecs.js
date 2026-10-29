@@ -24,7 +24,7 @@ const adminUpdate = audited({
     if (b.status === 'Cancelled') {
       lines.push(b.ownerInitiated === true
         ? { action: 'booking.cancel', summary: 'Cancelled the booking because we cannot supply or serve it', meta: { by: req.userRole, ownerInitiated: true, reason: b.cancelReason } }
-        : { action: 'booking.cancel', summary: `Cancelled the booking (by ${req.userRole})`, meta: { by: req.userRole } });
+        : { action: 'booking.cancel', summary: `Cancelled the booking (by ${req.userRole})`, meta: { by: req.userRole, ...(typeof b.cancelReason === 'string' && b.cancelReason.trim() ? { reason: b.cancelReason.trim().slice(0, 200) } : {}) } });
     }
     if (b.distanceAdjustment !== undefined || b.mobilizationFee !== undefined) {
       lines.push({ action: 'booking.charges', summary: 'Changed the distance or mobilization charge', meta: { distanceAdjustment: num(b.distanceAdjustment), mobilizationFee: num(b.mobilizationFee) } });

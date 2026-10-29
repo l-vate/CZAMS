@@ -67,7 +67,7 @@ test('the money in plain words: the amount and what happens next, for every case
 test('who cancelled it', async () => {
   const { cancelledByText } = await vite.ssrLoadModule('/src/utils/cancelledSummary.js');
   assert.match(cancelledByText(cancelled()), /You cancelled this booking/);
-  assert.match(cancelledByText(cancelled({ cancelledBy: 'admin' })), /Our team cancelled/);
+  assert.match(cancelledByText(cancelled({ cancelledBy: 'admin' })), /Cancelled by the owner/);
   assert.match(cancelledByText(cancelled({ cancelledBy: 'admin', ownerCancelled: true })), /owner cancelled this booking because we could not supply or serve it/);
   assert.match(cancelledByText({}), /was cancelled/);
 });

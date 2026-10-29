@@ -432,6 +432,24 @@
     cursor: pointer;
 }
 .sdm-back:hover { background: #f1f5f9; }
+.sdm-back--in-card { margin-bottom: 18px; }
+/* goes to Payments with this booking searched and the To verify filter on */
+.sdm-verify-payment {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    margin: 0 0 14px;
+    padding: 0 18px;
+    border-radius: 10px;
+    background: var(--navy-soft, #1e4a7a);
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+.sdm-verify-payment:hover { background: var(--navy, #0b2545); }
+.sdm-verify-payment:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
 .sdm-page-card {
     background: #fff;
     border: 1px solid #e2e8f0;

@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminLayout from './admin_layout';
 import DashboardCharts from '../../components/dashboard_charts';
-import NeedsAttentionPanel from '../../components/needs_attention_panel';
 
 import {
   FiClipboard,
@@ -135,8 +134,6 @@ function Dashboard() {
           <h1 className="dashboard-welcome">Welcome, Admin</h1>
           <p>Manage bookings, staff, and services from one place.</p>
         </div>
-
-        <NeedsAttentionPanel />
 
         {failed && <LoadError message="Could not load the dashboard." onRetry={fetchData} />}
 

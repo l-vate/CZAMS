@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { FiArrowLeft, FiArrowRight } from 'react-icons/fi';
 import { getBookingLineItems, getPaymentBreakdown, formatPeso } from '../utils/bookingPricing';
 import AssignmentPanel from './assignment_panel';
 import SuggestedDates from './suggested_dates';
@@ -332,6 +334,11 @@ const [report, setReport] = useState(null);
             <div className={asPage ? 'sdm-page-card' : 'sdm-modal'} onClick={asPage ? undefined : (e) => e.stopPropagation()}>
                 {!asPage && <button type="button" className="modal-close-btn sdm-close-position" onClick={onClose}>✕</button>}
                 <div className="sdm-body">
+                    {asPage && (
+                        <button type="button" className="sdm-back sdm-back--in-card" onClick={onClose}>
+                            <FiArrowLeft /> Back to Bookings
+                        </button>
+                    )}
                     <div className="sdm-titlebar">
                         <div>
                             <h2 className="sdm-title">Booking Details</h2>
@@ -367,6 +374,11 @@ const [report, setReport] = useState(null);
                     })()}
 
                     {error && <div className="sdm-error">{error}</div>}
+                    {(/down payment/i.test(error) || booking.paymentStatus === 'to_verify' || booking.balancePaymentStatus === 'to_verify') && (
+                        <Link to={`/admin/payments?filter=to_verify&q=${encodeURIComponent(booking.bookingId)}`} className="sdm-verify-payment">
+                            Verify payment <FiArrowRight aria-hidden="true" />
+                        </Link>
+                    )}
                     <SuggestedDates
                         dates={offeredDates}
                         time={booking.time}

@@ -6,7 +6,7 @@
 //                     that still wait on a refund or on a payment check
 //   2. BackJob.find   the open claims that are Not Covered (index { status })
 //   3. Service.find   the services of the Approved bookings dated today or tomorrow, to know how many technicians each needs
-//   4. User.find      the names of the customers on the items that are shown (at most 3 groups of 5 items), never one query per item
+//   4. User.find      the names of the customers on the items that are shown (at most 3 groups of 5 items, or every item with ?all=1), never one query per item
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
@@ -56,7 +56,8 @@ router.get('/needs-attention', async (req, res) => {
     const services = serviceIds.length > 0 ? await Service.find({ _id: { $in: serviceIds } }).select('name serviceType minTechnicians').lean() : [];
     const servicesById = new Map(services.map((s) => [String(s._id), s]));
 
-    const groups = buildGroups({ bookings, backJobs, servicesById, now });
+    // ?all=1 lifts only the cap on items per group (the notifications page merges and rolls them up); counts, order and rules stay the same
+    const groups = buildGroups({ bookings, backJobs, servicesById, now }, req.query.all === '1' ? Infinity : undefined);
     const ids = keptCustomerIds(groups);
     const customers = ids.length > 0 ? await User.find({ _id: { $in: ids } }).select('name').lean() : [];
     const named = withNames(groups, new Map(customers.map((c) => [String(c._id), c.name])));

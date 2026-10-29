@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiBell, FiCalendar, FiCheckCircle, FiXCircle, FiCreditCard, FiMessageCircle, FiRefreshCw } from 'react-icons/fi';
+import { FiBell, FiCalendar, FiCheckCircle, FiXCircle, FiCreditCard, FiMessageCircle, FiRefreshCw, FiChevronRight } from 'react-icons/fi';
 import { listNotifications, markNotificationRead, markAllNotificationsRead } from '../services/notificationService';
 
 
@@ -33,7 +33,9 @@ function iconFor(type = '') {
 // portal's routes). Passed by customer_layout.jsx for the "open that booking's
 // details" behavior; staff_layout.jsx doesn't pass it, so staff notifications
 // keep their previous mark-as-read-only behavior.
-function NotificationBell({ onNotificationClick, viewAllRoute }) {
+// actionCount and actionRoute (the admin's bell only): how many bookings need action. It is added to the badge and shown as the first row of the
+// dropdown, a link to the Needs action tab. It is not a notification, so "Mark all as read" does not touch it.
+function NotificationBell({ onNotificationClick, viewAllRoute, actionCount = 0, actionRoute }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -71,6 +73,7 @@ function NotificationBell({ onNotificationClick, viewAllRoute }) {
   }, [open]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+  const badgeCount = unreadCount + (actionRoute ? actionCount : 0);
 
   const handleToggle = () => {
     setOpen((prev) => {
@@ -112,11 +115,11 @@ function NotificationBell({ onNotificationClick, viewAllRoute }) {
         type="button"
         className="notif-bell-btn"
         onClick={handleToggle}
-        aria-label="Notifications"
+        aria-label={badgeCount > 0 ? `Notifications, ${badgeCount} new` : 'Notifications'}
       >
         <FiBell />
-        {unreadCount > 0 && (
-          <span className="notif-bell-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+        {badgeCount > 0 && (
+          <span className="notif-bell-badge">{badgeCount > 9 ? '9+' : badgeCount}</span>
         )}
       </button>
 
@@ -133,6 +136,23 @@ function NotificationBell({ onNotificationClick, viewAllRoute }) {
               </button>
             )}
           </div>
+
+          {actionRoute && actionCount > 0 && (
+            <button
+              type="button"
+              className="notif-item notif-action-row"
+              onClick={() => {
+                setOpen(false);
+                navigate(actionRoute);
+              }}
+            >
+              <span className="notif-action-text">
+                <span className="notif-action-count">{actionCount}</span>
+                {actionCount === 1 ? ' booking needs action' : ' bookings need action'}
+              </span>
+              <FiChevronRight aria-hidden="true" />
+            </button>
+          )}
 
           {loading ? (
             <div className="notif-dropdown-empty">Loading...</div>

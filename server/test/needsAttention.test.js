@@ -323,3 +323,16 @@ test('when nothing needs attention every group is empty, and the answer is live 
   const later = await (await get(['ADM1', 'admin'])).json();
   assert.equal(later.groups.decision.count, 1, 'nothing is cached');
 });
+
+test('?all=1 lifts only the cap on items per group: same counts, same order, every item listed', async () => {
+  rows.bookings = Array.from({ length: 12 }, () => booking({ date: '2026-12-31' }));
+  const capped = await (await get(['ADM1', 'admin'])).json();
+  const url = `${base}/api/admin/needs-attention?all=1`;
+  const full = await (await fetch(url, { headers: { Authorization: `Bearer ${token('ADM1', 'admin')}` } })).json();
+  assert.equal(capped.groups.decision.items.length, 5);
+  assert.equal(full.groups.decision.items.length, 13, '12 bookings and the back job claim');
+  for (const key of ['today', 'decision', 'money']) assert.equal(full.groups[key].count, capped.groups[key].count, key);
+  assert.equal(full.total, capped.total);
+  assert.deepEqual(full.groups.decision.items.slice(0, 5), capped.groups.decision.items, 'the first five are the same five');
+  assert.equal((await fetch(url, { headers: { Authorization: `Bearer ${token('T1', 'staff')}` } })).status, 403, 'still admin only');
+});

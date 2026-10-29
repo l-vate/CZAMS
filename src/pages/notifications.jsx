@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import AdminLayout from './admin/admin_layout';
 import CustomerLayout from './customer/customer_layout';
 import StaffLayout from './staff/staff_layout';
+import { NotificationsCenterView } from '../components/notifications_center';
+import { CATEGORY_ORDER, readFilterFor } from '../constants/notificationCategories';
 import { ROLE } from '../constants/roles';
+import { useNeedsAttention } from '../hooks/useNeedsAttention';
 import {
   listNotifications,
   markAllNotificationsRead,
@@ -15,6 +18,10 @@ import {
   customerNotificationTarget,
   technicianNotificationTarget,
 } from '../utils/notificationTarget';
+import { NEEDS_ACTION_TAB, markCategoryRead } from '../utils/notificationGroups';
+
+// The page asks for more than the bell's newest 30, so the counts on the tabs cover a useful stretch of history.
+const PAGE_LIMIT = 200;
 
 function getStoredUserRole() {
   try {
@@ -26,30 +33,26 @@ function getStoredUserRole() {
   }
 }
 
-function timeAgo(dateStr) {
-  const diffMs = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
 function NotificationsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
 
   const role = getStoredUserRole();
+  const isAdmin = role === ROLE.ADMIN;
+  const needs = useNeedsAttention();
+
+  // the tab is in the address (?tab=bookings), so a link can open it and the back button keeps it; Needs action is for an admin only
+  const asked = searchParams.get('tab');
+  const tab = asked === NEEDS_ACTION_TAB ? (isAdmin ? NEEDS_ACTION_TAB : 'all') : (CATEGORY_ORDER.includes(asked) ? asked : 'all');
+  const handleTab = (next) => setSearchParams(next === 'all' ? {} : { tab: next }, { replace: true });
 
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      const data = await listNotifications();
+      const data = await listNotifications(PAGE_LIMIT);
       setNotifications(Array.isArray(data) ? data : []);
       setLoadFailed(false);
     } catch {
@@ -87,16 +90,15 @@ function NotificationsPage() {
     if (target) navigate(target);
   };
 
-  const handleMarkAllRead = async () => {
+  // `category` is 'all' or one category: only that one is marked, on the server and on the screen
+  const handleMarkAllRead = async (category) => {
     try {
-      await markAllNotificationsRead();
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      await markAllNotificationsRead(readFilterFor(category === 'all' ? null : category));
+      setNotifications((prev) => markCategoryRead(prev, category));
     } catch {
       // no-op - non-critical
     }
   };
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
 
   const layoutMap = {
     [ROLE.ADMIN]: AdminLayout,
@@ -107,48 +109,18 @@ function NotificationsPage() {
 
   return (
     <Layout title="Notifications">
-      <div className="notif-page">
-        <div className="notif-page-header">
-          <h2 className="notif-page-title">All notifications</h2>
-          {unreadCount > 0 && (
-            <button type="button" className="notif-mark-all-btn" onClick={handleMarkAllRead}>
-              Mark all as read
-            </button>
-          )}
-        </div>
-
-        {loading ? (
-          <div className="notif-page-empty">Loading notifications...</div>
-        ) : loadFailed ? (
-          <div className="notif-page-empty" role="alert">
-            Could not load notifications.
-            <button type="button" className="notif-mark-all-btn notif-page-retry" onClick={fetchNotifications}>
-              Retry
-            </button>
-          </div>
-        ) : notifications.length === 0 ? (
-          <div className="notif-page-empty">No notifications yet.</div>
-        ) : (
-          <div className="notif-page-list">
-            {notifications.map((n) => (
-              <button
-                key={n._id}
-                type="button"
-                className={`notif-item notif-page-item ${!n.read ? 'unread' : ''}`}
-                onClick={() => handleNotificationClick(n)}
-              >
-                <div className="notif-item-row">
-                  <span className={`notif-item-dot ${n.read ? 'read' : ''}`} />
-                  <div>
-                    <p className="notif-item-message">{n.message}</p>
-                    <p className="notif-item-time">{timeAgo(n.createdAt)}</p>
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      <NotificationsCenterView
+        isAdmin={isAdmin}
+        notifications={notifications}
+        loading={loading}
+        loadFailed={loadFailed}
+        tab={tab}
+        needs={{ status: needs.status, data: needs.data, onRetry: needs.retry }}
+        onTab={handleTab}
+        onOpen={handleNotificationClick}
+        onMarkAll={handleMarkAllRead}
+        onRetry={fetchNotifications}
+      />
     </Layout>
   );
 }

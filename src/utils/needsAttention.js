@@ -21,14 +21,6 @@ export function addDaysKey(key, n) {
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
 }
 
-// The number on the sidebar badge: the total of Today plus Needs a decision, capped at 99+. Nothing for zero.
-export const BADGE_CAP = 99;
-export function badgeText(total) {
-  const n = Number(total) || 0;
-  if (n <= 0) return '';
-  return n > BADGE_CAP ? `${BADGE_CAP}+` : String(n);
-}
-
 // "Just now", "5 min", "3 h", "1 day", "4 days" for how long something has waited.
 export function formatWaiting(minutes) {
   const m = Math.max(0, Math.round(Number(minutes) || 0));
@@ -44,16 +36,4 @@ export function formatWaiting(minutes) {
 export function formatBookedDate(key) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(key || ''))) return 'No date';
   return new Date(`${key}T00:00:00Z`).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' });
-}
-
-// The sentence a screen reader hears when the counts change.
-export function summaryText(data) {
-  if (!data || !data.groups) return '';
-  const parts = GROUP_KEYS.map((key) => `${GROUP_TITLES[key]}: ${data.groups[key]?.count ?? 0}`);
-  return `Needs attention. ${parts.join(', ')}.`;
-}
-
-// true when every group is empty
-export function isAllCaughtUp(data) {
-  return Boolean(data && data.groups) && GROUP_KEYS.every((key) => (data.groups[key]?.count ?? 0) === 0);
 }

@@ -43,6 +43,10 @@ const NOTIFICATION_TYPE = Object.freeze({
   CHAT_MESSAGE: 'chat_message',
   INSTRUCTIONS_UPDATED: 'instructions_updated',
   REPORT_REMOVED: 'report_removed',
+  BOOKING_EXPIRED: 'booking_expired',
+  NO_SHOW_REPORTED: 'no_show_reported',
+  NO_SHOW_CONFIRMED: 'no_show_confirmed',
+  NO_SHOW_REJECTED: 'no_show_rejected',
 });
 
 module.exports = { NOTIFICATION_TYPE };

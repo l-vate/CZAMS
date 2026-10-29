@@ -1,63 +1,43 @@
-const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const cron = require('node-cron');
-const Booking = require('../models/Booking');
-const { NOTIFICATION_TYPE } = require('../constants/notificationTypes');
-const { sendNotification } = require('../utils/notifications');
-const { blockStartInstant, TIMEZONE } = require('../utils/timeBlocks');
+const { DAY_START_JOB_SCHEDULE } = require('../constants/bookingLifecycle');
+const { runDayStart, expirePendingBookings, startApprovedBookings } = require('../utils/bookingLifecycle');
+const { TIMEZONE } = require('../utils/timeBlocks');
 
-// Approved -> In Progress happens by itself when the booking's time block starts
-// (Morning 08:00, Afternoon 13:00, Asia/Manila time). Nobody presses a button for it.
-// Completed also happens by itself, when the technician submits the service report
-// (POST /api/reports). This job only does the first of the two, and tells the customer once for each booking it moves.
+// The day start job. At the start of a booking's service day (Asia/Manila):
+//   1. a Pending booking nobody approved is cancelled automatically, and its refund request opens (utils/bookingLifecycle.js);
+//   2. an Approved booking becomes In Progress by itself (nobody presses a button), with no email to the customer.
+// Completed also happens by itself, when the technician submits the service report (POST /api/reports).
 //
-// `now` is a parameter so the rule can be tested with a fake clock. A booking whose
-// block already passed (the server was down, or the job missed a run) is caught on the
-// next run, so nothing stays stuck as Approved.
-async function runBookingStatusCheck(now = new Date()) {
-  const approved = await Booking.find({ status: BOOKING_STATUS.APPROVED }).select('bookingId date time customer service').populate('service', 'name');
-
-  const due = approved.filter((b) => b.date && blockStartInstant(b.date, b.time) <= now);
-  if (due.length === 0) return { matched: approved.length, modified: 0 };
-
-  // One conditional update per booking, so only a booking this run really moved is announced (a second run or an admin
-  // cancelling at the same moment cannot cause a second or a wrong notice). A notification problem is only logged.
-  let modified = 0;
-  for (const booking of due) {
-    const moved = await Booking.findOneAndUpdate(
-      { _id: booking._id, status: BOOKING_STATUS.APPROVED },
-      { $set: { status: BOOKING_STATUS.IN_PROGRESS } },
-      { returnDocument: 'after' }
-    );
-    if (!moved) continue;
-    modified += 1;
-    try {
-      await sendNotification(
-        booking.customer,
-        NOTIFICATION_TYPE.BOOKING_IN_PROGRESS,
-        `Your service for booking ${booking.bookingId} (${booking.service?.name || 'your service'}) is now in progress.`,
-        { booking: moved }
-      );
-    } catch (err) {
-      console.error(`Could not notify the customer that booking ${booking.bookingId} is in progress:`, err.message);
-    }
-  }
-
-  return { matched: approved.length, modified };
+// It runs shortly after midnight, once an hour, and once as soon as the server starts. The hourly run and the start-up run are the catch-up: a
+// host that sleeps (a free instance) and misses midnight does the work as soon as it is awake, and every rule is a conditional update, so a
+// run that finds nothing to do does nothing and two runs at once cannot do anything twice. `now` is a parameter so the rule can be tested
+// with a fake clock. The log says counts only, never a name or a booking number.
+//
+// This file only SCHEDULES. The one place that moves a booking from Approved to In Progress is startApprovedBookings() in
+// utils/bookingLifecycle.js: the cron runs, the start-up run and the admin's manual route (POST /api/bookings/status-check/run) all call it
+// through here, so there is no second job that could start the same booking again. `matched` and `modified` repeat the start counts under
+// the names the manual route has always answered with.
+async function runBookingStatusCheck(now = new Date(), options = {}) {
+  const result = await runDayStart({ now, ...options });
+  return { ...result, matched: result.start.matched, modified: result.start.started };
 }
 
 async function safeRun() {
   try {
-    await runBookingStatusCheck();
+    const { dryRun, expiry, start } = await runBookingStatusCheck();
+    if (expiry.expired > 0 || start.started > 0 || dryRun) {
+      // eslint-disable-next-line no-console -- one line of counts a day, not debugging
+      console.log(`Day start job${dryRun ? ' (dry run)' : ''}: ${expiry.expired} expired, ${expiry.refundRequests} refund requests opened, ${start.started} started.`);
+    }
   } catch (err) {
-    console.error('Booking status auto-transition check failed:', err);
+    console.error('The day start job failed:', err.message);
   }
 }
 
-// Every 10 minutes, on Manila time, plus once right now so a server that was off
-// catches up immediately instead of waiting for the next tick.
 function startBookingStatusSchedule() {
-  cron.schedule('*/10 * * * *', safeRun, { timezone: TIMEZONE });
+  cron.schedule(DAY_START_JOB_SCHEDULE.midnight, safeRun, { timezone: TIMEZONE });
+  cron.schedule(DAY_START_JOB_SCHEDULE.hourly, safeRun, { timezone: TIMEZONE });
   safeRun();
 }
 
-module.exports = { runBookingStatusCheck, startBookingStatusSchedule };
+module.exports = { runBookingStatusCheck, expirePendingBookings, startApprovedBookings, startBookingStatusSchedule };

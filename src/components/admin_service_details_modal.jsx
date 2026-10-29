@@ -26,6 +26,8 @@ import {
     adminUpdateBooking, recordPayment, moveToDate, uploadUnitPurchaseProof, rescheduleAfterDisruption, decideDiscount, decideReschedule, decideExtension,
 } from '../services/bookingService';
 import { BOOKING_STATUS } from '../constants/bookingStatus';
+import { NoShowAdminPanel } from './no_show_panels';
+import { isPastApproval, APPROVAL_TOO_LATE } from '../utils/approvalWindow';
 import { TIME_BLOCK } from '../constants/timeBlocks';
 import { SERVICE_TYPE } from '../constants/serviceTypes';
 import { ProofLink, ProofImage } from './proof_file';
@@ -109,6 +111,8 @@ const [report, setReport] = useState(null);
     const canCancel = ![BOOKING_STATUS.COMPLETED, BOOKING_STATUS.CANCELLED].includes(booking.status);
     const nextSteps = NEXT_STATUS[booking.status] || [];
     const hasAssignment = getMemberIds(booking).length > 0;
+    // a Pending booking whose service day has started can no longer be approved (the day start job cancels it)
+    const tooLateToApprove = isPastApproval(booking);
 
     const { lineItems, basePrice } = getBookingLineItems(booking);
     const paymentBreakdown = getPaymentBreakdown({ ...booking, downPaymentPercent: booking.downPaymentPercent ?? 0 });
@@ -360,7 +364,8 @@ const [report, setReport] = useState(null);
                     {(() => {
                         const noDistanceYet = !booking.distanceAdjustment && !booking.mobilizationFee;
                         const outsideToPrice = !booking.isBackJob && booking.status === BOOKING_STATUS.PENDING && !isWithinQuezonCity(booking.address) && noDistanceYet;
-                        const flagged = booking.serviceAreaCheck && !booking.serviceAreaCheck.withinArea;
+                        // a cancelled booking is already decided, so the review flag is no longer shown
+                        const flagged = booking.status !== BOOKING_STATUS.CANCELLED && booking.serviceAreaCheck && !booking.serviceAreaCheck.withinArea;
                         if (outsideToPrice) {
                             return <div className="sdm-notice">⚠ This address is outside Quezon City or CZA's confirmed service areas. Add a mobilization fee in the Scope of works before approving, if one applies.</div>;
                         }
@@ -369,6 +374,15 @@ const [report, setReport] = useState(null);
                         }
                         return null;
                     })()}
+
+                    {booking.status === BOOKING_STATUS.CANCELLED && (booking.expiredBySystem || booking.cancelReason) && (
+                        <div className="sdm-notice" role="status">
+                            {booking.expiredBySystem
+                                ? <><strong>Expired (not confirmed in time).</strong> The system cancelled this booking at the start of its service day. {booking.refund?.expired ? 'A full refund request was opened automatically.' : 'No payment was made, so there is no refund.'}</>
+                                : <><strong>Cancel reason:</strong> {booking.cancelReason}</>}
+                        </div>
+                    )}
+                    <NoShowAdminPanel booking={booking} onUpdated={(data) => onUpdated?.(data)} />
 
                     {error && !cancelOpen && <div className="sdm-error">{error}</div>}
                     {(/down payment/i.test(error) || booking.paymentStatus === 'to_verify' || booking.balancePaymentStatus === 'to_verify') && (
@@ -1156,11 +1170,12 @@ const [report, setReport] = useState(null);
                     )}
                     <div className="sdm-footer-actions">
                         {booking.status === BOOKING_STATUS.APPROVED && (
-                            <span className="sdm-muted">Starts automatically when its time block begins.</span>
+                            <span className="sdm-muted">Starts automatically at the start of its service day.</span>
                         )}
                         {booking.status === BOOKING_STATUS.IN_PROGRESS && (
                             <span className="sdm-muted">Completes when the technician submits the service report.</span>
                         )}
+                        {tooLateToApprove && <span className="sdm-muted" role="status">{APPROVAL_TOO_LATE}</span>}
                         {nextSteps.map((step) => (
                             <button
                                 key={step.value}
@@ -1168,7 +1183,7 @@ const [report, setReport] = useState(null);
                                 onClick={() => handleStatusChange(step.value)}
                                 disabled={
                                     saving ||
-                                    (step.value === 'Approved' && !hasAssignment)
+                                    (step.value === 'Approved' && (!hasAssignment || tooLateToApprove))
                                 }
                             >
                                 {step.label}

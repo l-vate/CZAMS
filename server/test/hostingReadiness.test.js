@@ -72,12 +72,12 @@ test.describe('scheduled jobs on a host that sleeps', () => {
     assert.equal(reminderLookups, 2, 'the scheduled run does the same work');
   });
 
-  test('the booking status check runs every 10 minutes on Manila time and once as soon as the server starts', async () => {
+  test('the day start job runs after midnight and every hour on Manila time, and once as soon as the server starts', async () => {
     const { startBookingStatusSchedule } = require('../jobs/bookingStatusJob');
     startBookingStatusSchedule();
     await tick();
-    assert.deepEqual(scheduled.map((s) => [s.expression, s.options.timezone]), [['*/10 * * * *', 'Asia/Manila']]);
-    assert.equal(approvedLookups, 1);
+    assert.deepEqual(scheduled.map((s) => [s.expression, s.options.timezone]), [['5 0 * * *', 'Asia/Manila'], ['20 * * * *', 'Asia/Manila']]);
+    assert.equal(approvedLookups, 2, 'it ran once right away (the Pending lookup and the Approved lookup), so a missed midnight is caught up');
   });
 
   test('no other job is scheduled anywhere in the server', () => {

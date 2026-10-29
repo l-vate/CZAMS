@@ -187,6 +187,8 @@ function ServiceRequests() {
                                         <p className="req-booked"><FiClock aria-hidden="true" /> {bookedForText(req.date)}</p>
                                         <p className="req-title">{req.service?.name || 'N/A'}</p>
                                         <p className="req-id">{req.bookingId}</p>
+                                        {req.expiredBySystem && <p className="req-expired">Expired (not confirmed in time)</p>}
+                                        {req.noShow?.status === 'Reported' && <p className="req-expired">Technician no show reported</p>}
                                         <p className="req-tech">
                                             <span className="req-tech-count">{tech.count}</span>
                                             {tech.names && <span className="req-tech-names" title={tech.names}>{tech.names}</span>}

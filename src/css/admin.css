@@ -1600,6 +1600,7 @@
 }
 
 .req-id { font-size: 12.5px; color: #5b6472; margin: 0 0 2px; }
+.req-expired { margin: 0 0 4px; font-size: 13px; font-weight: 700; color: #b42318; }
 .req-booked {
   display: flex;
   align-items: center;
@@ -3080,4 +3081,14 @@
   .req-tab { flex: 1 1 0; padding: 0 8px; }
   .req-grid { grid-template-columns: 1fr; gap: 12px; }
   .req-card { padding: 16px; }
+}
+
+/* Bookings status chips on a wider screen: smaller, in the same look as the other filter tabs, and they fit without a scroll bar. On a phone
+   they stay one row that scrolls sideways, with the bar hidden. */
+.req-chips { scrollbar-width: none; }
+.req-chips::-webkit-scrollbar { display: none; }
+@media (min-width: 769px) {
+  .req-chips { flex-wrap: wrap; overflow: visible; gap: 8px; padding: 2px 0; }
+  .req-chip { min-height: 36px; padding: 0 14px; font-size: 13.5px; gap: 5px; }
+  .req-chip-count { font-size: 11.5px; }
 }

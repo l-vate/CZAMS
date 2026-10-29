@@ -40,6 +40,7 @@ import { warrantyStatusText } from '../../utils/warrantyText';
 
 import Notice from '../../components/notice';
 import EmailStatusCard from '../../components/email_status_card';
+import { NoShowCustomerCard } from '../../components/no_show_panels';
 import { refundText, refundFigures, cancelledByText } from '../../utils/cancelledSummary';
 import { useNotice } from '../../hooks/useNotice';
 const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
@@ -343,14 +344,16 @@ export function BookingCancelled({ booking, bookingId, refund, onBookAgain, onBa
 }
 
 // The read-only record of a cancelled booking: who cancelled it, when, why (when the owner did) and what happens to the down payment.
-export function CancelledSummary({ booking, formatWhen }) {
+export function CancelledSummary({ booking, formatWhen, onBookAgain }) {
   const figures = refundFigures(booking);
+  const expired = booking.expiredBySystem === true;
   return (
-    <section className="bs-card cancelled-summary" aria-label="Cancellation">
-      <h3 className="bs-card-title">Cancellation</h3>
+    <section className="bs-card cancelled-summary" aria-label={expired ? 'Expired booking' : 'Cancellation'}>
+      <h3 className="bs-card-title">{expired ? 'Expired' : 'Cancellation'}</h3>
       <p className="cancelled-summary-line"><strong>{cancelledByText(booking)}</strong></p>
       {booking.cancelledAt && <p className="cancelled-summary-line">Cancelled on {formatWhen(booking.cancelledAt)}.</p>}
-      {booking.cancelReason && (booking.ownerCancelled || booking.cancelledBy === 'admin') && <p className="cancelled-summary-line"><strong>Reason:</strong> {booking.cancelReason}</p>}
+      {booking.cancelReason && (booking.ownerCancelled || booking.cancelledBy === 'admin' || expired) && <p className="cancelled-summary-line"><strong>Reason:</strong> {booking.cancelReason}</p>}
+      {booking.noShow && ['Confirmed'].includes(booking.noShow.status) && <p className="cancelled-summary-line">You reported that the technicians did not come, and the owner confirmed it.</p>}
       <p className="cancelled-summary-line">{refundText(booking)}</p>
       {figures.length > 0 && (
         <div className="cancelled-summary-figures">
@@ -359,6 +362,9 @@ export function CancelledSummary({ booking, formatWhen }) {
       )}
       {booking.refund && booking.refund.status !== REFUND_STATUS.NONE && booking.refund.status === REFUND_STATUS.PROCESSED && (
         <p className="cancelled-summary-line">This booking is closed. Nothing more can be changed on it.</p>
+      )}
+      {(expired || booking.noShow?.status === 'Confirmed') && onBookAgain && (
+        <button type="button" className="bs-next-btn cancelled-rebook-btn" onClick={onBookAgain}>Book another service <FiArrowRight /></button>
       )}
     </section>
   );
@@ -502,6 +508,10 @@ function BookDetails() {
   const techName = getMemberNames(booking, 'To be assigned');
 
   const rescheduleStatus = booking.rescheduleRequest?.status || 'None';
+  // A booking the system started on its service day can still be cancelled until the job is done (the usual fee rule applies on the booked
+  // date); one with a no show report waiting for the owner cannot be cancelled online.
+  const noShowWaiting = booking.noShow?.status === 'Reported';
+  const cancellableWhileStarted = booking.status === BOOKING_STATUS.IN_PROGRESS && booking.startedBySystem === true && !booking.reportSubmitted && !noShowWaiting;
 
   const handleConfirmCancel = async () => {
     setCancelling(true);
@@ -701,7 +711,7 @@ function BookDetails() {
 
         {cancelled && (
           <>
-            <CancelledSummary booking={booking} formatWhen={formatDate} />
+            <CancelledSummary booking={booking} formatWhen={formatDate} onBookAgain={() => navigate('/customer/book_service')} />
             {booking.refund && booking.refund.status !== REFUND_STATUS.NONE && (
               <div className="bs-card cancelled-refund-card">
                 <RefundReceivedConfirm bookingId={booking.bookingId} refund={booking.refund} onConfirmed={(data) => setBooking(data)} />
@@ -940,14 +950,19 @@ function BookDetails() {
                   </button>
                 )}
 
-                {booking.status === BOOKING_STATUS.IN_PROGRESS ? (
+                {booking.status === BOOKING_STATUS.IN_PROGRESS && !cancellableWhileStarted ? (
                   <p className="cancelled-message customer-book-details-x11">
-                    The service has already started, so it can no longer be cancelled online. Please contact us directly.
+                    {noShowWaiting
+                      ? 'Your no show report is being reviewed by the owner, so this booking cannot be cancelled online right now.'
+                      : 'The service has already started, so it can no longer be cancelled online. Please contact us directly.'}
                   </p>
                 ) : (
                   <button className="cancel-booking-btn" onClick={() => setShowCancel(true)} disabled={cancelling}>
                     Cancel booking
                   </button>
+                )}
+                {[BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status) && (
+                  <NoShowCustomerCard booking={booking} onChanged={(data) => setBooking(data)} />
                 )}
               </>
             )}

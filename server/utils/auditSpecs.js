@@ -38,6 +38,9 @@ const recordPayment = audited1('payment.record', 'Booking', bookingId,
   (req) => `Recorded a ${req.body && req.body.track} payment received in person`,
   (req) => ({ track: req.body && req.body.track, method: req.body && req.body.method, amount: num(req.body && req.body.amount) }));
 const customerCancel = audited1('booking.cancel', 'Booking', bookingId, (req) => `Cancelled the booking (by ${req.userRole})`, (req) => ({ by: req.userRole }));
+const noShowReport = audited1('booking.no_show_report', 'Booking', bookingId, 'The customer reported that the technicians did not come');
+const noShowDecision = audited1('booking.no_show_decision', 'Booking', bookingId, (req) => `Decided a no show report: ${req.body && req.body.action}`,
+  (req) => ({ decision: req.body && req.body.action, reason: req.body && req.body.reason }));
 const rescheduleApprove = audited1('reschedule.approve', 'Booking', bookingId, 'Approved the reschedule request');
 const rescheduleUseDate = audited1('reschedule.admin_move', 'Booking', bookingId, 'Moved the booking to another date', (req) => ({ date: req.body && req.body.date, time: req.body && req.body.time }));
 const rescheduleDeny = audited1('reschedule.deny', 'Booking', bookingId, 'Denied the reschedule request');
@@ -116,7 +119,7 @@ const reportDelete = audited1('report.delete', 'Report', param('id'), 'Deleted a
 const backJobReview = audited1('backjob.review', 'BackJob', param('backJobId'), 'Marked a Not Covered claim as reviewed');
 
 module.exports = {
-  adminUpdate, recordPayment, customerCancel, rescheduleApprove, rescheduleDeny, rescheduleUseDate, assign, discountApprove, discountReject, refundProcess,
+  adminUpdate, recordPayment, customerCancel, noShowReport, noShowDecision, rescheduleApprove, rescheduleDeny, rescheduleUseDate, assign, discountApprove, discountReject, refundProcess,
   refundFlagResolve, disruptionReschedule, extensionApprove, extensionDeny, queueMove, unitPurchaseProof, userCreate, userUpdate,
   userClassification, settingsUpdate, promoCreate, promoUpdate, promoDelete, serviceCreate, serviceUpdate, serviceToggle, serviceRemove,
   announcementCreate, announcementUpdate, announcementDelete, closureCreate, closureDelete, technicianOffCreate, technicianOffDelete, reportEdit, reportDelete, backJobReview,

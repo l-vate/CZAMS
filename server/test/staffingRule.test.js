@@ -28,7 +28,7 @@ let base;
 // A plain booking object (a real Mongoose document would refuse a populated service object).
 const booking = (service, status, assignments, over = {}) => {
   const b = {
-    bookingId: 'CZ-1', customer: 'CUS1', service, status, date: '2026-10-20', time: 'Morning', refund: {},
+    bookingId: 'CZ-1', customer: 'CUS1', service, status, date: '2030-10-21', time: 'Morning', refund: {},
     technician: assignments[0]?.lead, assignments, ...over,
   };
   b.save = async () => b;

@@ -60,6 +60,8 @@ function toTechnicianView(booking, extra = {}) {
     reportSubmitted: !!b.reportSubmitted,
 
     disruption: b.disruption ? pick(b.disruption, ['status', 'reason', 'reportedAt', 'rescheduledAt']) : undefined,
+    // read only: a technician can see that the customer reported a no show on the job (never the note, and no score comes from it)
+    noShow: b.noShow && b.noShow.status && b.noShow.status !== 'None' ? pick(b.noShow, ['status', 'reportedAt']) : undefined,
     extensionRequest: b.extensionRequest ? pick(b.extensionRequest, ['status', 'reason', 'requestedDate', 'requestedTime', 'requestedAt', 'decidedAt']) : undefined,
     // the extra days an admin approved, as a date and a time block (no admin id)
     extensionDays: (b.extensionDays || []).map((d) => pick(d, ['date', 'time'])),

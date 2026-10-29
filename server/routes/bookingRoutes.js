@@ -44,7 +44,11 @@ const COMMERCIAL_DISCOUNT_MESSAGE = 'The Senior Citizen and PWD discount is for 
 const CONSENT_MESSAGE = 'Tick the box to agree that your ID will be viewed only to verify your discount.';
 const { amountPaid } = require('../utils/customerHistory');
 const { createUploader, discardUploads, storeUploads, PROOF_TYPES } = require('../utils/uploadSafety');
-const { uploadLimiter, paymentLimiter } = require('../middleware/rateLimit');
+const { uploadLimiter, paymentLimiter, noShowLimiter } = require('../middleware/rateLimit');
+const Notification = require('../models/Notification');
+const { approvalProblem } = require('../utils/bookingLifecycle');
+const { noShowAvailability, readNote, readDecisionReason, REPORTABLE_STATUSES } = require('../utils/noShow');
+const { NO_SHOW_STATUS } = require('../constants/bookingLifecycle');
 const { KINDS } = require('../storage/fileStore');
 const { withLocks, LockBusyError } = require('../utils/slotLock');
 const { duplicateKey, findActiveDuplicate, DuplicateBookingError } = require('../utils/duplicateBooking');
@@ -85,7 +89,12 @@ const { TIME_BLOCKS } = require('../utils/timeBlocks');
 // Every route that returns a booking includes its computed warranty status (utils/bookingView.js).
 
 // The same, for a customer: only the fields a customer may see (utils/customerView.js).
-const customerBooking = (booking) => toCustomerView(withWarranty(booking));
+// It also carries whether the customer may report a no show right now (utils/noShow.js), so the button and the waiting note follow the server's own rule.
+const customerBooking = (booking) => {
+  const view = toCustomerView(withWarranty(booking));
+  view.noShowAvailability = noShowAvailability(booking);
+  return view;
+};
 
 // ============================================
 // 1. CONFIGURATION & HELPERS
@@ -848,7 +857,7 @@ router.get('/:bookingId', auth, async (req, res) => {
 
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
-    res.json(toCustomerView(withWarranty(booking)));
+    res.json(customerBooking(booking));
   } catch (err) {
     sendRouteError(res, err);
   }
@@ -867,10 +876,17 @@ router.patch('/:bookingId/cancel', auth, auditSpecs.customerCancel, allowRoles(R
 
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
-    if (booking.status === BOOKING_STATUS.IN_PROGRESS) {
+    // A booking the day start job started by itself (nobody is known to be on site) can still be cancelled until the job is done, under the
+    // usual rule: before the booked date a full refund, on or after it a fee. One that started any other way, and one with a no show report
+    // waiting for the owner, cannot be cancelled online.
+    const autoStarted = booking.status === BOOKING_STATUS.IN_PROGRESS && booking.startedBySystem === true && booking.reportSubmitted !== true;
+    if (booking.noShow && booking.noShow.status === NO_SHOW_STATUS.REPORTED) {
+      return res.status(400).json({ message: 'Your no show report is being reviewed by the owner, so this booking cannot be cancelled online right now.' });
+    }
+    if (booking.status === BOOKING_STATUS.IN_PROGRESS && !autoStarted) {
       return res.status(400).json({ message: 'This booking is already in progress and can no longer be cancelled online. Please contact us directly.' });
     }
-    if (![BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED].includes(booking.status)) {
+    if (![BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status)) {
       return res.status(400).json({ message: 'This booking can no longer be cancelled.' });
     }
 
@@ -2156,6 +2172,12 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
     // time block starts, Completed when the technician submits the service report.
     const statusProblem = validateAdminStatusChange(booking.status, status);
     if (statusProblem) return sendProblem(res, statusProblem);
+    // A Pending booking whose service day has started can no longer be approved: the day start job cancels it (utils/bookingLifecycle.js).
+    // An urgent booking entered on or after its own day is the one exception, and stays approvable during that day.
+    if (status === BOOKING_STATUS.APPROVED && booking.status === BOOKING_STATUS.PENDING) {
+      const tooLate = approvalProblem(booking);
+      if (tooLate) return sendProblem(res, invalid(tooLate, 409));
+    }
     // A unit the customer asked for that is not in the catalog must be settled by the owner first (a catalog unit, a unit price with a note,
     // or declined), so a booking is never approved at a price nobody has confirmed.
     if (status === BOOKING_STATUS.APPROVED && booking.status !== BOOKING_STATUS.APPROVED) {
@@ -2426,6 +2448,139 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
 // Processed. A cancellation on or after the booked date also requires a transportation
 // deduction before the refundable amount is finalized; pre-service cancellations
 // refund the down payment in full.
+// ============================================
+// A technician no show (utils/noShow.js). The customer reports it; the admin decides. A report refunds nothing by itself and creates no rating
+// or score for any technician.
+// ============================================
+const NO_SHOW_WHY = {
+  status: 'A no show can only be reported on a booking that is Approved or In Progress.',
+  report: 'You already reported a no show for this booking.',
+  filed: 'A service report was already filed for this booking.',
+  date: 'A no show can only be reported on the service day.',
+};
+
+// Writes the given fields onto the booking's noShow record one by one (a nested path, so each one is set on its own).
+function setNoShow(booking, fields) {
+  Object.entries(fields).forEach(([key, value]) => { booking.noShow[key] = value; });
+}
+
+// An in-app note (no email) to every technician on the job.
+async function noteMembers(booking, type, message) {
+  try {
+    await Promise.all(getMemberIds(booking).map((id) => Notification.create({ user: id, type, message, relatedBooking: booking._id, relatedBookingId: booking.bookingId })));
+  } catch (err) {
+    console.error(`Could not note the technicians on booking ${booking.bookingId}:`, err.message);
+  }
+}
+
+// Customer: report that the technicians did not come. Only the owner of the booking, one report per booking.
+router.patch('/:bookingId/no-show', auth, allowRoles(ROLE.CUSTOMER), noShowLimiter, auditSpecs.noShowReport, async (req, res) => {
+  try {
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId, customer: req.userId }).populate('service');
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    const given = readNote(req.body && req.body.note);
+    if (given.problem) return sendProblem(res, invalid(given.problem));
+    const now = new Date();
+    const availability = noShowAvailability(booking, now);
+    if (!availability.canReport) {
+      const message = availability.reason === 'wait' ? `You can report a no show from ${availability.waitUntil} on the service day.` : NO_SHOW_WHY[availability.reason];
+      return res.status(availability.reason === 'report' ? 409 : 400).json({ message });
+    }
+    // one conditional write: two reports at the same moment cannot both pass
+    const claimed = await Booking.findOneAndUpdate(
+      { _id: booking._id, customer: req.userId, status: { $in: REPORTABLE_STATUSES }, reportSubmitted: { $ne: true }, $or: [{ 'noShow.status': { $exists: false } }, { 'noShow.status': NO_SHOW_STATUS.NONE }] },
+      { $set: { noShow: { status: NO_SHOW_STATUS.REPORTED, note: given.note, reportedAt: now, reportedBy: String(req.userId) } } },
+      { returnDocument: 'after' }
+    );
+    if (!claimed) return res.status(409).json({ message: NO_SHOW_WHY.report });
+    await noteMembers(claimed, NOTIFICATION_TYPE.NO_SHOW_REPORTED, `The customer on booking ${claimed.bookingId} (${claimed.date}, ${claimed.time}) reported that the technicians did not come. The owner will review it.`);
+    await notifyAdmins(NOTIFICATION_TYPE.NO_SHOW_REPORTED, `The customer on booking ${claimed.bookingId} (${claimed.date}, ${claimed.time}) reported that the technicians did not come. Please review it today.`, { booking: claimed });
+    const populated = await claimed.populate([{ path: 'service' }, { path: 'technician', select: 'name' }, ...ASSIGNMENT_POPULATE]);
+    res.json(customerBooking(populated));
+  } catch (err) {
+    sendRouteError(res, err);
+  }
+});
+
+// Admin: decide a no show report. confirm = cancel as the owner (full refund of the verified down payment, no fee, the reason stored);
+// reschedule = move it to a new date and time at no charge, payments stay in place; reject = the booking continues. A reason is required.
+router.patch('/:bookingId/no-show/decision', auth, allowRoles(ROLE.ADMIN), auditSpecs.noShowDecision, async (req, res) => {
+  try {
+    const { action, date, time } = req.body || {};
+    if (!['confirm', 'reschedule', 'reject'].includes(action)) return sendProblem(res, invalid('Choose confirm, reschedule or reject.'));
+    const given = readDecisionReason(req.body.reason);
+    if (given.problem) return sendProblem(res, invalid(given.problem));
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId }).populate('service');
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    if (!booking.noShow || booking.noShow.status !== NO_SHOW_STATUS.REPORTED) {
+      return res.status(409).json({ message: 'There is no open no show report on this booking.' });
+    }
+    const now = new Date();
+    const decided = { decidedAt: now, decidedBy: String(req.userId), decisionReason: given.reason };
+
+    if (action === 'reject') {
+      setNoShow(booking, { status: NO_SHOW_STATUS.REJECTED, ...decided });
+      await booking.save();
+      await sendNotification(booking.customer, NOTIFICATION_TYPE.NO_SHOW_REJECTED, `The owner reviewed your no show report for booking ${booking.bookingId} and did not accept it: ${given.reason}. Your booking continues.`, { booking });
+    } else if (action === 'confirm') {
+      if (![BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status)) {
+        return res.status(400).json({ message: 'This booking can no longer be cancelled.' });
+      }
+      // the owner cancelling: the whole verified down payment goes back, no fee, whatever the date (openRefundIfEligible reads these three)
+      booking.ownerCancelled = true;
+      booking.cancelReason = given.reason;
+      booking.cancelledAt = now;
+      booking.cancelledBy = 'admin';
+      openRefundIfEligible(booking);
+      booking.status = BOOKING_STATUS.CANCELLED;
+      setNoShow(booking, { status: NO_SHOW_STATUS.CONFIRMED, ...decided });
+      await booking.save();
+      const sentence = booking.refund?.status === REFUND_STATUS.PENDING
+        ? (booking.refund.paymentUnverified ? ' Your payment was not yet verified. Once it is verified, a full refund will be processed.' : ' Your whole down payment will be refunded, with no transportation fee.')
+        : '';
+      await sendNotification(booking.customer, NOTIFICATION_TYPE.NO_SHOW_CONFIRMED, `We are sorry: our technicians did not arrive for booking ${booking.bookingId}. We confirmed it and cancelled the booking.${sentence} You are welcome to book another date.`, { booking });
+      await notifyMembersOfChange(booking, BOOKING_STATUS.APPROVED, NOTIFICATION_TYPE.BOOKING_CANCELLED, `Booking ${booking.bookingId} (${booking.date}, ${booking.time}) was cancelled after a no show was confirmed.`);
+      if (booking.refund?.status === REFUND_STATUS.PENDING) {
+        await notifyAdmins(NOTIFICATION_TYPE.REFUND_REQUESTED, `Booking ${booking.bookingId} was cancelled after a confirmed no show and a full refund request is waiting for review.`, { booking });
+      }
+    } else {
+      if (![BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status)) {
+        return res.status(400).json({ message: 'Only an Approved or In Progress booking can be rescheduled.' });
+      }
+      if (!date || !time || !isRealDateKey(date)) return sendProblem(res, invalid('Choose the new date and time.'));
+      if (date < manilaToday()) return sendProblem(res, invalid('The new date cannot be in the past.'));
+      if (!TIME_BLOCKS.includes(time)) return res.status(400).json({ message: 'Time must be Morning or Afternoon.' });
+      const closed = await businessDayProblem(Closure, date);
+      if (closed) return sendProblem(res, closed);
+      const conflict = await findConflictingBooking(getMemberIds(booking), date, time, booking.bookingId);
+      if (conflict) return res.status(409).json({ message: `A technician on this job is already booked ${date} (${time}) on ${conflict.bookingId}. Choose a different date or time.` });
+      booking.date = date;
+      booking.time = time;
+      // scheduled again, not in progress: the day start job starts it on its new day. Payments and everything else stay as they are.
+      booking.status = BOOKING_STATUS.APPROVED;
+      booking.startedBySystem = false;
+      booking.startedAt = undefined;
+      booking.disruption = { status: 'Rescheduled', reason: given.reason, reportedAt: now, reportedBy: String(req.userId), initiatedBy: 'admin', rescheduledAt: now };
+      booking.extensionDays = [];
+      setNoShow(booking, { status: NO_SHOW_STATUS.RESCHEDULED, ...decided });
+      await booking.save();
+      const message = `Booking ${booking.bookingId} (${booking.service?.name || 'service'}) was rescheduled at no charge to ${date}, ${time}, after the no show you reported.`;
+      await sendNotification(booking.customer, NOTIFICATION_TYPE.DISRUPTION_RESCHEDULED, message, { booking });
+      await notifyMembers(booking, NOTIFICATION_TYPE.DISRUPTION_RESCHEDULED, message);
+    }
+
+    const populated = await booking.populate([
+      { path: 'service' },
+      { path: 'customer', select: 'name email phone clientType companyName representativeName' },
+      { path: 'technician', select: 'name' },
+      ...ASSIGNMENT_POPULATE,
+    ]);
+    res.json(withWarranty(populated));
+  } catch (err) {
+    sendRouteError(res, err);
+  }
+});
+
 // Admin: reject a refund request, with a reason the customer is told (for example, the payment never came through).
 router.patch('/:bookingId/refund/reject', auth, allowRoles(ROLE.ADMIN), async (req, res) => {
   try {

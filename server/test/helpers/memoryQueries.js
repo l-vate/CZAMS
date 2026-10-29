@@ -25,6 +25,7 @@ function matches(doc, filter) {
       if ('$exists' in cond) return cond.$exists ? values.some((v) => v !== undefined) : values.every((v) => v === undefined);
       if ('$in' in cond) return values.some((v) => cond.$in.includes(v));
       if ('$ne' in cond) return !values.includes(cond.$ne);
+      if ('$gt' in cond) return values.some((v) => v > cond.$gt);
       if ('$gte' in cond || '$lte' in cond) {
         return values.some((v) => (!('$gte' in cond) || v >= cond.$gte) && (!('$lte' in cond) || v <= cond.$lte));
       }

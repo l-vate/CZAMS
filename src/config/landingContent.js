@@ -80,10 +80,10 @@ export const SERVICES = {
   title: 'Our Services',
   note: 'Base price only. The final cost may vary depending on scope and materials.',
   items: [
-    { key: 'cleaning', serviceType: 'Cleaning', title: 'Aircon Cleaning', text: 'Cleaning for healthier, more efficient air circulation.', photo: '/images/units/split.webp' },
-    { key: 'repair', serviceType: 'Repair', title: 'Repair & Diagnostics', text: 'Diagnosis and repair for aircon units.', photo: '/images/units/window.webp' },
-    { key: 'installation', serviceType: 'Installation', title: 'New Installation', text: 'Installation of a new unit, set up for your home or business.', photo: '/images/units/cassette.webp' },
-    { key: 'checkup', serviceType: 'Check-up', title: 'Preventive Check-Up', text: 'A scheduled check-up to catch problems early.', photo: '/images/units/floor-mounted.webp' },
+    { key: 'cleaning', serviceType: 'Cleaning', title: 'Aircon Cleaning', text: 'Cleaning for healthier, more efficient air circulation.', photo: '/images/services/cleaning.webp' },
+    { key: 'repair', serviceType: 'Repair', title: 'Repair & Diagnostics', text: 'Diagnosis and repair for aircon units.', photo: '/images/services/repair.webp' },
+    { key: 'installation', serviceType: 'Installation', title: 'New Installation', text: 'Installation of a new unit, set up for your home or business.', photo: '/images/services/installation.webp' },
+    { key: 'checkup', serviceType: 'Check-up', title: 'Preventive Check-Up', text: 'A scheduled check-up to catch problems early.', photo: '/images/services/checkup.webp' },
   ],
   linkLabel: 'Book now',
 };

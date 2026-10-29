@@ -47,6 +47,10 @@ const KINDS = {
   [T.CHAT_MESSAGE]: ['New message', 'blue', 'NEW MESSAGE', 'Open the app to read it and reply.', 'You have a new message.'],
   [T.INSTRUCTIONS_UPDATED]: ['Job instructions updated', 'blue', 'INSTRUCTIONS UPDATED', 'Open the job to read them.', 'The instructions for a job were updated.'],
   [T.REPORT_REMOVED]: ['Service report removed', 'amber', 'ACTION NEEDED', 'Open the booking to see what is needed.', 'A service report was removed.'],
+  [T.BOOKING_EXPIRED]: ['Booking expired', 'coral', 'EXPIRED', 'Open the booking to see the refund status. You are welcome to book another date.', 'A booking expired because it was not confirmed in time.'],
+  [T.NO_SHOW_REPORTED]: ['Technician no show reported', 'coral', 'NO SHOW REPORTED', 'Open the booking to review the report and decide today.', 'A customer reported that the technicians did not come.'],
+  [T.NO_SHOW_CONFIRMED]: ['No show confirmed', 'coral', 'BOOKING CANCELLED', 'Open the booking to see the refund status. You are welcome to book another date.', 'We confirmed the no show and cancelled your booking.'],
+  [T.NO_SHOW_REJECTED]: ['No show report reviewed', 'blue', 'REPORT REVIEWED', 'Open the booking to read the owner reply.', 'The owner reviewed your no show report.'],
   [T.TECHNICIAN_DEACTIVATED]: ['Technician deactivated', 'amber', 'ACTION NEEDED', 'Assign someone else to the affected jobs.', 'A technician was deactivated.'],
 };
 

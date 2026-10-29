@@ -84,6 +84,16 @@ export function cancelBooking(bookingId) {
   return request(`${booking(bookingId)}/cancel`, { method: 'PATCH' });
 }
 
+// The customer reports that the technicians did not come (one report per booking). `note` is optional, up to 300 characters.
+export function reportNoShow(bookingId, note) {
+  return request(`${booking(bookingId)}/no-show`, { method: 'PATCH', body: { note } });
+}
+
+// The admin decides a no show report: action is 'confirm', 'reschedule' (with date and time) or 'reject'; a reason is required.
+export function decideNoShow(bookingId, { action, reason, date, time }) {
+  return request(`${booking(bookingId)}/no-show/decision`, { method: 'PATCH', body: { action, reason, date, time } });
+}
+
 export function rescheduleBooking(bookingId, { date, time }) {
   return request(`${booking(bookingId)}/reschedule`, { method: 'PATCH', body: { date, time } });
 }

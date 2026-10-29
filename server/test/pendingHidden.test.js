@@ -33,7 +33,7 @@ let base;
 
 const makeBooking = (over = {}) => {
   const b = new Booking({
-    bookingId: 'CZ-P', customer: 'CUS1', service: 'S1', address: '1 Test St', status: 'Pending', date: '2026-10-20', time: 'Morning',
+    bookingId: 'CZ-P', customer: 'CUS1', service: 'S1', address: '1 Test St', status: 'Pending', date: '2030-10-21', time: 'Morning',
     technician: 'T1', assignments: [{ lead: 'T1', helper: 'T2' }], ...over,
   });
   b.save = async () => b;
@@ -206,15 +206,15 @@ test('after approval a reassignment notifies the new technicians and the ones ta
 test('PENDING_HOLDS_SLOT defaults to the current behavior: Pending holds the slot', async () => {
   assert.equal(scheduling.PENDING_HOLDS_SLOT, true);
   assert.deepEqual(activeStatuses(), ['Pending', 'Approved', 'In Progress']);
-  const clash = await findConflictingBooking(['T1'], '2026-10-20', 'Morning');
+  const clash = await findConflictingBooking(['T1'], '2030-10-21', 'Morning');
   assert.equal(clash?.bookingId, 'CZ-P');
 });
 
 test('with PENDING_HOLDS_SLOT off, a Pending booking holds nothing but an Approved one still does', async () => {
   scheduling.PENDING_HOLDS_SLOT = false;
   assert.deepEqual(activeStatuses(), ['Approved', 'In Progress']);
-  assert.equal(await findConflictingBooking(['T1'], '2026-10-20', 'Morning'), null);
-  const approved = await findConflictingBooking(['T1'], '2026-10-20', 'Afternoon');
+  assert.equal(await findConflictingBooking(['T1'], '2030-10-21', 'Morning'), null);
+  const approved = await findConflictingBooking(['T1'], '2030-10-21', 'Afternoon');
   assert.equal(approved?.bookingId, 'CZ-A');
 });
 

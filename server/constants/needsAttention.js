@@ -14,6 +14,7 @@ const SOON_AFTER_WORKING_DAYS = Object.freeze({
   today_pending: 1,
   today_unstaffed: 0,
   today_proof: 0,
+  no_show: 0,
   pending_approval: 1,
   unit_confirmation: 1,
   cannot_supply: 3,
@@ -27,7 +28,7 @@ const SOON_AFTER_WORKING_DAYS = Object.freeze({
 
 // The groups, in the order the panel shows them, and the kinds that belong to each.
 const GROUPS = Object.freeze({
-  today: Object.freeze(['today_pending', 'today_unstaffed', 'today_proof']),
+  today: Object.freeze(['today_pending', 'today_unstaffed', 'today_proof', 'no_show']),
   decision: Object.freeze(['pending_approval', 'unit_confirmation', 'cannot_supply', 'discount_review', 'back_job_review', 'extension_request', 'disruption_report']),
   money: Object.freeze(['payment_proof', 'refund_waiting']),
 });

@@ -32,12 +32,12 @@ const PASS_THROUGH = [
   'downPaymentPercent', 'downPaymentPaidAmount', 'paymentMode', 'paymentMode2', 'paymentStatus', 'balancePaid',
   'balancePaymentStatus', 'proofFile', 'balanceProofFile', 'referenceNumber', 'balanceReferenceNumber',
   'distanceAdjustment', 'mobilizationFee', 'promo', 'isCommercial', 'vatAmount', 'poNumber', 'paymentTermsDays', 'paymentDueAt',
-  'feedback', 'completedAt', 'cancelledAt', 'cancelledBy', 'ownerCancelled', 'cancelReason', 'reportSubmitted', 'isBackJob', 'backJobId',
+  'feedback', 'completedAt', 'cancelledAt', 'cancelledBy', 'ownerCancelled', 'cancelReason', 'expiredBySystem', 'startedBySystem', 'startedAt', 'reportSubmitted', 'isBackJob', 'backJobId',
   'service', 'customer', 'warranty', 'priceSnapshot', 'quotationTerms', 'taxInclusive', 'site', 'mayNeedWorks',
 ];
 
 // Fields built piece by piece below, so only the safe parts leave.
-const SHAPED = ['unitDecline', 'technician', 'assignments', 'discount', 'refund', 'rescheduleRequest', 'disruption', 'extensionRequest', 'extensionDays', 'scopeLines', 'units'];
+const SHAPED = ['unitDecline', 'technician', 'assignments', 'discount', 'refund', 'rescheduleRequest', 'disruption', 'noShow', 'extensionRequest', 'extensionDays', 'scopeLines', 'units'];
 
 // Booking fields a customer never receives. Together with PASS_THROUGH and SHAPED this must cover every field
 // of the Booking model (the test checks it), so a new field cannot reach customers by accident.
@@ -77,12 +77,15 @@ function toCustomerView(booking) {
   if (b.refund) {
     out.refund = pick(b.refund, [
       'status', 'isSameDay', 'downPaymentAmount', 'dispatchDeduction', 'dispatchReason', 'refundableAmount', 'computedAmount', 'finalAmount',
-      'adjustmentReason', 'receivedConfirmedAt', 'requestedAt', 'processedAt', 'proofFile', 'ownerInitiated', 'reason',
+      'adjustmentReason', 'receivedConfirmedAt', 'requestedAt', 'processedAt', 'proofFile', 'ownerInitiated', 'reason', 'systemInitiated', 'expired',
     ]);
     if (b.refund.customerFlag) {
       out.refund.customerFlag = pick(b.refund.customerFlag, ['flagged', 'message', 'flaggedAt', 'resolved', 'resolvedAt']);
     }
   }
+
+  // The customer's own no show report: the note and the owner's decision with its reason (who decided stays out).
+  if (b.noShow && b.noShow.status && b.noShow.status !== 'None') out.noShow = pick(b.noShow, ['status', 'note', 'reportedAt', 'decidedAt', 'decisionReason']);
 
   if (b.rescheduleRequest) out.rescheduleRequest = pick(b.rescheduleRequest, ['status', 'requestedDate', 'requestedTime']);
 

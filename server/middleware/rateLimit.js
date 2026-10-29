@@ -23,6 +23,7 @@ const RATE_LIMITS = Object.freeze({
   passwordChange: Object.freeze({ windowMs: 15 * MINUTE, max: 10 }), // per user
   upload: Object.freeze({ windowMs: 10 * MINUTE, max: 30 }), // file uploads, per user
   payment: Object.freeze({ windowMs: 60 * MINUTE, max: 20 }), // payment submissions, per user
+  noShow: Object.freeze({ windowMs: 60 * MINUTE, max: 5 }), // technician no show reports, per user
   availability: Object.freeze({ windowMs: 10 * MINUTE, max: 300 }), // the public calendar, per IP (generous: a calendar asks for a month at a time)
 });
 const WINDOW_MS = RATE_LIMITS.login.windowMs;
@@ -138,6 +139,7 @@ const userOf = (req) => (req.userId ? `user:${req.userId}` : ipOf(req));
 const passwordChangeLimiter = createWindowLimiter({ ...RATE_LIMITS.passwordChange, keysFor: (req) => [userOf(req)], label: 'password change attempts' });
 const uploadLimiter = createWindowLimiter({ ...RATE_LIMITS.upload, keysFor: (req) => [userOf(req)], label: 'file uploads' });
 const paymentLimiter = createWindowLimiter({ ...RATE_LIMITS.payment, keysFor: (req) => [userOf(req)], label: 'payment submissions' });
+const noShowLimiter = createWindowLimiter({ ...RATE_LIMITS.noShow, keysFor: (req) => [userOf(req)], label: 'no show reports' });
 const availabilityLimiter = createWindowLimiter({ ...RATE_LIMITS.availability, keysFor: (req) => [ipOf(req)], label: 'requests for the calendar' });
 
 // Login: a wrong email or password (401) is an attempt; a good login clears that email's count.
@@ -152,6 +154,6 @@ const passwordResetUseLimiter = createRateLimiter({ ...RATE_LIMITS.passwordReset
 
 module.exports = {
   passwordResetRequestLimiter, passwordResetUseLimiter,
-  createRateLimiter, createWindowLimiter, loginLimiter, registerLimiter, passwordChangeLimiter, uploadLimiter, paymentLimiter, availabilityLimiter,
+  createRateLimiter, createWindowLimiter, loginLimiter, registerLimiter, passwordChangeLimiter, uploadLimiter, paymentLimiter, availabilityLimiter, noShowLimiter,
   RATE_LIMITS, WINDOW_MS, MAX_ATTEMPTS, limitsEnabled,
 };

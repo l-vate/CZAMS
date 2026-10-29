@@ -280,6 +280,10 @@ const bookingSchema = new mongoose.Schema({
         // transportation fee, whatever the booked date. `reason` is why. Customer cancellations never set either.
         ownerInitiated: { type: Boolean, default: false },
         reason: String,
+        // True when the system opened this request because the booking expired (never confirmed before its booked day). It is a full refund
+        // with no fee, like an owner cancellation, and the payout stays a manual admin action.
+        systemInitiated: { type: Boolean, default: false },
+        expired: { type: Boolean, default: false },
         // A customer can flag a refund that hasn't come through (e.g. marked Processed
         // but never received). Single message + status, not a full ticketing thread.
         customerFlag: {
@@ -297,7 +301,24 @@ const bookingSchema = new mongoose.Schema({
     // When the booking was cancelled and by whom ('customer' or 'admin'). Set from now on; bookings
     // cancelled before this existed have neither, and the Cancelled Bookings report says so.
     cancelledAt: Date,
-    cancelledBy: { type: String, enum: ['customer', 'admin'] },
+    cancelledBy: { type: String, enum: ['customer', 'admin', 'system'] },
+    // True when the system cancelled a Pending booking that was not approved before its booked day (utils/bookingLifecycle.js).
+    expiredBySystem: { type: Boolean, default: false },
+    // True when the day start job moved this booking from Approved to In Progress (nobody pressed a button), and when. A booking started this
+    // way can still be cancelled by the customer until the job is done, under the usual rule.
+    startedBySystem: { type: Boolean, default: false },
+    startedAt: Date,
+    // The customer's report that the technicians did not come (utils/noShow.js). One per booking. The admin decides; a report never refunds
+    // anything by itself and creates no rating or score for any technician.
+    noShow: {
+      status: { type: String, enum: ['None', 'Reported', 'Confirmed', 'Rescheduled', 'Rejected'], default: 'None' },
+      note: String,
+      reportedAt: Date,
+      reportedBy: String,
+      decidedAt: Date,
+      decidedBy: String,
+      decisionReason: String,
+    },
     // True when the owner cancelled because the owner cannot supply the unit or cannot serve (not a customer's choice), with the reason.
     // Such a cancellation refunds the whole verified down payment with no transportation fee.
     ownerCancelled: { type: Boolean, default: false },

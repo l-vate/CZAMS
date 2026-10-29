@@ -14,6 +14,7 @@ const KIND = Object.freeze({
   today_pending: { title: 'Approve booking', tag: 'Approval', many: 'bookings to approve', link: '/admin/services/requests?when=soon' },
   today_unstaffed: { title: 'Assign technicians', tag: 'Technicians', many: 'jobs that need technicians', link: '/admin/services/requests?when=soon' },
   today_proof: { title: 'Verify payment proof', tag: 'Payment proof', many: 'payment proofs to verify', link: '/admin/payments?filter=to_verify' },
+  no_show: { title: 'Review no show report', tag: 'No show', many: 'technician no show reports', link: '/admin/services/requests?when=soon' },
   pending_approval: { title: 'Approve booking', tag: 'Approval', many: 'bookings to approve', link: '/admin/services/requests?filter=Pending' },
   unit_confirmation: { title: 'Confirm requested unit', tag: 'Unit', many: 'units to confirm', link: '/admin/services/requests?filter=Pending' },
   cannot_supply: { title: 'Cannot supply unit', tag: 'Unit notice', many: 'cannot supply notices', link: '/admin/services/requests?filter=Pending' },

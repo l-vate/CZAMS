@@ -93,12 +93,14 @@ function collectItems({ bookings = [], backJobs = [], servicesById = new Map(), 
     // a booking dated before today that is still Pending or Approved has missed its day and is as urgent as one dated today
     const dueNow = Boolean(b.date) && b.date <= tomorrowKey;
     const proofWaiting = b.paymentStatus === PAYMENT_STATUS.TO_VERIFY || b.balancePaymentStatus === BALANCE_PAYMENT_STATUS.TO_VERIFY;
+    // an Approved booking becomes In Progress at the start of its service day (the day start job), so for what is due today both count
+    const started = b.status === BOOKING_STATUS.IN_PROGRESS;
     const live = pending || approved;
 
     if (dueNow && pending) {
       add('today_pending', { label: `Waiting for approval, booked ${b.date === todayKey ? 'today' : b.date < todayKey ? 'on a past date' : 'tomorrow'}` });
     }
-    if (dueNow && approved) {
+    if (dueNow && (approved || started)) {
       const service = servicesById.get(String(b.service)) || (b.service && typeof b.service === 'object' ? b.service : null);
       const assignments = b.assignments || [];
       if (!isStaffed(assignments, service)) {
@@ -107,7 +109,7 @@ function collectItems({ bookings = [], backJobs = [], servicesById = new Map(), 
         add('today_unstaffed', { label: `Needs more technicians (${assigned} of ${need} assigned)` });
       }
     }
-    if (dueNow && live && proofWaiting) {
+    if (dueNow && (live || started) && proofWaiting) {
       add('today_proof', { label: 'Payment proof not verified yet', link: PAYMENTS_PATH('to_verify', b.bookingId) });
     }
 
@@ -123,6 +125,9 @@ function collectItems({ bookings = [], backJobs = [], servicesById = new Map(), 
     }
     if (b.extensionRequest && b.extensionRequest.status === 'Pending') {
       add('extension_request', { label: 'Technician asked for an extra day', waitingSince: b.extensionRequest.requestedAt });
+    }
+    if (b.noShow && b.noShow.status === 'Reported') {
+      add('no_show', { label: 'Technician no show reported', waitingSince: b.noShow.reportedAt });
     }
     if (b.disruption && b.disruption.status === 'Reported') {
       add('disruption_report', { label: 'Job disruption reported', waitingSince: b.disruption.reportedAt });

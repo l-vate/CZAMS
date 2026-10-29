@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { Link, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import AdminLayout from './admin_layout';
 import PersonFilterBanner from '../../components/person_filter_banner';
-import { getStatusColor, getFilterPillStyle, textOnFill } from '../../utils/statusColors';
-import { FiEye } from 'react-icons/fi';
+import { getStatusColor, textOnFill } from '../../utils/statusColors';
+import { FiClock, FiPlus } from 'react-icons/fi';
 import { orFallback } from '../../services/apiClient';
 import { listBookings } from '../../services/bookingService';
 import { getMembers, getMemberNames } from '../../utils/assignments';
@@ -13,6 +12,7 @@ import { customerLabel } from '../../utils/customerLabel';
 import { BOOKING_STATUS_VALUES } from '../../constants/bookingStatus';
 import { manilaTodayKey } from '../../utils/manilaTime';
 import { addDaysKey } from '../../utils/needsAttention';
+import { bookedForText, createdText, techniciansSummary, statusCounts } from '../../utils/bookingCardText';
 
 function ServiceRequests() {
     const navigate = useNavigate();
@@ -33,6 +33,17 @@ function ServiceRequests() {
     const [personFilter, setPersonFilter] = useState(location.state?.personFilter || null);
 
     const filters = ['All', ...BOOKING_STATUS_VALUES];
+    const counts = statusCounts(requests, BOOKING_STATUS_VALUES);
+    const tabRefs = useRef({});
+    const VIEWS = [['all', 'All Bookings'], ['queue', 'Pending Queue']];
+    // arrow keys move between the two tabs, as a tab list does
+    const onTabKey = (e, index) => {
+        if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+        e.preventDefault();
+        const next = VIEWS[(index + (e.key === 'ArrowRight' ? 1 : VIEWS.length - 1)) % VIEWS.length][0];
+        setView(next);
+        tabRefs.current[next]?.focus();
+    };
 
     // A notification links here with ?booking=<id>: go straight to that booking's page.
     const [searchParams] = useSearchParams();
@@ -93,43 +104,54 @@ function ServiceRequests() {
             searchPlaceholder="Search by booking ID, service, customer, or technician..."
         >
             <div className="page-container">
-                <h1 className="dashboard-welcome">Bookings</h1>
-                <div className="req-filters admin-service-requests-x1">
-                    {[['all', 'All Bookings'], ['queue', 'Pending Queue']].map(([key, label]) => (
+                <div className="req-page-head">
+                    <h1 className="dashboard-welcome">Bookings</h1>
+                    <button
+                        type="button"
+                        className="req-new-btn"
+                        onClick={() => navigate('/admin/services/requests/new')}
+                    >
+                        <FiPlus aria-hidden="true" /> New Booking
+                    </button>
+                </div>
+                <div className="req-tabs admin-service-requests-x1" role="tablist" aria-label="Bookings view">
+                    {VIEWS.map(([key, label], index) => (
                         <button
                             key={key}
-                            className={`filter-pill ${view === key ? 'filter-pill--active' : ''}`}
+                            type="button"
+                            role="tab"
+                            id={`req-tab-${key}`}
+                            ref={(el) => { tabRefs.current[key] = el; }}
+                            aria-selected={view === key}
+                            aria-controls="req-view-panel"
+                            tabIndex={view === key ? 0 : -1}
+                            className={`req-tab${view === key ? ' req-tab--active' : ''}`}
                             onClick={() => setView(key)}
+                            onKeyDown={(e) => onTabKey(e, index)}
                         >
                             {label}
                         </button>
                     ))}
                 </div>
 
+                <div id="req-view-panel" role="tabpanel" aria-labelledby={`req-tab-${view}`}>
                 {view === 'queue' && (
                     <PendingQueue onViewDetails={handleViewDetails} />
                 )}
 
                 {view === 'all' && (<>
-                <div className="req-toolbar">
-                    <div className="req-filters">
-                        {filters.map((filter) => (
-                            <button
-                                key={filter}
-                                className={`filter-pill ${activeFilter === filter ? 'filter-pill--active' : ''}`}
-                                style={getFilterPillStyle(filter, activeFilter === filter)}
-                                onClick={() => setActiveFilter(filter)}
-                            >
-                                {filter}
-                            </button>
-                        ))}
-                    </div>
-                    <button
-                        className="req-new-btn"
-                        onClick={() => navigate('/admin/services/requests/new')}
-                    >
-                        + New Booking
-                    </button>
+                <div className="req-chips" role="group" aria-label="Filter by status">
+                    {filters.map((filter) => (
+                        <button
+                            key={filter}
+                            type="button"
+                            className={`req-chip${activeFilter === filter ? ' req-chip--active' : ''}`}
+                            aria-pressed={activeFilter === filter}
+                            onClick={() => setActiveFilter(filter)}
+                        >
+                            {filter} <span className="req-chip-count">{counts[filter]}</span>
+                        </button>
+                    ))}
                 </div>
 
                 {soonOnly && (
@@ -147,60 +169,48 @@ function ServiceRequests() {
                     <p className="req-empty">No bookings found.</p>
                 ) : (
                     <div className="req-grid">
-                        {filteredRequests.map((req) => (
-                            <div className="req-card" key={req._id}>
-                                <div className="req-card-top">
-                                    <span className="req-date">
-                                        {req.createdAt
-                                            ? new Date(req.createdAt).toLocaleDateString('en-US', {
-                                                  month: '2-digit',
-                                                  day: '2-digit',
-                                                  year: '2-digit',
-                                              })
-                                            : 'N/A'}
-                                    </span>
-                                    <span
-                                        className="req-status-badge"
-                                        style={{ background: getStatusColor(req.status), color: textOnFill(getStatusColor(req.status)) }}
-                                    >
-                                        {req.status}
-                                    </span>
-                                </div>
-
-                                <div className="req-card-body">
-                                    <p className="req-title">{req.service?.name || 'N/A'}</p>
-                                    <p className="req-id">{req.bookingId}</p>
-                                    <p className="req-tech">
-                                        Technicians: {getMemberNames(req, 'Not Assigned')}{req.needsReassignment ? ' (needs a new technician)' : ''}
-                                    </p>
-                                    
-                                    <div className="req-info-item">
-                                        <svg
-                                            className="req-info-icon"
-                                            width="16" height="16" viewBox="0 0 24 24"
-                                            fill="none" stroke="currentColor" strokeWidth="2"
-                                            strokeLinecap="round" strokeLinejoin="round"
+                        {filteredRequests.map((req) => {
+                            const tech = techniciansSummary(getMembers(req), req.needsReassignment);
+                            return (
+                                <article className="req-card" key={req._id}>
+                                    <div className="req-card-top">
+                                        <span className="req-date">{createdText(req.createdAt)}</span>
+                                        <span
+                                            className="req-status-badge"
+                                            style={{ background: getStatusColor(req.status), color: textOnFill(getStatusColor(req.status)) }}
                                         >
-                                            <circle cx="12" cy="12" r="10" />
-                                            <polyline points="12 6 12 12 16 14" />
-                                        </svg>
-                                        <span>{req.date || 'N/A'}</span>
+                                            {req.status}
+                                        </span>
                                     </div>
-                                </div>
 
-                                <div className="req-card-bottom">
-                                    <button
-                                        className="view-details-btn"
-                                        onClick={() => handleViewDetails(req)}
-                                    >
-                                        <FiEye size={14} /> View Details
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
+                                    <div className="req-card-body">
+                                        <p className="req-booked"><FiClock aria-hidden="true" /> {bookedForText(req.date)}</p>
+                                        <p className="req-title">{req.service?.name || 'N/A'}</p>
+                                        <p className="req-id">{req.bookingId}</p>
+                                        <p className="req-tech">
+                                            <span className="req-tech-count">{tech.count}</span>
+                                            {tech.names && <span className="req-tech-names" title={tech.names}>{tech.names}</span>}
+                                            {tech.needsNew && <span className="req-tech-note">Needs a new technician</span>}
+                                        </p>
+                                    </div>
+
+                                    <div className="req-card-bottom">
+                                        {/* the link's ::after covers the whole card, so the card is one link to the details */}
+                                        <Link
+                                            className="req-card-link"
+                                            to={`/admin/services/requests/${encodeURIComponent(req.bookingId)}`}
+                                            aria-label={`View details for booking ${req.bookingId}`}
+                                        >
+                                            View details
+                                        </Link>
+                                    </div>
+                                </article>
+                            );
+                        })}
                     </div>
                 )}
                 </>)}
+                </div>
             </div>
         </AdminLayout>
     );

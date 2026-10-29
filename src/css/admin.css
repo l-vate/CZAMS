@@ -1427,6 +1427,14 @@
 /* Filter buttons here now use the shared .filter-pill primitive (Pass D) instead
    of this page's own outlined style. */
 
+.req-page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.req-page-head .dashboard-welcome { margin: 0; min-width: 0; }
+
 .req-new-btn {
   background: var(--primary);
   color: #fff;
@@ -1441,6 +1449,98 @@
 
 .req-new-btn:hover { background: var(--primary-hover); }
 
+/* "+ New Booking" on the Bookings page: the brand navy, compact, beside the page title */
+.req-page-head .req-new-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-height: 44px;
+  background: var(--navy);
+  color: #fff;
+  border: none;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.req-page-head .req-new-btn:hover { background: var(--navy-soft); }
+
+/* The two views: a two tab switch */
+.req-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--frost);
+  border: 1px solid var(--mist);
+  border-radius: 12px;
+  width: fit-content;
+  max-width: 100%;
+}
+.req-tab {
+  min-height: 44px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.req-tab:hover { color: var(--navy); }
+.req-tab--active { background: var(--white); color: var(--navy); box-shadow: 0 1px 3px rgba(11, 37, 69, 0.18); }
+
+/* The status filter: one row that scrolls sideways on a phone, equal chips, only the selected one filled in navy */
+.req-chips {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 2px 6px;
+  margin-bottom: 14px;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+.req-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1.5px solid var(--mist);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--navy);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.req-chip:hover { border-color: var(--navy); }
+.req-chip-count { font-size: 12px; font-weight: 700; color: #4a5568; }
+.req-chip--active { background: var(--navy); border-color: var(--navy); color: #fff; }
+.req-chip--active .req-chip-count { color: #dbe4f0; }
+
+.req-tab:focus-visible,
+.req-chip:focus-visible,
+.req-new-btn:focus-visible,
+.req-card-link:focus-visible,
+.topbar-search-toggle:focus-visible,
+.topbar-search-close:focus-visible {
+  outline: 3px solid var(--coral);
+  outline-offset: 2px;
+}
+
 /* Grid container layout replacing row flex layout */
 .req-grid {
   display: grid;
@@ -1449,6 +1549,7 @@
 }
 
 .req-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -1463,6 +1564,7 @@
   box-shadow: var(--card-hover-shadow);
   transform: translateY(-2px);
 }
+.req-card:hover .req-card-link { color: var(--primary); }
 
 .req-card-top {
   display: flex;
@@ -1471,7 +1573,7 @@
   margin-bottom: 12px;
 }
 
-.req-date { font-size: 12px; color: #9aa1ac; font-weight: 600; }
+.req-date { font-size: 12.5px; color: #5b6472; font-weight: 500; }
 
 .req-status-badge {
   font-size: 11px;
@@ -1497,8 +1599,22 @@
   margin: 0 0 2px;
 }
 
-.req-id { font-size: 12.5px; color: #9aa1ac; margin: 0 0 2px; }
-.req-tech { font-size: 12.5px; color: #6b7280; margin: 0 0 6px; }
+.req-id { font-size: 12.5px; color: #5b6472; margin: 0 0 2px; }
+.req-booked {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--navy);
+}
+.req-booked svg { flex-shrink: 0; color: #5b6472; }
+/* "2 technicians" with the names after it in muted text, cut with an ellipsis when they are long */
+.req-tech { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; font-size: 13px; color: #5b6472; margin: 0; min-width: 0; }
+.req-tech-count { font-weight: 600; color: #3b4452; flex-shrink: 0; }
+.req-tech-names { min-width: 0; flex: 1 1 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.req-tech-note { flex-basis: 100%; font-weight: 600; color: #b45309; }
 
 .req-info-item {
   display: flex;
@@ -1517,6 +1633,19 @@
   padding-top: 12px;
   border-top: 1px solid #f0f4f8;
 }
+/* a small text link; its ::after stretches over the whole card so the whole card opens the details */
+.req-card-link {
+  color: var(--navy);
+  font-size: 13.5px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+.req-card-link::after { content: ''; position: absolute; inset: 0; border-radius: 14px; }
+.req-card:focus-within { box-shadow: var(--card-hover-shadow); }
 
 .req-empty { text-align: center; color: #9aa1ac; padding: 40px 0; font-size: 14px; }
 
@@ -2889,3 +3018,66 @@
 /* the note under the booking filters when the list was opened from "Needs attention" with today and tomorrow only */
 .req-soon-note { margin: 0 0 12px; padding: 10px 14px; border: 1px solid #cfe3ee; border-left: 4px solid var(--navy-soft); border-radius: 10px; background: #f3f9fd; font-size: 0.875rem; color: var(--ink-soft); }
 .req-soon-clear { padding: 0; border: 0; background: none; color: var(--primary); font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
+
+
+/* ============ ADMIN TOP BAR ON A PHONE ============
+   Up to 768 px the bar is: menu, title, a search icon, chat and the bell. The icon opens a full width search over the bar, with a close button.
+   Wider screens keep the search box in the bar and show neither the icon nor the close button. */
+.topbar-search-toggle,
+.topbar-search-close { display: none; }
+.dashboard-topbar-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 768px) {
+  .admin-dashboard-shell .dashboard-topbar { position: relative; gap: 4px; }
+  .admin-dashboard-shell .dashboard-topbar-title { flex: 0 1 auto; font-weight: 600; color: var(--navy); }
+  .admin-dashboard-shell .dashboard-topbar-actions { flex: 0 0 auto; margin-left: auto; }
+  .admin-dashboard-shell .topbar-search-toggle,
+  .admin-dashboard-shell .topbar-support-btn { display: inline-flex; width: 44px; height: 44px; position: relative; }
+  .admin-dashboard-shell .sidebar-toggle-btn,
+  .admin-dashboard-shell .notif-bell-btn { min-width: 44px; min-height: 44px; }
+  .admin-dashboard-shell .topbar-search-toggle.has-query::after {
+    content: '';
+    position: absolute;
+    top: 9px;
+    right: 9px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--coral);
+  }
+  .admin-dashboard-shell .topbar-search { display: none; }
+  .admin-dashboard-shell .topbar-search-open .topbar-search {
+    display: flex;
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    margin: 0;
+    padding: 0 8px 0 16px;
+    border: none;
+    border-radius: 0;
+    background: var(--white);
+  }
+  .admin-dashboard-shell .topbar-search-open .topbar-search input { flex: 1 1 0; width: 100%; font-size: 16px; }
+  .admin-dashboard-shell .topbar-search-open .topbar-search-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border: none;
+    background: none;
+    border-radius: 50%;
+    color: var(--navy);
+    font-size: 20px;
+    cursor: pointer;
+  }
+
+  /* Bookings: the chips and cards sit flush to the page edge, the cards are one per row */
+  .req-page-head { gap: 8px; }
+  .req-page-head .dashboard-welcome { font-size: 22px; }
+  .req-page-head .req-new-btn { padding: 0 12px; }
+  .req-tabs { width: 100%; }
+  .req-tab { flex: 1 1 0; padding: 0 8px; }
+  .req-grid { grid-template-columns: 1fr; gap: 12px; }
+  .req-card { padding: 16px; }
+}

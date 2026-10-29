@@ -4,6 +4,10 @@ import { attempt } from '../services/apiClient';
 import { formatClosureDate, formatClosureRange, groupClosures, affectedBookingsNote } from '../utils/closureDates';
 import { REASON_MIN, REASON_MAX } from '../constants/closures';
 import { pluralize } from '../utils/pluralize';
+import { manilaTodayKey } from '../utils/manilaTime';
+import { capitalizeReason, splitUpcoming, closureSummary, SHORT_LIST } from '../utils/calendarPanels';
+import CollapsiblePanel from './collapsible_panel';
+import { usePanelOpen } from '../hooks/usePanelOpen';
 
 const MAX_RANGE_DAYS = 31;
 
@@ -31,6 +35,9 @@ function ClosureManager() {
   const [error, setError] = useState('');
   const [warning, setWarning] = useState('');
   const [saving, setSaving] = useState(false);
+  const [open, setOpen] = usePanelOpen('closed-dates');
+  const [showPast, setShowPast] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
   const load = async () => {
     try {
@@ -82,6 +89,7 @@ function ClosureManager() {
         setDate('');
         setEndDate('');
         setReason('');
+        setOpen(true); // show the new closure
       }
       await load();
     } catch {
@@ -106,6 +114,41 @@ function ClosureManager() {
     }
     await load();
   };
+
+  // A range is upcoming while its last day is today or later; earlier ranges sit behind a toggle.
+  const { upcoming: upcomingGroups, past: pastGroups } = splitUpcoming(groupClosures(closures), manilaTodayKey(), 'end');
+  const shownGroups = showAll ? upcomingGroups : upcomingGroups.slice(0, SHORT_LIST);
+
+  const renderGroup = (g) => (
+    <li key={g.start} className="closure-item">
+      <div className="closure-item-text">
+        <strong>{formatClosureRange(g.start, g.end)}</strong>
+        {g.days.length > 1 && <span className="closure-days"> ({g.days.length} days)</span>}
+        <span className="closure-reason">{capitalizeReason(g.reason)}</span>
+        {g.affectedBookings > 0 && (
+          <span className="closure-warning">{affectedBookingsNote(g.affectedBookings, g.days.length > 1)}</span>
+        )}
+        {g.days.length > 1 && (
+          <details className="closure-days-detail">
+            <summary className="cal-action-btn">Open single days</summary>
+            <ul className="closure-day-list">
+              {g.days.map((c) => (
+                <li key={c.date}>
+                  <span>{formatClosureDate(c.date)}</span>
+                  <button type="button" className="cal-action-btn" onClick={() => handleDelete([c.date])}>
+                    Open
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </div>
+      <button type="button" className="cal-action-btn" onClick={() => handleDelete(g.days.map((c) => c.date))}>
+        {g.days.length > 1 ? 'Open all again' : 'Open again'}
+      </button>
+    </li>
+  );
 
   return (
     <section className="closure-manager">
@@ -149,42 +192,24 @@ function ClosureManager() {
       {warning && <p className="closure-warning" role="status">{warning}</p>}
       {loadError && <p className="ma-form-error">{loadError}</p>}
 
-      {closures.length === 0 && !loadError ? (
-        <p className="closure-empty">No upcoming closed dates.</p>
-      ) : (
-        <ul className="closure-list">
-          {groupClosures(closures).map((g) => (
-            <li key={g.start} className="closure-item">
-              <div>
-                <strong>{formatClosureRange(g.start, g.end)}</strong>
-                {g.days.length > 1 && <span className="closure-days"> ({g.days.length} days)</span>}
-                <span className="closure-reason">{g.reason}</span>
-                {g.affectedBookings > 0 && (
-                  <span className="closure-warning">{affectedBookingsNote(g.affectedBookings, g.days.length > 1)}</span>
-                )}
-                {g.days.length > 1 && (
-                  <details className="closure-days-detail">
-                    <summary>Open single days</summary>
-                    <ul className="closure-day-list">
-                      {g.days.map((c) => (
-                        <li key={c.date}>
-                          <span>{formatClosureDate(c.date)}</span>
-                          <button type="button" className="closure-day-open" onClick={() => handleDelete([c.date])}>
-                            Open
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
-                )}
-              </div>
-              <button type="button" className="ma-cancel-btn" onClick={() => handleDelete(g.days.map((c) => c.date))}>
-                {g.days.length > 1 ? 'Open all again' : 'Open again'}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      <CollapsiblePanel id="closed-dates-list" summary={closureSummary(upcomingGroups)} open={open} onToggle={setOpen}>
+        {upcomingGroups.length === 0 && !loadError ? (
+          <p className="closure-empty">No upcoming closed dates.</p>
+        ) : (
+          <ul className="closure-list">{shownGroups.map(renderGroup)}</ul>
+        )}
+        {!showAll && upcomingGroups.length > SHORT_LIST && (
+          <button type="button" className="cal-action-btn cal-more-btn" onClick={() => setShowAll(true)}>Show all ({upcomingGroups.length})</button>
+        )}
+        {pastGroups.length > 0 && (
+          <>
+            <button type="button" className="cal-action-btn cal-more-btn" aria-expanded={showPast} onClick={() => setShowPast((v) => !v)}>
+              {showPast ? 'Hide past entries' : 'Show past entries'}
+            </button>
+            {showPast && <ul className="closure-list cal-past-list" aria-label="Past entries">{pastGroups.map(renderGroup)}</ul>}
+          </>
+        )}
+      </CollapsiblePanel>
     </section>
   );
 }

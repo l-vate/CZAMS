@@ -123,13 +123,19 @@ function detailRows({ type, bookingId, booking }) {
 
 // ---- the shared layout -----------------------------------------------------------------------------------------------------------------
 
+// The details block is left aligned (only the logo, the headline and the main button are centered) and stays two columns on a phone: the label
+// small, muted and uppercase on the left, the value larger and bold on the right, wrapping inside its own column. One divider sits between items,
+// never between a label and its value. The status accent is a thin left border, which does not widen the layout.
 function detailsTable(rows, tone) {
   if (rows.length === 0) return '';
-  const body = rows.map(([label, value], i) => `<tr>
-        <td class="stack t-muted box-text" align="center" style="text-align:center;width:38%;padding:9px 14px;font-size:13px;line-height:1.4;color:${LIGHT.muted};${i > 0 ? `border-top:1px solid ${LIGHT.rule};` : ''}" valign="top">${escapeHtml(label)}</td>
-        <td class="stack t-body box-text" align="center" style="text-align:center;padding:9px 14px;font-size:15px;line-height:1.4;font-weight:600;color:${LIGHT.body};${i > 0 ? `border-top:1px solid ${LIGHT.rule};` : ''}" valign="top">${escapeHtml(value)}</td>
-      </tr>`).join('');
-  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="detail-box" style="margin:0 0 20px;background:${LIGHT.box};border-left:4px solid ${TONES[tone].bar};border-radius:6px;">${body}</table>`;
+  const body = rows.map(([label, value], i) => {
+    const rule = i > 0 ? `border-top:1px solid ${LIGHT.rule};` : '';
+    return `<tr>
+        <td class="detail-label t-muted d-rule" align="left" valign="top" width="38%" style="width:38%;padding:11px 8px 11px 14px;text-align:left;font-size:12px;line-height:1.4;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:${LIGHT.muted};${rule}">${escapeHtml(label)}</td>
+        <td class="detail-value t-body d-rule" align="left" valign="top" style="padding:9px 14px 9px 8px;text-align:left;font-size:15px;line-height:1.4;font-weight:700;color:${LIGHT.body};word-break:break-word;overflow-wrap:anywhere;${rule}">${escapeHtml(value)}</td>
+      </tr>`;
+  }).join('');
+  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" align="left" class="detail-box" style="margin:0 0 20px;text-align:left;table-layout:fixed;background:${LIGHT.box};border-left:3px solid ${TONES[tone].bar};border-radius:6px;">${body}</table>`;
 }
 
 // A button that works in Outlook too: a VML rounded rectangle for Outlook, a padded table cell for everything else.
@@ -152,6 +158,7 @@ function darkCss() {
     .t-muted { color: ${DARK.muted} !important; }
     .t-link { color: ${DARK.link} !important; }
     .detail-box { background-color: ${DARK.box} !important; }
+    .d-rule { border-top-color: ${DARK.rule} !important; }
     .btn-cell { background-color: ${DARK.button} !important; }
     .footer { background-color: ${DARK.footerBg} !important; border-top-color: ${DARK.rule} !important; }
     .t-footer { color: ${DARK.footerText} !important; }
@@ -159,7 +166,7 @@ function darkCss() {
   @media (max-width: 480px) {
     .container { width: 100% !important; }
     .px { padding-left: 20px !important; padding-right: 20px !important; }
-    .stack { display: block !important; width: 100% !important; box-sizing: border-box; }
+    .detail-label { width: 36% !important; }
     .head-name { font-size: 15px !important; }
   }
 </style>`;
@@ -175,7 +182,7 @@ function buildEmail({ headline, tone = 'blue', label, preheader, paragraphs = []
         <p class="t-muted" style="margin:0 0 22px;text-align:center;font-size:12px;line-height:1.5;color:${LIGHT.muted};word-break:break-all;">If the button does not work, open this address: <a class="t-link" href="${escapeHtml(cta.url)}" style="color:${LIGHT.link};">${escapeHtml(cta.url)}</a></p>`
     : '';
   const nextBlock = next
-    ? `<p class="t-body" style="margin:0 0 22px;text-align:center;font-size:15px;line-height:1.6;color:${LIGHT.body};"><strong class="t-head" style="color:${LIGHT.head};">What happens next:</strong> ${escapeHtml(next)}</p>`
+    ? `<p class="t-body" style="margin:0 0 22px;text-align:left;font-size:15px;line-height:1.6;color:${LIGHT.body};"><strong class="t-head" style="color:${LIGHT.head};">What happens next:</strong> ${escapeHtml(next)}</p>`
     : '';
 
   const html = `<!doctype html>
@@ -197,9 +204,9 @@ ${darkCss()}
         </tr></table>
       </td></tr>
       <tr><td style="height:5px;background:${t.bar};font-size:0;line-height:0;" bgcolor="${t.bar}">&nbsp;</td></tr>
-      <tr><td class="px" align="center" style="padding:28px 28px 8px;text-align:center;">
+      <tr><td class="px" align="left" style="padding:28px 28px 8px;text-align:left;">
         <table role="presentation" align="center" cellspacing="0" cellpadding="0" style="margin:0 auto 14px;"><tr><td style="background:${t.chipBg};color:${t.chipText};border-radius:999px;padding:5px 12px;font-size:12px;font-weight:700;letter-spacing:.06em;" bgcolor="${t.chipBg}">${escapeHtml(label)}</td></tr></table>
-        <h1 class="t-head" style="margin:0 0 12px;font-size:24px;line-height:1.25;color:${LIGHT.head};">${escapeHtml(headline)}</h1>
+        <h1 class="t-head" style="margin:0 0 12px;text-align:center;font-size:24px;line-height:1.25;color:${LIGHT.head};">${escapeHtml(headline)}</h1>
         ${paragraphs.map((p) => `<p class="t-body" style="margin:0 0 18px;font-size:16px;line-height:1.6;color:${LIGHT.body};">${escapeHtml(p)}</p>`).join('\n        ')}
         ${detailsTable(details, tone)}
         ${nextBlock}

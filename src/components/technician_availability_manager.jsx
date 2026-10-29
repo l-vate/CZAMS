@@ -4,6 +4,10 @@ import { listTechniciansForBooking } from '../services/authService';
 import { attempt } from '../services/apiClient';
 import { formatClosureDate } from '../utils/closureDates';
 import { pluralize } from '../utils/pluralize';
+import { manilaTodayKey } from '../utils/manilaTime';
+import { capitalizeReason, splitUpcoming, groupByDate, limitGroups, leaveSummary, SHORT_LIST } from '../utils/calendarPanels';
+import CollapsiblePanel from './collapsible_panel';
+import { usePanelOpen } from '../hooks/usePanelOpen';
 
 const REASON_MAX = 200;
 const WHOLE_DAY = ['Morning', 'Afternoon'];
@@ -14,6 +18,25 @@ const WHEN_CHOICES = [
 ];
 
 const blocksLabel = (blocks) => (blocks.length === 2 ? 'Whole day' : `${blocks[0]} only`);
+
+function DayEntries({ day, list, onClear }) {
+  return (
+    <li className="closure-item tech-off-day">
+      <strong>{formatClosureDate(day)}</strong>
+      <ul className="tech-off-entries">
+        {list.map((entry) => (
+          <li key={entry._id}>
+            <span className="tech-off-entry-text">
+              {entry.technicianName} <span className="closure-days">({blocksLabel(entry.blocks)})</span>
+              {entry.reason && <span className="closure-reason">{capitalizeReason(entry.reason)}</span>}
+            </span>
+            <button type="button" className="cal-action-btn" onClick={() => onClear(entry._id)}>Available again</button>
+          </li>
+        ))}
+      </ul>
+    </li>
+  );
+}
 
 // Admin panel: dates technicians are not available (leave, a day off, training). A technician marked off counts as busy for that date and
 // block everywhere: the public calendar and the date pickers (a day with nobody left shows Fully booked), booking checks, the assignment
@@ -29,6 +52,9 @@ function TechnicianAvailabilityManager() {
   const [error, setError] = useState('');
   const [warning, setWarning] = useState('');
   const [saving, setSaving] = useState(false);
+  const [open, setOpen] = usePanelOpen('technician-leave');
+  const [showPast, setShowPast] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
   const loadEntries = async () => {
     try {
@@ -53,14 +79,13 @@ function TechnicianAvailabilityManager() {
 
   const togglePicked = (id) => setPicked((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
-  const byDate = useMemo(() => {
-    const groups = new Map();
-    entries.forEach((e) => {
-      if (!groups.has(e.date)) groups.set(e.date, []);
-      groups.get(e.date).push(e);
-    });
-    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
+  // Only today and later by default, sorted by date; earlier entries sit behind a toggle. One heading per date.
+  const { upcomingGroups, pastGroups, upcomingCount } = useMemo(() => {
+    const { upcoming, past } = splitUpcoming(entries, manilaTodayKey());
+    return { upcomingGroups: groupByDate(upcoming), pastGroups: groupByDate(past), upcomingCount: upcoming.length };
   }, [entries]);
+  const shownGroups = showAll ? upcomingGroups : limitGroups(upcomingGroups, SHORT_LIST);
+  const shownCount = shownGroups.reduce((n, g) => n + g[1].length, 0);
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -83,6 +108,7 @@ function TechnicianAvailabilityManager() {
       setPicked([]);
       setReason('');
       setDate('');
+      setOpen(true); // show the new entry
       await loadEntries();
     } catch {
       setError('Network error. Please try again.');
@@ -150,28 +176,30 @@ function TechnicianAvailabilityManager() {
       {warning && <p className="closure-warning" role="status">{warning}</p>}
       {loadError && <p className="ma-form-error">{loadError}</p>}
 
-      {byDate.length === 0 && !loadError ? (
-        <p className="closure-empty">No upcoming days off. Every technician is available.</p>
-      ) : (
-        <ul className="closure-list">
-          {byDate.map(([day, list]) => (
-            <li key={day} className="closure-item tech-off-day">
-              <strong>{formatClosureDate(day)}</strong>
-              <ul className="tech-off-entries">
-                {list.map((entry) => (
-                  <li key={entry._id}>
-                    <span>
-                      {entry.technicianName} <span className="closure-days">({blocksLabel(entry.blocks)})</span>
-                      {entry.reason && <span className="closure-reason">{entry.reason}</span>}
-                    </span>
-                    <button type="button" className="closure-day-open" onClick={() => handleClear(entry._id)}>Available again</button>
-                  </li>
-                ))}
+      <CollapsiblePanel id="tech-leave-list" summary={leaveSummary(upcomingCount)} open={open} onToggle={setOpen}>
+        {upcomingGroups.length === 0 && !loadError ? (
+          <p className="closure-empty">No upcoming days off. Every technician is available.</p>
+        ) : (
+          <ul className="closure-list">
+            {shownGroups.map(([day, list]) => <DayEntries key={day} day={day} list={list} onClear={handleClear} />)}
+          </ul>
+        )}
+        {!showAll && shownCount < upcomingCount && (
+          <button type="button" className="cal-action-btn cal-more-btn" onClick={() => setShowAll(true)}>Show all ({upcomingCount})</button>
+        )}
+        {pastGroups.length > 0 && (
+          <>
+            <button type="button" className="cal-action-btn cal-more-btn" aria-expanded={showPast} onClick={() => setShowPast((v) => !v)}>
+              {showPast ? 'Hide past entries' : 'Show past entries'}
+            </button>
+            {showPast && (
+              <ul className="closure-list cal-past-list" aria-label="Past entries">
+                {pastGroups.map(([day, list]) => <DayEntries key={day} day={day} list={list} onClear={handleClear} />)}
               </ul>
-            </li>
-          ))}
-        </ul>
-      )}
+            )}
+          </>
+        )}
+      </CollapsiblePanel>
     </section>
   );
 }

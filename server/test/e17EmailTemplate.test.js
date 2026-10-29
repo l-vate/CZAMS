@@ -229,3 +229,62 @@ test('the preview script renders one sample of every kind with fake data and wri
   assert.equal(/nodemailer|sendMail|createTransport/.test(src), false, 'it can never send');
   assert.equal(/\u2014/.test(src), false);
 });
+
+// E23: the details block is a left aligned two column table that stays two columns on a phone.
+test('the details table is left aligned, two columns (label and value) on every row, and never stacks on a phone', () => {
+  for (const type of ALL_TYPES) {
+    const { html } = render(type);
+    const table = (html.match(/<table[^>]*class="detail-box"[\s\S]*?<\/table>/) || [])[0];
+    assert.ok(table, `${type}: has a details table`);
+    const rows = table.match(/<tr>[\s\S]*?<\/tr>/g);
+    assert.ok(rows.length >= 1);
+    rows.forEach((row) => {
+      assert.equal((row.match(/<td /g) || []).length, 2, `${type}: two cells per row`);
+      assert.match(row, /class="detail-label[^"]*"[^>]*align="left"/, `${type}: label column, left`);
+      assert.match(row, /class="detail-value[^"]*"[^>]*align="left"/, `${type}: value column, left`);
+    });
+    assert.equal(/text-align:center/.test(table), false, `${type}: nothing in the details is centered`);
+    assert.equal(/class="[^"]*\bstack\b/.test(html), false, `${type}: no cell turns into a stacked block`);
+    assert.equal(/\.detail-label[^}]*display\s*:\s*block/.test(html), false);
+    assert.match(table, /border-left:3px solid/, `${type}: the accent is a thin left border`);
+  }
+});
+
+test('the details table has one divider between items and none between a label and its value', () => {
+  const { html } = render(NOTIFICATION_TYPE.PAYMENT_VERIFIED);
+  const table = html.match(/<table[^>]*class="detail-box"[\s\S]*?<\/table>/)[0];
+  const rows = table.match(/<tr>[\s\S]*?<\/tr>/g);
+  assert.equal(/border-top/.test(rows[0]), false, 'no line above the first item');
+  rows.slice(1).forEach((row) => {
+    const [label, value] = row.match(/<td [\s\S]*?<\/td>/g);
+    assert.match(label, /border-top:1px solid/);
+    assert.match(value, /border-top:1px solid/); // the same line, drawn by both cells of one row
+  });
+  assert.equal(/border-bottom/.test(table), false, 'no line under a label');
+});
+
+test('the label is small and muted, the value larger and bold', () => {
+  const { html } = render(NOTIFICATION_TYPE.BOOKING_APPROVED);
+  const label = html.match(/<td class="detail-label[^>]*style="([^"]*)"/)[1];
+  const value = html.match(/<td class="detail-value[^>]*style="([^"]*)"/)[1];
+  const size = (s) => Number(s.match(/font-size:(\d+)px/)[1]);
+  assert.ok(size(label) >= 12 && size(label) <= 13);
+  assert.ok(size(value) >= 15 && size(value) <= 16);
+  assert.match(label, /text-transform:uppercase/);
+  assert.match(value, /font-weight:700/);
+  assert.match(value, /overflow-wrap:anywhere/, 'a long value wraps inside its column');
+});
+
+test('only the logo, the headline and the button are centered in the body, and the body text is left aligned', () => {
+  const { html } = render(NOTIFICATION_TYPE.BOOKING_APPROVED);
+  assert.match(html, /<h1[^>]*text-align:center/);
+  assert.match(html, /<p class="t-body" style="margin:0 0 18px;font-size:16px/, 'paragraphs carry no centering');
+  assert.match(html, /<td class="px" align="left"[^>]*text-align:left/);
+  assert.match(html, /<p class="t-body" style="margin:0 0 22px;text-align:left/, 'what happens next is left aligned');
+});
+
+test('details escape markup in their values and the dark mode rule color is set for the dividers', () => {
+  const { html } = render(NOTIFICATION_TYPE.BOOKING_APPROVED, { booking: booking({ service: { name: '<b>x</b>', price: 1 } }) });
+  assert.ok(html.includes('&lt;b&gt;x&lt;/b&gt;') && !html.includes('<b>x</b>'));
+  assert.match(html, /\.d-rule \{ border-top-color: #233554 !important; \}/);
+});

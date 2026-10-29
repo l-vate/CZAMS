@@ -75,7 +75,6 @@ function Icon({ name }) {
 function AdminServiceDetailsModal({ booking, onClose, onUpdated, asPage = false }) {
     
     const [saving, setSaving] = useState(false);
-    const [ownerCancel, setOwnerCancel] = useState(null); // cancelling because we cannot supply or serve: null, or the reason being typed
     const [offeredDates, setOfferedDates] = useState([]); // dates offered after an approval is refused because nobody is free
     const [recordDraft, setRecordDraft] = useState(null); // a payment being recorded: received in person
     const [error, setError] = useState('');
@@ -222,13 +221,6 @@ const [report, setReport] = useState(null);
         if (window.confirm('Cancel this booking? This cannot be undone.')) {
             patchBooking({ status: 'Cancelled' });
         }
-    };
-
-    // Cancelling because the owner cannot supply the unit or cannot serve: a reason is required, and the whole verified down payment is
-    // refunded with no transportation fee, whatever the booked date.
-    const handleOwnerCancel = async () => {
-        const ok = await patchBooking({ status: 'Cancelled', ownerInitiated: true, cancelReason: ownerCancel.trim() });
-        if (ok) setOwnerCancel(null);
     };
 
     const handleDisruptionReschedule = async () => {
@@ -1152,28 +1144,9 @@ const [report, setReport] = useState(null);
 </div>
 
                 <div className="sdm-footer">
-                    {canCancel && ownerCancel !== null && (
-                        <div className="owner-cancel-form">
-                            <label className="scope-form-wide">
-                                Why can we not supply or serve this booking? (required, the customer is told)
-                                <input className="ma-input" type="text" maxLength={200} value={ownerCancel} onChange={(e) => setOwnerCancel(e.target.value)} />
-                            </label>
-                            <p className="sdm-muted">The whole verified down payment is refunded with no transportation fee, whatever the booked date.</p>
-                            <div className="scope-actions">
-                                <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setOwnerCancel(null)} disabled={saving}>Back</button>
-                                <button type="button" className="sdm-btn sdm-btn-danger" onClick={handleOwnerCancel} disabled={saving || ownerCancel.trim().length < 3}>Cancel and refund in full</button>
-                            </div>
-                        </div>
-                    )}
-                    {canCancel && ownerCancel === null && (
+                    {canCancel && (
                         <button className="sdm-btn sdm-btn-danger" onClick={handleCancel} disabled={saving}>
                             Cancel Booking
-                        </button>
-                    )}
-                    {/* once the owner has set the unit, "we cannot supply" no longer applies */}
-                    {canCancel && ownerCancel === null && !(booking.units || []).some((u) => u.supplied?.resolvedAt) && (
-                        <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setOwnerCancel('')} disabled={saving}>
-                            Cancel: we cannot supply or serve
                         </button>
                     )}
                     <div className="sdm-footer-actions">

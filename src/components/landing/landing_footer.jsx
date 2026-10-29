@@ -25,13 +25,13 @@ function LandingFooter({ onLogin }) {
           <p>Sunday: Closed</p>
         </div>
 
-        <div>
+        <div className="lp-footer-contact">
           <h3>Contact Us</h3>
           <p><FiPhone aria-hidden="true" /> <a href={COMPANY_PHONE_TEL}>{COMPANY_PHONE}</a></p>
           <p><FiMail aria-hidden="true" /> <a href={`mailto:${EMAIL}`}>{EMAIL}</a></p>
         </div>
 
-        <div>
+        <div className="lp-footer-location">
           <h3>Location</h3>
           <p>{ADDRESS}</p>
           <iframe src={MAP_EMBED_URL} className="map" loading="lazy" title={`Map of ${BRAND_SHORT} at ${ADDRESS}`} referrerPolicy="no-referrer-when-downgrade" />

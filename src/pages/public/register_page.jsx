@@ -53,7 +53,7 @@ function RegisterPage() {
   };
 
   return (
-    <AuthShell title="Create your account" subtitle="Fill in your details to get started." backTo={null} wide>
+    <AuthShell title="Create your account" subtitle="Fill in your details to get started." backTo={null} smallBackTo="/login" wide>
       <form className="ap-form ap-form--two" onSubmit={handleSubmit}>
         <TextField
           id="firstName"
@@ -116,29 +116,29 @@ function RegisterPage() {
           <option value="Commercial">Commercial</option>
         </SelectField>
 
-        {/* always on the page, hidden for a Residential client, so choosing a client type never changes the size of the card */}
-        <div className={`ap-reserve ap-span-2${formData.clientType === 'Commercial' ? '' : ' ap-reserve--off'}`} aria-hidden={formData.clientType !== 'Commercial'}>
-          <TextField
-            id="companyName"
-            name="companyName"
-            label="Company name"
-            autoComplete="organization"
-            maxLength={COMPANY_NAME_MAX}
-            value={formData.companyName}
-            onChange={handleChange}
-            disabled={formData.clientType !== 'Commercial'}
-          />
-          <TextField
-            id="representativeName"
-            name="representativeName"
-            label="Representative name"
-            autoComplete="name"
-            maxLength={REPRESENTATIVE_NAME_MAX}
-            value={formData.representativeName}
-            onChange={handleChange}
-            disabled={formData.clientType !== 'Commercial'}
-          />
-        </div>
+        {/* only for a Commercial client: a Residential client sees no empty space where these would be */}
+        {formData.clientType === 'Commercial' && (
+          <div className="ap-reserve ap-span-2">
+            <TextField
+              id="companyName"
+              name="companyName"
+              label="Company name"
+              autoComplete="organization"
+              maxLength={COMPANY_NAME_MAX}
+              value={formData.companyName}
+              onChange={handleChange}
+            />
+            <TextField
+              id="representativeName"
+              name="representativeName"
+              label="Representative name"
+              autoComplete="name"
+              maxLength={REPRESENTATIVE_NAME_MAX}
+              value={formData.representativeName}
+              onChange={handleChange}
+            />
+          </div>
+        )}
 
         <PasswordField
           id="password"

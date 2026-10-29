@@ -320,3 +320,171 @@
 .notif-page-retry {
   margin-left: 8px;
 }
+
+/* The tabs of the notifications page: Needs action (admin), All, then one per category. One row that scrolls sideways on a phone. */
+.notif-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  padding-bottom: 2px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--mist);
+  scrollbar-width: thin;
+}
+
+.notif-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.notif-tab:hover { color: var(--navy); }
+.notif-tab--active { border-bottom-color: var(--navy-soft); color: var(--navy); }
+.notif-tab:focus-visible { outline: 3px solid var(--primary); outline-offset: -3px; border-radius: 6px; }
+
+.notif-tab-count {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: var(--navy);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+}
+
+.notif-date-group + .notif-date-group { margin-top: 20px; }
+
+.notif-date-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.notif-item-category { font-weight: 600; }
+
+#notif-tabpanel:focus { outline: none; }
+
+@media (max-width: 600px) {
+  .notif-page-header { flex-wrap: wrap; }
+  .notif-tab { padding: 0 12px; }
+}
+
+/* The admin bell's first row: bookings that need action, a link to the Needs action tab (not a notification, so it has no read state). */
+.notif-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.notif-action-count {
+  display: inline-block;
+  min-width: 22px;
+  padding: 0 7px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: var(--navy);
+  color: #fff;
+  font-size: 12px;
+  line-height: 22px;
+  text-align: center;
+}
+
+/* Sort and Unread only, under the tabs. One line on a phone too, every control at least 44 px tall. */
+.notif-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.notif-sort { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; }
+.notif-sort-label { font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+
+.notif-sort-select {
+  flex: 0 1 200px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1.5px solid var(--mist);
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--navy);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.notif-unread-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--navy);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.notif-unread-track {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  transition: background 0.15s ease;
+}
+
+.notif-unread-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s ease;
+}
+
+.notif-unread-toggle--on .notif-unread-track { background: var(--navy-soft); }
+.notif-unread-toggle--on .notif-unread-knob { transform: translateX(16px); }
+.notif-sort-select:focus-visible, .notif-unread-toggle:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; border-radius: 10px; }
+
+.notif-limit-note { margin: 12px 0 0; font-size: 12px; color: var(--ink-soft); text-align: center; }
+
+/* heard by a screen reader when the list changes, never shown */
+.notif-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .notif-unread-track, .notif-unread-knob { transition: none; }
+}

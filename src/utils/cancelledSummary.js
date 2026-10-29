@@ -11,7 +11,7 @@ export const PROOF_WAITING_TEXT = 'Your down payment proof is still being checke
 export function cancelledByText(booking) {
   if (booking?.ownerCancelled) return 'The owner cancelled this booking because we could not supply or serve it.';
   if (booking?.cancelledBy === 'customer') return 'You cancelled this booking.';
-  if (booking?.cancelledBy === 'admin') return 'Our team cancelled this booking.';
+  if (booking?.cancelledBy === 'admin') return 'Cancelled by the owner.';
   return 'This booking was cancelled.';
 }
 

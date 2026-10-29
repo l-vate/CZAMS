@@ -15,8 +15,8 @@ import { SAME_DAY_CANCEL_WARNING, CANCEL_POLICY_NOTE, showsSameDayWarning } from
 import { usePaymentSettings, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
 import PaymentModal from '../../components/payment_modal';
 import { unitChangeOf } from '../../utils/suppliedUnitChoice';
-import { submitPayment } from '../../services/paymentService';
-import { PAYMENT_STATUS } from '../../constants/paymentStatus';
+import { submitPayment, submitBalancePayment } from '../../services/paymentService';
+import { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } from '../../constants/paymentStatus';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
 import {
   FiCheck, FiBell, FiPrinter,
@@ -350,7 +350,7 @@ export function CancelledSummary({ booking, formatWhen }) {
       <h3 className="bs-card-title">Cancellation</h3>
       <p className="cancelled-summary-line"><strong>{cancelledByText(booking)}</strong></p>
       {booking.cancelledAt && <p className="cancelled-summary-line">Cancelled on {formatWhen(booking.cancelledAt)}.</p>}
-      {booking.ownerCancelled && booking.cancelReason && <p className="cancelled-summary-line"><strong>Reason:</strong> {booking.cancelReason}</p>}
+      {booking.cancelReason && (booking.ownerCancelled || booking.cancelledBy === 'admin') && <p className="cancelled-summary-line"><strong>Reason:</strong> {booking.cancelReason}</p>}
       <p className="cancelled-summary-line">{refundText(booking)}</p>
       {figures.length > 0 && (
         <div className="cancelled-summary-figures">
@@ -371,6 +371,7 @@ function BookDetails() {
   const { downPaymentPercentages, paymentMethods } = usePaymentSettings();
   const { notice, showNotice, clearNotice } = useNotice();
   const [showPay, setShowPay] = useState(false);
+  const [payingBalance, setPayingBalance] = useState(false); // the Pay window is for the balance after the service, not the down payment
 
   const [booking, setBooking] = useState(location.state?.booking || null);
   const [loading, setLoading] = useState(!location.state?.booking);
@@ -459,10 +460,16 @@ function BookDetails() {
   const downPaymentOpen = [PAYMENT_STATUS.UNPAID, PAYMENT_STATUS.REJECTED].includes(booking.paymentStatus) && dpPercent > 0 && toPayNow > 0
     && [BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED].includes(booking.status);
   const waitingForConfirmation = downPaymentOpen && booking.service?.serviceType === SERVICE_TYPE.INSTALLATION && booking.status === BOOKING_STATUS.PENDING;
+  // Once the service is Completed the rest of the price is due: the balance is open while the down payment is verified and the balance is
+  // neither paid nor waiting to be verified.
+  const balanceDue = booking.status === BOOKING_STATUS.COMPLETED && booking.paymentStatus === PAYMENT_STATUS.PARTIALLY_PAID
+    && !booking.balancePaid && booking.balancePaymentStatus !== BALANCE_PAYMENT_STATUS.PAID && booking.balancePaymentStatus !== BALANCE_PAYMENT_STATUS.TO_VERIFY && remaining > 0;
+  const balanceToVerify = booking.status === BOOKING_STATUS.COMPLETED && booking.balancePaymentStatus === BALANCE_PAYMENT_STATUS.TO_VERIFY;
   const handlePaySubmit = async ({ proof, referenceNumber }) => {
     try {
-      await submitPayment(booking.bookingId, proof, referenceNumber);
+      await (payingBalance ? submitBalancePayment : submitPayment)(booking.bookingId, proof, referenceNumber);
       setShowPay(false);
+      setPayingBalance(false);
       setReloadKey((k) => k + 1);
     } catch (err) {
       showNotice(err instanceof ApiError ? err.message || 'Failed to submit payment' : 'Could not connect to server.');
@@ -569,6 +576,22 @@ function BookDetails() {
   return (
     <CustomerLayout title="Booking Details">
       <Notice message={notice} onClose={clearNotice} />
+      {balanceDue && (
+        <section className="balance-reminder" role="status" aria-label="Payment reminder">
+          <div className="balance-reminder-text">
+            <h3 className="balance-reminder-title">Your service is complete. Please pay your balance.</h3>
+            <p>Remaining balance: <strong>{formatPeso(remaining)}</strong>{booking.isCommercial && booking.paymentTermsDays > 0 ? `, due within ${booking.paymentTermsDays} days after completion` : ''}.</p>
+          </div>
+          <button type="button" className="pay-down-btn balance-reminder-btn" onClick={() => { setPayingBalance(true); setShowPay(true); }} disabled={!paymentMethods || paymentMethods.length === 0}>
+            Pay Balance
+          </button>
+        </section>
+      )}
+      {balanceToVerify && (
+        <section className="balance-reminder balance-reminder--sent" role="status" aria-label="Payment reminder">
+          <p className="balance-reminder-title">Your balance payment was sent. We will confirm it once we have checked it.</p>
+        </section>
+      )}
       {booking.unitDecline?.reason && !cancelled && (
         <section className="unit-decline-notice" role="alert" aria-label="The owner cannot supply this unit">
           <h3 className="unit-decline-title">The owner cannot supply this unit</h3>
@@ -598,8 +621,9 @@ function BookDetails() {
       {showPay && (
         <PaymentModal
           form={{ ...receiptForm, paymentMode2: booking.paymentMode2 }}
+          paymentType={payingBalance ? 'balance' : 'downpayment'}
           paymentMethods={paymentMethods}
-          onClose={() => setShowPay(false)}
+          onClose={() => { setShowPay(false); setPayingBalance(false); }}
           onSubmit={handlePaySubmit}
         />
       )}

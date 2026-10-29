@@ -1,0 +1,75 @@
+/* The Cancel Booking dialog (components/cancel_booking_dialog.jsx): why it is being cancelled, then confirm. Every control is at least 44 px tall. */
+.cbd-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.cbd-dialog {
+  width: min(480px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 24px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.3);
+}
+
+.cbd-title { margin: 0 0 4px; font-family: 'Outfit', sans-serif; font-size: 1.2rem; color: var(--navy, #0b2545); overflow-wrap: anywhere; }
+.cbd-warning { margin: 0 0 16px; font-size: 0.875rem; color: #b42318; font-weight: 600; }
+
+.cbd-reasons { margin: 0 0 12px; padding: 0; border: 0; display: grid; gap: 8px; }
+.cbd-legend { padding: 0; margin: 0 0 8px; font-size: 0.875rem; font-weight: 700; color: var(--navy, #0b2545); }
+.cbd-legend span { font-weight: 500; color: #64748b; }
+
+/* .cbd-dialog in front: a global rule for labels around a radio sets 40 px on a phone and would win over a single class */
+.cbd-dialog .cbd-choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+  color: #0f172a;
+  cursor: pointer;
+}
+.cbd-dialog .cbd-choice input { width: 20px; height: 20px; margin: 0; flex: 0 0 auto; accent-color: #1e4a7a; cursor: pointer; }
+.cbd-choice--on { border-color: #1e4a7a; background: #f3f9fd; font-weight: 600; }
+.cbd-choice:focus-within { outline: 3px solid var(--primary, #2563eb); outline-offset: 2px; }
+
+.cbd-text { display: grid; gap: 6px; margin: 0 0 12px; }
+.cbd-text-label { font-size: 0.875rem; font-weight: 600; color: #334155; }
+.cbd-input {
+  width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 0.9375rem;
+}
+.cbd-input:focus-visible { outline: 3px solid var(--primary, #2563eb); outline-offset: 1px; }
+.cbd-input[aria-invalid='true'] { border-color: #b42318; }
+
+.cbd-refund-note { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; background: #f0faf2; border: 1px solid #bfe3c8; color: #14532d; font-size: 0.875rem; line-height: 1.5; }
+.cbd-problem { margin: 0 0 12px; font-size: 0.8125rem; color: #b42318; font-weight: 600; }
+.cbd-problem--slot { min-height: 2.6em; margin-bottom: 8px; } /* room for two lines, so the message appearing moves nothing */
+
+.cbd-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+.cbd-btn { min-height: 44px; padding: 0 20px; }
+.cbd-btn:focus-visible { outline: 3px solid var(--primary, #2563eb); outline-offset: 2px; }
+
+@media (max-width: 480px) {
+  .cbd-dialog { padding: 18px 16px; }
+  .cbd-actions { flex-direction: column-reverse; }
+  .cbd-btn { width: 100%; }
+}

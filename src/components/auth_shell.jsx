@@ -7,7 +7,7 @@ import { AREA_SERVED, SINCE_YEAR, HOURS_TEXT } from '../config/landingContent';
 
 // The layout shared by the four pages around signing in (sign in, create account, forgot and reset password): the company on the left (logo,
 // name, one line and three facts, all from the landing page config) and the form card on the right, on the same navy backdrop and snow as the
-// landing page. On a phone the brand sits above the card and only the logo and name stay.
+// landing page. Below a desktop width the brand sits above the card and only the logo and name stay.
 const TAGLINE = 'Book, manage and track your aircon service in one place.';
 const FACTS = [
   { icon: <FiMapPin />, text: `Serving ${AREA_SERVED} since ${SINCE_YEAR}` },
@@ -15,7 +15,8 @@ const FACTS = [
   { icon: <FiClock />, text: `Open ${HOURS_TEXT}` },
 ];
 
-function AuthShell({ title, subtitle, children, backTo = '/login', backLabel = 'Back to sign in', wide = false, centered = false }) {
+// smallBackTo: a small Back link that is shown on a tablet or a phone only (the sign in page has no back link on a desktop).
+function AuthShell({ title, subtitle, children, backTo = '/login', backLabel = 'Back to sign in', smallBackTo = null, wide = false, centered = false }) {
   return (
     <div className="ap-page">
       <div className="ap-backdrop" aria-hidden="true"><Snowfall /></div>
@@ -23,6 +24,12 @@ function AuthShell({ title, subtitle, children, backTo = '/login', backLabel = '
       {backTo && (
         <header className="ap-top">
           <Link to={backTo} className="ap-back"><FiArrowLeft aria-hidden="true" /> {backLabel}</Link>
+        </header>
+      )}
+
+      {!backTo && smallBackTo && (
+        <header className="ap-top ap-top--small">
+          <Link to={smallBackTo} className="ap-back ap-back--small"><FiArrowLeft aria-hidden="true" /> Back</Link>
         </header>
       )}
 

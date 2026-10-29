@@ -325,6 +325,17 @@ main:focus { outline: none; }
 /* ---------- footer ---------- */
 .lp-footer { padding: 64px max(var(--lp-gutter), calc((100% - var(--lp-max)) / 2)) 24px; }
 .lp-footer-grid { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+/* a tablet: the brand and hours on the left, the location with its map on the right and the contact details under the map, so the footer stays short */
+@media (min-width: 601px) and (max-width: 1024px) {
+  .lp-footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lp-footer-location { grid-column: 2; grid-row: 1; }
+  .lp-footer-contact { grid-column: 2; grid-row: 2; }
+  /* the map takes the height the left column makes, so there is no empty gap between it and Contact Us */
+  .lp-footer-location { display: flex; flex-direction: column; }
+  .lp-footer-location .map { flex: 1 1 auto; height: auto; min-height: 160px; }
+}
+/* the copyright line is a flex paragraph here, so it is centered with justify-content */
+.lp-footer .copy { justify-content: center; text-align: center; }
 .lp-footer h3 { margin-bottom: 14px; color: #6aa7ec; font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
 .lp-footer p { display: flex; align-items: center; gap: 8px; min-height: 28px; }
 .lp-footer p a { display: inline-flex; align-items: center; min-height: 40px; }

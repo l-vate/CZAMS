@@ -35,9 +35,12 @@ function BookingDetailsPage() {
   return (
     <AdminLayout title="Bookings">
       <div className="page-container sdm-page-wrap">
-        <button type="button" className="sdm-back" onClick={back}>
-          <FiArrowLeft /> Back to Bookings
-        </button>
+        {/* once the booking is loaded the Back button is inside its card; until then (loading or an error) there is no card */}
+        {!booking && (
+          <button type="button" className="sdm-back" onClick={back}>
+            <FiArrowLeft /> Back to Bookings
+          </button>
+        )}
         {loadError ? (
           <p className="req-empty" role="alert">{loadError}</p>
         ) : !booking ? (

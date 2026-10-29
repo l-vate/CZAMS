@@ -68,6 +68,12 @@
   text-decoration: none;
   transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
+/* the small Back link of the sign in page: a tablet or a phone only, and smaller than the other Back links (it is still 44 px to tap) */
+.ap-back--small { position: relative; min-height: 34px; padding: 0 12px 0 8px; gap: 5px; font-size: 13px; }
+.ap-back--small svg { width: 14px; height: 14px; }
+.ap-back--small::after { content: ''; position: absolute; inset: -5px -4px; } /* the tap area stays 44 px tall */
+.ap-top--small { padding-top: 14px; }
+@media (min-width: 1024px) { .ap-top--small { display: none; } }
 .ap-back svg { width: 18px; height: 18px; flex-shrink: 0; transition: transform 0.2s ease; }
 .ap-back:hover { background: #fff; color: var(--ap-ink); border-color: #fff; }
 .ap-back:hover svg { transform: translateX(-3px); }
@@ -148,7 +154,6 @@
 .ap-card--wide .ap-input::placeholder { font-size: 13px; }
 .ap-card--wide .ap-toggle { width: 36px; right: 2px; }
 .ap-card--wide .ap-reserve { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
-.ap-card--wide .ap-reserve--off { visibility: hidden; }
 .ap-card--wide .ap-rules { display: flex; flex-direction: row; flex-wrap: wrap; gap: 2px 14px; font-size: 12px; }
 .ap-card--wide .ap-slot { position: relative; min-height: 0; }
 /* an error message sits over the password rules, just above the button, so it takes no room of its own */
@@ -307,6 +312,11 @@ select.ap-input {
 @media (min-width: 601px) {
   .ap-logo { width: min(100%, 300px); }
   .ap-brand-name { font-size: 22px; }
+}
+
+/* the line and the three facts are for a desktop only: a tablet or a phone shows the logo and name above the card */
+@media (max-width: 1023px) {
+  .ap-tagline, .ap-facts { display: none; }
 }
 
 /* ---------- a desktop: the brand on the left, the card on the right, both centered on the same line ---------- */

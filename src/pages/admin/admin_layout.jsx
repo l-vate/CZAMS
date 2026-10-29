@@ -6,10 +6,14 @@ import NotificationBell from '../../components/notification_bell';
 import { listConversations } from '../../services/chatService';
 
 import { adminNotificationTarget } from '../../utils/notificationTarget';
+import { useNeedsAttention } from '../../hooks/useNeedsAttention';
+import { needsActionCount } from '../../utils/needsAction';
 // Search moved here (topbar), same pattern as the customer portal - pages that
 // need search pass searchValue/onSearchChange/searchPlaceholder in and get the
 // topbar box; pages that don't just omit those props and get nothing.
 function AdminLayout({ title, children, searchValue, onSearchChange, searchPlaceholder }) {
+  // the bell carries how many bookings need action (the same shared answer as the Needs action tab)
+  const needs = useNeedsAttention();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -73,7 +77,12 @@ function AdminLayout({ title, children, searchValue, onSearchChange, searchPlace
               <FiMessageCircle />
               {unreadChats > 0 && <span className="topbar-chat-badge" aria-hidden="true">{unreadChats > 9 ? '9+' : unreadChats}</span>}
             </button>
-            <NotificationBell onNotificationClick={handleNotificationClick} viewAllRoute="/admin/notifications" />
+            <NotificationBell
+              onNotificationClick={handleNotificationClick}
+              viewAllRoute="/admin/notifications"
+              actionCount={needsActionCount(needs.data)}
+              actionRoute="/admin/notifications?tab=needs-action"
+            />
           </div>
         </div>
 

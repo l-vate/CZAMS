@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import AdminLayout from './admin_layout';
 import { FiX, FiInfo, FiShield, FiEye } from 'react-icons/fi';
 import { getFilterPillStyle } from '../../utils/statusColors';
@@ -198,7 +199,10 @@ function BackJobCard({ backJob, onReview }) {
 }
 
 function BackJobs() {
-  const [activeFilter, setActiveFilter] = useState('all');
+  // The "Needs attention" panel links here with ?filter=Not Covered.
+  const [linkParams] = useSearchParams();
+  const linkedFilter = linkParams.get('filter');
+  const [activeFilter, setActiveFilter] = useState(FILTERS.some((f) => f.key === linkedFilter) ? linkedFilter : 'all');
   const [search, setSearch] = useState('');
   const [selectedBackJob, setSelectedBackJob] = useState(null);
   const [rawBackJobs, setRawBackJobs] = useState([]);

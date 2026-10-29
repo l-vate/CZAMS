@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom"; 
 import { BRAND_NAME, BRAND_SHORT, BRAND_SUB } from '../../config/company';
+import { resetNeedsAttention } from '../../hooks/useNeedsAttention';
 
 function AdminSidebar({ onNavigate }) {
   const navigate = useNavigate();
@@ -22,6 +23,7 @@ function AdminSidebar({ onNavigate }) {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    resetNeedsAttention();
     if (onNavigate) onNavigate();
     navigate("/login");
   };

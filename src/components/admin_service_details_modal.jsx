@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { FiArrowLeft, FiArrowRight } from 'react-icons/fi';
 import { getBookingLineItems, getPaymentBreakdown, formatPeso } from '../utils/bookingPricing';
 import AssignmentPanel from './assignment_panel';
+import CancelBookingDialog from './cancel_booking_dialog';
 import SuggestedDates from './suggested_dates';
 import PaymentReference from './payment_reference';
 import ScopeOfWorksEditor from './scope_of_works_editor';
@@ -73,10 +76,10 @@ function Icon({ name }) {
 function AdminServiceDetailsModal({ booking, onClose, onUpdated, asPage = false }) {
     
     const [saving, setSaving] = useState(false);
-    const [ownerCancel, setOwnerCancel] = useState(null); // cancelling because we cannot supply or serve: null, or the reason being typed
     const [offeredDates, setOfferedDates] = useState([]); // dates offered after an approval is refused because nobody is free
     const [recordDraft, setRecordDraft] = useState(null); // a payment being recorded: received in person
     const [error, setError] = useState('');
+    const [cancelOpen, setCancelOpen] = useState(false);
     const [disruptionDate, setDisruptionDate] = useState('');
     const [disruptionTime, setDisruptionTime] = useState('');
     const [disruptionReason, setDisruptionReason] = useState('');
@@ -216,17 +219,13 @@ const [report, setReport] = useState(null);
         }
     };
 
+    // Cancel Booking opens a dialog that asks why (see components/cancel_booking_dialog.jsx) and is the confirmation step.
     const handleCancel = () => {
-        if (window.confirm('Cancel this booking? This cannot be undone.')) {
-            patchBooking({ status: 'Cancelled' });
-        }
+        setError('');
+        setCancelOpen(true);
     };
-
-    // Cancelling because the owner cannot supply the unit or cannot serve: a reason is required, and the whole verified down payment is
-    // refunded with no transportation fee, whatever the booked date.
-    const handleOwnerCancel = async () => {
-        const ok = await patchBooking({ status: 'Cancelled', ownerInitiated: true, cancelReason: ownerCancel.trim() });
-        if (ok) setOwnerCancel(null);
+    const confirmCancel = async (body) => {
+        if (await patchBooking(body)) setCancelOpen(false);
     };
 
     const handleDisruptionReschedule = async () => {
@@ -332,6 +331,11 @@ const [report, setReport] = useState(null);
             <div className={asPage ? 'sdm-page-card' : 'sdm-modal'} onClick={asPage ? undefined : (e) => e.stopPropagation()}>
                 {!asPage && <button type="button" className="modal-close-btn sdm-close-position" onClick={onClose}>✕</button>}
                 <div className="sdm-body">
+                    {asPage && (
+                        <button type="button" className="sdm-back sdm-back--in-card" onClick={onClose}>
+                            <FiArrowLeft /> Back to Bookings
+                        </button>
+                    )}
                     <div className="sdm-titlebar">
                         <div>
                             <h2 className="sdm-title">Booking Details</h2>
@@ -366,7 +370,12 @@ const [report, setReport] = useState(null);
                         return null;
                     })()}
 
-                    {error && <div className="sdm-error">{error}</div>}
+                    {error && !cancelOpen && <div className="sdm-error">{error}</div>}
+                    {(/down payment/i.test(error) || booking.paymentStatus === 'to_verify' || booking.balancePaymentStatus === 'to_verify') && (
+                        <Link to={`/admin/payments?filter=to_verify&q=${encodeURIComponent(booking.bookingId)}`} className="sdm-verify-payment">
+                            Verify payment <FiArrowRight aria-hidden="true" />
+                        </Link>
+                    )}
                     <SuggestedDates
                         dates={offeredDates}
                         time={booking.time}
@@ -1140,28 +1149,9 @@ const [report, setReport] = useState(null);
 </div>
 
                 <div className="sdm-footer">
-                    {canCancel && ownerCancel !== null && (
-                        <div className="owner-cancel-form">
-                            <label className="scope-form-wide">
-                                Why can we not supply or serve this booking? (required, the customer is told)
-                                <input className="ma-input" type="text" maxLength={200} value={ownerCancel} onChange={(e) => setOwnerCancel(e.target.value)} />
-                            </label>
-                            <p className="sdm-muted">The whole verified down payment is refunded with no transportation fee, whatever the booked date.</p>
-                            <div className="scope-actions">
-                                <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setOwnerCancel(null)} disabled={saving}>Back</button>
-                                <button type="button" className="sdm-btn sdm-btn-danger" onClick={handleOwnerCancel} disabled={saving || ownerCancel.trim().length < 3}>Cancel and refund in full</button>
-                            </div>
-                        </div>
-                    )}
-                    {canCancel && ownerCancel === null && (
+                    {canCancel && (
                         <button className="sdm-btn sdm-btn-danger" onClick={handleCancel} disabled={saving}>
                             Cancel Booking
-                        </button>
-                    )}
-                    {/* once the owner has set the unit, "we cannot supply" no longer applies */}
-                    {canCancel && ownerCancel === null && !(booking.units || []).some((u) => u.supplied?.resolvedAt) && (
-                        <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setOwnerCancel('')} disabled={saving}>
-                            Cancel: we cannot supply or serve
                         </button>
                     )}
                     <div className="sdm-footer-actions">
@@ -1188,6 +1178,9 @@ const [report, setReport] = useState(null);
                 </div>
             </div>
         </div>
+        {cancelOpen && (
+            <CancelBookingDialog bookingId={booking.bookingId} saving={saving} error={error} onConfirm={confirmCancel} onClose={() => setCancelOpen(false)} />
+        )}
         {showReceipt && (
             <ReceiptModal
                 form={buildReceiptForm(booking, {

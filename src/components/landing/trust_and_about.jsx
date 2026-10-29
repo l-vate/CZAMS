@@ -47,7 +47,9 @@ export function AboutSection() {
       <div className="lp-about-grid">
         <div className="lp-about-copy">
           <SectionHeading title={ABOUT.title} id="about-title" align="left" />
-          {ABOUT.paragraphs.map((text) => <p key={text} data-reveal>{text}</p>)}
+          <div className="lp-about-text">
+            {ABOUT.paragraphs.map((text) => <p key={text} data-reveal>{text}</p>)}
+          </div>
           <AboutFacts />
         </div>
         <div className="lp-about-visual" data-reveal>

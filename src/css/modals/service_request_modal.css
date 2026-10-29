@@ -367,6 +367,7 @@
    bottom without relying on sticky positioning inside a scrolling ancestor. */
 .sdm-footer {
     flex-shrink: 0;
+    flex-wrap: wrap;
     display: flex;
     align-items: center;
     justify-content: flex-end;
@@ -386,7 +387,13 @@
     display: flex;
     gap: 10px;
     flex-wrap: wrap; /* Prevent overflow on small screens */
+    align-items: center;
+    justify-content: flex-end;
+    flex: 1 1 240px;
+    min-width: 0;
 }
+/* the line that says what happens next: small, and it takes the room it needs instead of wrapping word by word */
+.sdm-footer-actions .sdm-muted { font-size: 0.78rem; line-height: 1.4; text-align: right; flex: 1 1 200px; }
 
 @media (max-width: 620px) {
     .sdm-columns {
@@ -432,6 +439,24 @@
     cursor: pointer;
 }
 .sdm-back:hover { background: #f1f5f9; }
+.sdm-back--in-card { margin-bottom: 18px; }
+/* goes to Payments with this booking searched and the To verify filter on */
+.sdm-verify-payment {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    margin: 14px 0 18px;
+    padding: 0 18px;
+    border-radius: 10px;
+    background: var(--navy-soft, #1e4a7a);
+    color: #fff;
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+.sdm-verify-payment:hover { background: var(--navy, #0b2545); }
+.sdm-verify-payment:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
 .sdm-page-card {
     background: #fff;
     border: 1px solid #e2e8f0;
@@ -439,7 +464,7 @@
     box-shadow: 0 8px 30px rgba(15, 23, 42, 0.07);
     overflow: hidden;
 }
-.sdm-page-card .sdm-body { padding: 36px 40px 16px; overflow: visible; }
+.sdm-page-card .sdm-body { padding: 28px 32px 16px; overflow: visible; }
 .sdm-page-card .sdm-titlebar { padding-right: 0; margin-bottom: 24px; }
 .sdm-page-card .sdm-title { font-size: 1.7rem; }
 .sdm-page-card .sdm-columns { gap: 56px; }
@@ -448,6 +473,7 @@
     .sdm-page-card .sdm-columns { gap: 28px; }
 }
 @media (max-width: 620px) {
-    .sdm-page-card .sdm-body { padding: 24px 18px 8px; }
-    .sdm-page-card .sdm-footer { padding: 16px 18px; }
+    .sdm-page-card { border-radius: 16px; }
+    .sdm-page-card .sdm-body { padding: 16px 14px 8px; }
+    .sdm-page-card .sdm-footer { padding: 14px; }
 }

@@ -12,8 +12,14 @@ const { TIMEZONE } = require('../utils/timeBlocks');
 // host that sleeps (a free instance) and misses midnight does the work as soon as it is awake, and every rule is a conditional update, so a
 // run that finds nothing to do does nothing and two runs at once cannot do anything twice. `now` is a parameter so the rule can be tested
 // with a fake clock. The log says counts only, never a name or a booking number.
+//
+// This file only SCHEDULES. The one place that moves a booking from Approved to In Progress is startApprovedBookings() in
+// utils/bookingLifecycle.js: the cron runs, the start-up run and the admin's manual route (POST /api/bookings/status-check/run) all call it
+// through here, so there is no second job that could start the same booking again. `matched` and `modified` repeat the start counts under
+// the names the manual route has always answered with.
 async function runBookingStatusCheck(now = new Date(), options = {}) {
-  return runDayStart({ now, ...options });
+  const result = await runDayStart({ now, ...options });
+  return { ...result, matched: result.start.matched, modified: result.start.started };
 }
 
 async function safeRun() {

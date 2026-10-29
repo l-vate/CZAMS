@@ -1,7 +1,7 @@
 /* eslint-disable no-console -- a preview script's output */
 // Renders one sample of every kind of notification email (and the password reset email) with FAKE data, into e17-email-previews/ (ignored by
 // git). Nothing is sent and nothing connects to a database or a mail server. With AUDIT_PLAYWRIGHT set to the path of playwright-core, it also
-// takes a screenshot of each page at 600 and 390 px wide.
+// takes a screenshot of each page in light and in dark mode (prefers-color-scheme emulated) at 600 and 390 px wide.
 //
 //   node scripts/previewEmails.js
 //   AUDIT_PLAYWRIGHT=<path to playwright-core> node scripts/previewEmails.js
@@ -54,15 +54,18 @@ const forDisk = (html) => html.replace('cid:czams-logo', `data:image/png;base64,
   const chrome = path.join(process.env.USERPROFILE || process.env.HOME || '', 'AppData', 'Local', 'ms-playwright', 'chromium-1234', 'chrome-win64', 'chrome.exe');
   const browser = await chromium.launch({ executablePath: chrome, headless: true });
   try {
-    for (const width of [600, 390]) {
-      const page = await browser.newPage({ viewport: { width, height: 900 } });
-      for (const name of pages) {
-        await page.goto(pathToFileURL(path.join(OUT, `${name}.html`)).href);
-        await page.screenshot({ path: path.join(OUT, `${name}-${width}.png`), fullPage: true });
+    for (const scheme of ['light', 'dark']) {
+      for (const width of [600, 390]) {
+        const context = await browser.newContext({ viewport: { width, height: 900 }, colorScheme: scheme });
+        const page = await context.newPage();
+        for (const name of pages) {
+          await page.goto(pathToFileURL(path.join(OUT, `${name}.html`)).href);
+          await page.screenshot({ path: path.join(OUT, `${name}-${scheme}-${width}.png`), fullPage: true });
+        }
+        await context.close();
       }
-      await page.close();
     }
-    console.log('Screenshots taken at 600 and 390 px.');
+    console.log('Screenshots taken in light and dark mode at 600 and 390 px.');
   } finally {
     await browser.close();
   }

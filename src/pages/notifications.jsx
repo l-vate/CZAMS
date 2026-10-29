@@ -5,10 +5,11 @@ import AdminLayout from './admin/admin_layout';
 import CustomerLayout from './customer/customer_layout';
 import StaffLayout from './staff/staff_layout';
 import { NotificationsCenterView } from '../components/notifications_center';
-import { CATEGORY_ORDER, readFilterFor } from '../constants/notificationCategories';
+import { readFilterFor } from '../constants/notificationCategories';
 import { ROLE } from '../constants/roles';
 import { useNeedsAttention } from '../hooks/useNeedsAttention';
 import {
+  getNotificationCounts,
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
@@ -18,9 +19,11 @@ import {
   customerNotificationTarget,
   technicianNotificationTarget,
 } from '../utils/notificationTarget';
-import { NEEDS_ACTION_TAB, markCategoryRead } from '../utils/notificationGroups';
+import { markCategoryRead } from '../utils/notificationGroups';
+import { readSession, resolveView, saveSession, viewToParams } from '../utils/notificationView';
 
-// The page asks for more than the bell's newest 30, so the counts on the tabs cover a useful stretch of history.
+// The page asks for more than the bell's newest 30, so the list covers a useful stretch of history. The counts on the tabs do not depend on it:
+// they come from the server for every notification the user has.
 const PAGE_LIMIT = 200;
 
 function getStoredUserRole() {
@@ -37,6 +40,7 @@ function NotificationsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [notifications, setNotifications] = useState([]);
+  const [counts, setCounts] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
 
@@ -44,10 +48,22 @@ function NotificationsPage() {
   const isAdmin = role === ROLE.ADMIN;
   const needs = useNeedsAttention();
 
-  // the tab is in the address (?tab=bookings), so a link can open it and the back button keeps it; Needs action is for an admin only
-  const asked = searchParams.get('tab');
-  const tab = asked === NEEDS_ACTION_TAB ? (isAdmin ? NEEDS_ACTION_TAB : 'all') : (CATEGORY_ORDER.includes(asked) ? asked : 'all');
-  const handleTab = (next) => setSearchParams(next === 'all' ? {} : { tab: next }, { replace: true });
+  // The view (tab, sort, unread only) is in the address (?category=payments&sort=unread&unread=1), so a link opens it and the back button keeps
+  // it, and it is remembered for the session. The address wins; Needs action is for an admin only.
+  const view = resolveView(searchParams, readSession(), isAdmin);
+  const changeView = (patch) => {
+    const next = { ...view, ...patch };
+    saveSession(next);
+    setSearchParams(viewToParams(next), { replace: true });
+  };
+
+  const fetchCounts = () => {
+    getNotificationCounts()
+      .then((rows) => { if (Array.isArray(rows)) setCounts(rows); })
+      .catch(() => {
+        // the tabs fall back to counting the loaded list
+      });
+  };
 
   const fetchNotifications = async () => {
     try {
@@ -55,6 +71,7 @@ function NotificationsPage() {
       const data = await listNotifications(PAGE_LIMIT);
       setNotifications(Array.isArray(data) ? data : []);
       setLoadFailed(false);
+      fetchCounts();
     } catch {
       setLoadFailed(true);
     } finally {
@@ -73,6 +90,7 @@ function NotificationsPage() {
         setNotifications((prev) =>
           prev.map((n) => (n._id === notification._id ? { ...n, read: true } : n))
         );
+        fetchCounts();
       } catch {
         // no-op - keep navigation working even if marking read fails.
       }
@@ -95,6 +113,7 @@ function NotificationsPage() {
     try {
       await markAllNotificationsRead(readFilterFor(category === 'all' ? null : category));
       setNotifications((prev) => markCategoryRead(prev, category));
+      fetchCounts();
     } catch {
       // no-op - non-critical
     }
@@ -112,11 +131,16 @@ function NotificationsPage() {
       <NotificationsCenterView
         isAdmin={isAdmin}
         notifications={notifications}
+        counts={counts}
         loading={loading}
         loadFailed={loadFailed}
-        tab={tab}
+        tab={view.tab}
+        sort={view.sort}
+        unreadOnly={view.unread}
         needs={{ status: needs.status, data: needs.data, onRetry: needs.retry }}
-        onTab={handleTab}
+        onTab={(tab) => changeView({ tab })}
+        onSort={(sort) => changeView({ sort })}
+        onUnreadOnly={(unread) => changeView({ unread })}
         onOpen={handleNotificationClick}
         onMarkAll={handleMarkAllRead}
         onRetry={fetchNotifications}

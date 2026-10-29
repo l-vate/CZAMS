@@ -27,6 +27,21 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+// How many notifications the logged-in user has, and how many of them are unread, for each kind: [{ type, total, unread }]. The page adds the
+// kinds up per category, so the counts on its tabs are exact even when the list it loads (at most 200) is shorter than what the user has.
+router.get('/counts', auth, async (req, res) => {
+  try {
+    const rows = await Notification.aggregate([
+      { $match: { user: req.userId } },
+      { $group: { _id: '$type', total: { $sum: 1 }, unread: { $sum: { $cond: ['$read', 0, 1] } } } },
+    ]);
+    res.json(rows.map((row) => ({ type: row._id, total: row.total, unread: row.unread })));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Mark one of the logged-in user's own notifications as read
 router.patch('/:id/read', auth, async (req, res) => {
   try {

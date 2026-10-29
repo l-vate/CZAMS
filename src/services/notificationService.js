@@ -5,6 +5,11 @@ export function listNotifications(limit) {
   return request(limit ? `/api/notifications?limit=${limit}` : '/api/notifications');
 }
 
+// [{ type, total, unread }] for every kind the user has: exact counts for the tabs, whatever the length of the loaded list.
+export function getNotificationCounts() {
+  return request('/api/notifications/counts');
+}
+
 export function markNotificationRead(notificationId) {
   return request(`/api/notifications/${notificationId}/read`, { method: 'PATCH' });
 }

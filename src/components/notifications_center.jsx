@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { CATEGORY_LABEL, categoryOf } from '../constants/notificationCategories';
-import { NEEDS_ACTION_TAB, categoryCounts, groupByDate, inCategory, timeAgo, visibleCategories } from '../utils/notificationGroups';
+import { NEEDS_ACTION_TAB, categoryCounts, countsFromTypes, groupByDate, inCategory, timeAgo, visibleCategories } from '../utils/notificationGroups';
+import { SORTS, onlyUnread, sortLabel, sortNotifications } from '../utils/notificationView';
 import { buildNeedsActionRows } from '../utils/needsAction';
 import { NeedsActionRows } from './needs_action_rows';
 
@@ -55,8 +56,8 @@ function Tabs({ tabs, selected, onTab }) {
   );
 }
 
-function NotificationList({ notifications, onOpen, now, showCategory }) {
-  return groupByDate(notifications, now).map((group) => (
+function NotificationList({ notifications, onOpen, now, showCategory, sort }) {
+  return groupByDate(notifications, now, sort).map((group) => (
     <section className="notif-date-group" key={group.key} aria-labelledby={`notif-date-${group.key}`}>
       <h3 className="notif-date-title" id={`notif-date-${group.key}`}>{group.title}</h3>
       <div className="notif-page-list">
@@ -100,11 +101,38 @@ function NeedsActionPanel({ needs }) {
   return <div className="notif-page-list nr-panel"><NeedsActionRows rows={rows} /></div>;
 }
 
+// The sort order and the Unread only switch, under the tabs. On a phone they share one line. The select and the switch are real controls, so the
+// keyboard works as usual; the switch is a button with aria-checked.
+function Controls({ sort, unreadOnly, onSort, onUnreadOnly }) {
+  return (
+    <div className="notif-controls">
+      <label className="notif-sort">
+        <span className="notif-sort-label">Sort</span>
+        <select className="notif-sort-select" value={sort} onChange={(event) => onSort(event.target.value)}>
+          {SORTS.map((option) => <option key={option.key} value={option.key}>{option.label}</option>)}
+        </select>
+      </label>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={unreadOnly}
+        className={`notif-unread-toggle ${unreadOnly ? 'notif-unread-toggle--on' : ''}`}
+        onClick={() => onUnreadOnly(!unreadOnly)}
+      >
+        <span className="notif-unread-track" aria-hidden="true"><span className="notif-unread-knob" /></span>
+        Unread only
+      </button>
+    </div>
+  );
+}
+
 export function NotificationsCenterView({
   isAdmin = false, notifications = [], loading = false, loadFailed = false, tab = 'all', needs = { status: 'idle', data: null },
-  onTab = () => {}, onOpen = () => {}, onMarkAll = () => {}, onRetry = () => {}, now = new Date(),
+  sort = 'newest', unreadOnly = false, counts: exactCounts = null,
+  onTab = () => {}, onSort = () => {}, onUnreadOnly = () => {}, onOpen = () => {}, onMarkAll = () => {}, onRetry = () => {}, now = new Date(),
 }) {
-  const counts = categoryCounts(notifications);
+  // exact counts from the server when there are some (the list holds at most 200), else counted from the list
+  const counts = exactCounts ? countsFromTypes(exactCounts) : categoryCounts(notifications);
   const bookingCount = buildNeedsActionRows(needs.data).bookingCount;
   const tabs = [
     ...(isAdmin ? [{ key: NEEDS_ACTION_TAB, label: 'Needs action', count: bookingCount, countLabel: 'bookings need action' }] : []),
@@ -113,7 +141,9 @@ export function NotificationsCenterView({
   ];
   const selected = tabs.some((t) => t.key === tab) ? tab : 'all';
   const onNeeds = selected === NEEDS_ACTION_TAB;
-  const shown = onNeeds ? [] : inCategory(notifications, selected);
+  const inTab = onNeeds ? [] : inCategory(notifications, selected);
+  const shown = unreadOnly ? onlyUnread(sortNotifications(inTab, sort)) : sortNotifications(inTab, sort);
+  const tabTotal = onNeeds ? 0 : (selected === 'all' ? counts.all.total : counts.byCategory[selected]?.total || 0);
   const unreadHere = onNeeds ? 0 : (selected === 'all' ? counts.all.unread : counts.byCategory[selected]?.unread || 0);
   const heading = onNeeds ? 'Needs action' : selected === 'all' ? 'All notifications' : CATEGORY_LABEL[selected];
 
@@ -132,10 +162,25 @@ export function NotificationsCenterView({
   } else if (notifications.length === 0) {
     body = <div className="notif-page-empty">No notifications yet.</div>;
   } else if (shown.length === 0) {
-    body = <div className="notif-page-empty">No notifications in {heading}.</div>;
+    const where = selected === 'all' ? '' : ` in ${heading}`;
+    body = <div className="notif-page-empty">{unreadOnly ? `No unread notifications${where}.` : `No notifications${where}.`}</div>;
   } else {
-    body = <NotificationList notifications={shown} onOpen={onOpen} now={now} showCategory={selected === 'all'} />;
+    body = (
+      <>
+        <NotificationList notifications={shown} onOpen={onOpen} now={now} showCategory={selected === 'all'} sort={sort} />
+        {tabTotal > inTab.length && (
+          <p className="notif-limit-note">Showing the newest {inTab.length} of {tabTotal}.</p>
+        )}
+      </>
+    );
   }
+
+  const showControls = !onNeeds && !loading && !loadFailed && notifications.length > 0;
+  const total = shown.length;
+  // told to a screen reader whenever the list changes, without moving focus
+  const liveText = showControls
+    ? `${total} ${total === 1 ? 'notification' : 'notifications'}, ${sortLabel(sort).toLowerCase()}${unreadOnly ? ', unread only' : ''}${selected === 'all' ? '' : `, ${heading}`}.`
+    : '';
 
   return (
     <div className="notif-page">
@@ -154,6 +199,9 @@ export function NotificationsCenterView({
       </div>
 
       {(isAdmin || (!loading && !loadFailed && notifications.length > 0)) && <Tabs tabs={tabs} selected={selected} onTab={onTab} />}
+
+      {showControls && <Controls sort={sort} unreadOnly={unreadOnly} onSort={onSort} onUnreadOnly={onUnreadOnly} />}
+      <p className="notif-sr" role="status" aria-live="polite">{liveText}</p>
 
       <div id={PANEL_ID} role="tabpanel" aria-labelledby={tabId(selected)} tabIndex={-1}>
         {body}

@@ -13,7 +13,7 @@ const Notification = require('../models/Notification');
 const { authCache } = require('../utils/authCache');
 
 const chainOf = (value) => ({ select() { return this; }, lean() { return this; }, then: (res, rej) => Promise.resolve(value).then(res, rej) });
-const orig = { userFindById: User.findById, find: Notification.find, updateMany: Notification.updateMany };
+const orig = { userFindById: User.findById, find: Notification.find, updateMany: Notification.updateMany, aggregate: Notification.aggregate };
 let server;
 let base;
 let limitSeen;
@@ -40,6 +40,20 @@ test.beforeEach(() => { authCache.clear(); limitSeen = null; updates = []; });
 
 const headers = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${jwt.sign({ id: 'U1', role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '5m' })}` });
 const readAll = (body) => fetch(`${base}/api/notifications/read-all`, { method: 'PATCH', headers: headers(), body: body === undefined ? undefined : JSON.stringify(body) });
+
+test('the counts are one row per kind with how many there are and how many are unread, for this user only', async () => {
+  let pipeline;
+  Notification.aggregate = async (stages) => {
+    pipeline = stages;
+    return [{ _id: 'payment_submitted', total: 300, unread: 120 }, { _id: 'chat_message', total: 2, unread: 0 }];
+  };
+  const res = await fetch(`${base}/api/notifications/counts`, { headers: headers() });
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), [{ type: 'payment_submitted', total: 300, unread: 120 }, { type: 'chat_message', total: 2, unread: 0 }]);
+  assert.deepEqual(pipeline[0], { $match: { user: 'U1' } }, 'only the logged in user is counted');
+  assert.equal((await fetch(`${base}/api/notifications/counts`)).status, 401, 'not without a login');
+  Notification.aggregate = orig.aggregate;
+});
 
 test('the list is the newest 30 unless more are asked for, and never more than 200', async () => {
   const list = (query) => fetch(`${base}/api/notifications${query}`, { headers: headers() });

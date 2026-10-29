@@ -18,23 +18,41 @@ export function dateGroupOf(createdAt, now = new Date()) {
   return diff === 1 ? 'yesterday' : 'earlier';
 }
 
-// [{ key, title, items }] for the groups that have something, in the order Today, Yesterday, Earlier. The order inside a group is kept.
-export function groupByDate(notifications, now = new Date()) {
-  return DATE_GROUPS
+// [{ key, title, items }] for the groups that have something: Today, Yesterday, Earlier, or the other way round for Oldest first (the oldest
+// group is then on top). The order inside a group is the order of the list given, so the caller's sort is kept within each day group.
+export function groupByDate(notifications, now = new Date(), sort = 'newest') {
+  const groups = DATE_GROUPS
     .map(({ key, title }) => ({ key, title, items: notifications.filter((n) => dateGroupOf(n.createdAt, now) === key) }))
     .filter((group) => group.items.length > 0);
+  return sort === 'oldest' ? groups.reverse() : groups;
 }
 
-// { all, byCategory: { bookings: { total, unread }, ... } } for the categories that have at least one notification.
-export function categoryCounts(notifications) {
+// { all, byCategory: { bookings: { total, unread }, ... } } for the categories that have at least one notification, from rows of
+// { type, total, unread } (what GET /api/notifications/counts answers, one row per kind).
+export function countsFromTypes(rows) {
   const byCategory = {};
-  for (const n of notifications) {
-    const key = categoryOf(n.type);
+  const all = { total: 0, unread: 0 };
+  for (const row of rows) {
+    const key = categoryOf(row.type);
     byCategory[key] = byCategory[key] || { total: 0, unread: 0 };
-    byCategory[key].total += 1;
-    if (!n.read) byCategory[key].unread += 1;
+    byCategory[key].total += row.total;
+    byCategory[key].unread += row.unread;
+    all.total += row.total;
+    all.unread += row.unread;
   }
-  return { all: { total: notifications.length, unread: notifications.filter((n) => !n.read).length }, byCategory };
+  return { all, byCategory };
+}
+
+// The same counts worked out from a list of notifications (used until the exact counts arrive, or when they cannot be loaded).
+export function categoryCounts(notifications) {
+  const rows = new Map();
+  for (const n of notifications) {
+    const row = rows.get(n.type) || { type: n.type, total: 0, unread: 0 };
+    row.total += 1;
+    if (!n.read) row.unread += 1;
+    rows.set(n.type, row);
+  }
+  return countsFromTypes([...rows.values()]);
 }
 
 // The categories to show as tabs: those with a notification, in the tab order. The selected one stays even when it has none left.

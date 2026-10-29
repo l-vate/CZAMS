@@ -1,0 +1,32 @@
+/* Technician no show: the customer's report (dialog, waiting note, outcome) and the admin's review panel. The dialog reuses the cancel dialog styles. */
+.ns-warning { margin: 0 0 14px; font-size: 0.875rem; line-height: 1.5; color: #334155; }
+.ns-textarea { min-height: 88px; padding: 10px 12px; resize: vertical; }
+.ns-count { font-size: 0.75rem; color: #475569; text-align: right; }
+.ns-report-btn { min-height: 44px; }
+.ns-wait,
+.ns-state { margin: 0; font-size: 0.875rem; line-height: 1.5; color: #334155; }
+.ns-state { padding: 10px 12px; border-radius: 10px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; }
+.ns-state--rejected { background: #f8fafc; border-color: #cbd5e1; color: #1e293b; }
+.ns-state--confirmed { background: #fef2f2; border-color: #fecaca; color: #7f1d1d; }
+.ns-state--rescheduled { background: #f0faf2; border-color: #bfe3c8; color: #14532d; }
+
+.ns-admin-title { margin: 0 0 8px; font-size: 1rem; color: var(--navy, #0b2545); }
+.ns-facts { margin: 0 0 12px; display: grid; gap: 6px; }
+.ns-facts div { display: grid; grid-template-columns: 150px 1fr; gap: 8px; font-size: 0.875rem; }
+.ns-facts dt { color: #475569; font-weight: 600; }
+.ns-facts dd { margin: 0; color: #0f172a; overflow-wrap: anywhere; }
+.ns-choices { margin: 0 0 12px; padding: 0; border: 0; display: grid; gap: 8px; }
+.ns-legend { padding: 0; margin: 0 0 6px; font-size: 0.875rem; font-weight: 700; color: var(--navy, #0b2545); }
+.ns-admin .ns-choice { display: flex; align-items: flex-start; gap: 12px; min-height: 44px; padding: 10px 14px; border: 1.5px solid #e2e8f0; border-radius: 10px; background: #fff; cursor: pointer; font-size: 0.9375rem; }
+.ns-admin .ns-choice input { width: 20px; height: 20px; margin: 2px 0 0; flex: 0 0 auto; accent-color: #1e4a7a; }
+.ns-choice--on { border-color: #1e4a7a; background: #f3f9fd; }
+.ns-choice:focus-within { outline: 3px solid var(--primary, #2563eb); outline-offset: 2px; }
+.ns-help { display: block; margin-top: 2px; font-size: 0.8125rem; font-weight: 400; color: #475569; }
+.ns-slot { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.ns-slot .ma-input { flex: 1 1 160px; min-height: 44px; }
+.ns-submit { min-height: 44px; }
+
+@media (max-width: 480px) {
+  .ns-facts div { grid-template-columns: 1fr; gap: 0; }
+  .ns-submit { width: 100%; }
+}

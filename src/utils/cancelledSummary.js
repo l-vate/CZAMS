@@ -9,6 +9,7 @@ export const PROOF_WAITING_TEXT = 'Your down payment proof is still being checke
 
 // Who cancelled it, in a sentence for the customer.
 export function cancelledByText(booking) {
+  if (booking?.expiredBySystem) return 'This booking expired: it was cancelled automatically because it was not confirmed by the owner before the service day started.';
   if (booking?.ownerCancelled) return 'The owner cancelled this booking because we could not supply or serve it.';
   if (booking?.cancelledBy === 'customer') return 'You cancelled this booking.';
   if (booking?.cancelledBy === 'admin') return 'Cancelled by the owner.';
@@ -18,6 +19,7 @@ export function cancelledByText(booking) {
 // What happens to the money: one paragraph that states the amount and what comes next.
 export function refundText(booking) {
   const refund = booking?.refund;
+  if ((!refund || refund.status === 'None') && booking?.expiredBySystem) return 'No payment was made, so there is nothing to refund.';
   if (!refund || refund.status === 'None') {
     return booking?.paymentStatus === 'to_verify' ? PROOF_WAITING_TEXT : NO_DOWN_PAYMENT_TEXT;
   }
@@ -57,7 +59,7 @@ export function refundFigures(booking) {
     rows.push(['Transportation fee', formatPeso(fee)]);
     if (refund.dispatchReason) rows.push(['Reason for the fee', refund.dispatchReason]);
   }
-  if (refund.ownerInitiated) rows.push(['Transportation fee', 'None (the owner cancelled)']);
+  if (refund.ownerInitiated) rows.push(['Transportation fee', refund.expired ? 'None (the booking expired)' : 'None (the owner cancelled)']);
   if (Number.isFinite(refund.refundableAmount)) rows.push(['Refund amount', formatPeso(refund.refundableAmount)]);
   rows.push(['Refund status', refund.status === 'Processed' ? 'Sent' : refund.status === 'Rejected' ? 'Not approved' : refund.paymentUnverified ? 'Waiting for the payment to be checked' : 'Being processed']);
   if (refund.status === 'Rejected' && refund.rejectionReason) rows.push(['Reason', refund.rejectionReason]);

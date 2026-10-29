@@ -1,3 +1,4 @@
+/* eslint-disable no-console -- one test replaces console.log for a moment to check what the job logs */
 // Run with: npm test (inside server/). E24: a Pending booking nobody approved by the start of its booked day is cancelled automatically, with a full
 // refund request for what was paid (nothing is paid out), and the customer is told why; an Approved booking starts by itself on its service day.
 // Every rule is run with a fixed "now" (no weekday, no real clock). The real functions and routes run; only the database is replaced.

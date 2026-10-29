@@ -197,7 +197,7 @@ function MyBookings() {
                   <div className="tech-job-top-row">
                     <small className="tech-job-date-label">{formatDate(booking.createdAt)}</small>
                     <span className={`tech-job-status-badge ${STATUS_BADGE_CLASS[booking.status] || ''}`}>
-                      {booking.status}
+                      {booking.expiredBySystem ? 'Expired' : booking.status}
                     </span>
                   </div>
                   <div className="tech-job-service">{booking.service?.name || '-'}</div>

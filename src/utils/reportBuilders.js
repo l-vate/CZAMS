@@ -346,7 +346,7 @@ export function buildBackJobsReport(data, filters) {
 
 // ---------------------------------------------------------------------------
 const NOT_RECORDED = 'Not recorded';
-const CANCELLED_BY_LABEL = { customer: 'Customer', admin: 'Admin' };
+const CANCELLED_BY_LABEL = { customer: 'Customer', admin: 'Admin', system: 'System (expired)' };
 
 // What the customer had paid when the booking was cancelled: the refund's snapshot when a refund was
 // opened (that is the amount the refund is worked out from), otherwise the verified payments.

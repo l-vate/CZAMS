@@ -47,6 +47,9 @@ function JobDetailsModal({ job, onClose }) {
         </div>
         <p className="tech-job-detail-booking">Booking ID: {job.bookingId}{job.isBackJob ? ' (back job)' : ''}</p>
         <p className="tech-job-detail-booking">Your role: <strong>{jobRoleLabel(job.myRole, job.isPrimaryLead)}</strong>{job.assigned ? ` · Assigned: ${job.assigned}` : ''}</p>
+        {job.noShow && ['Reported', 'Confirmed', 'Rescheduled', 'Rejected'].includes(job.noShow.status) && (
+          <p className="tech-job-detail-booking" role="status">The customer reported that the technicians did not come to this job{job.noShow.status === 'Reported' ? '. The owner is reviewing it.' : `. The owner's decision: ${job.noShow.status.toLowerCase()}.`} This is read only.</p>
+        )}
         {job.myRole === 'Lead' && !job.isPrimaryLead && (
           <p className="tech-job-detail-booking">The primary technician files the service report. It is read-only for you.</p>
         )}
@@ -305,6 +308,7 @@ function toViewJob(booking) {
     problemDescription: booking.problemDescription,
     technicianInstructions: booking.technicianInstructions,
     disruption: booking.disruption,
+    noShow: booking.noShow,
     extensionRequest: booking.extensionRequest,
     extensionDays: booking.extensionDays || [],
     isBackJob: !!booking.isBackJob,

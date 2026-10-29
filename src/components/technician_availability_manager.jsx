@@ -6,7 +6,8 @@ import { formatClosureDate } from '../utils/closureDates';
 import { pluralize } from '../utils/pluralize';
 import { manilaTodayKey } from '../utils/manilaTime';
 import { capitalizeReason, splitUpcoming, groupByDate, limitGroups, leaveSummary, SHORT_LIST } from '../utils/calendarPanels';
-import CollapsiblePanel, { usePanelOpen } from './collapsible_panel';
+import CollapsiblePanel from './collapsible_panel';
+import { usePanelOpen } from '../hooks/usePanelOpen';
 
 const REASON_MAX = 200;
 const WHOLE_DAY = ['Morning', 'Afternoon'];

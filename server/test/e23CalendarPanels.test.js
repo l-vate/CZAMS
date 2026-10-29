@@ -51,16 +51,17 @@ test('the add forms stay outside the collapsible part, at the top, with navy but
 
 test('the panel button is a real button (keyboard operable) that flips the state and remembers it for the session', () => {
   const src = read('components/collapsible_panel.jsx');
+  const hook = read('hooks/usePanelOpen.js');
   assert.match(src, /<button\s+type="button"\s+className="cal-panel-toggle"\s+aria-expanded=\{open\}\s+aria-controls=\{id\}\s+onClick=\{\(\) => onToggle\(!open\)\}/);
   assert.match(src, /hidden=\{!open\}/);
-  assert.match(src, /writePanelOpen\(key, value\)/);
+  assert.match(hook, /writePanelOpen\(key, value\)/);
   assert.match(read('utils/calendarPanels.js'), /sessionStorage/);
 });
 
 test('the panels open after the admin adds an entry, and are closed otherwise', () => {
   assert.match(read('components/technician_availability_manager.jsx'), /setOpen\(true\); \/\/ show the new entry/);
   assert.match(read('components/closure_manager.jsx'), /setOpen\(true\); \/\/ show the new closure/);
-  assert.match(read('components/collapsible_panel.jsx'), /\?\? false/);
+  assert.match(read('hooks/usePanelOpen.js'), /\?\? false/);
 });
 
 test('the collapsed summaries count correctly', async () => {

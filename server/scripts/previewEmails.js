@@ -33,6 +33,17 @@ const messageFor = (type) => SAMPLE_MESSAGES[type] || `Booking CZ-2026-0001 upda
 
 const forDisk = (html) => html.replace('cid:czams-logo', `data:image/png;base64,${LOGO}`);
 
+// One screenshot of every page at one width, with the color scheme emulated.
+async function shoot(browser, pages, scheme, width) {
+  const context = await browser.newContext({ viewport: { width, height: 900 }, colorScheme: scheme });
+  const page = await context.newPage();
+  for (const name of pages) {
+    await page.goto(pathToFileURL(path.join(OUT, `${name}.html`)).href);
+    await page.screenshot({ path: path.join(OUT, `${name}-${scheme}-${width}.png`), fullPage: true });
+  }
+  await context.close();
+}
+
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
   const pages = [];
@@ -55,15 +66,7 @@ const forDisk = (html) => html.replace('cid:czams-logo', `data:image/png;base64,
   const browser = await chromium.launch({ executablePath: chrome, headless: true });
   try {
     for (const scheme of ['light', 'dark']) {
-      for (const width of [600, 390]) {
-        const context = await browser.newContext({ viewport: { width, height: 900 }, colorScheme: scheme });
-        const page = await context.newPage();
-        for (const name of pages) {
-          await page.goto(pathToFileURL(path.join(OUT, `${name}.html`)).href);
-          await page.screenshot({ path: path.join(OUT, `${name}-${scheme}-${width}.png`), fullPage: true });
-        }
-        await context.close();
-      }
+      for (const width of [600, 390]) await shoot(browser, pages, scheme, width);
     }
     console.log('Screenshots taken in light and dark mode at 600 and 390 px.');
   } finally {

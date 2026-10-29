@@ -6,7 +6,8 @@ import { REASON_MIN, REASON_MAX } from '../constants/closures';
 import { pluralize } from '../utils/pluralize';
 import { manilaTodayKey } from '../utils/manilaTime';
 import { capitalizeReason, splitUpcoming, closureSummary, SHORT_LIST } from '../utils/calendarPanels';
-import CollapsiblePanel, { usePanelOpen } from './collapsible_panel';
+import CollapsiblePanel from './collapsible_panel';
+import { usePanelOpen } from '../hooks/usePanelOpen';
 
 const MAX_RANGE_DAYS = 31;
 

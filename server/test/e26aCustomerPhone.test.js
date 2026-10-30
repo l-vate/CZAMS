@@ -73,3 +73,43 @@ test('A2: the dropdown lists every filter the pills have, in the same order', as
   const { BILL_FILTERS } = await vite.ssrLoadModule('/src/utils/customerPayment.js');
   assert.deepEqual([...BILL_FILTERS], ['All', 'Due', 'To Verify', 'Partially Paid', 'Fully Paid', 'Unpaid', 'Refunded']);
 });
+
+// ---- A3: the profile page on a phone
+
+test('A3: the profile cards are one column on a phone, inside the page padding, with a 44 px edit button and an accessible name', () => {
+  const css = src('css', 'customer.css');
+  const phone = phoneBlock(css, 'PROFILE ON A PHONE');
+  assert.match(phone, /\.profile-page \.profile-card \{[^}]*box-sizing: border-box[^}]*padding: 16px[^}]*flex-direction: column/s);
+  assert.match(phone, /\.profile-page \.profile-grid \{ grid-template-columns: minmax\(0, 1fr\)/);
+  assert.match(phone, /\.profile-page \.profile-avatar-lg \{ width: 80px; height: 80px/);
+  assert.match(phone, /\.profile-page \.profile-edit-btn \{[^}]*width: 44px; height: 44px/);
+  assert.match(phone, /\.profile-page \.profile-contact-line \{[^}]*overflow-wrap: anywhere/);
+  const page = src('pages', 'customer', 'profile.jsx');
+  assert.match(page, /className="profile-edit-btn" type="button" onClick=\{handleEditClick\} aria-label="Edit profile" title="Edit profile"/);
+});
+
+test('A3: in edit mode Cancel and Save sit on one line at the right, 44 px tall, with Save shortened only on the narrowest phones', () => {
+  const css = src('css', 'customer.css');
+  const phone = phoneBlock(css, 'PROFILE ON A PHONE');
+  assert.match(phone, /\.profile-edit-actions \{[^}]*flex-direction: row; flex-wrap: nowrap; justify-content: flex-end/);
+  assert.match(phone, /\.profile-edit-actions button \{[^}]*min-height: 44px[^}]*white-space: nowrap/);
+  assert.match(phone, /\.profile-field \.bs-input \{[^}]*min-height: 44px; font-size: 16px/);
+  assert.match(phone, /\.profile-photo-upload-btn \{[^}]*flex: 1 1 100%[^}]*min-height: 44px/s);
+  assert.match(css, /@media \(max-width: 340px\) \{\s*\.profile-save-long \{ display: none; \}/);
+  const page = src('pages', 'customer', 'profile.jsx');
+  assert.match(page, /onClick=\{handleSaveProfile\} aria-label="Save Changes">\s*Save<span className="profile-save-long"> Changes<\/span>/);
+  const buttons = page.slice(page.indexOf('profile-edit-actions'));
+  assert.ok(buttons.indexOf('handleCancelEdit') < buttons.indexOf('handleSaveProfile'), 'Cancel is left of Save');
+});
+
+test('A3: the desktop layout is untouched, the staff profile keeps its own rules, and the fields carry the right input attributes', () => {
+  const css = src('css', 'customer.css');
+  const outside = css.replace(phoneBlock(css, 'PROFILE ON A PHONE'), '');
+  assert.match(outside, /\.profile-grid \{\s*display: grid;\s*grid-template-columns: repeat\(2, 1fr\)/);
+  assert.doesNotMatch(src('css', 'staff.css'), /profile-page/);
+  const page = src('pages', 'customer', 'profile.jsx');
+  for (const [id, attrs] of [['firstName', 'autoComplete="given-name"'], ['lastName', 'autoComplete="family-name"'], ['email', 'autoComplete="email"\s*inputMode="email"'], ['phone', 'autoComplete="tel"\s*inputMode="tel"'], ['address', 'autoComplete="street-address"']]) {
+    assert.match(page, new RegExp(`id="${id}"\s*name="${id}"\s*${attrs}\s*onFocus=\{revealField\}`), id);
+  }
+  assert.match(page, /scrollIntoView\(\{ block: 'center', behavior: 'smooth' \}\)/, 'the focused field scrolls into view');
+});

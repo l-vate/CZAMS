@@ -2160,3 +2160,59 @@
   }
   .billing-filter-select select:focus-visible { outline: 3px solid var(--coral); outline-offset: 2px; }
 }
+
+/* ============ PROFILE ON A PHONE ============
+   Up to 768 px every card fits inside the page padding, one column, headings above fields. Only the customer page (.profile-page) is touched:
+   the staff profile shares the base .profile-card rules in staff.css and keeps them. */
+.profile-save-long { display: inline; }
+@media (max-width: 768px) {
+  .profile-page { width: 100%; min-width: 0; gap: 16px; }
+  .profile-page .profile-card {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 16px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+  .profile-page .profile-card--head { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 14px; padding-right: 64px; }
+  .profile-page .profile-card--head:has(.profile-photo-edit) { padding-right: 16px; }
+  .profile-page .profile-avatar-lg { width: 80px; height: 80px; font-size: 2.2rem; }
+  .profile-page .profile-head-text { flex: 1 1 0; min-width: 0; }
+  .profile-page .profile-name { font-size: 1.2rem; overflow-wrap: anywhere; }
+  .profile-page .profile-contact { margin-top: 6px; font-size: 0.875rem; }
+  .profile-page .profile-contact-line { align-items: flex-start; min-width: 0; overflow-wrap: anywhere; }
+  .profile-page .profile-contact-line svg { margin-top: 4px; }
+  .profile-page .profile-edit-btn { top: 12px; right: 12px; width: 44px; height: 44px; }
+  .profile-page .profile-edit-btn:focus-visible,
+  .profile-page .profile-photo-upload-btn:focus-within,
+  .profile-page .bs-input:focus-visible { outline: 3px solid var(--coral); outline-offset: 2px; }
+  /* edit mode: the avatar and the name sit on one row, the Upload Photo button takes the row below */
+  .profile-page .profile-photo-edit { display: contents; }
+  .profile-page .profile-photo-edit .profile-avatar-lg { order: 0; }
+  .profile-page .profile-card--head .profile-head-text { order: 1; }
+  .profile-page .profile-photo-edit .profile-photo-upload-btn {
+    order: 2;
+    flex: 1 1 100%;
+    justify-content: center;
+    box-sizing: border-box;
+    min-height: 44px;
+  }
+  .profile-page .section-title { margin: 0; }
+  .profile-page .profile-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; margin-top: 0; }
+  .profile-page .profile-field { min-width: 0; gap: 8px; }
+  .profile-page .profile-field div { overflow-wrap: anywhere; }
+  .profile-page .profile-field .bs-input { width: 100%; min-width: 0; box-sizing: border-box; min-height: 44px; font-size: 16px; }
+  /* edit mode: Cancel and Save together at the end of the form, on one line, each 44 px tall */
+  .profile-page .profile-edit-actions { flex-direction: row; flex-wrap: nowrap; justify-content: flex-end; gap: 12px; margin-top: 8px; }
+  .profile-page .profile-edit-actions button { width: auto; min-height: 44px; padding: 0 20px; white-space: nowrap; }
+  .profile-page .profile-card--account .account-actions { flex-direction: column; }
+  .profile-page .delete-account-block a { display: inline-flex; align-items: center; min-height: 44px; }
+  .profile-page .profile-card--account .change-password-btn,
+  .profile-page .profile-card--account .delete-account-btn { width: 100%; min-height: 44px; min-width: 0; }
+}
+@media (max-width: 340px) {
+  .profile-save-long { display: none; }
+}

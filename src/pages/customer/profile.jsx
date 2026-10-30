@@ -36,6 +36,13 @@ function DeleteAccountDialog({ onKeep, onConfirmDelete, deleting }) {
   );
 }
 
+// When the phone keyboard opens, the field being edited is brought into view (after the keyboard has had a moment to open).
+function revealField(event) {
+  const field = event.target;
+  if (typeof window === 'undefined' || !window.matchMedia('(max-width: 768px)').matches) return;
+  setTimeout(() => field.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300);
+}
+
 /* ── Profile ────────────────────────────────────────────── */
 function Profile() {
   const navigate = useNavigate();
@@ -176,9 +183,9 @@ const [user, setUser] = useState(loadUserFromStorage);
             small icon edit button in the corner, instead of this page's old
             separate row layout with a full-width text edit button. Same info
             as before (name, email, member-since), just restyled to match. */}
-        <div className="profile-card">
+        <div className="profile-card profile-card--head">
           {isEditing ? (
-            <div className="customer-profile-x2">
+            <div className="customer-profile-x2 profile-photo-edit">
               <div className="profile-avatar-lg">
                 {editForm.photo ? (
                   <img
@@ -215,7 +222,7 @@ const [user, setUser] = useState(loadUserFromStorage);
             </div>
           )}
 
-          <div>
+          <div className="profile-head-text">
             <h2 className="profile-name">{user.firstName} {user.lastName}</h2>
             <div className="profile-contact">
               <span className="profile-contact-line"><FiMail size={13} /> {user.email}</span>
@@ -224,8 +231,8 @@ const [user, setUser] = useState(loadUserFromStorage);
           </div>
 
           {!isEditing && (
-            <button className="profile-edit-btn" type="button" onClick={handleEditClick}>
-              <FiEdit2 />
+            <button className="profile-edit-btn" type="button" onClick={handleEditClick} aria-label="Edit profile" title="Edit profile">
+              <FiEdit2 aria-hidden="true" />
             </button>
           )}
         </div>
@@ -243,6 +250,8 @@ const [user, setUser] = useState(loadUserFromStorage);
                     type="text"
                     id="firstName"
                     name="firstName"
+                    autoComplete="given-name"
+                    onFocus={revealField}
                     className="bs-input"
                     value={editForm.firstName}
                     onChange={handleEditChange}
@@ -255,6 +264,8 @@ const [user, setUser] = useState(loadUserFromStorage);
                     type="text"
                     id="lastName"
                     name="lastName"
+                    autoComplete="family-name"
+                    onFocus={revealField}
                     className="bs-input"
                     value={editForm.lastName}
                     onChange={handleEditChange}
@@ -267,6 +278,9 @@ const [user, setUser] = useState(loadUserFromStorage);
                     type="email"
                     id="email"
                     name="email"
+                    autoComplete="email"
+                    inputMode="email"
+                    onFocus={revealField}
                     className="bs-input"
                     value={editForm.email}
                     onChange={handleEditChange}
@@ -279,6 +293,9 @@ const [user, setUser] = useState(loadUserFromStorage);
                     type="tel"
                     id="phone"
                     name="phone"
+                    autoComplete="tel"
+                    inputMode="tel"
+                    onFocus={revealField}
                     className="bs-input"
                     value={editForm.phone}
                     onChange={handleEditChange}
@@ -291,6 +308,8 @@ const [user, setUser] = useState(loadUserFromStorage);
                     type="text"
                     id="address"
                     name="address"
+                    autoComplete="street-address"
+                    onFocus={revealField}
                     className="bs-input"
                     value={editForm.address}
                     onChange={handleEditChange}
@@ -298,12 +317,12 @@ const [user, setUser] = useState(loadUserFromStorage);
                 </div>
               </div>
 
-              <div className="account-actions customer-profile-x5">
+              <div className="account-actions customer-profile-x5 profile-edit-actions">
                 <button className="bs-back-btn" onClick={handleCancelEdit}>
                   Cancel
                 </button>
-                <button className="bs-next-btn" onClick={handleSaveProfile}>
-                  Save Changes
+                <button className="bs-next-btn" onClick={handleSaveProfile} aria-label="Save Changes">
+                  Save<span className="profile-save-long"> Changes</span>
                 </button>
               </div>
             </>

@@ -5,8 +5,8 @@
 //
 // Email clients ignore style sheets and most modern CSS, so this is table layout with inline styles (a small <style> block only adds dark mode
 // and the narrow-screen stacking, and an email that loses it still reads). The logo is attached to the message inline (cid:czams-logo) instead
-// of being linked, so it shows without a hosted address; the header always has a navy band and the logo sits on a white plate, so it never
-// disappears on a dark background. Every email also has a plain text twin. Pure functions: nothing here reads the database or the environment.
+// of being linked, so it shows without a hosted address; the header is light with the logo as it is (a transparent PNG, no box); in dark mode the logo gets a
+// soft rounded white card so its navy lettering never disappears. A navy and coral bar sits under the header, then the status accent. Every email also has a plain text twin. Pure functions: nothing here reads the database or the environment.
 const { contentOf } = require('./emailContent');
 const company = require('./companyInfo');
 const { getPaymentBreakdown } = require('./pricing');
@@ -17,6 +17,7 @@ const LOGO_ALT = company.name;
 const LOGO_FILE = 'email-logo.png'; // server/assets/email-logo.png, 240 px wide, made from public/images/logo.png (scripts/buildEmailLogo.js)
 
 const NAVY = '#0b2545';
+const CORAL = '#e8553a'; // the brand accent in the bar under the header
 const FONT = "'Outfit','Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 
 // Colors per tone. `bar` is the accent stripe; `chipBg` and `chipText` are the status label. Every text and background pair below is checked for
@@ -32,7 +33,7 @@ const DARK = { page: '#0b1220', card: '#111c30', head: '#ffffff', body: '#e2e8f0
 
 // The text-on-background pairs used, for the contrast test.
 const COLOR_PAIRS = [
-  ['header name', '#ffffff', NAVY], ['header tagline', '#cbd5e1', NAVY],
+  ['header name', LIGHT.head, LIGHT.card], ['header tagline', LIGHT.muted, LIGHT.card], ['dark header name', DARK.head, DARK.card], ['dark header tagline', DARK.muted, DARK.card],
   ['headline', LIGHT.head, LIGHT.card], ['body', LIGHT.body, LIGHT.card], ['muted', LIGHT.muted, LIGHT.card], ['detail label', LIGHT.muted, LIGHT.box],
   ['detail value', LIGHT.body, LIGHT.box], ['button', LIGHT.buttonText, LIGHT.button], ['link', LIGHT.link, LIGHT.card], ['footer', LIGHT.footerText, LIGHT.footerBg],
   ['dark headline', DARK.head, DARK.card], ['dark body', DARK.body, DARK.card], ['dark muted', DARK.muted, DARK.card], ['dark detail label', DARK.muted, DARK.box],
@@ -153,6 +154,8 @@ function darkCss() {
   @media (prefers-color-scheme: dark) {
     .bg { background-color: ${DARK.page} !important; }
     .card { background-color: ${DARK.card} !important; }
+    .head-bg { background-color: ${DARK.card} !important; }
+    .logo-cell { background-color: #ffffff !important; border-radius: 12px !important; padding: 6px 10px !important; }
     .t-head { color: ${DARK.head} !important; }
     .t-body { color: ${DARK.body} !important; }
     .t-muted { color: ${DARK.muted} !important; }
@@ -194,15 +197,16 @@ ${darkCss()}
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;font-size:1px;line-height:1px;color:${LIGHT.page};">${escapeHtml(preheaderText)}${'&nbsp;&zwnj;'.repeat(20)}</div>
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="bg" style="background:${LIGHT.page};"><tr><td align="center" style="padding:24px 12px;">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="container card" style="width:600px;max-width:600px;background:${LIGHT.card};border-radius:14px;overflow:hidden;">
-      <tr><td align="center" style="background:${NAVY};padding:18px 28px;text-align:center;" class="px" bgcolor="${NAVY}">
+      <tr><td align="center" class="px head-bg" style="background:${LIGHT.card};padding:20px 28px 18px;text-align:center;" bgcolor="${LIGHT.card}">
         <table role="presentation" align="center" cellspacing="0" cellpadding="0" style="margin:0 auto;"><tr>
-          <td valign="middle" style="background:#ffffff;border-radius:10px;padding:6px 10px;" bgcolor="#ffffff"><img src="cid:${LOGO_CID}" alt="${escapeHtml(LOGO_ALT)}" width="96" height="50" style="display:block;border:0;width:96px;height:50px;"></td>
+          <td valign="middle" class="logo-cell" style="padding:0;"><img src="cid:${LOGO_CID}" alt="${escapeHtml(LOGO_ALT)}" width="96" height="50" style="display:block;border:0;width:96px;height:50px;"></td>
           <td valign="middle" style="padding-left:14px;">
-            <div class="head-name" style="font-family:${FONT};font-size:17px;line-height:1.25;font-weight:700;color:#ffffff;">${escapeHtml(company.name)}</div>
-            <div style="font-family:${FONT};font-size:12px;letter-spacing:.08em;color:#cbd5e1;margin-top:2px;">CZAMS</div>
+            <div class="head-name t-head" style="font-family:${FONT};font-size:17px;line-height:1.25;font-weight:700;color:${LIGHT.head};">${escapeHtml(company.name)}</div>
+            <div class="t-muted" style="font-family:${FONT};font-size:12px;letter-spacing:.08em;color:${LIGHT.muted};margin-top:2px;">CZAMS</div>
           </td>
         </tr></table>
       </td></tr>
+      <tr><td class="brand-bar" style="height:4px;background:${NAVY};font-size:0;line-height:0;" bgcolor="${NAVY}"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td width="28%" style="height:4px;background:${CORAL};font-size:0;line-height:0;" bgcolor="${CORAL}">&nbsp;</td><td style="height:4px;font-size:0;line-height:0;">&nbsp;</td></tr></table></td></tr>
       <tr><td style="height:5px;background:${t.bar};font-size:0;line-height:0;" bgcolor="${t.bar}">&nbsp;</td></tr>
       <tr><td class="px" align="left" style="padding:28px 28px 8px;text-align:left;">
         <table role="presentation" align="center" cellspacing="0" cellpadding="0" style="margin:0 auto 14px;"><tr><td style="background:${t.chipBg};color:${t.chipText};border-radius:999px;padding:5px 12px;font-size:12px;font-weight:700;letter-spacing:.06em;" bgcolor="${t.chipBg}">${escapeHtml(label)}</td></tr></table>

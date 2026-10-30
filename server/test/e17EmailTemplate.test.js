@@ -199,6 +199,22 @@ test('the queue is unchanged: subjects, recipients and one email per notificatio
   }
 });
 
+test('the header is light with the logo as it is: no white plate, a brand bar under it, a soft white card for the logo in dark mode only', () => {
+  for (const type of Object.keys(KINDS)) {
+    const { html } = render(type);
+    const header = html.slice(html.indexOf('class="px head-bg"'), html.indexOf('brand-bar'));
+    assert.ok(header.includes('class="px head-bg"'), `${type}: a light header cell`);
+    assert.match(header, /background:#ffffff;padding:20px 28px 18px/, `${type}: white header`);
+    assert.doesNotMatch(header, /background:#0b2545/, `${type}: no navy band`);
+    assert.match(header, /<td valign="middle" class="logo-cell" style="padding:0;"><img src="cid:czams-logo"/, `${type}: the logo has no plate of its own`);
+    assert.doesNotMatch(header, /border-radius:10px/, `${type}: no white box around the logo`);
+    assert.match(header, /class="head-name t-head"[^>]*color:#0b2545/, `${type}: navy brand name`);
+    assert.match(html, /class="brand-bar"[\s\S]*#e8553a[\s\S]*<td style="height:5px;background:#/, `${type}: coral and navy bar, then the status accent`);
+    assert.match(html, /.logo-cell { background-color: #ffffff !important; border-radius: 12px !important;/, `${type}: soft white card in dark mode`);
+    assert.match(html, /.head-bg { background-color: #111c30 !important; }/, `${type}: dark header`);
+  }
+});
+
 // WCAG relative luminance and contrast ratio
 const channel = (v) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
 const luminance = (hex) => { const n = parseInt(hex.slice(1), 16); return 0.2126 * channel((n >> 16) & 255) + 0.7152 * channel((n >> 8) & 255) + 0.0722 * channel(n & 255); };

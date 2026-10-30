@@ -261,3 +261,64 @@ test('A7: the masked email is wrapped, not cut, and its full text is also its to
   assert.equal(emailCardText({ state: 'failed' }).title, 'We could not send the email. You can still see updates in the app.');
   assert.match(src('css', 'customer.css'), /\.email-status-card \{ overflow-wrap: anywhere; \}/);
 });
+
+// ---- A8: the invoice and receipt modal
+
+const rootRequire = require('node:module').createRequire(path.join(__dirname, '..', '..', 'package.json'));
+const renderReceipt = async (props) => {
+  const React = rootRequire('react');
+  const { renderToStaticMarkup } = rootRequire('react-dom/server');
+  const { default: ReceiptModal } = await vite.ssrLoadModule('/src/components/receipt_modal.jsx');
+  return renderToStaticMarkup(React.createElement(ReceiptModal, { onClose() {}, ...props }));
+};
+const statusOf = (html) => /receipt-status-paid receipt-status--([a-z_]+)">([^<]+)</.exec(html).slice(1);
+const bill = (extra) => ({ id: 'CZ-2026-9001', basePrice: 3500, toPayNow: 1750, remaining: 1750, downPaymentPercent: 50, customerName: 'Test', address: 'Quezon City', lineItems: [{ type: 'Split Type', quantity: 1, subtotal: 3500 }], service: 'Repair', ...extra });
+
+test('A8: the Status row uses the same labels as Billing for every payment state, and a sent proof never reads as partly paid', async () => {
+  const cases = [
+    [{ paymentStatus: 'Unpaid' }, ['unpaid', 'Unpaid']],
+    [{ paymentStatus: 'to_verify' }, ['to_verify', 'Waiting for verification']],
+    [{ paymentStatus: 'partially_paid' }, ['down_verified', 'Partially Paid']],
+    [{ paymentStatus: 'rejected' }, ['rejected', 'Payment rejected']],
+    [{ paymentStatus: 'fully_paid', isFullyPaid: true }, ['fully_paid', 'Fully paid']],
+  ];
+  for (const [fields, expected] of cases) {
+    const html = await renderReceipt({ form: bill(fields), booking: bill(fields) });
+    assert.deepEqual(statusOf(html), expected, JSON.stringify(fields));
+    assert.doesNotMatch(html, /50% Paid/);
+  }
+  const waiting = await renderReceipt({ form: bill({ paymentStatus: 'to_verify' }), booking: bill({ paymentStatus: 'to_verify' }) });
+  assert.match(waiting, /₱1,750/, 'the amounts are the same as before');
+  assert.match(waiting, /Invoice/, 'still an invoice, not a receipt');
+});
+
+test('A8: the table has description, quantity and price columns with their own classes, and a short heading for phones', async () => {
+  const html = await renderReceipt({ form: bill({ paymentStatus: 'Unpaid' }), booking: bill({ paymentStatus: 'Unpaid' }) });
+  assert.match(html, /<th class="receipt-col-desc"><span class="receipt-th-long">Description of Service<\/span><span class="receipt-th-short">Description<\/span><\/th><th class="receipt-col-qty">Quantity<\/th><th class="receipt-col-price">Price<\/th>/);
+  assert.match(html, /<td class="receipt-col-qty">1<\/td><td class="receipt-col-price">₱3,500<\/td>/);
+  const css = src('css', 'modals', 'receipt_modal.css');
+  assert.match(css, /@media screen and \(max-width: 768px\) \{/, 'screen only, so printing is not touched');
+  assert.match(css, /\.receipt-th-short \{ display: none; \}/, 'the long heading everywhere else');
+  assert.match(css, /\.receipt-col-qty, \.receipt-table \.receipt-col-price \{ width: 1%; white-space: nowrap; text-align: right; \}/);
+});
+
+test('A8: phone padding, sticky header and a 44 px close button in the top right', () => {
+  const css = src('css', 'modals', 'receipt_modal.css');
+  assert.match(css, /\.modal-overlay:has\(\.receipt-modal-card\) \{ padding: 12px; \}/);
+  assert.match(css, /\.receipt-modal-card \.receipt-modal-header \{ position: sticky; top: 0; z-index: 2; justify-content: flex-end/);
+  assert.match(css, /\.receipt-modal-card \.modal-close-btn \{ width: 44px; height: 44px; \}/);
+  assert.match(css, /\.receipt-modal-card \.receipt-print-area \{ padding: 8px 16px 20px; \}/);
+  assert.match(src('components', 'receipt_modal.jsx'), /className="modal-close-btn" onClick=\{onClose\} aria-label="Close" title="Close"/);
+});
+
+test('A8: "View File" is a brand link, still opens in a new tab, and the print rules are exactly as they were', () => {
+  const css = src('css', 'modals', 'receipt_modal.css');
+  assert.match(css, /@media screen \{[^@]*\.proof-link \{ display: inline-flex; align-items: center; min-height: 44px; color: var\(--navy\)/s);
+  assert.match(css, /\.proof-link:focus-visible \{ text-decoration: underline; \}|\.proof-link:focus-visible,[^{]*\{ text-decoration: underline; \}/);
+  const proof = src('components', 'proof_file.jsx');
+  assert.match(proof, /className = 'proof-link'/);
+  assert.match(proof, /window\.open\('', '_blank'\)/, 'a new tab');
+  const print = css.slice(css.indexOf('/* ============ PRINT MEDIA RULES'), css.indexOf('.receipt-brand-phone'));
+  assert.match(print, /\.printing-receipt-active \.receipt-modal-card \{\s*position: absolute;\s*left: 0;\s*top: 0;\s*width: 100%;\s*max-height: none;\s*overflow: visible;/);
+  assert.match(print, /\.printing-receipt-active \.receipt-print-area a \{\s*color: inherit;\s*text-decoration: none;\s*pointer-events: none;/);
+});

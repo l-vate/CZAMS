@@ -133,11 +133,7 @@ function AnnouncementManage() {
 
       if (closing) {
         const reason = form.title.trim().length >= 3 ? form.title.trim().slice(0, 200) : `${form.category} closure`;
-        const failed = [];
-        for (const day of dateRange(form.closeFrom, closeTo)) {
-          const saved = await attempt(addClosure({ date: day, reason }), 'Failed to close the date.');
-          if (saved.error && !/already closed/i.test(saved.error)) failed.push(`${day}: ${saved.error}`);
-        }
+        const failed = await closeDays(dateRange(form.closeFrom, closeTo), reason);
         if (failed.length > 0) {
           await fetchAnnouncements();
           setFormError(`The announcement was saved, but these dates could not be closed for booking. ${failed.join(' ')}`);
@@ -152,6 +148,16 @@ function AnnouncementManage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  // Closes each day for booking; a day that is already closed is fine. Returns the days that failed, each with its message.
+  async function closeDays(days, reason) {
+    const failed = [];
+    for (const day of days) {
+      const saved = await attempt(addClosure({ date: day, reason }), 'Failed to close the date.');
+      if (saved.error && !/already closed/i.test(saved.error)) failed.push(`${day}: ${saved.error}`);
+    }
+    return failed;
   }
 
   async function handleDelete() {

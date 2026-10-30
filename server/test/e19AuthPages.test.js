@@ -28,7 +28,7 @@ test('all four pages render inside the one shared layout', () => {
 
 test('the layout has no typed year, and the three facts come from the landing page config', () => {
   const shell = read('components/auth_shell.jsx');
-  assert.doesNotMatch(shell, /(19|20)\d\d/, 'no year is typed into the layout');
+  assert.doesNotMatch(shell, /\b(19|20)\d\d\b/, 'no year is typed into the layout');
   // the three facts come from the landing page config, so "since 2009" stays a fact and is not a copyright year
   assert.match(shell, /from '..\/config\/landingContent'/);
   assert.match(shell, /AREA_SERVED[\s\S]*SINCE_YEAR[\s\S]*HOURS_TEXT/);

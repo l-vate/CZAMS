@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { listClosures, addClosure, deleteClosure } from '../services/closureService';
 import { attempt } from '../services/apiClient';
-import { formatClosureDate, formatClosureRange, groupClosures, affectedBookingsNote } from '../utils/closureDates';
+import { formatClosureDate, formatClosureRange, groupClosures, affectedBookingsNote, dateRange, MAX_RANGE_DAYS } from '../utils/closureDates';
 import { REASON_MIN, REASON_MAX } from '../constants/closures';
 import { pluralize } from '../utils/pluralize';
 import { manilaTodayKey } from '../utils/manilaTime';
@@ -9,20 +9,6 @@ import { capitalizeReason, splitUpcoming, closureSummary, SHORT_LIST } from '../
 import CollapsiblePanel from './collapsible_panel';
 import { usePanelOpen } from '../hooks/usePanelOpen';
 import { closureDateProblem, closureWindow } from '../utils/dateRules';
-
-const MAX_RANGE_DAYS = 31;
-
-// Every date key from `start` to `end` inclusive, worked out in UTC so the timezone never matters.
-function dateRange(start, end) {
-  const keys = [];
-  const [y, m, d] = start.split('-').map(Number);
-  const cursor = new Date(Date.UTC(y, m - 1, d));
-  while (cursor.toISOString().slice(0, 10) <= end && keys.length <= MAX_RANGE_DAYS) {
-    keys.push(cursor.toISOString().slice(0, 10));
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-  }
-  return keys;
-}
 
 // Admin panel: dates the shop is closed. Closing a date never cancels or moves a booking; the
 // panel only warns how many Pending or Approved bookings are already on it. Choosing a start

@@ -10,6 +10,7 @@
 .ns-state--confirmed { background: #fef2f2; border-color: #fecaca; color: #7f1d1d; }
 .ns-state--rescheduled { background: #f0faf2; border-color: #bfe3c8; color: #14532d; }
 
+.ns-admin { padding: 18px 20px; }
 .ns-admin-title { margin: 0 0 8px; font-size: 1rem; color: var(--navy, #0b2545); }
 .ns-facts { margin: 0 0 12px; display: grid; gap: 6px; }
 .ns-facts div { display: grid; grid-template-columns: 150px 1fr; gap: 8px; font-size: 0.875rem; }

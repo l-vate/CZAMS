@@ -1,17 +1,24 @@
 import { useState, useEffect } from 'react';
 import AdminLayout from './admin_layout';
 import { FiPlus } from 'react-icons/fi';
-import { withMessage, withFallback } from '../../services/apiClient';
+import { withMessage, withFallback, attempt } from '../../services/apiClient';
 import { listAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement } from '../../services/announcementService';
+import { addClosure } from '../../services/closureService';
+import { formatClosureRange, dateRange, MAX_RANGE_DAYS } from '../../utils/closureDates';
+import { closureDateProblem, closureWindow } from '../../utils/dateRules';
 
 
 const CATEGORIES = ['Holiday', 'Closure', 'Maintenance', 'General'];
+// A notice in one of these can also close its dates for booking (the General ones are only news).
+const CLOSING_CATEGORIES = ['Holiday', 'Closure', 'Maintenance'];
 
 const EMPTY_FORM = {
   title: '',
   message: '',
   category: 'General',
   displayDate: '',
+  closeFrom: '',
+  closeTo: '',
   isActive: true,
 };
 
@@ -63,6 +70,8 @@ function AnnouncementManage() {
       message: announcement.message || '',
       category: announcement.category || 'General',
       displayDate: announcement.displayDate || '',
+      closeFrom: '',
+      closeTo: '',
       isActive: announcement.isActive !== undefined ? announcement.isActive : true,
     });
     setFormError('');
@@ -97,11 +106,21 @@ function AnnouncementManage() {
       return;
     }
 
+    // The dates to close for booking, checked before anything is saved.
+    const closing = CLOSING_CATEGORIES.includes(form.category) && form.closeFrom;
+    const closeTo = form.closeTo || form.closeFrom;
+    if (closing) {
+      const problem = closureDateProblem(form.closeFrom) || closureDateProblem(closeTo);
+      if (problem) { setFormError(problem); return; }
+      if (closeTo < form.closeFrom) { setFormError('The last date cannot be before the first date.'); return; }
+      if (dateRange(form.closeFrom, closeTo).length > MAX_RANGE_DAYS) { setFormError(`Close at most ${MAX_RANGE_DAYS} days at a time.`); return; }
+    }
+
     const payload = {
       title: form.title.trim(),
       message: form.message.trim(),
       category: form.category,
-      displayDate: form.displayDate.trim(),
+      displayDate: form.displayDate.trim() || (closing ? formatClosureRange(form.closeFrom, closeTo) : ''),
       isActive: form.isActive,
     };
 
@@ -111,6 +130,20 @@ function AnnouncementManage() {
         ? updateAnnouncement(editingAnnouncement._id, payload)
         : createAnnouncement(payload);
       await pendingSave.catch(withFallback('Failed to save announcement.'));
+
+      if (closing) {
+        const reason = form.title.trim().length >= 3 ? form.title.trim().slice(0, 200) : `${form.category} closure`;
+        const failed = [];
+        for (const day of dateRange(form.closeFrom, closeTo)) {
+          const saved = await attempt(addClosure({ date: day, reason }), 'Failed to close the date.');
+          if (saved.error && !/already closed/i.test(saved.error)) failed.push(`${day}: ${saved.error}`);
+        }
+        if (failed.length > 0) {
+          await fetchAnnouncements();
+          setFormError(`The announcement was saved, but these dates could not be closed for booking. ${failed.join(' ')}`);
+          return;
+        }
+      }
 
       await fetchAnnouncements();
       closeModal();
@@ -251,6 +284,33 @@ function AnnouncementManage() {
                   placeholder="e.g. Dec 24-26, 2026"
                 />
               </div>
+
+              {CLOSING_CATEGORIES.includes(form.category) && (
+                <div className="ann-field">
+                  <label>Close these dates for booking (optional)</label>
+                  <div className="ann-date-pair">
+                    <input
+                      type="date"
+                      name="closeFrom"
+                      aria-label="First closed date"
+                      min={closureWindow().min}
+                      max={closureWindow().max}
+                      value={form.closeFrom}
+                      onChange={handleChange}
+                    />
+                    <input
+                      type="date"
+                      name="closeTo"
+                      aria-label="Last closed date (optional)"
+                      min={form.closeFrom || closureWindow().min}
+                      max={closureWindow().max}
+                      value={form.closeTo}
+                      onChange={handleChange}
+                    />
+                  </div>
+                  <small className="ann-hint">Customers cannot book or reschedule onto these dates. The text above is only shown on the landing page and does not block anything.</small>
+                </div>
+              )}
 
               <label className="ann-checkbox-field">
                 <input

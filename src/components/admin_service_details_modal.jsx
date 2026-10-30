@@ -577,7 +577,7 @@ const [report, setReport] = useState(null);
                                                 className="ma-input"
                                                 min={bookingWindow().min}
                                                 max={bookingWindow().max}
-                                                showEarliest
+                                                showClosedList={false}
                                                 value={disruptionDate}
                                                 onChange={setDisruptionDate}
                                             />
@@ -620,7 +620,7 @@ const [report, setReport] = useState(null);
                                     <div className="admin-service-details-modal-x9">
                                         <div>
                                             <label className="sdm-row-label admin-service-details-modal-x10">New Date</label>
-                                            <ClosureDateInput className="ma-input" min={bookingWindow().min} max={bookingWindow().max} showEarliest value={disruptionDate} onChange={setDisruptionDate} />
+                                            <ClosureDateInput className="ma-input" min={bookingWindow().min} max={bookingWindow().max} showClosedList={false} value={disruptionDate} onChange={setDisruptionDate} />
                                         </div>
                                         <div>
                                             <label className="sdm-row-label admin-service-details-modal-x10">New Time</label>

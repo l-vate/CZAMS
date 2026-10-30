@@ -234,3 +234,30 @@ test('A6: Cancel booking is the last action in the page order, with the same con
   assert.match(group, /onClick=\{\(\) => setShowCancel\(true\)\} disabled=\{cancelling\}/);
   assert.match(group, /\[BOOKING_STATUS\.PENDING, BOOKING_STATUS\.APPROVED\]\.includes\(booking\.status\)\s*&& !booking\.isCommercial/, 'the discount request keeps its conditions');
 });
+
+// ---- A7: the two notification cards side by side
+
+test('A7: the cards share one row container, equal width on a phone, and stack at 340 px and below', () => {
+  const css = src('css', 'customer.css');
+  const phone = phoneBlock(css, 'NOTIFICATION CARDS ON A PHONE');
+  assert.match(phone, /\.confirmation-notif-row \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); gap: 12px; \}/);
+  assert.match(phone, /\.confirmation-notif-card \{[^}]*padding: 12px[^}]*overflow-wrap: anywhere/);
+  assert.match(phone, /\.confirmation-notif-sub, \.email-status-title \{ font-size: 13px/);
+  assert.match(css, /@media \(max-width: 340px\) \{\s*\.confirmation-notif-row \{ grid-template-columns: 1fr; \}/);
+  const page = src('pages', 'customer', 'book_details.jsx');
+  const row = page.slice(page.indexOf('confirmation-notif-row'), page.indexOf('<EmailStatusCard') + 80);
+  assert.match(row, /In-app notification/);
+  assert.match(row, /<EmailStatusCard bookingId=/, 'both cards are children of the one row');
+});
+
+test('A7: the masked email is wrapped, not cut, and its full text is also its tooltip; every state keeps its wording', async () => {
+  const card = src('components', 'email_status_card.jsx');
+  assert.match(card, /className="confirmation-notif-sub" title=\{line\}/);
+  const { emailCardText } = await vite.ssrLoadModule('/src/utils/emailCardText.js');
+  assert.deepEqual(emailCardText({ state: 'queued', maskedTo: 'ma***@gmail.com' }).lines, ['To ma***@gmail.com']);
+  assert.equal(emailCardText({ state: 'queued' }).title, 'Email will be sent shortly');
+  assert.equal(emailCardText({ state: 'sent', maskedTo: 'a***@x.com' }).title, 'Email sent');
+  assert.equal(emailCardText({ state: 'notConfigured' }).title, 'No email sent yet');
+  assert.equal(emailCardText({ state: 'failed' }).title, 'We could not send the email. You can still see updates in the app.');
+  assert.match(src('css', 'customer.css'), /\.email-status-card \{ overflow-wrap: anywhere; \}/);
+});

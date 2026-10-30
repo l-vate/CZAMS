@@ -2336,3 +2336,17 @@
   .booking-actions > button { grid-column: 2; width: 100%; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-align: center; }
   .booking-actions > .cancel-booking-btn { margin-top: 12px; }
 }
+
+/* ============ NOTIFICATION CARDS ON A PHONE ============
+   "In-app notification" and "Email notification" sit in one row at equal width and height; text wraps (the masked address included, so it is
+   all on screen and all read out). At 340 px and below they stack, as they always did. */
+@media (max-width: 768px) {
+  .confirmation-notif-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .confirmation-notif-card { min-width: 0; padding: 12px; overflow-wrap: anywhere; }
+  .confirmation-notif-title { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; font-size: 13.5px; line-height: 1.3; }
+  .confirmation-notif-title svg { flex: none; margin-right: 0; }
+  .confirmation-notif-sub, .email-status-title { font-size: 13px; line-height: 1.4; }
+}
+@media (max-width: 340px) {
+  .confirmation-notif-row { grid-template-columns: 1fr; }
+}

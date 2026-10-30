@@ -13,7 +13,7 @@ export function EmailStatusView({ card, admin = false }) {
     <div className="confirmation-notif-card email-status-card" data-state={card?.state || 'none'}>
       <p className="confirmation-notif-title"><FiMail /> Email notification</p>
       <p className="email-status-title">{title}</p>
-      {lines.map((line) => <p key={line} className="confirmation-notif-sub">{line}</p>)}
+      {lines.map((line) => <p key={line} className="confirmation-notif-sub" title={line}>{line}</p>)}
     </div>
   );
 }

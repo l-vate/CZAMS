@@ -106,7 +106,7 @@ test('A3: the desktop layout is untouched, the staff profile keeps its own rules
   const css = src('css', 'customer.css');
   const outside = css.replace(phoneBlock(css, 'PROFILE ON A PHONE'), '');
   assert.match(outside, /\.profile-grid \{\s*display: grid;\s*grid-template-columns: repeat\(2, 1fr\)/);
-  assert.doesNotMatch(src('css', 'staff.css'), /profile-page/);
+  assert.match(src('css', 'staff.css'), /.profile-card {[^}]*padding: 32px/, 'the shared base card rule is unchanged');
   const page = src('pages', 'customer', 'profile.jsx');
   for (const [id, attrs] of [['firstName', 'autoComplete="given-name"'], ['lastName', 'autoComplete="family-name"'], ['email', 'autoComplete="email"\s*inputMode="email"'], ['phone', 'autoComplete="tel"\s*inputMode="tel"'], ['address', 'autoComplete="street-address"']]) {
     assert.match(page, new RegExp(`id="${id}"\s*name="${id}"\s*${attrs}\s*onFocus=\{revealField\}`), id);

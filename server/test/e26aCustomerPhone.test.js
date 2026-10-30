@@ -128,7 +128,7 @@ test('A4: the badge key gives each payment state its own class, and none of them
   assert.equal(billBadgeKey(bill({}, { isCancelled: true })), 'cancelled');
   assert.equal(billBadgeKey(bill({}, { isBackJob: true })), 'backjob');
   const css = src('css', 'customer.css');
-  const colors = ['unpaid', 'verify', 'partial', 'paid', 'rejected', 'refunded', 'cancelled'].map((k) => new RegExp(`\.billing-badge--${k} \{ background: (#[0-9a-f]{6}); color: (#[0-9a-f]{6});`).exec(css));
+  const colors = ['unpaid', 'verify', 'partial', 'paid', 'rejected', 'refunded', 'cancelled'].map((k) => new RegExp(`\\.billing-badge--${k} \\{ background: (#[0-9a-f]{6}); color: (#[0-9a-f]{6});`).exec(css));
   assert.ok(colors.every(Boolean), 'every state has a badge rule');
   assert.equal(new Set(colors.map((m) => m[1])).size >= 6, true, 'the states do not share one colour');
   const lum = (hex) => { const n = parseInt(hex.slice(1), 16); const ch = (v) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }; return 0.2126 * ch((n >> 16) & 255) + 0.7152 * ch((n >> 8) & 255) + 0.0722 * ch(n & 255); };

@@ -165,7 +165,7 @@ test('a bill whose proof is waiting is not in Due now and has no Pay Now, but sa
   assert.match(billings, /!bill\.awaitingConfirmation && !bill\.isToVerify && !bill\.isBalanceToVerify\)/);
   assert.match(billings, /const proofWaiting = \(bill\.isToVerify \|\| bill\.isBalanceToVerify\) && !bill\.isCancelled;/);
   assert.match(billings, /const canPay = \(payDown \|\| payBalance\) && !waitingForConfirmation && !proofWaiting;/);
-  assert.match(billings, /Waiting for verification<\/span>/);
+  assert.match(billings, /billing-badge billing-badge--\$\{badgeKey\}/, 'the badge says Waiting for verification');
   assert.match(src('pages', 'customer', 'book_details.jsx'), /const balanceDue = !balanceProofWaiting && \(/);
 });
 

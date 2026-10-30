@@ -36,7 +36,7 @@ test('A1: the customer top bar has a search button that opens a full width field
   assert.match(layout, /aria-expanded=\{searchOpen\}/);
   assert.match(layout, /aria-controls="topbar-search-box"/);
   assert.match(layout, /if \(searchOpen\) searchInputRef\.current\?\.focus\(\)/, 'opening focuses the field');
-  assert.match(layout, /e\.key === 'Escape' && searchOpen\) closeSearch\(\)/);
+  assert.match(layout, /e\.key === 'Escape' && searchOpen\) \{ e\.preventDefault\(\); closeSearch\(\); \}/, 'Escape closes without the browser clearing the typed text');
   assert.match(layout, /aria-label="Close search"/);
   assert.match(layout, /value=\{searchValue\}/, 'the typed text is the page state, so it stays while the field is open or closed');
   assert.match(layout, /aria-label="Contact Support"/, 'chat is unchanged');
@@ -112,4 +112,63 @@ test('A3: the desktop layout is untouched, the staff profile keeps its own rules
     assert.match(page, new RegExp(`id="${id}"\\s*name="${id}"\\s*${attrs}\\s*onFocus=\\{revealField\\}`), id);
   }
   assert.match(page, /scrollIntoView\(\{ block: 'center', behavior: 'smooth' \}\)/, 'the focused field scrolls into view');
+});
+
+// ---- A4: billing cards
+
+test('A4: the badge key gives each payment state its own class, and none of them is the primary button blue', async () => {
+  const { billBadgeKey } = await vite.ssrLoadModule('/src/utils/billingCard.js');
+  const bill = (raw, flags = {}) => ({ raw, ...flags });
+  assert.equal(billBadgeKey(bill({})), 'unpaid');
+  assert.equal(billBadgeKey(bill({ paymentStatus: 'to_verify' })), 'verify');
+  assert.equal(billBadgeKey(bill({ paymentStatus: 'partially_paid' })), 'partial');
+  assert.equal(billBadgeKey(bill({ paymentStatus: 'fully_paid' })), 'paid');
+  assert.equal(billBadgeKey(bill({ paymentStatus: 'rejected' })), 'rejected');
+  assert.equal(billBadgeKey(bill({}, { isRefunded: true })), 'refunded');
+  assert.equal(billBadgeKey(bill({}, { isCancelled: true })), 'cancelled');
+  assert.equal(billBadgeKey(bill({}, { isBackJob: true })), 'backjob');
+  const css = src('css', 'customer.css');
+  const colors = ['unpaid', 'verify', 'partial', 'paid', 'rejected', 'refunded', 'cancelled'].map((k) => new RegExp(`\.billing-badge--${k} \{ background: (#[0-9a-f]{6}); color: (#[0-9a-f]{6});`).exec(css));
+  assert.ok(colors.every(Boolean), 'every state has a badge rule');
+  assert.equal(new Set(colors.map((m) => m[1])).size >= 6, true, 'the states do not share one colour');
+  const lum = (hex) => { const n = parseInt(hex.slice(1), 16); const ch = (v) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }; return 0.2126 * ch((n >> 16) & 255) + 0.7152 * ch((n >> 8) & 255) + 0.0722 * ch(n & 255); };
+  for (const m of colors) {
+    const [hi, lo] = [lum(m[1]), lum(m[2])].sort((a, b) => b - a);
+    assert.ok((hi + 0.05) / (lo + 0.05) >= 4.5, `${m[0]} meets AA`);
+  }
+});
+
+test('A4: the dates are one booked date and a smaller created date, read as written', async () => {
+  const { formatBookedDate, formatCreatedDate, peso2 } = await vite.ssrLoadModule('/src/utils/billingCard.js');
+  assert.equal(formatBookedDate('2026-10-25'), 'Oct 25, 2026');
+  assert.equal(formatBookedDate('2026-01-05'), 'Jan 5, 2026');
+  assert.equal(formatCreatedDate(new Date(2026, 9, 22, 12)), 'Oct 22');
+  assert.equal(peso2(3500), '₱3,500.00');
+  const page = src('pages', 'customer', 'billings.jsx');
+  assert.match(page, /Booked for \{formatBookedDate\(bill\.raw\.date\)\}/);
+  assert.match(page, /Created \{formatCreatedDate\(bill\.createdAt\)\}/);
+  assert.equal((page.match(/\{bill\.date\}/g) || []).length, 0, 'the created date is no longer printed twice');
+});
+
+test('A4: Due now shows only when something is due, with the existing amounts; every card has the same actions; the card opens the details', () => {
+  const page = src('pages', 'customer', 'billings.jsx');
+  assert.match(page, /const dueNow = Boolean\(bill\.due\.kind\) && !bill\.isCancelled && !bill\.isBackJob && !waitingForConfirmation && !proofWaiting;/);
+  assert.match(page, /const dueAmount = bill\.due\.kind === 'balance' \? bill\.remaining : bill\.toPayNow;/, 'no new money calculation');
+  assert.match(page, /\{dueNow && \(\s*<span className="billing-card-due">/);
+  assert.match(page, /bill\.due\.kind === 'balance' \? 'Balance' : 'Down payment'/);
+  assert.match(page, /Total <strong>\{peso2\(bill\.basePrice \|\| 0\)\}<\/strong>/);
+  const actions = page.slice(page.indexOf('billing-card-actions'));
+  assert.match(actions, /canPay && \(\s*<button[^>]*billing-btn--primary/, 'Pay Now only when there is something to pay');
+  assert.match(actions, /<FiEye size=\{14\} \/> View details/, 'View details is on every card, outside any condition');
+  assert.match(page, /className=\{`tech-job-card billing-card billing-card--\$\{badgeKey\}[^`]*`\}\s*onClick=\{openDetails\}/, 'the whole card opens the details');
+  assert.match(page, /onClick=\{\(e\) => \{ e\.stopPropagation\(\); openPayment\(\); \}\}/, 'Pay Now does not');
+});
+
+test('A4: the cards are compact on a phone and the shared staff card is untouched', () => {
+  const css = src('css', 'customer.css');
+  const phone = phoneBlock(css, 'BILLING CARDS');
+  assert.match(phone, /\.billing-card \{ padding: 12px 14px/);
+  assert.match(css, /\.billing-card \{[^}]*border-left-width: 3px/);
+  assert.match(css, /\.billing-btn \{[^}]*min-height: 44px/);
+  assert.match(src('css', 'staff.css'), /\.tech-job-card \{[^}]*padding: 18px 22px/, 'the shared card keeps its padding');
 });

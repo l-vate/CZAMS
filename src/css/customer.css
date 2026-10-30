@@ -2216,3 +2216,64 @@
 @media (max-width: 340px) {
   .profile-save-long { display: none; }
 }
+
+/* ============ BILLING CARDS ============
+   One layout for every bill: service and status badge, booking number, one labelled date, Total and Due now, then the same actions.
+   The shared .tech-job-card shell (staff.css) is left alone: these rules only apply with .billing-card. */
+.billing-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 14px 16px;
+  border-left-width: 3px;
+  cursor: pointer;
+}
+.billing-card:hover { transform: none; }
+.billing-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.billing-card-service { flex: 1 1 auto; min-width: 0; font-weight: 700; font-size: 16px; color: var(--navy); overflow-wrap: anywhere; }
+.billing-card-id { font-size: 12px; color: var(--ink-soft); overflow-wrap: anywhere; }
+.billing-card-dates { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; font-size: 14px; color: var(--navy); }
+.billing-card-booked { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.billing-card-created { font-size: 12px; color: var(--ink-soft); }
+.billing-card-money { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; font-size: 14px; color: var(--ink-soft); }
+.billing-card-money strong { color: var(--navy); }
+.billing-card-due, .billing-card-due strong { color: var(--navy); font-weight: 700; }
+.billing-card-due small { font-size: 12px; font-weight: 600; color: var(--ink-soft); }
+.billing-card-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.billing-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: 1 1 140px; min-height: 44px; padding: 0 14px; font: inherit; font-size: 14px; font-weight: 600; white-space: nowrap; border-radius: 8px; cursor: pointer; }
+.billing-btn--secondary { background: var(--white); color: var(--navy); border: 1px solid #b8c7d6; }
+.billing-btn--secondary:hover:not(:disabled) { border-color: var(--navy); background: var(--frost); }
+.billing-btn--secondary:disabled { opacity: 0.6; cursor: not-allowed; }
+.billing-btn:focus-visible { outline: 3px solid var(--coral); outline-offset: 2px; }
+.billing-card:has(.billing-btn:focus-visible) { box-shadow: none; }
+
+/* the status badge: one colour family per state, always with its text label, none of them the primary button blue (all pairs 4.5 to 1 or better) */
+.billing-badge { flex: 0 0 auto; max-width: 60%; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; line-height: 1.3; text-align: center; }
+.billing-badge--unpaid { background: #e5e7eb; color: #374151; }
+.billing-badge--verify { background: #dbe4f0; color: #1e3a5f; }
+.billing-badge--partial { background: #fde68a; color: #78350f; }
+.billing-badge--paid { background: #bbf7d0; color: #14532d; }
+.billing-badge--rejected { background: #fecaca; color: #7f1d1d; }
+.billing-badge--refunded { background: #e9d5ff; color: #581c87; }
+.billing-badge--cancelled { background: #e5e7eb; color: #4b5563; }
+.billing-badge--backjob { background: #bbf7d0; color: #14532d; }
+.billing-card--unpaid { border-left-color: #9ca3af; }
+.billing-card--verify { border-left-color: #64748b; }
+.billing-card--partial { border-left-color: #d97706; }
+.billing-card--paid { border-left-color: #16a34a; }
+.billing-card--rejected { border-left-color: #dc2626; }
+.billing-card--refunded { border-left-color: #9333ea; }
+.billing-card--cancelled { border-left-color: #9ca3af; }
+.billing-card--backjob { border-left-color: #16a34a; }
+
+/* a phone: tighter, so two or three cards fit on one screen; buttons share a row when they fit and stack at full width when they do not */
+@media (max-width: 768px) {
+  .billing-due-row .bs-next-btn { min-height: 44px; }
+  .billing-card { padding: 12px 14px; gap: 4px; }
+  .billing-card-actions { gap: 8px; }
+  .billing-btn { flex: 1 1 130px; }
+}
+@media (max-width: 340px) {
+  .billing-btn { flex-basis: 100%; }
+}

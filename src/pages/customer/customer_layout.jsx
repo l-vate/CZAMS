@@ -68,7 +68,7 @@ function CustomerLayout({ title, children, searchValue, onSearchChange, searchPl
                     aria-label={(searchPlaceholder || 'Search').replace(/.{3}$/, '')}
                     value={searchValue}
                     onChange={(e) => onSearchChange(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Escape' && searchOpen) closeSearch(); }}
+                    onKeyDown={(e) => { if (e.key === 'Escape' && searchOpen) { e.preventDefault(); closeSearch(); } }}
                   />
                   <button type="button" className="topbar-search-close" onClick={closeSearch} aria-label="Close search">
                     <FiX />

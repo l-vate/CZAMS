@@ -55,7 +55,7 @@ const { withLocks, LockBusyError } = require('../utils/slotLock');
 const { duplicateKey, findActiveDuplicate, DuplicateBookingError } = require('../utils/duplicateBooking');
 const { PendingLimitError, SlotTakenError, slotKey, pendingLimitKey, assertUnderPendingLimit, assertSlotOpen } = require('../utils/pendingHold');
 const { manilaToday } = require('../utils/manilaDate');
-const { bookingDateProblem } = require('../utils/dateRules');
+const { bookingDateProblem, adminRescheduleDateProblem } = require('../utils/dateRules');
 const { readFeedback } = require('../utils/feedbackInput');
 const { normalizeContactNumber } = require('../utils/contactNumber');
 const { sendRouteError } = require('../utils/routeErrors');
@@ -1782,7 +1782,7 @@ router.patch('/:bookingId/reschedule/use-date', auth, auditSpecs.rescheduleUseDa
       return res.status(403).json({ message: 'Forbidden' });
     }
     const { date, time } = req.body || {};
-    const dateProblem = bookingDateProblem(date);
+    const dateProblem = adminRescheduleDateProblem(date); // an admin move skips the 3 day minimum
     if (dateProblem) return res.status(400).json({ message: dateProblem });
     if (!TIME_BLOCKS.includes(time)) return res.status(400).json({ message: 'Time must be Morning or Afternoon.' });
 
@@ -2544,7 +2544,7 @@ router.patch('/:bookingId/no-show/decision', auth, allowRoles(ROLE.ADMIN), audit
         return res.status(400).json({ message: 'Only an Approved or In Progress booking can be rescheduled.' });
       }
       if (!date || !time) return sendProblem(res, invalid('Choose the new date and time.'));
-      const noShowDateProblem = bookingDateProblem(date);
+      const noShowDateProblem = adminRescheduleDateProblem(date);
       if (noShowDateProblem) return sendProblem(res, invalid(noShowDateProblem));
       if (!TIME_BLOCKS.includes(time)) return res.status(400).json({ message: 'Time must be Morning or Afternoon.' });
       const closed = await businessDayProblem(Closure, date);
@@ -2826,7 +2826,7 @@ router.patch('/:bookingId/disruption/reschedule', auth, auditSpecs.disruptionRes
     if (!date || !time) {
       return res.status(400).json({ message: 'A new date and time are required.' });
     }
-    const disruptionDateProblem = bookingDateProblem(date);
+    const disruptionDateProblem = adminRescheduleDateProblem(date);
     if (disruptionDateProblem) return res.status(400).json({ message: disruptionDateProblem });
 
     const booking = await Booking.findOne({ bookingId: req.params.bookingId }).populate('service');

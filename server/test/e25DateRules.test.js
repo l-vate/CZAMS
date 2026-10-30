@@ -185,20 +185,41 @@ test('a customer reschedule request: same window, same sentences', async () => {
   assert.doesNotMatch((edge.body && edge.body.message) || '', NOT_A_DATE_PROBLEM);
 });
 
-test('the admin reschedule, the disruption reschedule and the no show reschedule use the same window', async () => {
+test('the admin reschedule, the disruption reschedule and the no show reschedule skip the 3 day minimum: only the past and 5 months apply', async () => {
   harness.reset({ users, services: [clean] });
   addBooking({ bookingId: 'CZ-2', customer: 'CUS1', service: clean, status: 'Approved', date: window().min, time: 'Morning', units: [{ type: 'Split Type', quantity: 1 }], assignments: [], disruption: { status: 'Reported', reason: 'rain' } });
-  const { min, max } = window();
+  const { min: today, max } = rules.adminRescheduleWindow(new Date());
   const useDate = (date) => call('PATCH', '/CZ-2/reschedule/use-date', 'ADM1', { date, time: 'Morning' }, asAdmin);
-  assert.match((await useDate(dayAfter(min, -1))).body.message, /at least 3 days notice|already passed/);
-  assert.match((await useDate(dayAfter(max, 1))).body.message, /up to 5 months ahead/);
   const disruption = (date) => call('PATCH', '/CZ-2/disruption/reschedule', 'ADM1', { date, time: 'Morning' }, asAdmin);
-  assert.match((await disruption(dayAfter(min, -1))).body.message, /at least 3 days notice|already passed/);
-  assert.match((await disruption(dayAfter(max, 1))).body.message, /up to 5 months ahead/);
   state.bookings[0].noShow = { status: 'Reported' };
   const noShow = (date) => call('PATCH', '/CZ-2/no-show/decision', 'ADM1', { action: 'reschedule', date, time: 'Morning', reason: 'We were late' }, asAdmin);
-  assert.match((await noShow(dayAfter(min, -1))).body.message, /at least 3 days notice|already passed/);
-  assert.match((await noShow(dayAfter(max, 1))).body.message, /up to 5 months ahead/);
+  for (const [name, move] of [['use-date', useDate], ['disruption', disruption], ['no show', noShow]]) {
+    assert.match((await move(dayAfter(today, -1))).body.message, /already passed/, name + ': yesterday');
+    assert.match((await move(dayAfter(max, 1))).body.message, /up to 5 months ahead/, name + ': one day after the maximum');
+    // tomorrow, today and the maximum are not refused for their date (a Sunday or a clash may still refuse them for its own reason)
+    for (const near of [dayAfter(today, 1), today, max]) {
+      const res = await move(near);
+      assert.doesNotMatch((res.body && res.body.message) || '', /days notice|already passed|months ahead|real date/, name + ': ' + near);
+    }
+  }
+});
+
+test('the admin reschedule window: from today (no 3 day minimum) to 5 months, with the fixed clock', async () => {
+  assert.deepEqual(rules.adminRescheduleWindow(NOW), { min: TODAY, max: '2027-03-30' });
+  const message = (d) => rules.adminRescheduleDateProblem(d, NOW);
+  assert.match(message('2026-10-29'), /already passed.*Oct 30, 2026/, 'the day before the minimum');
+  assert.equal(message(TODAY), null, 'exactly the minimum, today');
+  assert.equal(message('2026-10-31'), null, 'tomorrow');
+  assert.equal(message('2027-03-30'), null, 'exactly the maximum');
+  assert.match(message('2027-03-31'), /up to 5 months ahead.*Mar 30, 2027/, 'one day after');
+  assert.match(message('2026-02-30'), /real date/);
+  // a customer and a new booking keep both limits
+  assert.match(rules.bookingDateProblem('2026-10-31', NOW), /at least 3 days notice/);
+  const client = await vite.ssrLoadModule('/src/utils/dateRules.js');
+  for (const d of ['2026-10-29', TODAY, '2026-10-31', '2027-03-30', '2027-03-31', 'x']) {
+    assert.equal(client.adminRescheduleDateProblem(d, NOW), message(d), d);
+  }
+  assert.deepEqual(client.adminRescheduleWindow(NOW), rules.adminRescheduleWindow(NOW));
 });
 
 test('a booking that is already outside the window is left as it is', async () => {
@@ -221,8 +242,8 @@ test('every date input in the app takes its limits and its sentence from the sha
     'pages/customer/book_service.jsx': /bookingWindow\(\)[\s\S]*bookingDateProblem\(form\.date\)/,
     'pages/customer/book_details.jsx': /bookingWindow\(\)[\s\S]*max=\{maxDate\}[\s\S]*date-problem/,
     'pages/admin/walk_in_booking.jsx': /!bookingDateProblem\(form\.date\)/,
-    'components/admin_service_details_modal.jsx': /max=\{bookingWindow\(\)\.max\}/,
-    'components/no_show_panels.jsx': /max=\{bookingWindow\(\)\.max\}/,
+    'components/admin_service_details_modal.jsx': /min=\{adminRescheduleWindow\(\)\.min\}[\s\S]*max=\{adminRescheduleWindow\(\)\.max\}/,
+    'components/no_show_panels.jsx': /min=\{adminRescheduleWindow\(\)\.min\}[\s\S]*adminRescheduleDateProblem\(date\)/,
     'components/closure_manager.jsx': /closureDateProblem\(date\)[\s\S]*closureWindow\(\)\.max/,
     'components/technician_availability_manager.jsx': /leaveDateProblem\(date\)[\s\S]*leaveWindow\(\)\.max/,
     'components/statement_of_account.jsx': /pastRangeProblem\(form\.fromKey, form\.toKey\)[\s\S]*pastWindow\(\)\.min/,

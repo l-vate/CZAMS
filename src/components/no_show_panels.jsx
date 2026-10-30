@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ApiError } from '../services/apiClient';
 import { reportNoShow, decideNoShow } from '../services/bookingService';
 import { getMemberNames } from '../utils/assignments';
-import { bookingWindow, bookingDateProblem } from '../utils/dateRules';
+import { adminRescheduleWindow, adminRescheduleDateProblem } from '../utils/dateRules';
 import { TIME_BLOCK_VALUES } from '../constants/timeBlocks';
 
 const NOTE_MAX = 300;
@@ -153,8 +153,8 @@ export function NoShowAdminPanel({ booking, onUpdated }) {
           </fieldset>
           {action === 'reschedule' && (
             <div className="ns-slot">
-              <input type="date" className="ma-input" aria-label="New date" min={bookingWindow().min} max={bookingWindow().max} value={date} onChange={(e) => setDate(e.target.value)} />
-              {date && bookingDateProblem(date) && <p className="date-problem" role="alert">{bookingDateProblem(date)}</p>}
+              <input type="date" className="ma-input" aria-label="New date" min={adminRescheduleWindow().min} max={adminRescheduleWindow().max} value={date} onChange={(e) => setDate(e.target.value)} />
+              {date && adminRescheduleDateProblem(date) && <p className="date-problem" role="alert">{adminRescheduleDateProblem(date)}</p>}
               <select className="ma-input" aria-label="New time" value={time} onChange={(e) => setTime(e.target.value)}>
                 {TIME_BLOCK_VALUES.map((block) => <option key={block} value={block}>{block}</option>)}
               </select>

@@ -133,7 +133,7 @@ test('the browser copy gives the same windows and the same sentences as the serv
 });
 
 // ---- the routes
-const { state, post, call, callPath, addBooking } = harness;
+const { state, post, call, addBooking } = harness;
 const clean = { _id: 'S-CLN', name: 'Regular Cleaning', serviceType: 'Cleaning', price: 800, isActive: true };
 const users = [
   { _id: 'CUS1', role: 'customer', isActive: true, clientType: 'Residential', name: 'Customer One' },

@@ -21,7 +21,7 @@ test('a proof that was just sent is "Waiting for verification", never partially 
   const { customerPaymentStatus, PAYMENT_LABEL } = await vite.ssrLoadModule('/src/utils/customerPayment.js');
   assert.equal(customerPaymentStatus({ paymentStatus: 'to_verify' }).label, PAYMENT_LABEL.WAITING);
   assert.equal(customerPaymentStatus({ paymentStatus: 'Unpaid' }).label, 'Unpaid');
-  assert.equal(customerPaymentStatus({ paymentStatus: 'partially_paid' }).label, 'Down payment verified');
+  assert.equal(customerPaymentStatus({ paymentStatus: 'partially_paid' }).label, 'Partially paid');
   assert.equal(customerPaymentStatus({ paymentStatus: 'fully_paid' }).label, 'Fully paid');
   assert.equal(customerPaymentStatus({ paymentStatus: 'rejected' }).label, 'Payment rejected');
   assert.equal(customerPaymentStatus({ paymentStatus: 'partially_paid', balancePaymentStatus: 'to_verify' }).label, 'Waiting for verification', 'a balance proof waiting');
@@ -29,7 +29,7 @@ test('a proof that was just sent is "Waiting for verification", never partially 
   assert.equal(customerPaymentStatus({ paymentStatus: 'partially_paid', balancePaymentStatus: 'paid' }).label, 'Fully paid');
   for (const status of ['Unpaid', 'to_verify', 'rejected']) {
     const label = customerPaymentStatus({ paymentStatus: status }).label;
-    assert.ok(!['Partially Paid', 'Fully paid', 'Down payment verified'].includes(label), `${status} must not read as paid: ${label}`);
+    assert.ok(!['Partially Paid', 'Partially paid', 'Fully paid', 'Down payment verified'].includes(label), `${status} must not read as paid: ${label}`);
   }
 });
 
@@ -53,8 +53,8 @@ test('Billing filters: To Verify lists every booking with a proof waiting, Due l
   assert.equal(billMatchesFilter(owed, 'To Verify'), false);
   assert.equal(billMatchesFilter(owed, 'Due'), true);
   assert.equal(billMatchesFilter(proof, 'Due'), false);
-  assert.equal(billMatchesFilter(verified, 'Down payment verified'), true);
-  assert.equal(billMatchesFilter(proof, 'Down payment verified'), false);
+  assert.equal(billMatchesFilter(verified, 'Partially paid'), true);
+  assert.equal(billMatchesFilter(proof, 'Partially paid'), false);
   assert.equal(billMatchesFilter(bill({ isCancelled: true, isToVerify: true }), 'To Verify'), false, 'a cancelled booking only shows under All');
   assert.equal(billMatchesFilter(bill({ isCancelled: true }), 'All'), true);
   assert.equal(billMatchesFilter(bill({ isBackJob: true, due: { kind: 'down' } }), 'Due'), false, 'a free back job has nothing to bill');

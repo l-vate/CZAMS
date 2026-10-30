@@ -212,3 +212,25 @@ test('A5: one spacing rhythm for every field group, defined once', () => {
   assert.match(phone, /\.bs-card \.closure-upcoming \{ margin: var\(--bs-gap-hint\) 0 calc\(var\(--bs-gap-hint\) - var\(--bs-gap-group\)\); \}/);
   assert.match(src('css', 'components', 'closures.css'), /\.closure-upcoming \{ margin: 6px 0 0;/, 'the shared helper line is unchanged elsewhere');
 });
+
+// ---- A6: the booking details actions
+
+test('A6: on a phone the action buttons are one right aligned column of equal width, 44 px tall, 12 px apart', () => {
+  const css = src('css', 'customer.css');
+  const phone = phoneBlock(css, 'BOOKING DETAILS ACTIONS ON A PHONE');
+  assert.match(phone, /\.booking-actions \{ display: grid; grid-template-columns: minmax\(0, 1fr\) minmax\(0, max-content\); gap: 12px/);
+  assert.match(phone, /\.booking-actions > \* \{ grid-column: 1 \/ -1; \}/, 'notes and forms take the full width');
+  assert.match(phone, /\.booking-actions > button \{ grid-column: 2; width: 100%; min-height: 44px/);
+  assert.match(phone, /\.booking-actions > \.cancel-booking-btn \{ margin-top: 12px; \}/);
+});
+
+test('A6: Cancel booking is the last action in the page order, with the same conditions as before', () => {
+  const page = src('pages', 'customer', 'book_details.jsx');
+  const group = page.slice(page.indexOf('confirmation-actions booking-actions'));
+  const order = ['Reschedule', 'NoShowCustomerCard', 'DiscountRequestForm', 'FEEDBACK_ACTION_LABEL', 'View Service Report', 'Report an Issue', 'Cancel booking'].map((t) => group.indexOf(t));
+  assert.ok(order.every((n) => n >= 0), 'every action is still there');
+  assert.deepEqual([...order].sort((a, b) => a - b), order, 'Cancel booking comes last, so it is last for the keyboard too');
+  assert.match(group, /BOOKING_STATUS\.IN_PROGRESS && !cancellableWhileStarted \?/, 'the started-service note is unchanged');
+  assert.match(group, /onClick=\{\(\) => setShowCancel\(true\)\} disabled=\{cancelling\}/);
+  assert.match(group, /\[BOOKING_STATUS\.PENDING, BOOKING_STATUS\.APPROVED\]\.includes\(booking\.status\)\s*&& !booking\.isCommercial/, 'the discount request keeps its conditions');
+});

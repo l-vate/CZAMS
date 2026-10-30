@@ -2326,3 +2326,13 @@
   .unit-entry-row .bs-select, .unit-entry-row .bs-input { min-height: 44px; min-width: 0; }
   .bs-card .bs-input, .bs-card .bs-select, .bs-card .bs-textarea { font-size: 16px; }
 }
+
+/* ============ BOOKING DETAILS ACTIONS ON A PHONE ============
+   The buttons form one column at the right edge, all as wide as the widest one (never wider than the card), 44 px tall, 12 px apart, with
+   Cancel booking (destructive, red) last and set apart. Notes and forms inside the group still take the full width. */
+@media (max-width: 768px) {
+  .booking-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, max-content); gap: 12px; align-items: start; justify-items: stretch; }
+  .booking-actions > * { grid-column: 1 / -1; }
+  .booking-actions > button { grid-column: 2; width: 100%; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-align: center; }
+  .booking-actions > .cancel-booking-btn { margin-top: 12px; }
+}

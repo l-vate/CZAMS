@@ -983,7 +983,7 @@ function BookDetails() {
             </div>
           )}
 
-          <div className="confirmation-actions">
+          <div className="confirmation-actions booking-actions">
             {booking.status !== BOOKING_STATUS.CANCELLED && booking.status !== BOOKING_STATUS.COMPLETED && (
               <>
                 {rescheduleStatus === 'Pending' ? (
@@ -993,18 +993,6 @@ function BookDetails() {
                 ) : booking.status !== BOOKING_STATUS.IN_PROGRESS && (
                   <button className="bs-back-btn" onClick={() => setShowReschedule(true)}>
                     {rescheduleStatus === 'Denied' ? 'Pick New Date' : 'Reschedule'}
-                  </button>
-                )}
-
-                {booking.status === BOOKING_STATUS.IN_PROGRESS && !cancellableWhileStarted ? (
-                  <p className="cancelled-message customer-book-details-x11">
-                    {noShowWaiting
-                      ? 'Your no show report is being reviewed by the owner, so this booking cannot be cancelled online right now.'
-                      : 'The service has already started, so it can no longer be cancelled online. Please contact us directly.'}
-                  </p>
-                ) : (
-                  <button className="cancel-booking-btn" onClick={() => setShowCancel(true)} disabled={cancelling}>
-                    Cancel booking
                   </button>
                 )}
                 {[BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status) && (
@@ -1036,6 +1024,20 @@ function BookDetails() {
                 <FiAlertTriangle /> {backJob ? 'View Reported Issue' : 'Report an Issue'}
               </button>
             )}
+
+            {booking.status !== BOOKING_STATUS.CANCELLED && booking.status !== BOOKING_STATUS.COMPLETED && (<>
+                {booking.status === BOOKING_STATUS.IN_PROGRESS && !cancellableWhileStarted ? (
+                  <p className="cancelled-message customer-book-details-x11">
+                    {noShowWaiting
+                      ? 'Your no show report is being reviewed by the owner, so this booking cannot be cancelled online right now.'
+                      : 'The service has already started, so it can no longer be cancelled online. Please contact us directly.'}
+                  </p>
+                ) : (
+                  <button className="cancel-booking-btn" onClick={() => setShowCancel(true)} disabled={cancelling}>
+                    Cancel booking
+                  </button>
+                )}
+            </>)}
           </div>
         </div>
       </div>

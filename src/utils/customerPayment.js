@@ -1,14 +1,14 @@
 // How a customer is told where their payments stand. Pure and free of app imports so it is tested on its own.
 //
 // A label never says "paid" until an admin has verified a payment: a proof that was just sent is "Waiting for verification", and a verified
-// down payment is "Down payment verified" (not "Partially Paid", which sounded like part of the total was already settled).
+// down payment is "Partially Paid" (only once an admin has verified the down payment, never before).
 import { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } from '../constants/paymentStatus.js';
 import { isBookingFullyPaid } from './receiptStatus.js';
 
 export const PAYMENT_LABEL = Object.freeze({
   UNPAID: 'Unpaid',
   WAITING: 'Waiting for verification',
-  DOWN_VERIFIED: 'Down payment verified',
+  DOWN_VERIFIED: 'Partially Paid',
   FULLY_PAID: 'Fully paid',
   REJECTED: 'Payment rejected',
 });
@@ -32,7 +32,7 @@ export function rejectionReasonOf(booking) {
   return '';
 }
 
-export const BILL_FILTERS = Object.freeze(['All', 'Due', 'To Verify', 'Down payment verified', 'Fully Paid', 'Unpaid', 'Refunded']);
+export const BILL_FILTERS = Object.freeze(['All', 'Due', 'To Verify', 'Partially Paid', 'Fully Paid', 'Unpaid', 'Refunded']);
 
 // Whether a bill belongs under a filter pill. `bill` carries the flags Billing works out (isCancelled, isRefunded, isBackJob, due, ...).
 export function billMatchesFilter(bill, filter) {
@@ -43,7 +43,7 @@ export function billMatchesFilter(bill, filter) {
   if (filter === 'Due') return Boolean(bill.due && bill.due.kind);
   if (filter === 'To Verify') return Boolean(bill.isToVerify || bill.isBalanceToVerify);
   if (filter === 'Fully Paid') return Boolean(bill.isFullyPaid);
-  if (filter === 'Down payment verified') return Boolean(bill.isPartiallyPaid && !bill.isFullyPaid);
+  if (filter === 'Partially Paid') return Boolean(bill.isPartiallyPaid && !bill.isFullyPaid);
   if (filter === 'Unpaid') return bill.paymentStatus === PAYMENT_STATUS.UNPAID || Boolean(bill.isRejected);
   return true;
 }

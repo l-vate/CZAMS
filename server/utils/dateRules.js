@@ -51,6 +51,21 @@ function bookingDateProblem(date, now = new Date()) {
   return null;
 }
 
+// { min, max } for an admin moving a booking (reschedule, disruption reschedule, no show reschedule): the owner may move a job soon, so only
+// "not in the past" and the same furthest day as a booking apply. Customers and every new booking keep bookingWindow.
+function adminRescheduleWindow(now = new Date()) {
+  const today = todayOf(now);
+  return { min: today, max: addMonthsKey(today, BOOKING_MAX_MONTHS) };
+}
+
+function adminRescheduleDateProblem(date, now = new Date()) {
+  if (typeof date !== 'string' || !isRealDateKey(date)) return 'Choose a real date.';
+  const { min, max } = adminRescheduleWindow(now);
+  if (date < min) return `That date has already passed. The earliest date you can choose is ${show(min)}.`;
+  if (date > max) return `We take bookings up to ${months(BOOKING_MAX_MONTHS)} ahead. The latest date you can choose is ${show(max)}.`;
+  return null;
+}
+
 // { min, max } for something that already happened.
 function pastWindow(now = new Date()) {
   return { min: EARLIEST_DATE, max: manilaToday(now) };
@@ -95,5 +110,5 @@ function leaveDateProblem(date, now = new Date()) {
 
 module.exports = {
   EARLIEST_DATE, BOOKING_MAX_MONTHS, CLOSURE_MAX_MONTHS, LEAVE_MAX_MONTHS,
-  addMonthsKey, bookingWindow, bookingDateProblem, pastWindow, pastDateProblem, closureWindow, closureDateProblem, leaveWindow, leaveDateProblem,
+  addMonthsKey, bookingWindow, bookingDateProblem, adminRescheduleWindow, adminRescheduleDateProblem, pastWindow, pastDateProblem, closureWindow, closureDateProblem, leaveWindow, leaveDateProblem,
 };

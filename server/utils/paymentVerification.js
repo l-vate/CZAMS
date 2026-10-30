@@ -115,7 +115,7 @@ function planReverse(booking, track, reason) {
   if (problem) return { problem };
   if (track === 'down') {
     if (!VERIFIED_DOWN.includes(booking.paymentStatus)) return { problem: invalid('Only a verified down payment can be reversed.') };
-    if (booking.refund && booking.refund.status) return { problem: invalid('A refund is open on this booking and depends on this payment, so it cannot be reversed.') };
+    if (booking.refund && booking.refund.status && booking.refund.status !== 'None') return { problem: invalid('A refund is open on this booking and depends on this payment, so it cannot be reversed.') };
     if (booking.balancePaymentStatus === BALANCE_PAYMENT_STATUS.PAID) return { problem: invalid('Reverse the balance payment first.') };
     return { plan: {
       track: 'down', action: 'reverse', expect: { paymentStatus: booking.paymentStatus },

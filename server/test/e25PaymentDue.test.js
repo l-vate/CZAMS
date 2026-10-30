@@ -200,6 +200,9 @@ test('a recorded payment can be reversed with a reason, and the reversal is on t
 test('a payment a refund depends on cannot be reversed', async () => {
   await bookCleaning();
   await call('PATCH', `/${bid()}/record-payment`, 'ADM1', { method: 'Cash', track: 'down', amount: 400 }, asAdmin);
+  state.bookings[0].refund = { status: 'None' };
+  assert.equal((await adminUpdate({ reverse: 'down', reason: 'Wrong booking' })).status, 200, 'a refund that was never opened does not block it');
+  await call('PATCH', `/${bid()}/record-payment`, 'ADM1', { method: 'Cash', track: 'down', amount: 400 }, asAdmin);
   state.bookings[0].refund = { status: 'Pending' };
   const blocked = await adminUpdate({ reverse: 'down', reason: 'Wrong booking' });
   assert.equal(blocked.status, 400);
@@ -231,4 +234,13 @@ test('an Installation unit that waits for the owner is a decision for the admin'
   const items = collectItems({ bookings: [b], servicesById: new Map([['S2', svc]]), now: new Date('2026-11-02T02:00:00Z') });
   assert.ok(items.some((i) => i.kind === 'unit_confirmation'));
   assert.ok(!items.some((i) => i.kind === 'waiting_payment'));
+});
+
+test('the Needs attention route loads what the payment rules need (it selects fields, so a missing one would silently hide the new kinds)', () => {
+  const route = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'routes', 'adminNeedsAttentionRoutes.js'), 'utf8');
+  for (const field of ['downPaymentPercent', 'clientSuppliedUnit', 'unitConfirmedAt', 'pricingVersion', 'units.supplied.price', 'priceSnapshot', 'scopeLines', 'units.quantity']) {
+    assert.ok(route.includes(`'${field}'`), field);
+  }
+  assert.match(route, /BookingStatus|BOOKING_STATUS\.PENDING \|\| \(b\.status === BOOKING_STATUS\.APPROVED/);
+  assert.match(route, /select\('name serviceType minTechnicians price unitTypePricing'\)/);
 });

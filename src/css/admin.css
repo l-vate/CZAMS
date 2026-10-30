@@ -1267,7 +1267,7 @@
 .filter-pill {
   border: 1.5px solid var(--mist);
   background: var(--white);
-  color: var(--ink-soft);
+  color: var(--navy);
   padding: 9px 18px;
   border-radius: 999px;
   font-family: 'Inter', sans-serif;
@@ -1277,16 +1277,25 @@
   transition: 0.2s ease;
 }
 
+/* Unselected: navy text on white. Selected: white text on navy, and it stays that way under the pointer or after a tap (the hover rule
+   used to turn the selected pill's text blue on its navy background). Focus shows a coral ring. */
 .filter-pill:hover {
-  border-color: var(--primary);
-  color: var(--primary);
+  border-color: var(--navy);
+  color: var(--navy);
 }
 
-.filter-pill--active {
+.filter-pill--active,
+.filter-pill--active:hover,
+.filter-pill--active:focus-visible {
   background: var(--navy);
   border-color: var(--navy);
   color: var(--white);
   transform: scale(1.04);
+}
+
+.filter-pill:focus-visible {
+  outline: 3px solid var(--action-focus);
+  outline-offset: 2px;
 }
 
 .payments-search {
@@ -3111,3 +3120,16 @@
 /* the "close these dates for booking" pair in the announcement form */
 .ann-date-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .ann-hint { display: block; margin-top: 6px; font-size: 12px; color: #64748b; line-height: 1.4; }
+
+/* ============ ADMIN DASHBOARD STAT CARDS ON A PHONE ============
+   Two per row (one per row at 340 px and below), a smaller icon, number and label aligned left. Wider screens are unchanged. */
+@media (max-width: 768px) {
+  .stats-container { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .stats-container .stat-card { padding: 14px; text-align: left; min-width: 0; }
+  .stats-container .stat-icon { width: 34px; height: 34px; font-size: 17px; margin-bottom: 10px; }
+  .stats-container .stat-card h3 { font-size: 28px; }
+  .stats-container .stat-card p { overflow-wrap: anywhere; }
+}
+@media (max-width: 340px) {
+  .stats-container { grid-template-columns: 1fr; }
+}

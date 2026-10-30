@@ -1,1 +1,27 @@
 /*Customer*/
+/* Log Out is pinned to the bottom of the phone menu drawer (up to 900 px, where the sidebar is a drawer). The drawer is as tall as the visible
+   screen (dvh), the brand and links above scroll inside it if they do not fit, and Log Out never scrolls away. */
+.sidebar-logout .sidebar-link { display: flex; align-items: center; gap: 10px; width: 100%; }
+@media (max-width: 900px) {
+  .dashboard-shell .sidebar {
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    justify-content: flex-start;
+    padding-bottom: 0;
+  }
+  .dashboard-shell .sidebar > div:first-child {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .sidebar-logout {
+    flex: none;
+    padding: 8px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border-subtle);
+    background: var(--white);
+  }
+  .sidebar-logout .sidebar-link { min-height: 44px; }
+}

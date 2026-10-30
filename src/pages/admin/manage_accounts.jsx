@@ -8,6 +8,7 @@ import { getFilterPillStyle } from '../../utils/statusColors';
 import { ApiError } from '../../services/apiClient';
 import { listUsers, createUser } from '../../services/userService';
 import { ROLE } from '../../constants/roles';
+import BackButton from '../../components/back_button';
 import { POSITION_MAX, POSITION_SUGGESTIONS, COMPANY_NAME_MAX, REPRESENTATIVE_NAME_MAX } from '../../constants/profileFields';
 
 /* ── Small Icon Helpers ───────────────────────────────────── */
@@ -49,9 +50,7 @@ function RegisterForm({ type, onCancel, onSubmit }) {
 
   return (
     <div className="ma-form-view">
-      <button className="ma-back-link" type="button" onClick={onCancel}>
-        &larr; Back to Account List
-      </button>
+      <BackButton label="Back to Account List" className="ma-back-link" onClick={onCancel} />
 
       <div className="ma-form-card">
         <h3 className="ma-form-title">

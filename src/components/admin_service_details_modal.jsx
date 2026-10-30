@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FiArrowLeft, FiArrowRight } from 'react-icons/fi';
+import { FiArrowRight } from 'react-icons/fi';
 import { getBookingLineItems, getPaymentBreakdown, formatPeso } from '../utils/bookingPricing';
 import AssignmentPanel from './assignment_panel';
 import CancelBookingDialog from './cancel_booking_dialog';
@@ -19,6 +19,7 @@ import ClosureDateInput from './closure_date_input';
 import { warrantyStatusText } from '../utils/warrantyText';
 import { BRAND_SHORT } from '../config/company';
 import ReceiptModal from './receipt_modal';
+import BackButton from './back_button';
 import { buildReceiptForm } from '../utils/receiptData';
 import { getMemberIds } from '../utils/assignments';
 import { isWithinQuezonCity } from '../utils/serviceArea';
@@ -345,9 +346,7 @@ const [report, setReport] = useState(null);
                 {!asPage && <button type="button" className="modal-close-btn sdm-close-position" onClick={onClose}>✕</button>}
                 <div className="sdm-body">
                     {asPage && (
-                        <button type="button" className="sdm-back sdm-back--in-card" onClick={onClose}>
-                            <FiArrowLeft /> Back to Bookings
-                        </button>
+                        <BackButton label="Back to Bookings" className="sdm-back sdm-back--in-card" onClick={onClose} />
                     )}
                     <div className="sdm-titlebar">
                         <div>

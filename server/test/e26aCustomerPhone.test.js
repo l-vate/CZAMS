@@ -322,3 +322,39 @@ test('A8: "View File" is a brand link, still opens in a new tab, and the print r
   assert.match(print, /\.printing-receipt-active \.receipt-modal-card \{\s*position: absolute;\s*left: 0;\s*top: 0;\s*width: 100%;\s*max-height: none;\s*overflow: visible;/);
   assert.match(print, /\.printing-receipt-active \.receipt-print-area a \{\s*color: inherit;\s*text-decoration: none;\s*pointer-events: none;/);
 });
+
+// ---- A9: icon-only Back buttons on phones
+
+test('A9: the shared Back button keeps its full text as its accessible name and tooltip, with an arrow icon', async () => {
+  const html = (() => {
+    const React = rootRequire('react');
+    const { renderToStaticMarkup } = rootRequire('react-dom/server');
+    return vite.ssrLoadModule('/src/components/back_button.jsx').then(({ default: BackButton }) => renderToStaticMarkup(React.createElement(BackButton, { label: 'Back to Bookings', className: 'sdm-back', onClick() {} })));
+  })();
+  const markup = await html;
+  assert.match(markup, /<button type="button" class="back-btn sdm-back" title="Back to Bookings">/);
+  assert.match(markup, /<svg[^>]*aria-hidden="true"/);
+  assert.match(markup, /<span class="back-btn-text">Back to Bookings<\/span>/, 'the words stay in the button, so its accessible name is the old text');
+});
+
+test('A9: on a phone the button is 44 by 44 px with the words hidden visually; above 768 px nothing changes', () => {
+  const css = src('css', 'components', 'back_button.css');
+  const phone = phoneBlock(css, '.back-btn { display: inline-flex');
+  assert.match(phone, /button\.back-btn \{[^}]*width: 44px; height: 44px; min-width: 44px; min-height: 44px/);
+  assert.match(phone, /\.back-btn-text \{ position: absolute; width: 1px; height: 1px[^}]*clip: rect\(0, 0, 0, 0\)/);
+  const outside = css.replace(phone, '');
+  assert.doesNotMatch(outside, /back-btn-text/, 'the text is hidden only inside the phone block');
+  assert.match(css, /\.back-btn:focus-visible \{ outline: 3px solid var\(--coral\)/);
+  assert.match(src('main.jsx'), /import '\.\/css\/components\/back_button\.css';/);
+});
+
+test('A9: every "Back to ..." button of the app uses it, with the same destination as before', () => {
+  const details = src('pages', 'admin', 'booking_details_page.jsx');
+  assert.match(details, /<BackButton label="Back to Bookings" className="sdm-back" onClick=\{back\} \/>/);
+  assert.match(details, /const back = \(\) => navigate\('\/admin\/services\/requests'\);/);
+  assert.match(src('components', 'admin_service_details_modal.jsx'), /<BackButton label="Back to Bookings" className="sdm-back sdm-back--in-card" onClick=\{onClose\} \/>/);
+  assert.match(src('pages', 'admin', 'manage_accounts.jsx'), /<BackButton label="Back to Account List" className="ma-back-link" onClick=\{onCancel\} \/>/);
+  for (const file of [['pages', 'admin', 'booking_details_page.jsx'], ['components', 'admin_service_details_modal.jsx'], ['pages', 'admin', 'manage_accounts.jsx']]) {
+    assert.doesNotMatch(src(...file), /<FiArrowLeft \/> Back to|&larr; Back to/, `${file.join('/')} has no hand made Back button left`);
+  }
+});

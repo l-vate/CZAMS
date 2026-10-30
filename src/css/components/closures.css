@@ -121,7 +121,7 @@
 }
 .customer-history-links a::after { content: '→'; font-weight: 700; }
 .customer-history-links a:hover { background: var(--navy-soft); border-color: var(--navy-soft); color: #fff; text-decoration: none; }
-.customer-history-links a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; text-decoration: none; }
+.customer-history-links a:focus-visible { outline: 2px solid var(--action-focus); outline-offset: 2px; text-decoration: none; }
 
 .profile-card--history { flex-direction: column; align-items: stretch; gap: 14px; }
 .profile-card--history .customer-history { flex: 1; min-width: 0; }
@@ -154,9 +154,9 @@
 .date-picker-weekday { font-size: 0.75rem; color: var(--ink-soft); padding: 4px 0; }
 .date-picker-day { min-height: 40px; border: 0; border-radius: 8px; background: transparent; cursor: pointer; font: inherit; color: inherit; }
 .date-picker-day:hover:not(:disabled) { background: var(--bg-soft, #eef2f7); }
-.date-picker-day--selected { background: #1d4ed8; color: #fff; }
+.date-picker-day--selected { background: var(--action); color: #fff; }
 .date-picker-day--closed, .date-picker-day:disabled { color: #6b7280; background: #f3f4f6; text-decoration: line-through; cursor: not-allowed; }
-.date-picker-day:focus-visible { outline: 3px solid #1d4ed8; outline-offset: 1px; }
+.date-picker-day:focus-visible { outline: 3px solid var(--action-focus); outline-offset: 1px; }
 /* fully booked keeps the red of the status badges; no technicians is neutral slate with a dotted border (no strike), so the two are never mixed up */
 .date-picker-day--full { color: #991b1b; background: #fee2e2; }
 .date-picker-day--no-technicians { color: #334155; background: #e2e8f0; border: 2px dotted #64748b; text-decoration: none; }

@@ -43,7 +43,7 @@
 }
 .cbd-dialog .cbd-choice input { width: 20px; height: 20px; margin: 0; flex: 0 0 auto; accent-color: #1e4a7a; cursor: pointer; }
 .cbd-choice--on { border-color: #1e4a7a; background: #f3f9fd; font-weight: 600; }
-.cbd-choice:focus-within { outline: 3px solid var(--primary, #2563eb); outline-offset: 2px; }
+.cbd-choice:focus-within { outline: 3px solid var(--action-focus); outline-offset: 2px; }
 
 .cbd-text { display: grid; gap: 6px; margin: 0 0 12px; }
 .cbd-text-label { font-size: 0.875rem; font-weight: 600; color: #334155; }
@@ -57,7 +57,7 @@
   font: inherit;
   font-size: 0.9375rem;
 }
-.cbd-input:focus-visible { outline: 3px solid var(--primary, #2563eb); outline-offset: 1px; }
+.cbd-input:focus-visible { outline: 3px solid var(--action-focus); outline-offset: 1px; }
 .cbd-input[aria-invalid='true'] { border-color: #b42318; }
 
 .cbd-refund-note { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; background: #f0faf2; border: 1px solid #bfe3c8; color: #14532d; font-size: 0.875rem; line-height: 1.5; }
@@ -66,7 +66,7 @@
 
 .cbd-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
 .cbd-btn { min-height: 44px; padding: 0 20px; }
-.cbd-btn:focus-visible { outline: 3px solid var(--primary, #2563eb); outline-offset: 2px; }
+.cbd-btn:focus-visible { outline: 3px solid var(--action-focus); outline-offset: 2px; }
 
 @media (max-width: 480px) {
   .cbd-dialog { padding: 18px 16px; }

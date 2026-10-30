@@ -115,7 +115,7 @@
 
 .cal-mini-day:hover { background: var(--bg-main); }
 .cal-mini-day-today { color: var(--primary); font-weight: 600; }
-.cal-mini-day-selected { background: var(--primary); color: var(--white); }
+.cal-mini-day-selected { background: var(--action); color: var(--white); }
 
 .cal-legend { margin-top: 24px; }
 

@@ -428,7 +428,7 @@
 .ma-search-icon { font-size: 0.85rem; opacity: 0.6; }
 
 .ma-register-btn {
-  background: var(--primary);
+  background: var(--action);
   color: #fff;
   border: none;
   font-weight: 700;
@@ -439,7 +439,7 @@
   transition: background 0.15s ease;
 }
 
-.ma-register-btn:hover { background: var(--primary-hover); }
+.ma-register-btn:hover { background: var(--action-hover); }
 
 .ma-list { display: flex; flex-direction: column; gap: 12px; }
 
@@ -549,7 +549,7 @@
   transition: border-color 0.15s ease;
 }
 
-.ma-input:focus, .ma-textarea:focus { border-color: var(--primary); }
+.ma-input:focus, .ma-textarea:focus { border-color: var(--action); }
 .ma-textarea { resize: vertical; }
 
 .ma-form-error { color: #d13c3c; font-size: 0.85rem; font-weight: 600; margin: 4px 0 0 0; }
@@ -572,7 +572,7 @@
 .ma-cancel-btn:hover { border-color: var(--navy); color: var(--navy); }
 
 .ma-submit-btn {
-  background: var(--primary);
+  background: var(--action);
   border: none;
   color: #fff;
   font-weight: 700;
@@ -583,7 +583,7 @@
   transition: background 0.15s ease;
 }
 
-.ma-submit-btn:hover { background: var(--primary-hover); }
+.ma-submit-btn:hover { background: var(--action-hover); }
 
 /* ============ MANAGE SERVICES ============ */
 .svc-view { display: flex; flex-direction: column; gap: 16px; }
@@ -623,7 +623,7 @@
   cursor: pointer;
 }
 
-.svc-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.svc-tab.active { background: var(--action); border-color: var(--action); color: #fff; }
 
 .svc-toolbar-right { display: flex; align-items: center; gap: 14px; }
 
@@ -650,7 +650,7 @@
 }
 
 .svc-walkin-btn, .svc-add-btn {
-  background: var(--primary);
+  background: var(--action);
   color: #fff;
   border: none;
   border-radius: 10px;
@@ -660,7 +660,7 @@
   cursor: pointer;
 }
 
-.svc-walkin-btn:hover, .svc-add-btn:hover { background: var(--primary-hover); }
+.svc-walkin-btn:hover, .svc-add-btn:hover { background: var(--action-hover); }
 
 .svc-add-btn { padding: 10px 18px; font-size: 14px; }
 
@@ -928,8 +928,8 @@
    pattern, not action buttons); ghost = the .bs-back-btn treatment used
    everywhere else; danger = solid var(--danger) fill, matching
    .cancel-booking-btn/.sdm-btn-danger, not the previous light-pink-bg look. */
-.svc-btn-primary { background: var(--primary); color: #fff; }
-.svc-btn-primary:hover { background: var(--primary-hover); }
+.svc-btn-primary { background: var(--action); color: #fff; }
+.svc-btn-primary:hover { background: var(--action-hover); }
 .svc-btn-ghost { background: #fff; border: 1.5px solid var(--mist); color: var(--ink-soft); }
 .svc-btn-ghost:hover { border-color: var(--navy); color: var(--navy); }
 .svc-btn-danger { background: var(--danger); color: #fff; }
@@ -958,8 +958,8 @@
 
 .pset-input:focus {
   outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  border-color: var(--action);
+  box-shadow: 0 0 0 3px rgba(11, 37, 69, 0.12);
 }
 
 .pset-method-card {
@@ -1076,7 +1076,7 @@
 .ann-search-inline { max-width: 260px; }
 
 .ann-add-btn {
-  background: var(--primary);
+  background: var(--action);
   color: #fff;
   border: none;
   border-radius: 10px;
@@ -1088,7 +1088,7 @@
   align-items: center;
 }
 
-.ann-add-btn:hover { background: var(--primary-hover); }
+.ann-add-btn:hover { background: var(--action-hover); }
 
 .ann-manage-panel {
   background: #ffffff;
@@ -1225,8 +1225,8 @@
 }
 
 /* Same converged treatments as .svc-btn-* above. */
-.ann-btn-primary { background: var(--primary); color: #fff; }
-.ann-btn-primary:hover { background: var(--primary-hover); }
+.ann-btn-primary { background: var(--action); color: #fff; }
+.ann-btn-primary:hover { background: var(--action-hover); }
 .ann-btn-ghost { background: #fff; border: 1.5px solid var(--mist); color: var(--ink-soft); }
 .ann-btn-ghost:hover { border-color: var(--navy); color: var(--navy); }
 .ann-btn-danger { background: var(--danger); color: #fff; }
@@ -1436,7 +1436,7 @@
 .req-page-head .dashboard-welcome { margin: 0; min-width: 0; }
 
 .req-new-btn {
-  background: var(--primary);
+  background: var(--action);
   color: #fff;
   border: none;
   padding: 12px 22px;
@@ -1447,7 +1447,7 @@
   transition: background 0.15s ease;
 }
 
-.req-new-btn:hover { background: var(--primary-hover); }
+.req-new-btn:hover { background: var(--action-hover); }
 
 /* "+ New Booking" on the Bookings page: the brand navy, compact, beside the page title */
 .req-page-head .req-new-btn {
@@ -2722,7 +2722,7 @@
 .admin-payments-x8.admin-payments-x8 {
   display: inline-block;
   padding: 8px 16px;
-  background: var(--primary);
+  background: var(--action);
   color: #fff;
   border-radius: 6px;
   text-decoration: none;
@@ -2847,9 +2847,9 @@
 }
 .admin-service-reports-x3.admin-service-reports-x3 {
   flex: 1;
-  background: #2563eb;
+  background: var(--action);
   color: #fff;
-  border-color: #2563eb;
+  border-color: var(--action);
 }
 
 

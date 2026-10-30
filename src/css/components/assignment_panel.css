@@ -53,7 +53,7 @@
 .assignment-icon-btn:hover:not(:disabled) { background: var(--navy-soft); border-color: var(--navy-soft); color: #fff; }
 .assignment-icon-btn--remove:hover:not(:disabled) { background: var(--danger); border-color: var(--danger); }
 .assignment-icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.assignment-icon-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.assignment-icon-btn:focus-visible { outline: 2px solid var(--action-focus); outline-offset: 2px; }
 .assignment-row-actions .sdm-btn { min-height: 40px; min-width: 40px; padding-left: 8px; padding-right: 8px; font-size: 0.8125rem; white-space: normal; overflow-wrap: anywhere; box-sizing: border-box; }
 .assignment-panel-x1 .assignment-row .sdm-btn:disabled { opacity: 0.5; }
 @media (max-width: 480px) {
@@ -112,4 +112,4 @@
   transition: background 0.15s ease;
 }
 .unit-decline-contact:hover { background: var(--navy); }
-.unit-decline-contact:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.unit-decline-contact:focus-visible { outline: 2px solid var(--action-focus); outline-offset: 2px; }

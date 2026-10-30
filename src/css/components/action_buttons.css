@@ -1,0 +1,23 @@
+/* The primary action buttons of every role (customer, staff and admin): navy with white text (the colour is --action in index.css).
+   Hover is the lighter navy with a coral underline accent, focus is a coral ring, and a disabled button keeps a readable label instead of
+   fading to 40 percent. Loaded last, so these win over each page's own button rules. */
+.bs-next-btn, .modal-submit-btn, .sdm-btn-primary, .ma-register-btn, .ma-submit-btn, .svc-walkin-btn, .svc-add-btn, .svc-btn-primary,
+.ann-add-btn, .ann-btn-primary, .req-new-btn, .chat-send-btn { color: var(--action-text); }
+
+.bs-next-btn:hover:not(:disabled), .modal-submit-btn:hover:not(:disabled), .sdm-btn-primary:hover:not(:disabled), .ma-register-btn:hover,
+.ma-submit-btn:hover:not(:disabled), .svc-walkin-btn:hover, .svc-add-btn:hover, .svc-btn-primary:hover:not(:disabled), .ann-add-btn:hover,
+.ann-btn-primary:hover:not(:disabled), .req-new-btn:hover, .chat-send-btn:hover:not(:disabled) { box-shadow: inset 0 -3px 0 var(--coral); }
+
+.bs-next-btn:focus-visible, .modal-submit-btn:focus-visible, .sdm-btn-primary:focus-visible, .ma-register-btn:focus-visible,
+.ma-submit-btn:focus-visible, .svc-walkin-btn:focus-visible, .svc-add-btn:focus-visible, .svc-btn-primary:focus-visible,
+.ann-add-btn:focus-visible, .ann-btn-primary:focus-visible, .req-new-btn:focus-visible, .chat-send-btn:focus-visible,
+.my-bookings-empty-btn:focus-visible, .cancelled-rebook-btn:focus-visible { outline: 3px solid var(--action-focus); outline-offset: 2px; }
+
+.bs-next-btn:disabled, .modal-submit-btn:disabled, .sdm-btn-primary:disabled, .ma-submit-btn:disabled, .svc-btn-primary:disabled,
+.ann-btn-primary:disabled, .chat-send-btn:disabled {
+  background: var(--action-disabled-bg);
+  color: var(--action-disabled-text);
+  opacity: 1;
+  box-shadow: none;
+  cursor: not-allowed;
+}

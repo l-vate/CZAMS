@@ -358,3 +358,48 @@ test('A9: every "Back to ..." button of the app uses it, with the same destinati
     assert.doesNotMatch(src(...file), /<FiArrowLeft \/> Back to|&larr; Back to/, `${file.join('/')} has no hand made Back button left`);
   }
 });
+
+// ---- A11: the brand action colour
+
+const hexLum = (hex) => { const n = parseInt(hex.slice(1), 16); const ch = (v) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }; return 0.2126 * ch((n >> 16) & 255) + 0.7152 * ch((n >> 8) & 255) + 0.0722 * ch(n & 255); };
+const ratio = (a, b) => { const [hi, lo] = [hexLum(a), hexLum(b)].sort((x, y) => y - x); return (hi + 0.05) / (lo + 0.05); };
+const token = (css, name) => new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})`).exec(css)[1];
+
+test('A11: one action colour variable, the brand navy, with AA pairs for the label, the disabled label and the focus ring', () => {
+  const index = src('index.css');
+  const action = token(index, 'action');
+  assert.equal(action.toLowerCase(), token(index, 'navy').toLowerCase(), 'the action colour is the brand navy');
+  assert.ok(ratio(token(index, 'action-text'), action) >= 7, 'white on the navy');
+  assert.ok(ratio(token(index, 'action-text'), token(index, 'action-hover')) >= 7, 'white on the hover navy');
+  assert.ok(ratio(token(index, 'action-disabled-text'), token(index, 'action-disabled-bg')) >= 4.5, 'a disabled label is still readable');
+  assert.ok(ratio(token(index, 'action-focus'), '#ffffff') >= 3, 'the focus ring shows on white');
+  assert.notEqual(action.toLowerCase(), token(index, 'primary').toLowerCase(), 'badges keep --primary, so they differ from the buttons');
+});
+
+test('A11: the primary buttons, selected states and focus rings read the action variables, not the bright blue', () => {
+  const customer = src('css', 'customer.css');
+  assert.match(customer, /\.bs-next-btn \{[^}]*background: var\(--action\)/);
+  assert.match(customer, /\.bs-next-btn:hover:not\(:disabled\) \{ background: var\(--action-hover\)/);
+  assert.match(customer, /\.modal-submit-btn \{[^}]*background: var\(--action\)/);
+  assert.match(src('css', 'admin.css'), /\.svc-walkin-btn, \.svc-add-btn \{\s*background: var\(--action\)/);
+  assert.match(src('css', 'admin.css'), /\.req-new-btn \{[^}]*background: var\(--action\)/s);
+  assert.match(src('css', 'modals', 'service_request_modal.css'), /\.sdm-btn-primary \{[^}]*background: var\(--action\)/s);
+  assert.match(src('css', 'components', 'assignment_panel.css'), /\.assignment-icon-btn:focus-visible \{ outline: 2px solid var\(--action-focus\)/);
+  for (const [file, selector] of [[['css', 'customer.css'], '.cancelled-rebook-btn'], [['css', 'customer.css'], '.my-bookings-empty-btn']]) {
+    const css = src(...file);
+    const rule = css.slice(css.indexOf(`${selector} {`), css.indexOf('}', css.indexOf(`${selector} {`)));
+    assert.doesNotMatch(rule, /#2563eb|#1d4ed8/, selector);
+  }
+});
+
+test('A11: badges are not touched, and the shared stylesheet gives hover, focus and a readable disabled state', () => {
+  const index = src('index.css');
+  assert.match(index, /--primary:\s*#2563eb;/, 'the status colours still use --primary');
+  assert.match(src('css', 'staff.css'), /\.tech-status-confirmed \{\s*background: var\(--primary\)/);
+  assert.match(src('css', 'admin.css'), /\.status-pill--partial \{ background: #e0f2fe; color: var\(--primary\)/);
+  const buttons = src('css', 'components', 'action_buttons.css');
+  assert.match(buttons, /\.bs-next-btn:hover:not\(:disabled\)[^{]*\{ box-shadow: inset 0 -3px 0 var\(--coral\); \}/);
+  assert.match(buttons, /\.bs-next-btn:focus-visible[^{]*\{ outline: 3px solid var\(--action-focus\); outline-offset: 2px; \}/);
+  assert.match(buttons, /\.bs-next-btn:disabled[^{]*\{\s*background: var\(--action-disabled-bg\);\s*color: var\(--action-disabled-text\);\s*opacity: 1;/);
+  assert.match(src('main.jsx'), /action_buttons\.css/);
+});

@@ -17,6 +17,8 @@ const { getPaymentBreakdown, PRICING_VERSION } = require('./pricing');
 const REASON_MIN = 3;
 const REASON_MAX = 300;
 const VERIFIED_DOWN = [PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID];
+// There is no in-person down payment: the customer sends it online (GCash or Bank Transfer) and an admin verifies the proof.
+const IN_PERSON_DOWN_MESSAGE = 'There is no in-person down payment. The customer sends the down payment online from Payment & Billing and you verify the proof. Only the balance can be recorded here.';
 const NONE = (v) => v === undefined || v === null;
 const peso = (n) => `₱${Number(n).toLocaleString('en-US', Number.isInteger(Number(n)) ? {} : { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -158,7 +160,8 @@ async function commitPayment(Booking, booking, plan, actor, now = new Date(), { 
 // An in-person payment the admin received (cash or cheque, or GCash or a bank transfer shown at the counter). The booking is
 // marked Verified by the admin who received it. Returns { problem } or { plan } (same shape as above).
 function planInPersonPayment(booking, { track, method, amount, reference, allowedMethods }) {
-  if (!['down', 'balance'].includes(track)) return { problem: invalid('Choose which payment this is: down payment or balance.') };
+  if (track === 'down') return { problem: invalid(IN_PERSON_DOWN_MESSAGE) };
+  if (track !== 'balance') return { problem: invalid('Choose which payment this is: the balance.') };
   if (typeof method !== 'string' || !allowedMethods.includes(method)) return { problem: invalid(`Choose a payment method: ${allowedMethods.join(', ')}.`) };
   const value = Number(amount);
   if (!Number.isFinite(value) || value <= 0) return { problem: invalid('Enter the amount received, more than 0.') };
@@ -166,23 +169,6 @@ function planInPersonPayment(booking, { track, method, amount, reference, allowe
   if (booking.status === BOOKING_STATUS.CANCELLED) return { problem: invalid('This booking is cancelled.') };
   const event = { track, status: 'recorded', amount: Math.round(value * 100) / 100, method, reference: ref || undefined, inPerson: true };
 
-  if (track === 'down') {
-    if (!((booking.downPaymentPercent || 0) > 0)) return { problem: invalid('No down payment is due for this booking.') };
-    if (![PAYMENT_STATUS.UNPAID, PAYMENT_STATUS.REJECTED].includes(booking.paymentStatus)) {
-      return { problem: invalid('The down payment is already waiting to be verified or has been verified.') };
-    }
-    const full = (booking.downPaymentPercent || 0) >= 100;
-    // Nothing is paid yet, so the most that can be received is everything the booking comes to. A 100% down payment marks the booking fully
-    // paid, so it has to be the whole amount.
-    const owed = getPaymentBreakdown(booking).grandTotal;
-    if (event.amount > owed) return { problem: invalid(`The amount is more than the booking comes to. At most ${peso(owed)} can be recorded.`) };
-    if (full && event.amount < owed) return { problem: invalid(`This is a full payment, so the whole ${peso(owed)} has to be recorded.`) };
-    return { plan: {
-      track, action: 'record', expect: { paymentStatus: booking.paymentStatus },
-      set: { paymentStatus: full ? PAYMENT_STATUS.FULLY_PAID : PAYMENT_STATUS.PARTIALLY_PAID, downPaymentPaidAmount: event.amount, paymentMode: method },
-      unset: ['proofFile', 'referenceNumber'], event,
-    } };
-  }
   const downSettled = !((booking.downPaymentPercent || 0) > 0) || VERIFIED_DOWN.includes(booking.paymentStatus);
   if (!downSettled) return { problem: invalid('Verify the down payment before the balance.') };
   if (![BALANCE_PAYMENT_STATUS.NONE, BALANCE_PAYMENT_STATUS.REJECTED, undefined, null].includes(booking.balancePaymentStatus)) {
@@ -200,4 +186,4 @@ function planInPersonPayment(booking, { track, method, amount, reference, allowe
   } };
 }
 
-module.exports = { planPaymentChange, planInPersonPayment, commitPayment, REASON_MIN, REASON_MAX };
+module.exports = { planPaymentChange, planInPersonPayment, commitPayment, IN_PERSON_DOWN_MESSAGE, REASON_MIN, REASON_MAX };

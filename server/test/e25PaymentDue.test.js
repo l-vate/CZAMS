@@ -168,41 +168,48 @@ test('a rejected proof gives the customer the reason', () => {
 });
 
 // ---- admin: record a payment and undo it
-test('Record a payment: the amount is limited to what is left, and the balance has to be the whole balance', async () => {
+const verifiedDown = () => { Object.assign(state.bookings[0], { paymentStatus: 'partially_paid', downPaymentPaidAmount: 400, proofFile: '/uploads/proofs/p.png', balancePaymentStatus: 'None' }); };
+
+test('Record a payment: there is no in-person down payment, and the balance has to be the whole balance', async () => {
   await bookCleaning();
   const rec = (body) => call('PATCH', `/${bid()}/record-payment`, 'ADM1', { method: 'Cash', ...body }, asAdmin);
-  const tooMuch = await rec({ track: 'down', amount: 5000 });
-  assert.equal(tooMuch.status, 400);
-  assert.match(tooMuch.body.message, /more than the booking comes to/);
-  assert.equal((await rec({ track: 'down', amount: 0 })).status, 400);
+  const down = await rec({ track: 'down', amount: 400 });
+  assert.equal(down.status, 400);
+  assert.match(down.body.message, /no in-person down payment/);
   assert.equal(state.bookings[0].paymentStatus, 'Unpaid', 'nothing was recorded');
-  assert.equal((await rec({ track: 'down', amount: 400 })).status, 200);
-  assert.equal(state.bookings[0].paymentStatus, 'partially_paid');
-  state.bookings[0].balancePaymentStatus = 'None'; // the stand-in database has no schema defaults
+  assert.equal((await rec({ track: 'balance', amount: 400 })).status, 400, 'the down payment has to be verified before the balance');
+  verifiedDown();
+  assert.equal((await rec({ track: 'balance', amount: 0 })).status, 400);
   const part = await rec({ track: 'balance', amount: 100 });
   assert.equal(part.status, 400);
   assert.match(part.body.message, /Record the whole balance/);
-  assert.equal((await rec({ track: 'balance', amount: 9999 })).status, 400);
+  const tooMuch = await rec({ track: 'balance', amount: 9999 });
+  assert.equal(tooMuch.status, 400);
+  assert.match(tooMuch.body.message, /more than the remaining balance/);
   assert.equal((await rec({ track: 'balance', amount: 400 })).status, 200);
   assert.equal(state.bookings[0].paymentStatus, 'fully_paid');
 });
 
-test('a recorded payment can be reversed with a reason, and the reversal is on the payment log', async () => {
+test('a recorded balance can be reversed with a reason, and the reversal is on the payment log', async () => {
   await bookCleaning();
-  await call('PATCH', `/${bid()}/record-payment`, 'ADM1', { method: 'Cash', track: 'down', amount: 400 }, asAdmin);
-  assert.equal((await adminUpdate({ reverse: 'down' })).status, 400, 'a reason is required');
-  const undone = await adminUpdate({ reverse: 'down', reason: 'Entered on the wrong booking' });
+  verifiedDown();
+  await call('PATCH', `/${bid()}/record-payment`, 'ADM1', { method: 'Cash', track: 'balance', amount: 400 }, asAdmin);
+  assert.equal((await adminUpdate({ reverse: 'balance' })).status, 400, 'a reason is required');
+  const undone = await adminUpdate({ reverse: 'balance', reason: 'Entered on the wrong booking' });
   assert.equal(undone.status, 200, JSON.stringify(undone.body));
-  assert.equal(state.bookings[0].paymentStatus, 'Unpaid');
-  assert.equal(state.bookings[0].downPaymentPaidAmount, undefined);
+  assert.equal(state.bookings[0].balancePaymentStatus, 'None');
+  assert.equal(state.bookings[0].paymentStatus, 'partially_paid');
+  assert.ok(state.bookings[0].paymentEvents.some((e) => e.status === 'reversed' && e.track === 'balance' && e.reason === 'Entered on the wrong booking'));
 });
 
-test('a payment a refund depends on cannot be reversed', async () => {
+test('a verified down payment can be reversed with a reason, unless a refund depends on it', async () => {
   await bookCleaning();
-  await call('PATCH', `/${bid()}/record-payment`, 'ADM1', { method: 'Cash', track: 'down', amount: 400 }, asAdmin);
+  verifiedDown();
   state.bookings[0].refund = { status: 'None' };
-  assert.equal((await adminUpdate({ reverse: 'down', reason: 'Wrong booking' })).status, 200, 'a refund that was never opened does not block it');
-  await call('PATCH', `/${bid()}/record-payment`, 'ADM1', { method: 'Cash', track: 'down', amount: 400 }, asAdmin);
+  const undone = await adminUpdate({ reverse: 'down', reason: 'Verified by mistake' });
+  assert.equal(undone.status, 200, JSON.stringify(undone.body));
+  assert.equal(state.bookings[0].paymentStatus, 'to_verify', 'back to checking: the proof is still on file');
+  verifiedDown();
   state.bookings[0].refund = { status: 'Pending' };
   const blocked = await adminUpdate({ reverse: 'down', reason: 'Wrong booking' });
   assert.equal(blocked.status, 400);

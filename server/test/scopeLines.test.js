@@ -114,15 +114,15 @@ test('an Other line needs a description; a bad kind, quantity or rate is refused
 });
 
 // ---- totals, VAT and the down payment
-test('adding a line raises the total, and the down payment follows it while no proof has been sent', async () => {
+test('adding a line raises the total and the balance, and the down payment (the base price only) does not move', async () => {
   const before = getPaymentBreakdown(doc);
   assert.equal(before.total, 2000);
   assert.equal(before.downPayment, 1000);
   await add({ kind: 'dismantling', quantity: 2, unitRate: 1500 });
   const after = getPaymentBreakdown(doc);
   assert.equal(after.total, 5000);
-  assert.equal(after.downPayment, 2500, 'the down payment is the percent of the service: the units and the service lines');
-  assert.equal(after.balance, 2500);
+  assert.equal(after.downPayment, 1000, 'the down payment is the percent of the base price: scope lines follow in the balance');
+  assert.equal(after.balance, 4000);
 });
 
 test('once a down payment proof is sent its amount is fixed: a new line only moves the balance', async () => {
@@ -195,8 +195,8 @@ test('the Senior/PWD discount takes its percent off the service lines and never 
   assert.equal(getDiscountAmount(doc), 600);
   assert.equal(getBookingUnitsSubtotal(doc), 1600, 'the down payment base only changes by the discount on the units');
   assert.equal(getBookingBasePrice(doc), 1600 + 800 + 500);
-  // the down payment works off the service: units 1600 plus the discounted installation 800, at the booking's percent
-  assert.equal(getPaymentBreakdown(doc).downPayment, 1200);
+  // the down payment works off the base price only: the discounted units 1600 at the booking's percent
+  assert.equal(getPaymentBreakdown(doc).downPayment, 800);
 });
 
 test('every kind is classified: dismantling, installation, excess pipe and other are discounted, distance is not', async () => {

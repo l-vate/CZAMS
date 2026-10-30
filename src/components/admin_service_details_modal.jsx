@@ -120,6 +120,10 @@ const [report, setReport] = useState(null);
 
     const { lineItems, basePrice } = getBookingLineItems(booking);
     const paymentBreakdown = getPaymentBreakdown({ ...booking, downPaymentPercent: booking.downPaymentPercent ?? 0 });
+    // the balance can be recorded in person once the down payment is verified (or none is due) and a balance is left, on a booking that is not cancelled
+    const downSettled = !(booking.downPaymentPercent > 0) || ['partially_paid', 'fully_paid'].includes(booking.paymentStatus);
+    const canRecordBalance = booking.status !== 'Cancelled' && downSettled && paymentBreakdown.balance > 0 && !booking.balancePaid
+        && !['paid', 'to_verify'].includes(booking.balancePaymentStatus);
     const downPaymentAmount = paymentBreakdown.downPayment;
     const discountIdIsPdf = /\.pdf$/i.test(booking.discount?.idFile || '');
 
@@ -945,25 +949,20 @@ const [report, setReport] = useState(null);
                                         </span>
                                     </div>
                                 ))}
-                                {booking.status !== 'Cancelled' && (
+                                {/* only the balance can be received in person: the down payment is always sent online and verified */}
+                                {canRecordBalance && (
                                     <div className="sdm-list-row">
-                                        <span>Received in person</span>
+                                        <span>Balance received in person</span>
                                         <span className="sdm-list-value">
                                             {recordDraft ? (
                                                 <span>
-                                                    <select className="sdm-tech-select" aria-label="Which payment" value={recordDraft.track} onChange={(e) => setRecordDraft({ ...recordDraft, track: e.target.value })}>
-                                                        <option value="down">Down payment</option>
-                                                        <option value="balance">Balance</option>
-                                                    </select>
                                                     <select className="sdm-tech-select" aria-label="Method" value={recordDraft.method} onChange={(e) => setRecordDraft({ ...recordDraft, method: e.target.value })}>
                                                         {['Cash', 'Cheque', 'GCash', 'Bank Transfer'].map((m) => <option key={m} value={m}>{m}</option>)}
                                                     </select>
                                                     <small className="sdm-muted" role="status">
-                                                        {recordDraft.track === 'balance'
-                                                            ? `Remaining balance: ${formatPeso(paymentBreakdown.balance)}. Recording it marks the booking fully paid, so enter the whole balance.`
-                                                            : `The booking comes to ${formatPeso(paymentBreakdown.grandTotal)}. Enter what was received, up to that.`}
+                                                        Remaining balance: {formatPeso(paymentBreakdown.balance)}. Recording it marks the booking fully paid, so enter the whole balance.
                                                     </small>
-                                                    <input className="ma-input" type="number" min="0.01" step="0.01" max={recordDraft.track === 'balance' ? paymentBreakdown.balance : paymentBreakdown.grandTotal} aria-label="Amount received" placeholder="Amount received" value={recordDraft.amount} onChange={(e) => setRecordDraft({ ...recordDraft, amount: e.target.value, confirming: false })} />
+                                                    <input className="ma-input" type="number" min="0.01" step="0.01" max={paymentBreakdown.balance} aria-label="Amount received" placeholder="Amount received" value={recordDraft.amount} onChange={(e) => setRecordDraft({ ...recordDraft, amount: e.target.value, confirming: false })} />
                                                     <input className="ma-input" type="text" maxLength={60} aria-label="Reference or cheque number" placeholder="Reference or cheque no. (optional)" value={recordDraft.reference} onChange={(e) => setRecordDraft({ ...recordDraft, reference: e.target.value })} />
                                                     {recordDraft.confirming ? (
                                                         <>
@@ -977,10 +976,11 @@ const [report, setReport] = useState(null);
                                                             type="button"
                                                             className="sdm-btn sdm-btn-primary"
                                                             onClick={() => {
-                                                                const limit = recordDraft.track === 'balance' ? paymentBreakdown.balance : paymentBreakdown.grandTotal;
+                                                                const limit = paymentBreakdown.balance;
                                                                 const value = Number(recordDraft.amount);
                                                                 if (!(value > 0)) { setError('Enter the amount received, more than 0.'); return; }
-                                                                if (value > limit) { setError(`The amount is more than the remaining ${formatPeso(limit)}.`); return; }
+                                                                if (value > limit) { setError(`The amount is more than the remaining balance of ${formatPeso(limit)}.`); return; }
+                                                                if (value < limit) { setError(`The remaining balance is ${formatPeso(limit)}. Record the whole balance: it marks the booking fully paid.`); return; }
                                                                 setError('');
                                                                 setRecordDraft({ ...recordDraft, confirming: true });
                                                             }}
@@ -992,8 +992,8 @@ const [report, setReport] = useState(null);
                                                     <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setRecordDraft(null)} disabled={saving}>Cancel</button>
                                                 </span>
                                             ) : (
-                                                <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setRecordDraft({ track: 'down', method: 'Cash', amount: '', reference: '' })}>
-                                                    Record a payment
+                                                <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setRecordDraft({ track: 'balance', method: 'Cash', amount: '', reference: '' })}>
+                                                    Record the balance
                                                 </button>
                                             )}
                                         </span>

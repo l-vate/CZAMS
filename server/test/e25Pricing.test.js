@@ -48,13 +48,22 @@ test('the supplied unit and a distance charge are in the total and the balance b
   assert.equal(b.balance, 26500 + 3180 - 500);
 });
 
-test('the down payment follows the service lines while no proof is sent, and is fixed once one is', () => {
-  const withLine = { ...base, scopeLines: [line('dismantling', 1000)] };
-  assert.equal(server.getPaymentBreakdown(withLine).downPayment, 1000, '50% of 1000 + 1000');
+test('the down payment works off the base price only: scope lines follow in the balance, before and after a proof is sent', () => {
+  const withLine = { ...base, scopeLines: [line('dismantling', 1000), line('installation', 2000), line('excessPipe', 300), line('other', 100)] };
+  const b = server.getPaymentBreakdown(withLine);
+  assert.equal(b.total, 4400);
+  assert.equal(b.downPayment, 500, '50% of the base price 1000, not of the scope lines');
+  assert.equal(b.balance, 3900);
   const sent = { ...withLine, paymentStatus: 'to_verify', downPaymentPaidAmount: 500 };
   assert.equal(server.getPaymentBreakdown(sent).downPayment, 500, 'what was asked when the proof was sent');
-  assert.equal(server.getPaymentBreakdown(sent).balance, 1500);
-  assert.equal(server.getPaymentBreakdown({ ...sent, paymentStatus: 'rejected', downPaymentPaidAmount: undefined }).downPayment, 1000, 'a rejected proof follows the price again');
+  assert.equal(server.getPaymentBreakdown(sent).balance, 3900);
+  assert.equal(server.getPaymentBreakdown({ ...sent, paymentStatus: 'rejected', downPaymentPaidAmount: undefined }).downPayment, 500, 'a rejected proof follows the base price again');
+});
+
+test('while no proof is sent the down payment follows the base price when it changes', () => {
+  const dearer = { ...base, service: { ...service, price: 1400 } };
+  assert.equal(server.getPaymentBreakdown(dearer).downPayment, 700);
+  assert.equal(server.getPaymentBreakdown({ ...dearer, paymentStatus: 'to_verify', downPaymentPaidAmount: 500 }).downPayment, 500, 'fixed once sent');
 });
 
 test('30, 50 and 100 percent, a zero down payment, and centavo rounding', () => {
@@ -71,7 +80,7 @@ test('a booking made before the fix keeps its numbers once it is Completed, full
   const old = { ...commercial, pricingVersion: undefined, scopeLines: [line('dismantling', 1000)] };
   // not done yet: the current rules
   assert.equal(server.getPaymentBreakdown(old).vat, 240);
-  // done or paid: the old figures (no VAT in the balance, the down payment off the units only)
+  // done or paid: the old figures (no VAT in the balance)
   for (const over of [{ status: 'Completed' }, { paymentStatus: 'fully_paid' }, { balancePaid: true }, { status: 'Cancelled' }]) {
     const b = server.getPaymentBreakdown({ ...old, ...over });
     assert.equal(b.vat, 0, JSON.stringify(over));
@@ -82,7 +91,7 @@ test('a booking made before the fix keeps its numbers once it is Completed, full
   assert.equal(server.getPaymentBreakdown({ ...old, pricingVersion: 2, status: 'Completed' }).vat, 240);
 });
 
-test('a down payment verified before the fix (no amount stored) keeps the old base', () => {
+test('a down payment verified before the fix (no amount stored) is the percent of the base price', () => {
   const old = { ...base, pricingVersion: undefined, paymentStatus: 'partially_paid', scopeLines: [line('dismantling', 1000)] };
   assert.equal(server.getPaymentBreakdown(old).downPayment, 500);
 });

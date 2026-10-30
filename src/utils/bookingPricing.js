@@ -189,12 +189,11 @@ export function getVatDue(booking, basePrice) {
 // discount was approved after a down payment had already been verified, what the customer really paid stands (nothing is
 // auto-refunded): the balance is just lower, floored at 0, and any excess is reported as `overpaid`.
 export function getPaymentBreakdown(booking) {
-  const { basePrice, unitsSubtotal, grossUnitsSubtotal, discountAmount } = getBookingLineItems(booking);
+  const { basePrice, unitsSubtotal, discountAmount } = getBookingLineItems(booking);
   const vat = getVatDue(booking, basePrice);
   const grandTotal = basePrice + vat;
-  const legacyBase = isPriceLocked(booking) || (DOWN_SENT.includes(booking?.paymentStatus) && typeof booking?.downPaymentPaidAmount !== 'number');
-  const scopeService = getScopeServiceTotal(booking) - getAppliedDiscount(booking, grossUnitsSubtotal).onScope;
-  const due = Math.round((legacyBase ? unitsSubtotal : unitsSubtotal + scopeService) * ((booking?.downPaymentPercent || 0) / 100));
+  // the down payment works off the base price only (the discounted service units); scope lines, a supplied unit, charges and VAT follow in the balance
+  const due = Math.round(unitsSubtotal * ((booking?.downPaymentPercent || 0) / 100));
   const alreadyPaid = booking?.discount?.status === 'Approved' ? (booking.discount.dpPaidBeforeApproval || 0) : 0;
   const sentAmount = DOWN_SENT.includes(booking?.paymentStatus) && typeof booking?.downPaymentPaidAmount === 'number' ? booking.downPaymentPaidAmount : 0;
   const downPayment = alreadyPaid > 0 ? alreadyPaid : (sentAmount > 0 ? sentAmount : due);

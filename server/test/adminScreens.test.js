@@ -207,7 +207,8 @@ test('Service Request Analytics leaves back job visits out of its response time 
 
 test('no admin or customer date check reads the browser clock for "today"', () => {
   const book = fs.readFileSync(src('pages', 'customer', 'book_service.jsx'), 'utf8');
-  assert.match(book, /earliestBookingKey\(3\)/);
+  assert.match(book, /bookingWindow\(\)/);
+  assert.match(book, /bookingDateProblem\(form\.date\)/);
   assert.doesNotMatch(book, /minDate\.setDate/);
   const reports = fs.readFileSync(src('pages', 'admin', 'reports.jsx'), 'utf8');
   assert.match(reports, /manilaTodayKey\(\)/);

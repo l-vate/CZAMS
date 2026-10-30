@@ -2,7 +2,7 @@
 // available on a date in one or both time blocks (see models/TechnicianOff.js).
 const { invalid } = require('./validation');
 const { manilaTodayKey, TIME_BLOCKS } = require('./timeBlocks');
-const { isRealDateKey } = require('./closures');
+const { leaveDateProblem } = require('./dateRules');
 
 const REASON_MAX = 200;
 const MAX_TECHNICIANS_AT_ONCE = 50;
@@ -10,8 +10,8 @@ const MAX_TECHNICIANS_AT_ONCE = 50;
 // What an admin is allowed to add. `fieldIds` is the list of ids of the active field technicians. Returns { problem, values }:
 // problem is null or { status, message }; values are { technicians, date, blocks, reason }. `today` is a Manila date key.
 function readOffInput({ technicians, date, blocks, reason }, fieldIds, today = manilaTodayKey()) {
-  if (!isRealDateKey(date)) return { problem: invalid('Choose a valid date (YYYY-MM-DD).') };
-  if (date < today) return { problem: invalid('A day off cannot be on a date that has already passed.') };
+  const dateProblem = leaveDateProblem(date, today);
+  if (dateProblem) return { problem: invalid(dateProblem) };
   const ids = [...new Set((Array.isArray(technicians) ? technicians : []).map(String))];
   if (ids.length === 0) return { problem: invalid('Choose at least one technician.') };
   if (ids.length > MAX_TECHNICIANS_AT_ONCE) return { problem: invalid(`Choose at most ${MAX_TECHNICIANS_AT_ONCE} technicians at a time.`) };

@@ -124,11 +124,11 @@ test.describe('recording through the routes', () => {
   });
 
   test('recording an in-person payment is on the trail with the method and amount, not the reference text', async () => {
-    booking({ paymentStatus: 'Unpaid', proofFile: undefined });
-    await call('PATCH', '/CZ-1/record-payment', 'ADM1', { track: 'down', method: 'Cash', amount: 1000, reference: 'SECRET-REF' }, { role: 'admin' });
+    booking({ paymentStatus: 'partially_paid', downPaymentPaidAmount: 1000 });
+    await call('PATCH', '/CZ-1/record-payment', 'ADM1', { track: 'balance', method: 'Cash', amount: 1000, reference: 'SECRET-REF' }, { role: 'admin' });
     await settle();
     const line = lines.find((l) => l.action === 'payment.record');
-    assert.deepEqual(line.meta, { track: 'down', method: 'Cash', amount: 1000 });
+    assert.deepEqual(line.meta, { track: 'balance', method: 'Cash', amount: 1000 });
     assert.equal(JSON.stringify(lines).includes('SECRET-REF'), false);
   });
 

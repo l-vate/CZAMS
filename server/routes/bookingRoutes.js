@@ -54,7 +54,8 @@ const { KINDS } = require('../storage/fileStore');
 const { withLocks, LockBusyError } = require('../utils/slotLock');
 const { duplicateKey, findActiveDuplicate, DuplicateBookingError } = require('../utils/duplicateBooking');
 const { PendingLimitError, SlotTakenError, slotKey, pendingLimitKey, assertUnderPendingLimit, assertSlotOpen } = require('../utils/pendingHold');
-const { manilaToday, isAtLeastDaysAhead } = require('../utils/manilaDate');
+const { manilaToday } = require('../utils/manilaDate');
+const { bookingDateProblem } = require('../utils/dateRules');
 const { readFeedback } = require('../utils/feedbackInput');
 const { normalizeContactNumber } = require('../utils/contactNumber');
 const { sendRouteError } = require('../utils/routeErrors');
@@ -76,7 +77,6 @@ const SuppliedUnit = require('../models/SuppliedUnit');
 const { resolveRefundAmounts } = require('../utils/refundAmounts');
 const Closure = require('../models/Closure');
 const { businessDayProblem } = require('../utils/businessDays');
-const { isRealDateKey } = require('../utils/closures');
 const { nextWorkingDayKey, extensionSlotProblem, addDays } = require('../utils/extensionDays');
 const {
   ASSIGNMENT_POPULATE, getMemberIds, getLeadIds, getPrimaryLeadId, getRoleFor,
@@ -122,9 +122,9 @@ const customerProofImagesOnly = (req, res, next) => {
   return next();
 };
 
-// Validate date: a real YYYY-MM-DD date at least MIN_LEAD_DAYS (constants/scheduling.js) after today in Manila (utils/manilaDate.js),
+// The booking date rule lives in utils/dateRules.js: a real date, not in the past, at least MIN_LEAD_DAYS ahead and no more than 5 calendar months
+// ahead (Manila). bookingDateProblem returns the sentence to show, or null. Older note: a real YYYY-MM-DD date at least MIN_LEAD_DAYS (constants/scheduling.js) after today in Manila (utils/manilaDate.js),
 // whatever time zone the server runs in.
-const isDateAllowed = (dateStr) => isAtLeastDaysAhead(dateStr, scheduling.MIN_LEAD_DAYS);
 
 // The next dates when enough technicians are free, offered with a refusal. It is a help, never the answer: if looking them
 // up fails or takes more than a few seconds, the refusal goes out without them.
@@ -374,11 +374,8 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
       }
     }
 
-    if (!isDateAllowed(date)) {
-      return res.status(400).json({
-        message: 'Selected date must be at least 3 days from today.'
-      });
-    }
+    const dateProblem = bookingDateProblem(date);
+    if (dateProblem) return res.status(400).json({ message: dateProblem });
 
     const closedOnCreate = await businessDayProblem(Closure, date);
     if (closedOnCreate) return sendProblem(res, closedOnCreate);
@@ -1332,11 +1329,8 @@ router.patch('/:bookingId/reschedule', auth, allowRoles(ROLE.CUSTOMER), async (r
   try {
     const { date, time } = req.body;
 
-    if (!isDateAllowed(date)) {
-      return res.status(400).json({
-        message: 'New date must be at least 3 days from today.'
-      });
-    }
+    const dateProblem = bookingDateProblem(date);
+    if (dateProblem) return res.status(400).json({ message: dateProblem });
 
     const closedOnReschedule = await businessDayProblem(Closure, date);
     if (closedOnReschedule) return sendProblem(res, closedOnReschedule);
@@ -1788,9 +1782,8 @@ router.patch('/:bookingId/reschedule/use-date', auth, auditSpecs.rescheduleUseDa
       return res.status(403).json({ message: 'Forbidden' });
     }
     const { date, time } = req.body || {};
-    if (typeof date !== 'string' || !isRealDateKey(date) || date < manilaTodayKey()) {
-      return res.status(400).json({ message: 'Choose a real date that is not in the past.' });
-    }
+    const dateProblem = bookingDateProblem(date);
+    if (dateProblem) return res.status(400).json({ message: dateProblem });
     if (!TIME_BLOCKS.includes(time)) return res.status(400).json({ message: 'Time must be Morning or Afternoon.' });
 
     const booking = await Booking.findOne({ bookingId: req.params.bookingId });
@@ -2550,8 +2543,9 @@ router.patch('/:bookingId/no-show/decision', auth, allowRoles(ROLE.ADMIN), audit
       if (![BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status)) {
         return res.status(400).json({ message: 'Only an Approved or In Progress booking can be rescheduled.' });
       }
-      if (!date || !time || !isRealDateKey(date)) return sendProblem(res, invalid('Choose the new date and time.'));
-      if (date < manilaToday()) return sendProblem(res, invalid('The new date cannot be in the past.'));
+      if (!date || !time) return sendProblem(res, invalid('Choose the new date and time.'));
+      const noShowDateProblem = bookingDateProblem(date);
+      if (noShowDateProblem) return sendProblem(res, invalid(noShowDateProblem));
       if (!TIME_BLOCKS.includes(time)) return res.status(400).json({ message: 'Time must be Morning or Afternoon.' });
       const closed = await businessDayProblem(Closure, date);
       if (closed) return sendProblem(res, closed);
@@ -2832,6 +2826,8 @@ router.patch('/:bookingId/disruption/reschedule', auth, auditSpecs.disruptionRes
     if (!date || !time) {
       return res.status(400).json({ message: 'A new date and time are required.' });
     }
+    const disruptionDateProblem = bookingDateProblem(date);
+    if (disruptionDateProblem) return res.status(400).json({ message: disruptionDateProblem });
 
     const booking = await Booking.findOne({ bookingId: req.params.bookingId }).populate('service');
     if (!booking) return res.status(404).json({ message: 'Booking not found' });

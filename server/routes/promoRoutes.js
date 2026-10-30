@@ -13,6 +13,7 @@ const { isInForce } = require('../utils/promos');
 const { invalid, sendProblem } = require('../utils/validation');
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const { EARLIEST_DATE } = require('../utils/dateRules');
 const validDate = (s) => DATE_PATTERN.test(String(s)) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`));
 
 // Returns null when fine, otherwise { status, message }. Used by create and update.
@@ -27,6 +28,7 @@ async function validate(body) {
   if (!Number.isInteger(minUnits) || minUnits < 1) return invalid('The minimum number of units must be a whole number, 1 or more.');
   if (!validDate(body.startDate) || !validDate(body.endDate)) return invalid('Choose a start date and an end date.');
   if (body.endDate < body.startDate) return invalid('The end date cannot be before the start date.');
+  if (body.startDate < EARLIEST_DATE) return invalid(`The start date cannot be before ${EARLIEST_DATE}.`);
   if (body.services !== undefined) {
     if (!Array.isArray(body.services)) return invalid('Services must be a list.');
     if (body.services.length > 0) {

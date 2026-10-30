@@ -5,7 +5,7 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const { ROLE } = require('../constants/roles');
 const AuditLog = require('../models/AuditLog');
-const { isRealDateKey } = require('../utils/closures');
+const { pastDateProblem } = require('../utils/dateRules');
 const { invalid, sendProblem } = require('../utils/validation');
 const { sendRouteError } = require('../utils/routeErrors');
 
@@ -25,8 +25,11 @@ function readFilter(query) {
   const text = (v) => (typeof v === 'string' ? v.trim() : undefined);
   const from = text(query.from);
   const to = text(query.to);
-  if (query.from !== undefined && query.from !== '' && !(from && isRealDateKey(from))) return { problem: invalid('Choose a valid start date (YYYY-MM-DD).') };
-  if (query.to !== undefined && query.to !== '' && !(to && isRealDateKey(to))) return { problem: invalid('Choose a valid end date (YYYY-MM-DD).') };
+  // a filter is about things that already happened: from 2009-01-01 up to today (utils/dateRules.js)
+  const fromProblem = query.from !== undefined && query.from !== '' ? pastDateProblem(from, new Date(), 'start date') : null;
+  if (fromProblem) return { problem: invalid(fromProblem) };
+  const toProblem = query.to !== undefined && query.to !== '' ? pastDateProblem(to, new Date(), 'end date') : null;
+  if (toProblem) return { problem: invalid(toProblem) };
   if (from && to && to < from) return { problem: invalid('The end date cannot be before the start date.') };
   if (from || to) {
     filter.createdAt = {};

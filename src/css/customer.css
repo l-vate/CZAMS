@@ -1217,14 +1217,14 @@
 }
 
 .confirmation-notif-title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--navy);
   margin-bottom: 4px;
 }
 
 .confirmation-notif-sub {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--ink-soft);
 }
 
@@ -1637,8 +1637,10 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  align-items: flex-end;
+  align-items: stretch;
+  min-width: 150px;
 }
+.customer-billings-x7 > button { justify-content: center; width: 100%; min-height: 38px; font-size: 14px; font-weight: 600; white-space: nowrap; }
 .customer-billings-x8.customer-billings-x8 {
   background: transparent;
   border: 1px solid #d0dde8;
@@ -1890,9 +1892,27 @@
 .cancelled-actions .bs-next-btn { background: #0b2545; color: #ffffff; border-color: #0b2545; }
 .cancelled-actions .bs-back-btn { border: 2px solid #0b2545; color: #0b2545; background: #ffffff; }
 .cancelled-actions .cancelled-view-btn { border-color: #e8553a; color: #a8341c; }
-.cancelled-summary { display: grid; gap: 8px; margin-bottom: 14px; border-left: 4px solid #e8553a; }
-.cancelled-summary-line { margin: 0; line-height: 1.6; color: var(--ink, #1e293b); overflow-wrap: anywhere; }
-.cancelled-summary-figures { margin-top: 6px; }
+.cancelled-summary { display: grid; gap: 14px; margin-bottom: 14px; padding: 20px; border-left: 0; border-radius: 18px; }
+.cancelled-head { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 16px; padding: 16px 18px; border-radius: 14px; background: linear-gradient(90deg, #fff1f1, #fff7f6); }
+.cancelled-head-icon { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: #e63946; color: #fff; font-size: 22px; box-shadow: 0 0 0 7px rgba(230, 57, 70, 0.12); }
+.cancelled-head-title { margin: 0; font-size: 17px; line-height: 1.35; color: var(--navy, #0b2545); }
+.cancelled-head-sub { margin: 2px 0 0; font-size: 14px; line-height: 1.5; color: #475569; }
+.cancelled-reason { display: flex; gap: 12px; padding: 16px 18px; border: 1px solid #f8d4d4; border-radius: 14px; background: #fff6f6; }
+.cancelled-reason-icon { flex: 0 0 auto; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: #e63946; color: #fff; font-size: 15px; }
+.cancelled-reason-body { display: grid; gap: 8px; min-width: 0; }
+.cancelled-summary-line { margin: 0; font-size: 14px; line-height: 1.6; color: var(--ink, #1e293b); overflow-wrap: anywhere; }
+.cancelled-summary-figures { margin: 0; border: 1px solid #e5edf5; border-radius: 14px; padding: 4px 14px; background: #fff; }
+.cancelled-summary-figures .summary-row { align-items: center; padding: 11px 0; font-size: 13.5px; }
+.cancelled-figure-label { display: inline-flex; align-items: center; gap: 12px; }
+.cancelled-figure-icon { display: grid; place-items: center; flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%; background: #e8f0fe; color: #2563eb; font-size: 15px; }
+.cancelled-pill { display: inline-flex; align-items: center; gap: 7px; padding: 5px 14px; border-radius: 999px; background: #e6f6ec; color: #15803d; font-weight: 700; }
+.cancelled-pill-dot { width: 8px; height: 8px; border-radius: 50%; background: #16a34a; }
+.cancelled-summary-muted { font-size: 12.5px; color: var(--muted, #64748b); }
+.cancelled-rebook-btn { width: auto; justify-self: start; display: inline-flex; align-items: center; gap: 10px; padding: 14px 28px; border-radius: 999px; background: linear-gradient(90deg, #1d4ed8, #2563eb); font-weight: 700; box-shadow: 0 8px 20px rgba(37, 99, 235, 0.28); }
+@media (max-width: 640px) {
+  .cancelled-head { grid-template-columns: auto 1fr; }
+  .cancelled-rebook-btn { width: 100%; justify-content: center; }
+}
 .cancelled-refund-card { margin-bottom: 14px; }
 @media (max-width: 480px) {
   .cancelled-actions { flex-direction: column; align-items: stretch; width: 100%; }
@@ -2097,3 +2117,22 @@
   font-size: 13px;
   color: var(--ink-soft);
 }
+
+/* ---------- a booking page that feels alive: the cards rise in one after the other and the notification icons get a tint ---------- */
+@keyframes confirm-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+.confirmation-notif-card, .cancelled-summary, .cancelled-refund-card { animation: confirm-rise 0.45s ease both; }
+.confirmation-notif-card:nth-child(2) { animation-delay: 0.08s; }
+.cancelled-summary { animation-delay: 0.16s; }
+.cancelled-refund-card { animation-delay: 0.24s; }
+.confirmation-notif-title svg { vertical-align: -2px; margin-right: 4px; padding: 3px; box-sizing: content-box; width: 14px; height: 14px; border-radius: 50%; background: #e3effb; color: #1d4e89; }
+@media (prefers-reduced-motion: reduce) {
+  .confirmation-notif-card, .cancelled-summary, .cancelled-refund-card { animation: none; }
+}
+
+/* My Bookings with nothing to show: a centered card with an icon and one clear next step */
+.my-bookings-empty { display: grid; justify-items: center; gap: 8px; padding: 44px 20px; text-align: center; background: #fff; border: 1px solid #e2eaf1; border-radius: 16px; }
+.my-bookings-empty-icon { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: #e8f0fe; color: #2563eb; font-size: 26px; }
+.my-bookings-empty-title { margin: 6px 0 0; font-size: 18px; color: var(--navy, #0b2545); }
+.my-bookings-empty-text { margin: 0; font-size: 14px; color: #64748b; }
+.my-bookings-empty-btn { display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; padding: 11px 24px; border-radius: 999px; background: linear-gradient(90deg, #1d4ed8, #2563eb); color: #fff; font-weight: 700; font-size: 14px; text-decoration: none; box-shadow: 0 8px 20px rgba(37, 99, 235, 0.25); }
+.my-bookings-empty-btn:hover { color: #fff; filter: brightness(1.08); }

@@ -22,6 +22,7 @@ import {
   FiCheck, FiBell, FiPrinter,
   FiCalendar, FiClock, FiMapPin, FiInfo, FiCreditCard,
   FiUser, FiAlertTriangle, FiX, FiArrowRight, FiStar, FiPhone, FiFileText, FiMessageCircle,
+  FiDollarSign, FiTruck, FiRotateCcw, FiActivity, FiAlertCircle, FiList,
 } from 'react-icons/fi';
 import { ApiError, orFallback } from '../../services/apiClient';
 import { getBooking, cancelBooking, rescheduleBooking, submitFeedback, requestDiscount } from '../../services/bookingService';
@@ -343,28 +344,60 @@ export function BookingCancelled({ booking, bookingId, refund, onBookAgain, onBa
   );
 }
 
+// The icon in front of each line of the money table.
+const FIGURE_ICON = {
+  'Down payment': <FiDollarSign />,
+  'Transportation fee': <FiTruck />,
+  'Reason for the fee': <FiList />,
+  'Refund amount': <FiRotateCcw />,
+  'Refund status': <FiActivity />,
+  Reason: <FiList />,
+};
+
 // The read-only record of a cancelled booking: who cancelled it, when, why (when the owner did) and what happens to the down payment.
 export function CancelledSummary({ booking, formatWhen, onBookAgain }) {
   const figures = refundFigures(booking);
   const expired = booking.expiredBySystem === true;
+  const showReason = booking.cancelReason && (booking.ownerCancelled || booking.cancelledBy === 'admin' || expired);
+  const noShowConfirmed = booking.noShow && ['Confirmed'].includes(booking.noShow.status);
+  const statusValue = (label, value) => {
+    if (label !== 'Refund status') return value;
+    return <span className={`cancelled-pill${value === 'Sent' ? ' cancelled-pill--done' : ''}`}><span className="cancelled-pill-dot" aria-hidden="true" />{value}</span>;
+  };
   return (
     <section className="bs-card cancelled-summary" aria-label={expired ? 'Expired booking' : 'Cancellation'}>
-      <h3 className="bs-card-title">{expired ? 'Expired' : 'Cancellation'}</h3>
-      <p className="cancelled-summary-line"><strong>{cancelledByText(booking)}</strong></p>
-      {booking.cancelledAt && <p className="cancelled-summary-line">Cancelled on {formatWhen(booking.cancelledAt)}.</p>}
-      {booking.cancelReason && (booking.ownerCancelled || booking.cancelledBy === 'admin' || expired) && <p className="cancelled-summary-line"><strong>Reason:</strong> {booking.cancelReason}</p>}
-      {booking.noShow && ['Confirmed'].includes(booking.noShow.status) && <p className="cancelled-summary-line">You reported that the technicians did not come, and the owner confirmed it.</p>}
-      <p className="cancelled-summary-line">{refundText(booking)}</p>
+      <header className="cancelled-head">
+        <span className="cancelled-head-icon" aria-hidden="true"><FiX /></span>
+        <div className="cancelled-head-text">
+          <h3 className="cancelled-head-title">{cancelledByText(booking)}</h3>
+          {booking.cancelledAt && <p className="cancelled-head-sub">Cancelled on {formatWhen(booking.cancelledAt)}.</p>}
+        </div>
+      </header>
+
+      <div className="cancelled-reason">
+        <span className="cancelled-reason-icon" aria-hidden="true"><FiAlertCircle /></span>
+        <div className="cancelled-reason-body">
+          {showReason && <p className="cancelled-summary-line"><strong>Reason:</strong> {booking.cancelReason}</p>}
+          {noShowConfirmed && <p className="cancelled-summary-line">You reported that the technicians did not come, and the owner confirmed it.</p>}
+          <p className="cancelled-summary-line">{refundText(booking)}</p>
+        </div>
+      </div>
+
       {figures.length > 0 && (
         <div className="cancelled-summary-figures">
-          {figures.map(([label, value]) => <div className="summary-row" key={label}><span>{label}</span><span>{value}</span></div>)}
+          {figures.map(([label, value]) => (
+            <div className="summary-row" key={label}>
+              <span className="cancelled-figure-label"><span className="cancelled-figure-icon" aria-hidden="true">{FIGURE_ICON[label] || <FiList />}</span>{label}</span>
+              <span>{statusValue(label, value)}</span>
+            </div>
+          ))}
         </div>
       )}
       {booking.refund && booking.refund.status !== REFUND_STATUS.NONE && booking.refund.status === REFUND_STATUS.PROCESSED && (
-        <p className="cancelled-summary-line">This booking is closed. Nothing more can be changed on it.</p>
+        <p className="cancelled-summary-line cancelled-summary-muted">This booking is closed. Nothing more can be changed on it.</p>
       )}
-      {(expired || booking.noShow?.status === 'Confirmed') && onBookAgain && (
-        <button type="button" className="bs-next-btn cancelled-rebook-btn" onClick={onBookAgain}>Book another service <FiArrowRight /></button>
+      {(expired || noShowConfirmed) && onBookAgain && (
+        <button type="button" className="bs-next-btn cancelled-rebook-btn" onClick={onBookAgain}><FiCalendar /> Book another service <FiArrowRight /></button>
       )}
     </section>
   );
@@ -697,32 +730,39 @@ function BookDetails() {
 
       <div className="confirmation-wrap">
         <div className="confirmation-heading">
-          {cancelled
-            ? <span className="confirmation-cancel-icon"><FiX /></span>
-            : <span className="confirmation-check-icon"><FiCheck /></span>}
+          {/* a cancelled booking has its red cross in the Cancellation card just below, so the heading does not repeat it */}
+          {!cancelled && <span className="confirmation-check-icon"><FiCheck /></span>}
           <h2>{bookingHeading(booking.status)}</h2>
           <p className="confirmation-id">Booking ID: {booking.bookingId}</p>
         </div>
 
-        <div className="confirmation-notif-row">
-          <div className="confirmation-notif-card">
-            <p className="confirmation-notif-title"><FiBell /> In-app notification</p>
-            <p className="confirmation-notif-sub">
-              {bookingNotification ? formatDate(bookingNotification.createdAt) : 'Sent'}
-            </p>
+        {/* the booking-created notices mean nothing on a cancelled booking, so they are only shown for the others */}
+        {!cancelled && (
+          <div className="confirmation-notif-row">
+            <div className="confirmation-notif-card">
+              <p className="confirmation-notif-title"><FiBell /> In-app notification</p>
+              <p className="email-status-title">{bookingNotification ? 'Notification sent' : 'Sent'}</p>
+              {bookingNotification && (
+                <>
+                  <p className="confirmation-notif-sub">
+                    {new Date(bookingNotification.createdAt).toLocaleString('en-US', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                  </p>
+                  <p className="confirmation-notif-sub">To your account</p>
+                </>
+              )}
+            </div>
+            <EmailStatusCard bookingId={booking.bookingId} />
           </div>
-          <EmailStatusCard bookingId={booking.bookingId} />
-        </div>
+        )}
 
         {cancelled && (
           <>
             <CancelledSummary booking={booking} formatWhen={formatDate} onBookAgain={() => navigate('/customer/book_service')} />
-            {booking.refund && booking.refund.status !== REFUND_STATUS.NONE && (
+            {/* both parts below only show once the refund is sent, so the card is only drawn then (it used to appear empty while "Being processed") */}
+            {booking.refund && booking.refund.status === REFUND_STATUS.PROCESSED && (
               <div className="bs-card cancelled-refund-card">
                 <RefundReceivedConfirm bookingId={booking.bookingId} refund={booking.refund} onConfirmed={(data) => setBooking(data)} />
-                {booking.refund.status === REFUND_STATUS.PROCESSED && (
-                  <RefundFlagForm bookingId={booking.bookingId} refund={booking.refund} onFlagged={(data) => setBooking(data)} />
-                )}
+                <RefundFlagForm bookingId={booking.bookingId} refund={booking.refund} onFlagged={(data) => setBooking(data)} />
               </div>
             )}
           </>

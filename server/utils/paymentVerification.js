@@ -12,12 +12,13 @@
 const { PAYMENT_STATUS, PAYMENT_STATUS_VALUES, BALANCE_PAYMENT_STATUS, BALANCE_PAYMENT_STATUS_VALUES } = require('../constants/paymentStatus');
 const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const { invalid } = require('./validation');
-const { getPaymentBreakdown, getBookingUnitsSubtotal } = require('./pricing');
+const { getPaymentBreakdown, PRICING_VERSION } = require('./pricing');
 
 const REASON_MIN = 3;
 const REASON_MAX = 300;
 const VERIFIED_DOWN = [PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID];
 const NONE = (v) => v === undefined || v === null;
+const peso = (n) => `₱${Number(n).toLocaleString('en-US', Number.isInteger(Number(n)) ? {} : { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 function reasonProblem(reason, what) {
   const text = typeof reason === 'string' ? reason.trim() : '';
@@ -25,9 +26,10 @@ function reasonProblem(reason, what) {
   return null;
 }
 
+// What the down payment came to: the amount fixed when it was sent or received, else (older bookings) the figure the price gives now.
 const downPaymentAmount = (booking) => (typeof booking.downPaymentPaidAmount === 'number'
   ? booking.downPaymentPaidAmount
-  : Math.round(getBookingUnitsSubtotal(booking) * ((booking.downPaymentPercent || 0) / 100)));
+  : getPaymentBreakdown(booking).downPayment);
 
 // Reads the payment part of an admin-update request. Returns { problem } or { plan } where plan is null (no payment change)
 // or { track, action, expect, set, unset, event }.
@@ -102,7 +104,8 @@ function planPaymentChange(booking, { paymentStatus, balancePaymentStatus, balan
   return { plan: {
     track: 'balance', action: 'verify',
     expect: { balancePaymentStatus: BALANCE_PAYMENT_STATUS.TO_VERIFY, paymentStatus: booking.paymentStatus },
-    set: { balancePaymentStatus: BALANCE_PAYMENT_STATUS.PAID, balancePaid: true, paymentStatus: PAYMENT_STATUS.FULLY_PAID },
+    // pricingVersion: the balance was worked out with the current rules (VAT included), so those amounts stay when the booking is fully paid
+    set: { balancePaymentStatus: BALANCE_PAYMENT_STATUS.PAID, balancePaid: true, paymentStatus: PAYMENT_STATUS.FULLY_PAID, pricingVersion: PRICING_VERSION },
     unset: [], event: { track: 'balance', status: 'verified', amount },
   } };
 }
@@ -112,6 +115,7 @@ function planReverse(booking, track, reason) {
   if (problem) return { problem };
   if (track === 'down') {
     if (!VERIFIED_DOWN.includes(booking.paymentStatus)) return { problem: invalid('Only a verified down payment can be reversed.') };
+    if (booking.refund && booking.refund.status) return { problem: invalid('A refund is open on this booking and depends on this payment, so it cannot be reversed.') };
     if (booking.balancePaymentStatus === BALANCE_PAYMENT_STATUS.PAID) return { problem: invalid('Reverse the balance payment first.') };
     return { plan: {
       track: 'down', action: 'reverse', expect: { paymentStatus: booking.paymentStatus },
@@ -157,7 +161,7 @@ function planInPersonPayment(booking, { track, method, amount, reference, allowe
   if (!['down', 'balance'].includes(track)) return { problem: invalid('Choose which payment this is: down payment or balance.') };
   if (typeof method !== 'string' || !allowedMethods.includes(method)) return { problem: invalid(`Choose a payment method: ${allowedMethods.join(', ')}.`) };
   const value = Number(amount);
-  if (!Number.isFinite(value) || value <= 0 || value > 10000000) return { problem: invalid('Enter the amount received, more than 0.') };
+  if (!Number.isFinite(value) || value <= 0) return { problem: invalid('Enter the amount received, more than 0.') };
   const ref = typeof reference === 'string' ? reference.trim().slice(0, 60) : '';
   if (booking.status === BOOKING_STATUS.CANCELLED) return { problem: invalid('This booking is cancelled.') };
   const event = { track, status: 'recorded', amount: Math.round(value * 100) / 100, method, reference: ref || undefined, inPerson: true };
@@ -168,6 +172,11 @@ function planInPersonPayment(booking, { track, method, amount, reference, allowe
       return { problem: invalid('The down payment is already waiting to be verified or has been verified.') };
     }
     const full = (booking.downPaymentPercent || 0) >= 100;
+    // Nothing is paid yet, so the most that can be received is everything the booking comes to. A 100% down payment marks the booking fully
+    // paid, so it has to be the whole amount.
+    const owed = getPaymentBreakdown(booking).grandTotal;
+    if (event.amount > owed) return { problem: invalid(`The amount is more than the booking comes to. At most ${peso(owed)} can be recorded.`) };
+    if (full && event.amount < owed) return { problem: invalid(`This is a full payment, so the whole ${peso(owed)} has to be recorded.`) };
     return { plan: {
       track, action: 'record', expect: { paymentStatus: booking.paymentStatus },
       set: { paymentStatus: full ? PAYMENT_STATUS.FULLY_PAID : PAYMENT_STATUS.PARTIALLY_PAID, downPaymentPaidAmount: event.amount, paymentMode: method },
@@ -179,10 +188,14 @@ function planInPersonPayment(booking, { track, method, amount, reference, allowe
   if (![BALANCE_PAYMENT_STATUS.NONE, BALANCE_PAYMENT_STATUS.REJECTED, undefined, null].includes(booking.balancePaymentStatus)) {
     return { problem: invalid('The balance is already waiting to be verified or has been verified.') };
   }
-  if (!(getPaymentBreakdown(booking).balance > 0)) return { problem: invalid('No balance is due for this booking.') };
+  const remaining = getPaymentBreakdown(booking).balance;
+  if (!(remaining > 0)) return { problem: invalid('No balance is due for this booking.') };
+  if (event.amount > remaining) return { problem: invalid(`The amount is more than the remaining balance. At most ${peso(remaining)} can be recorded.`) };
+  // recording the balance marks the booking fully paid, so a part of it cannot be recorded here
+  if (event.amount < remaining) return { problem: invalid(`The remaining balance is ${peso(remaining)}. Record the whole balance: it marks the booking fully paid.`) };
   return { plan: {
     track, action: 'record', expect: { balancePaymentStatus: booking.balancePaymentStatus ?? BALANCE_PAYMENT_STATUS.NONE, paymentStatus: booking.paymentStatus },
-    set: { balancePaymentStatus: BALANCE_PAYMENT_STATUS.PAID, balancePaid: true, paymentStatus: PAYMENT_STATUS.FULLY_PAID, paymentMode2: method },
+    set: { balancePaymentStatus: BALANCE_PAYMENT_STATUS.PAID, balancePaid: true, paymentStatus: PAYMENT_STATUS.FULLY_PAID, paymentMode2: method, pricingVersion: PRICING_VERSION },
     unset: ['balanceProofFile', 'balanceReferenceNumber'], event,
   } };
 }

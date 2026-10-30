@@ -11,6 +11,7 @@ import QuotationEditor from './quotation_editor';
 import UnitRequestPanel from './unit_request_panel';
 import { unitChangeOf } from '../utils/suppliedUnitChoice';
 import CannotSupplyPanel from './cannot_supply_panel';
+import ConfirmUnitPanel from './confirm_unit_panel';
 import { legacyDistanceAmount } from '../utils/chargeRows';
 import { describeWorks } from '../utils/mayNeedWorks';
 import ClosureDateInput from './closure_date_input';
@@ -80,6 +81,7 @@ function AdminServiceDetailsModal({ booking, onClose, onUpdated, asPage = false 
     const [saving, setSaving] = useState(false);
     const [offeredDates, setOfferedDates] = useState([]); // dates offered after an approval is refused because nobody is free
     const [recordDraft, setRecordDraft] = useState(null); // a payment being recorded: received in person
+    const [reverseDraft, setReverseDraft] = useState(null); // a verified payment being reversed: { track, reason }
     const [error, setError] = useState('');
     const [cancelOpen, setCancelOpen] = useState(false);
     const [disruptionDate, setDisruptionDate] = useState('');
@@ -113,6 +115,8 @@ const [report, setReport] = useState(null);
     const hasAssignment = getMemberIds(booking).length > 0;
     // a Pending booking whose service day has started can no longer be approved (the day start job cancels it)
     const tooLateToApprove = isPastApproval(booking);
+    // the server says why money stops an approval (utils/paymentDue.js); Approve stays off until that is cleared
+    const approveBlocked = booking.status === BOOKING_STATUS.PENDING && Boolean(booking.approvalBlock);
 
     const { lineItems, basePrice } = getBookingLineItems(booking);
     const paymentBreakdown = getPaymentBreakdown({ ...booking, downPaymentPercent: booking.downPaymentPercent ?? 0 });
@@ -410,6 +414,7 @@ const [report, setReport] = useState(null);
 
                     {/* once the customer was told the unit cannot be supplied, there is nothing left to settle for the requested unit */}
                     {!booking.unitDecline?.reason && <UnitRequestPanel booking={booking} onUpdated={onUpdated} />}
+                    <ConfirmUnitPanel booking={booking} onUpdated={onUpdated} />
                     <CannotSupplyPanel booking={booking} onUpdated={onUpdated} />
 
                     <div className="sdm-customer-line">
@@ -920,6 +925,26 @@ const [report, setReport] = useState(null);
                                         </span>
                                     </div>
                                 )}
+                                {booking.status !== 'Cancelled' && [['down', 'Down payment', ['partially_paid', 'fully_paid'].includes(booking.paymentStatus) && !booking.balancePaid && !booking.refund?.status],
+                                    ['balance', 'Balance', booking.balancePaid || booking.balancePaymentStatus === 'paid']].filter((t) => t[2]).map(([track, name]) => (
+                                    <div className="sdm-list-row" key={`reverse-${track}`}>
+                                        <span>Undo {name.toLowerCase()}</span>
+                                        <span className="sdm-list-value">
+                                            {reverseDraft?.track === track ? (
+                                                <span>
+                                                    <input className="ma-input" type="text" maxLength={300} aria-label="Reason for reversing" placeholder="Reason (required)" value={reverseDraft.reason} onChange={(e) => setReverseDraft({ ...reverseDraft, reason: e.target.value })} />
+                                                    <button type="button" className="sdm-btn sdm-btn-danger" disabled={saving || reverseDraft.reason.trim().length < 3}
+                                                        onClick={async () => { const ok = await patchBooking({ reverse: track, reason: reverseDraft.reason.trim() }); if (ok) setReverseDraft(null); }}>
+                                                        Reverse {name.toLowerCase()}
+                                                    </button>
+                                                    <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setReverseDraft(null)} disabled={saving}>Cancel</button>
+                                                </span>
+                                            ) : (
+                                                <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setReverseDraft({ track, reason: '' })}>Reverse this payment</button>
+                                            )}
+                                        </span>
+                                    </div>
+                                ))}
                                 {booking.status !== 'Cancelled' && (
                                     <div className="sdm-list-row">
                                         <span>Received in person</span>
@@ -933,9 +958,37 @@ const [report, setReport] = useState(null);
                                                     <select className="sdm-tech-select" aria-label="Method" value={recordDraft.method} onChange={(e) => setRecordDraft({ ...recordDraft, method: e.target.value })}>
                                                         {['Cash', 'Cheque', 'GCash', 'Bank Transfer'].map((m) => <option key={m} value={m}>{m}</option>)}
                                                     </select>
-                                                    <input className="ma-input" type="number" min="1" step="0.01" aria-label="Amount received" placeholder="Amount received" value={recordDraft.amount} onChange={(e) => setRecordDraft({ ...recordDraft, amount: e.target.value })} />
+                                                    <small className="sdm-muted" role="status">
+                                                        {recordDraft.track === 'balance'
+                                                            ? `Remaining balance: ${formatPeso(paymentBreakdown.balance)}. Recording it marks the booking fully paid, so enter the whole balance.`
+                                                            : `The booking comes to ${formatPeso(paymentBreakdown.grandTotal)}. Enter what was received, up to that.`}
+                                                    </small>
+                                                    <input className="ma-input" type="number" min="0.01" step="0.01" max={recordDraft.track === 'balance' ? paymentBreakdown.balance : paymentBreakdown.grandTotal} aria-label="Amount received" placeholder="Amount received" value={recordDraft.amount} onChange={(e) => setRecordDraft({ ...recordDraft, amount: e.target.value, confirming: false })} />
                                                     <input className="ma-input" type="text" maxLength={60} aria-label="Reference or cheque number" placeholder="Reference or cheque no. (optional)" value={recordDraft.reference} onChange={(e) => setRecordDraft({ ...recordDraft, reference: e.target.value })} />
-                                                    <button type="button" className="sdm-btn sdm-btn-primary" onClick={handleRecordPayment} disabled={saving || !recordDraft.amount}>Record payment</button>
+                                                    {recordDraft.confirming ? (
+                                                        <>
+                                                            <span role="alert" className="sdm-muted">
+                                                                Record {formatPeso(Number(recordDraft.amount))} by {recordDraft.method} as received in person? This marks the payment verified.
+                                                            </span>
+                                                            <button type="button" className="sdm-btn sdm-btn-primary" onClick={handleRecordPayment} disabled={saving}>Yes, record it</button>
+                                                        </>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="sdm-btn sdm-btn-primary"
+                                                            onClick={() => {
+                                                                const limit = recordDraft.track === 'balance' ? paymentBreakdown.balance : paymentBreakdown.grandTotal;
+                                                                const value = Number(recordDraft.amount);
+                                                                if (!(value > 0)) { setError('Enter the amount received, more than 0.'); return; }
+                                                                if (value > limit) { setError(`The amount is more than the remaining ${formatPeso(limit)}.`); return; }
+                                                                setError('');
+                                                                setRecordDraft({ ...recordDraft, confirming: true });
+                                                            }}
+                                                            disabled={saving || !recordDraft.amount}
+                                                        >
+                                                            Record payment
+                                                        </button>
+                                                    )}
                                                     <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => setRecordDraft(null)} disabled={saving}>Cancel</button>
                                                 </span>
                                             ) : (
@@ -1176,6 +1229,16 @@ const [report, setReport] = useState(null);
                             <span className="sdm-muted">Completes when the technician submits the service report.</span>
                         )}
                         {tooLateToApprove && <span className="sdm-muted" role="status">{APPROVAL_TOO_LATE}</span>}
+                        {/* why Approve is off because of money: the same sentence the server refuses with, so a refusal is never silent */}
+                        {approveBlocked && !tooLateToApprove && (
+                            <span className="sdm-muted sdm-approval-block" role="status">
+                                {booking.approvalBlock.message}
+                                {booking.approvalBlock.code === 'verify' && (
+                                    <> <Link to={`/admin/payments?filter=to_verify&q=${encodeURIComponent(booking.bookingId)}`} className="sdm-verify-payment">Verify payment <FiArrowRight aria-hidden="true" /></Link></>
+                                )}
+                            </span>
+                        )}
+                        {error && !cancelOpen && <span className="sdm-error sdm-footer-error" role="alert">{error}</span>}
                         {nextSteps.map((step) => (
                             <button
                                 key={step.value}
@@ -1183,7 +1246,7 @@ const [report, setReport] = useState(null);
                                 onClick={() => handleStatusChange(step.value)}
                                 disabled={
                                     saving ||
-                                    (step.value === 'Approved' && (!hasAssignment || tooLateToApprove))
+                                    (step.value === 'Approved' && (!hasAssignment || tooLateToApprove || approveBlocked))
                                 }
                             >
                                 {step.label}

@@ -10,6 +10,7 @@ const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } = require('../constants/paymentStatus');
 const constants = require('../constants/scopeLines.json');
 const { getBookingBasePrice, getPaymentBreakdown, getVatAmount, scopeLinesOf } = require('./pricing');
+const { SERVICE_TYPE } = require('../constants/serviceTypes');
 
 const { kinds: KINDS, presets: PRESETS, limits: LIMITS } = constants;
 const EDITABLE_STATUSES = [BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS];
@@ -84,6 +85,14 @@ function scopeChangeProblem(booking, after) {
     return invalid('The scope of works can only be changed while a booking is Pending, Approved or In Progress.');
   }
   if (booking.isBackJob) return invalid('A free back job visit has no charges, so it has no scope of works.');
+  // The price of an Installation service already is the installation, so a new "Installation" line would charge it a second time. Dismantling,
+  // excess pipe, distance and other work can still be added; a line that was already there stays editable.
+  if (booking.service?.serviceType === SERVICE_TYPE.INSTALLATION) {
+    const installLines = (b) => scopeLinesOf(b).filter((l) => l.kind === 'installation').length;
+    if (installLines(after) > installLines(booking)) {
+      return invalid('The installation is already part of this service price, so adding an Installation line would charge it twice. Add dismantling, excess pipe or other work instead.');
+    }
+  }
   if (booking.balancePaid || [BALANCE_PAYMENT_STATUS.PAID, BALANCE_PAYMENT_STATUS.TO_VERIFY].includes(booking.balancePaymentStatus)) {
     return invalid('The balance has already been paid or is waiting to be checked, so the scope of works can no longer change the total. Handle a difference through the refund flow.');
   }

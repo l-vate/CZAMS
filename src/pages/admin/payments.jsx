@@ -5,7 +5,7 @@ import PersonFilterBanner from '../../components/person_filter_banner';
 import PaymentReference from '../../components/payment_reference';
 import ReceiptModal from '../../components/receipt_modal';
 import { buildReceiptForm } from '../../utils/receiptData';
-import { getBookingLineItems, getUnitsSummary } from '../../utils/bookingPricing';
+import { getPaymentBreakdown, getUnitsSummary } from '../../utils/bookingPricing';
 import { getMemberNames } from '../../utils/assignments';
 import { getFilterPillStyle } from '../../utils/statusColors';
 import { usePaymentSettings, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
@@ -395,7 +395,7 @@ function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
       const serviceType = typeof b.service === 'object' ? (b.service?.name || 'Service') : (b.service || 'Service');
       const detail = getUnitsSummary(b) || b.brandModel || b.problemDescription || 'Detail';
 
-      const { basePrice } = getBookingLineItems(b);
+      const { grandTotal } = getPaymentBreakdown(b); // the price with the VAT of a commercial client, the same figure as Billing and the invoice
 
       let status;
       if (b.isBackJob) {
@@ -440,7 +440,7 @@ function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
         status,
         hasAttachment: Boolean(attachmentUrl),
         attachmentUrl,
-        amount: b.isBackJob ? 'Free' : `₱${basePrice.toLocaleString()}`,
+        amount: b.isBackJob ? 'Free' : `₱${grandTotal.toLocaleString()}`,
         refund: b.refund && b.refund.status !== REFUND_STATUS.NONE ? b.refund : null,
         raw: b,
       };

@@ -20,8 +20,9 @@ const { sendNotification, notifyAdmins } = require('../utils/notifications');
 const Report = require('../models/Report');
 const {
   getBookingBasePrice, getBookingUnitsSubtotal, getBookingGrossUnitsSubtotal, getBookingTotalQuantity,
-  getSeniorDiscountAmount, getAppliedDiscount, getPaymentBreakdown,
+  getSeniorDiscountAmount, getAppliedDiscount, getPaymentBreakdown, getVatAmount, PRICING_VERSION,
 } = require('../utils/pricing');
+const { approvalPaymentBlock } = require('../utils/paymentDue');
 const Promo = require('../models/Promo');
 const { pickBestPromo } = require('../utils/promos');
 const { manilaTodayKey } = require('../utils/timeBlocks');
@@ -178,7 +179,7 @@ const todayDateString = () => manilaToday();
 // The down payment in pesos, from the booking's totals right now (units minus any applied discount,
 // times the down payment percent).
 function computeDownPaymentAmount(booking) {
-  return Math.round(getBookingUnitsSubtotal(booking) * ((booking.downPaymentPercent || 0) / 100));
+  return getPaymentBreakdown(booking).downPayment;
 }
 
 // The reason an owner-initiated cancellation must carry: 3 to 200 characters. { problem } or { reason }.
@@ -667,6 +668,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
           isActivelyLeaking: isActivelyLeaking === 'true' || isActivelyLeaking === true,
         } : undefined,
         isCommercial,
+        pricingVersion: PRICING_VERSION,
         poNumber: isCommercial ? (String(poNumber ?? '').trim().slice(0, 40) || null) : null,
         paymentTermsDays: termsDays,
         ...(discount ? { discount } : {}),
@@ -705,13 +707,12 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
     // 12% VAT, additive on top of the VAT-exclusive base price (after any approved
     // discount) - computed after populate since getBookingBasePrice needs the populated
     // service for per-unit-type pricing.
-    if (isCommercial) {
-      const basePrice = getBookingBasePrice(populated);
-      populated.vatAmount = Math.round(basePrice * 0.12);
-    }
-    // The amount of a down payment on file is recorded when it is verified or received, never from a submission nobody
-    // has checked.
-    if (isCommercial || discountApprovedNow || bestPromo) {
+    if (isCommercial) populated.vatAmount = getVatAmount(populated);
+    // A proof sent with the booking fixes the down payment at what the booking came to now. It is still waiting to be verified, and the
+    // amount only becomes a payment on file when an admin verifies it.
+    const proofSentWithBooking = paymentStatus === PAYMENT_STATUS.TO_VERIFY;
+    if (proofSentWithBooking) populated.downPaymentPaidAmount = getPaymentBreakdown(populated).downPayment;
+    if (isCommercial || discountApprovedNow || bestPromo || proofSentWithBooking) {
       await populated.save();
     }
 
@@ -962,6 +963,8 @@ router.patch('/:bookingId/pay', auth, allowRoles(ROLE.CUSTOMER), paymentLimiter,
       },
       { $set: {
         paymentStatus: PAYMENT_STATUS.TO_VERIFY,
+        // the amount the customer was asked to pay stays what it was when they sent it, whatever the total does afterwards
+        downPaymentPaidAmount: getPaymentBreakdown(booking).downPayment,
         ...(proofFile ? { proofFile } : {}),
         ...(submission.reference ? { referenceNumber: submission.reference } : {}),
       } },
@@ -1194,7 +1197,7 @@ router.patch('/:bookingId/discount/approve', auth, auditSpecs.discountApprove, a
     }
 
     if (booking.isCommercial) {
-      booking.vatAmount = Math.round(getBookingUnitsSubtotal(booking) * 0.12);
+      booking.vatAmount = getVatAmount(booking);
     }
 
     await booking.save();
@@ -2187,10 +2190,10 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
         return sendProblem(res, invalid('The owner said this unit cannot be supplied. Withdraw that first, or cancel the booking.', 409));
       }
       // The down payment has to be paid (and verified) before a booking is approved. A booking with no down payment due is the exception.
-      const dpDue = booking.downPaymentPercent > 0 && getPaymentBreakdown(booking).downPayment > 0;
-      const dpPaid = [PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(paymentStatus || booking.paymentStatus);
-      if (dpDue && !dpPaid) {
-        return sendProblem(res, invalid('The down payment has to be paid and verified before this booking can be approved.', 409));
+      // The reason is worded for the admin (utils/paymentDue.js), the same sentence their booking screen shows beside the disabled Approve button.
+      const block = approvalPaymentBlock(paymentStatus ? { ...booking.toObject(), service: booking.service, paymentStatus } : booking);
+      if (block) {
+        return sendProblem(res, invalid(`The down payment has to be paid and verified before this booking can be approved. ${block.message}`, 409));
       }
     }
 

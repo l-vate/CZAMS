@@ -9,6 +9,8 @@
 // Kept on purpose, because the customer's own screens show them to the customer: the reason a discount was not
 // approved, and the reason a refund amount was adjusted.
 
+const { paymentDueOf, unitAwaitingConfirmation } = require('./paymentDue');
+
 const pick = (source, keys) => {
   const out = {};
   keys.forEach((key) => {
@@ -29,7 +31,7 @@ const PASS_THROUGH = [
   '_id', 'bookingId', 'status', 'createdAt', 'updatedAt', 'date', 'time', 'address', 'contactNumber', 'problemDescription',
   'unitTypes', 'brandModel', 'clientSuppliedUnit', 'unitSource', 'unitWaiver', 'unitPurchaseProof', 'cleaningTierAnswers',
   'requestedTechnician',
-  'downPaymentPercent', 'downPaymentPaidAmount', 'paymentMode', 'paymentMode2', 'paymentStatus', 'balancePaid',
+  'downPaymentPercent', 'downPaymentPaidAmount', 'pricingVersion', 'unitConfirmedAt', 'paymentMode', 'paymentMode2', 'paymentStatus', 'balancePaid',
   'balancePaymentStatus', 'proofFile', 'balanceProofFile', 'referenceNumber', 'balanceReferenceNumber',
   'distanceAdjustment', 'mobilizationFee', 'promo', 'isCommercial', 'vatAmount', 'poNumber', 'paymentTermsDays', 'paymentDueAt',
   'feedback', 'completedAt', 'cancelledAt', 'cancelledBy', 'ownerCancelled', 'cancelReason', 'expiredBySystem', 'startedBySystem', 'startedAt', 'reportSubmitted', 'isBackJob', 'backJobId',
@@ -53,6 +55,17 @@ function toCustomerView(booking) {
   const out = pick(b, PASS_THROUGH);
 
   if (out.customer && typeof out.customer === 'object') out.customer = pick(out.customer, ['_id', 'name']);
+
+  // What the customer owes right now, worked out on the server (utils/paymentDue.js) so Billing and the booking page agree.
+  if (b.service && typeof b.service === 'object') {
+    out.paymentDue = paymentDueOf(b);
+    out.awaitingUnitConfirmation = unitAwaitingConfirmation(b);
+  }
+
+  // The reason the owner gave when a payment proof was rejected, while it is still rejected. (The payment log itself stays hidden.)
+  const lastRejection = (track) => [...(Array.isArray(b.paymentEvents) ? b.paymentEvents : [])].reverse().find((e) => e.track === track && e.status === 'rejected');
+  if (b.paymentStatus === 'rejected') out.downPaymentRejectionReason = lastRejection('down')?.reason || '';
+  if (b.balancePaymentStatus === 'rejected') out.balanceRejectionReason = lastRejection('balance')?.reason || '';
 
   // The technicians on a Pending booking are only a proposal and can change, so the customer sees them once the booking
   // is Approved (and after). A Cancelled booking shows none.

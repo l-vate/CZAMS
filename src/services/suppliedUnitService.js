@@ -46,3 +46,8 @@ export function cannotSupplyUnit(bookingId, { reason, note }) {
 export function withdrawCannotSupply(bookingId) {
   return request(`/api/bookings/${bookingId}/cannot-supply`, { method: 'DELETE' });
 }
+
+// Admin: confirm that the company can supply the (catalog) unit on a Pending Installation. The customer is then asked for the down payment.
+export function confirmUnit(bookingId) {
+  return request(`/api/bookings/${bookingId}/confirm-unit`, { method: 'PATCH' });
+}

@@ -12,9 +12,9 @@ import { ApiError } from '../../services/apiClient';
 import { listMyBookings } from '../../services/bookingService';
 import { submitPayment, submitBalancePayment } from '../../services/paymentService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
-import { SERVICE_TYPE } from '../../constants/serviceTypes';
 import { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } from '../../constants/paymentStatus';
 import { REFUND_STATUS } from '../../constants/refundStatus';
+import { customerPaymentStatus, rejectionReasonOf, billMatchesFilter, BILL_FILTERS } from '../../utils/customerPayment';
 
 import Notice from '../../components/notice';
 import { useNotice } from '../../hooks/useNotice';
@@ -35,7 +35,7 @@ function Billings() {
 
   const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
 
-  const filters = ['All', 'To Verify', 'Partially Paid', 'Fully Paid', 'Unpaid', 'Refunded'];
+  const filters = BILL_FILTERS;
 
   const fetchBookings = () => {
     listMyBookings()
@@ -65,15 +65,11 @@ function Billings() {
           const isCancelled = b.status === BOOKING_STATUS.CANCELLED;
           const isRefundPending = isCancelled && b.refund?.status === REFUND_STATUS.PENDING;
 
-          let status = 'Unpaid';
+          let status = customerPaymentStatus(b).label;
           if (isRefunded) status = 'Refunded';
           else if (isCancelled && b.refund?.status === REFUND_STATUS.REJECTED) status = 'Cancelled – Refund Rejected';
           else if (isRefundPending) status = 'Cancelled – Refund Pending';
           else if (isCancelled) status = 'Cancelled';
-          else if (isFullyPaid) status = 'Fully Paid';
-          else if (isPartiallyPaid) status = 'Partially Paid';
-          else if (isToVerify) status = 'To Verify';
-          else if (isRejected) status = 'Rejected';
 
           // A small secondary note describing where the balance payment stands,
           // shown alongside the main status once the down payment has been accepted.
@@ -94,7 +90,10 @@ function Billings() {
           return {
             id: b.bookingId,
             service: b.service?.name || b.service?.category || '-',
-            awaitingConfirmation: b.service?.serviceType === SERVICE_TYPE.INSTALLATION && b.status === BOOKING_STATUS.PENDING,
+            // the owner has not confirmed the unit yet (worked out by the server), so nothing is due
+            awaitingConfirmation: Boolean(b.paymentDue?.waitingForUnit),
+            due: b.paymentDue || { kind: null, amount: 0 },
+            rejectionReason: rejectionReasonOf(b),
             customerName: storedUser.name || '-',
             address: b.address,
             contactNumber: storedUser.phone || '-',
@@ -156,20 +155,7 @@ paymentStatus: b.paymentStatus,
   }, []);
 
   const filteredBills = bills
-    .filter((bill) => {
-      if (activeFilter === 'All') return true;
-      if (activeFilter === 'Refunded') return bill.isRefunded;
-      if (bill.isCancelled) return false; // cancelled bookings (refunded excepted above) only show under "All" - their old paymentStatus no longer applies
-      // A back-job follow-up is free (0% down, nothing to pay) - there's nothing to
-      // bill, so like Cancelled/Refunded it only shows under "All", not alongside
-      // real payable bookings in the normal status tabs.
-      if (bill.isBackJob) return false;
-      if (activeFilter === 'To Verify') return bill.isToVerify || bill.isBalanceToVerify;
-      if (activeFilter === 'Fully Paid') return bill.isFullyPaid;
-      if (activeFilter === 'Partially Paid') return bill.isPartiallyPaid;
-      if (activeFilter === 'Unpaid') return bill.paymentStatus === PAYMENT_STATUS.UNPAID || bill.isRejected;
-      return true;
-    })
+    .filter((bill) => billMatchesFilter(bill, activeFilter))
     .filter((bill) => {
       if (!searchTerm.trim()) return true;
       const term = searchTerm.toLowerCase();
@@ -180,6 +166,10 @@ paymentStatus: b.paymentStatus,
         String(bill.basePrice).includes(term.replace(/[₱,\s]/g, ''))
       );
     });
+
+  // the down payments and balances that are due right now, newest first
+  const dueBills = bills.filter((bill) => bill.due.kind && !bill.isCancelled && !bill.isBackJob && !bill.awaitingConfirmation)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   const BILL_STATUS_ORDER = { unpaid: 0, partial: 1, paid: 2 };
   const isCancelledBill = (bill) => bill.isCancelled || bill.isRefunded;
@@ -266,11 +256,38 @@ paymentStatus: b.paymentStatus,
       ) : sortedBills.length === 0 ? (
         <p className="customer-billings-x3">No matching bills found.</p>
       ) : (
+        <>
+        {dueBills.length > 0 && ['All', 'Due'].includes(activeFilter) && (
+          <section className="billing-due" aria-label="Due now">
+            <h3 className="billing-due-title">Due now</h3>
+            <ul className="billing-due-list">
+              {dueBills.map((bill) => (
+                <li key={bill.id} className="billing-due-row">
+                  <div className="billing-due-info">
+                    <strong>{bill.service}</strong>
+                    <small>{bill.id} · {bill.due.kind === 'balance' ? 'Remaining balance' : 'Down payment'}</small>
+                  </div>
+                  <span className="billing-due-amount">₱{(bill.due.kind === 'balance' ? bill.remaining : bill.toPayNow).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <button
+                    type="button"
+                    className="bs-next-btn customer-billings-x9"
+                    disabled={!paymentSettingsReady}
+                    onClick={() => { setSelectedBill(bill); setPaymentType(bill.due.kind === 'balance' ? 'balance' : 'downpayment'); setShowPayment(true); }}
+                  >
+                    <FiCreditCard size={14} /> Pay Now
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
         <div className="tech-job-list">
           {sortedBills.map((bill, i) => {
-            const payDown = !bill.paid && !bill.isCancelled && !bill.isBackJob;
-            const payBalance = bill.isPartiallyPaid && !bill.isBalancePaid && !bill.isBalanceToVerify && !bill.isCancelled;
-            const waitingForConfirmation = payDown && bill.awaitingConfirmation; // an installation is paid after our team confirms it
+            // what is due comes from the server (utils/paymentDue.js): the down payment once it is owed, the balance once the service is complete.
+            // A balance that already exists can still be paid earlier, as before.
+            const payDown = bill.due.kind === 'down';
+            const payBalance = bill.due.kind === 'balance' || (bill.isPartiallyPaid && !bill.isBalancePaid && !bill.isBalanceToVerify && !bill.isCancelled);
+            const waitingForConfirmation = bill.awaitingConfirmation && !bill.isCancelled; // an installation is paid after our team confirms the unit
             const canPay = (payDown || payBalance) && !waitingForConfirmation;
             const openPayment = () => {
               setSelectedBill(bill);
@@ -310,7 +327,12 @@ paymentStatus: b.paymentStatus,
                 <small className="tech-job-booking">{bill.id}</small>
                 {bill.isRejected && !bill.isCancelled && (
                   <p className="customer-billings-x6">
-                    Rejected - please resubmit
+                    {bill.rejectionReason ? `Payment rejected: ${bill.rejectionReason}. Please send a new proof.` : 'Payment rejected. Please send a new proof.'}
+                  </p>
+                )}
+                {waitingForConfirmation && (
+                  <p className="customer-billings-x6 customer-billings-wait">
+                    We are confirming the unit. You will be asked to pay your down payment once it is confirmed.
                   </p>
                 )}
               </div>
@@ -325,8 +347,8 @@ paymentStatus: b.paymentStatus,
 
               <div className="customer-billings-x7">
                 {waitingForConfirmation ? (
-                  <button type="button" className="view-details-btn" disabled title="Our team has to confirm your installation first">
-                    <FiClock size={14} /> Waiting for confirmation
+                  <button type="button" className="view-details-btn" disabled title="Our team has to confirm the unit first">
+                    <FiClock size={14} /> Confirming your unit
                   </button>
                 ) : canPay ? (
                   <button
@@ -364,6 +386,7 @@ paymentStatus: b.paymentStatus,
             );
           })}
         </div>
+        </>
       )}
 
       {showPayment && selectedBill && (

@@ -23,6 +23,7 @@ const KIND = Object.freeze({
   extension_request: { title: 'Decide on extra day', tag: 'Extra day', many: 'extra day requests', link: '/admin/services/requests' },
   disruption_report: { title: 'Review disruption', tag: 'Disruption', many: 'disruption reports', link: '/admin/services/requests' },
   payment_proof: { title: 'Verify payment proof', tag: 'Payment proof', many: 'payment proofs to verify', link: '/admin/payments?filter=to_verify' },
+  waiting_payment: { title: 'Waiting for payment', tag: 'Waiting for payment', many: 'bookings waiting for payment', link: '/admin/services/requests?filter=Pending' },
   refund_waiting: { title: 'Process refund', tag: 'Refund', many: 'refunds to process', link: '/admin/payments?filter=refund' },
 });
 const KIND_ORDER = Object.keys(KIND);

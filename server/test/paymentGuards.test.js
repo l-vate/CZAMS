@@ -94,12 +94,12 @@ test('balance: refused when cancelled, pending, the down payment is not verified
 });
 
 // ---- through the real routes
-test('a first down payment is accepted: status becomes to_verify, the proof is saved, the amount on file is not set', async () => {
+test('a first down payment is accepted: status becomes to_verify, the proof is saved, the amount asked for is fixed', async () => {
   const res = await send('pay');
   assert.equal(res.status, 200, JSON.stringify(res.body));
   assert.equal(DB[0].paymentStatus, 'to_verify');
   assert.match(DB[0].proofFile, /^\/uploads\/proofs\//);
-  assert.equal(DB[0].downPaymentPaidAmount, undefined, 'only the admin verification records the amount');
+  assert.equal(DB[0].downPaymentPaidAmount, 500, 'the amount the customer was asked to pay is fixed when the proof is sent (50% of 1000)');
 });
 
 test('a down payment sent again is refused, the first proof stays, and the new file is never stored', async () => {

@@ -14,6 +14,8 @@ const Report = require('../models/Report');
 const Booking = require('../models/Booking');
 const User = require('../models/User'); // Add this import
 const { sendNotification } = require('../utils/notifications');
+const { paymentDueOf } = require('../utils/paymentDue');
+const { peso } = require('../utils/scopeLines');
 const { getMemberIds, getLeadIds, getPrimaryLeadId, memberFilter, ASSIGNMENT_POPULATE } = require('../utils/assignments');
 const { toTechnicianView } = require('../utils/technicianView');
 const { addDays: addDaysFromInstant } = require('../utils/warranty');
@@ -222,6 +224,21 @@ router.post('/', auth, uploadLimiter, receivePhoto, async (req, res) => {
             );
         } catch (notifyError) {
             console.error(`Could not notify the customer about booking ${booking.bookingId}:`, notifyError);
+        }
+        // The service is complete, so a balance that is still unpaid is due now.
+        try {
+            await booking.populate('service');
+            const due = paymentDueOf(booking);
+            if (due.kind === 'balance') {
+                await sendNotification(
+                    booking.customer,
+                    NOTIFICATION_TYPE.PAYMENT_DUE,
+                    `Booking ${booking.bookingId}: your service is complete. Your remaining balance of ${peso(due.amount)} is due.`,
+                    { booking }
+                );
+            }
+        } catch (dueError) {
+            console.error(`Could not send the balance due notice for booking ${booking.bookingId}:`, dueError);
         }
 
         // Populate and return the report

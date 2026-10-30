@@ -14,6 +14,7 @@
 //               back_job_review    back job claim still open with status Not Covered
 //               extension_request  extensionRequest.status Pending
 //               disruption_report  disruption.status Reported
+//   waiting_payment   Pending and waiting for the customer's down payment (nothing sent yet): never urgent, it is the customer's move
 //   money     payment_proof (paymentStatus or balancePaymentStatus To Verify) and refund_waiting (refund.status Pending)
 const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } = require('../constants/paymentStatus');
@@ -26,6 +27,7 @@ const { manilaTodayKey } = require('./timeBlocks');
 const { addDays } = require('./extensionDays');
 const { isBusinessDay } = require('./businessDays');
 const { isStaffed, getMinTechnicians } = require('./assignments');
+const { approvalPaymentBlock } = require('./paymentDue');
 
 const BOOKING_PATH = (bookingId) => `/admin/services/requests/${encodeURIComponent(bookingId)}`;
 const PAYMENTS_PATH = (filter, bookingId) => `/admin/payments?filter=${filter}&q=${encodeURIComponent(bookingId)}`;
@@ -47,6 +49,7 @@ function workingDaysBetween(fromKey, toKey) {
 
 // today: the booked date is today or earlier. soon: tomorrow, or it has been waiting at least the kind's number of working days. else waiting.
 function urgencyOf(kind, { date, waitingDays }, todayKey) {
+  if (kind === 'waiting_payment') return 'waiting';
   if (date && date <= todayKey) return 'today';
   if (date && date <= addDays(todayKey, TODAY_WINDOW_DAYS) && date > todayKey) return 'soon';
   return waitingDays >= SOON_AFTER_WORKING_DAYS[kind] ? 'soon' : 'waiting';
@@ -96,8 +99,16 @@ function collectItems({ bookings = [], backJobs = [], servicesById = new Map(), 
     // an Approved booking becomes In Progress at the start of its service day (the day start job), so for what is due today both count
     const started = b.status === BOOKING_STATUS.IN_PROGRESS;
     const live = pending || approved;
+    // A Pending booking that waits for the customer's down payment is not the admin's move, so it is listed as such and never marked urgent.
+    const service = servicesById.get(String(b.service)) || (b.service && typeof b.service === 'object' ? b.service : null);
+    const block = pending && service ? approvalPaymentBlock({ ...b, service }) : null;
+    const waitingForPayment = Boolean(block && block.code === 'waiting');
+    const unitToConfirm = Boolean(block && block.code === 'unit');
 
-    if (dueNow && pending) {
+    if (waitingForPayment) {
+      add('waiting_payment', { label: "Waiting for the customer's down payment" });
+    }
+    if (dueNow && pending && !waitingForPayment) {
       add('today_pending', { label: `Waiting for approval, booked ${b.date === todayKey ? 'today' : b.date < todayKey ? 'on a past date' : 'tomorrow'}` });
     }
     if (dueNow && (approved || started)) {
@@ -114,8 +125,9 @@ function collectItems({ bookings = [], backJobs = [], servicesById = new Map(), 
     }
 
     if (pending) {
-      if (!inWindow && !dueNow) add('pending_approval', { label: 'Waiting for approval' });
+      if (!inWindow && !dueNow && !waitingForPayment) add('pending_approval', { label: 'Waiting for approval' });
       if (hasOpenUnitRequest(b)) add('unit_confirmation', { label: 'Unit needs owner confirmation', waitingSince: oldestUnitRequestAt(b) });
+      else if (unitToConfirm) add('unit_confirmation', { label: 'Unit to confirm before the customer can pay', waitingSince: b.createdAt });
       if (b.unitDecline && b.unitDecline.reason) {
         add('cannot_supply', { label: 'Cannot supply notice is active', waitingSince: b.unitDecline.declinedAt });
       }

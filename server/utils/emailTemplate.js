@@ -79,7 +79,7 @@ function addressArea(address) {
 }
 
 const peso = (n) => `₱${Number(n).toLocaleString('en-US', { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}`;
-const MONEY_TYPES = new Set([T.PAYMENT_SUBMITTED, T.PAYMENT_VERIFIED, T.PAYMENT_REJECTED, T.CHARGE_UPDATED, T.SCOPE_UPDATED, T.QUOTATION_UPDATED, T.UNIT_REQUEST_RESOLVED, T.DISCOUNT_APPROVED, T.BOOKING_COMPLETED]);
+const MONEY_TYPES = new Set([T.PAYMENT_DUE, T.PAYMENT_SUBMITTED, T.PAYMENT_VERIFIED, T.PAYMENT_REJECTED, T.CHARGE_UPDATED, T.SCOPE_UPDATED, T.QUOTATION_UPDATED, T.UNIT_REQUEST_RESOLVED, T.DISCOUNT_APPROVED, T.BOOKING_COMPLETED]);
 const REFUND_TYPES = new Set([T.REFUND_REQUESTED, T.REFUND_PROCESSED, T.REFUND_CONFIRMED, T.REFUND_FLAGGED]);
 
 function unitText(booking) {
@@ -95,8 +95,8 @@ function amountRow(type, booking) {
       return Number.isFinite(amount) ? ['Refund', peso(amount)] : null;
     }
     if (MONEY_TYPES.has(type) && booking?.service && typeof booking.service === 'object') {
-      const { total } = getPaymentBreakdown(booking);
-      return Number.isFinite(total) ? ['Total', peso(total)] : null;
+      const { grandTotal } = getPaymentBreakdown(booking);
+      return Number.isFinite(grandTotal) ? ['Total', peso(grandTotal)] : null;
     }
   } catch {
     // an amount that cannot be worked out is left out, never guessed

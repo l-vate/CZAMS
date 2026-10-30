@@ -42,6 +42,7 @@ import AdminPromotions from './pages/admin/promotions';
 import AdminAnnouncements from './pages/admin/announcements';
 import AdminChat from './pages/admin/chat';
 import NotificationsPage from './pages/notifications';
+import NotFoundPage from './pages/not_found_page';
 
 import RequireRole from './components/require_role';
 import { ROLE } from './constants/roles';
@@ -113,6 +114,8 @@ function App() {
           <Route path="/admin/chat" element={<AdminChat />} />
           <Route path="/admin/notifications" element={<NotificationsPage />} />
         </Route>
+
+        <Route path="*" element={<NotFoundPage />} />
 
       </Routes>
     </BrowserRouter>

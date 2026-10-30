@@ -3092,3 +3092,11 @@
   .req-chip { min-height: 36px; padding: 0 14px; font-size: 13.5px; gap: 5px; }
   .req-chip-count { font-size: 11.5px; }
 }
+
+/* Beside the Approve button: why it is off, and the error when a status change is refused */
+.sdm-approval-block,
+.sdm-footer-error {
+  flex: 1 1 100%;
+  text-align: right;
+  font-size: 13px;
+}

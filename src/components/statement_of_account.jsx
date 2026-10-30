@@ -150,7 +150,7 @@ function StatementSheet({ customer, statement, meta }) {
         )}
         <p className="statement-outstanding">Outstanding balance: <strong>{statementPeso(statement.outstanding)}</strong></p>
         <ul className="report-notes">
-          <li>Total is the final price of each booking after any approved discount, with distance or mobilization charges. VAT for commercial clients is not included, the same as on the Payments page.</li>
+          <li>Total is the final price of each booking after any approved discount, with distance or mobilization charges. For commercial clients the total includes the 12% VAT, the same as on the Payments page.</li>
           <li>Paid is what the customer has paid and the admin has verified, after any refund already processed.</li>
           <li>Cancelled bookings are listed for reference only: they are not billed and owe nothing.</li>
           <li>Free back-job repair visits have nothing to pay and are not listed.</li>

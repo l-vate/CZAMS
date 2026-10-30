@@ -58,6 +58,21 @@ test('the same-day warning uses the same rule as the confirmation, and shows onl
   assert.equal(c.showsSameDayWarning(null, today), false);
 });
 
+// ---- the cancel dialog says only the rule that applies (E25)
+test('the cancel dialog gives the one refund rule that applies to the booking, never both', async () => {
+  const c = await load('config/cancellation.js');
+  const today = '2026-10-14';
+  const before = c.cancelRuleNote({ date: '2026-10-20', paymentStatus: 'partially_paid' }, today);
+  assert.equal(before, c.FULL_REFUND_NOTE);
+  assert.doesNotMatch(before, /transportation/);
+  const onTheDay = c.cancelRuleNote({ date: today, paymentStatus: 'partially_paid' }, today);
+  assert.equal(onTheDay, c.TRANSPORT_FEE_NOTE);
+  assert.doesNotMatch(onTheDay, /refunded in full/);
+  assert.equal(c.cancelRuleNote({ date: '2026-10-10', paymentStatus: 'to_verify' }, today), c.TRANSPORT_FEE_NOTE, 'a past date: the fee rule');
+  assert.equal(c.cancelRuleNote({ date: today, paymentStatus: 'Unpaid' }, today), c.NOTHING_TO_REFUND_NOTE, 'nothing paid, nothing to refund or deduct');
+  assert.equal(c.cancelRuleNote({ date: '2026-10-20', paymentStatus: 'Unpaid' }, today), c.NOTHING_TO_REFUND_NOTE);
+});
+
 // ---- heading
 test('the booking page heading matches the status', async () => {
   const { bookingHeading } = await load('utils/bookingHeading.js');

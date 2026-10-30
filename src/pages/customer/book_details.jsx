@@ -505,9 +505,10 @@ function BookDetails() {
   const downPaymentOpen = dpWouldBeOpen && (paymentDue.kind === 'down' || waitingForConfirmation);
   // Once the service is Completed the rest of the price is due: the balance is open while the down payment is verified and the balance is
   // neither paid nor waiting to be verified.
-  const balanceDue = booking.status === BOOKING_STATUS.COMPLETED && booking.paymentStatus === PAYMENT_STATUS.PARTIALLY_PAID
-    && !booking.balancePaid && booking.balancePaymentStatus !== BALANCE_PAYMENT_STATUS.PAID && booking.balancePaymentStatus !== BALANCE_PAYMENT_STATUS.TO_VERIFY && remaining > 0
-    || paymentDue.kind === 'balance'; // a booking with no down payment owes the whole balance once it is Completed
+  const balanceProofWaiting = booking.balancePaymentStatus === BALANCE_PAYMENT_STATUS.TO_VERIFY;
+  const balanceDue = !balanceProofWaiting && (booking.status === BOOKING_STATUS.COMPLETED && booking.paymentStatus === PAYMENT_STATUS.PARTIALLY_PAID
+    && !booking.balancePaid && booking.balancePaymentStatus !== BALANCE_PAYMENT_STATUS.PAID && remaining > 0
+    || paymentDue.kind === 'balance'); // a booking with no down payment owes the whole balance once it is Completed; never while a proof is waiting
   const balanceToVerify = booking.status === BOOKING_STATUS.COMPLETED && booking.balancePaymentStatus === BALANCE_PAYMENT_STATUS.TO_VERIFY;
   const handlePaySubmit = async ({ proof, referenceNumber }) => {
     try {

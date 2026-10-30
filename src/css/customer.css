@@ -2136,3 +2136,6 @@
 .my-bookings-empty-text { margin: 0; font-size: 14px; color: #64748b; }
 .my-bookings-empty-btn { display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; padding: 11px 24px; border-radius: 999px; background: linear-gradient(90deg, #1d4ed8, #2563eb); color: #fff; font-weight: 700; font-size: 14px; text-decoration: none; box-shadow: 0 8px 20px rgba(37, 99, 235, 0.25); }
 .my-bookings-empty-btn:hover { color: #fff; filter: brightness(1.08); }
+
+/* Billing: a bill whose proof is waiting says so instead of offering Pay Now */
+.billing-waiting-note { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 6px; padding: 4px 12px; border-radius: 999px; background: #fff4e0; color: #8a5200; font-size: 12.5px; font-weight: 700; }

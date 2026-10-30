@@ -168,7 +168,8 @@ paymentStatus: b.paymentStatus,
     });
 
   // the down payments and balances that are due right now, newest first
-  const dueBills = bills.filter((bill) => bill.due.kind && !bill.isCancelled && !bill.isBackJob && !bill.awaitingConfirmation)
+  // a proof that is still waiting to be verified is not asked for again (the server refuses a second one): that bill shows "Waiting for verification"
+  const dueBills = bills.filter((bill) => bill.due.kind && !bill.isCancelled && !bill.isBackJob && !bill.awaitingConfirmation && !bill.isToVerify && !bill.isBalanceToVerify)
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   const BILL_STATUS_ORDER = { unpaid: 0, partial: 1, paid: 2 };
@@ -288,7 +289,8 @@ paymentStatus: b.paymentStatus,
             const payDown = bill.due.kind === 'down';
             const payBalance = bill.due.kind === 'balance' || (bill.isPartiallyPaid && !bill.isBalancePaid && !bill.isBalanceToVerify && !bill.isCancelled);
             const waitingForConfirmation = bill.awaitingConfirmation && !bill.isCancelled; // an installation is paid after our team confirms the unit
-            const canPay = (payDown || payBalance) && !waitingForConfirmation;
+            const proofWaiting = (bill.isToVerify || bill.isBalanceToVerify) && !bill.isCancelled;
+            const canPay = (payDown || payBalance) && !waitingForConfirmation && !proofWaiting;
             const openPayment = () => {
               setSelectedBill(bill);
               setPaymentType(payDown ? 'downpayment' : 'balance');
@@ -360,13 +362,16 @@ paymentStatus: b.paymentStatus,
                     <FiCreditCard size={14} /> {bill.isRejected || bill.isBalanceRejected ? 'Resubmit' : 'Pay Now'}
                   </button>
                 ) : (
-                  <button
-                    type="button"
-                    className="view-details-btn"
-                    onClick={() => navigate(`/customer/book_details/${bill.id}`)}
-                  >
-                    <FiEye size={14} /> View Details
-                  </button>
+                  <>
+                    {proofWaiting && <span className="billing-waiting-note"><FiClock size={13} /> Waiting for verification</span>}
+                    <button
+                      type="button"
+                      className="view-details-btn"
+                      onClick={() => navigate(`/customer/book_details/${bill.id}`)}
+                    >
+                      <FiEye size={14} /> View Details
+                    </button>
+                  </>
                 )}
 
                 {bill.isFullyPaid && !bill.isCancelled && (

@@ -10,8 +10,9 @@ const src = (...f) => fs.readFileSync(path.join(__dirname, '..', '..', 'src', ..
 
 test('a completed booking with a balance still to pay shows the reminder with a Pay Balance button', () => {
   const page = src('pages', 'customer', 'book_details.jsx');
-  assert.match(page, /const balanceDue = booking\.status === BOOKING_STATUS\.COMPLETED && booking\.paymentStatus === PAYMENT_STATUS\.PARTIALLY_PAID/);
-  assert.match(page, /!booking\.balancePaid[^\n]*BALANCE_PAYMENT_STATUS\.PAID[^\n]*BALANCE_PAYMENT_STATUS\.TO_VERIFY[^\n]*remaining > 0/, 'not when paid, not when waiting to be verified, not when nothing is left');
+  assert.match(page, /const balanceDue = !balanceProofWaiting && \(booking\.status === BOOKING_STATUS\.COMPLETED && booking\.paymentStatus === PAYMENT_STATUS\.PARTIALLY_PAID/);
+  assert.match(page, /const balanceProofWaiting = booking\.balancePaymentStatus === BALANCE_PAYMENT_STATUS\.TO_VERIFY;/);
+  assert.match(page, /!booking\.balancePaid[^\n]*BALANCE_PAYMENT_STATUS\.PAID[^\n]*remaining > 0/,'not when paid, not when waiting to be verified, not when nothing is left');
   assert.match(page, /\{balanceDue && \(\s*<section className="balance-reminder" role="status"/);
   assert.match(page, /Your service is complete\. Please pay your balance\./);
   assert.match(page, /Remaining balance: <strong>\{formatPeso\(remaining\)\}<\/strong>/);

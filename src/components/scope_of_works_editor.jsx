@@ -168,7 +168,7 @@ function ScopeOfWorksEditor({ booking, onUpdated }) {
             </div>
           </div>
         ) : (
-          <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => { setAdding(true); chooseKind(setDraft, EMPTY, booking.service?.serviceType === 'Installation' ? 'dismantling' : 'installation'); }}>+ Add line</button>
+          <button type="button" className="sdm-btn sdm-btn-outline sdm-section-action" onClick={() => { setAdding(true); chooseKind(setDraft, EMPTY, booking.service?.serviceType === 'Installation' ? 'dismantling' : 'installation'); }}>+ Add line</button>
         )
       ) : (
         <p className="sdm-muted">The scope of works can only be changed while a booking is Pending, Approved or In Progress.</p>

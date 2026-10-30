@@ -352,6 +352,10 @@ const [report, setReport] = useState(null);
                         <div>
                             <h2 className="sdm-title">Booking Details</h2>
                             <p className="sdm-subtitle">Booking ID: {booking.bookingId}</p>
+                            {/* on a phone this line sits here, under the booking ID, instead of under the Cancel button (the footer copy is hidden there) */}
+                            {booking.status === BOOKING_STATUS.APPROVED && (
+                                <p className="sdm-subtitle sdm-header-note">Starts automatically at the start of its service day.</p>
+                            )}
                         </div>
                         <span
                             className="sdm-badge"
@@ -1219,14 +1223,9 @@ const [report, setReport] = useState(null);
 </div>
 
                 <div className="sdm-footer">
-                    {canCancel && (
-                        <button className="sdm-btn sdm-btn-danger" onClick={handleCancel} disabled={saving}>
-                            Cancel Booking
-                        </button>
-                    )}
                     <div className="sdm-footer-actions">
                         {booking.status === BOOKING_STATUS.APPROVED && (
-                            <span className="sdm-muted">Starts automatically at the start of its service day.</span>
+                            <span className="sdm-muted sdm-footer-start-note">Starts automatically at the start of its service day.</span>
                         )}
                         {booking.status === BOOKING_STATUS.IN_PROGRESS && (
                             <span className="sdm-muted">Completes when the technician submits the service report.</span>
@@ -1256,6 +1255,12 @@ const [report, setReport] = useState(null);
                             </button>
                         ))}
                     </div>
+                    {/* last in the page order, so it is also the last action for the keyboard; the stylesheet keeps it first on a wide screen */}
+                    {canCancel && (
+                        <button className="sdm-btn sdm-btn-danger" onClick={handleCancel} disabled={saving}>
+                            Cancel Booking
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

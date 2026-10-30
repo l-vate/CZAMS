@@ -116,7 +116,9 @@ function AssignmentPanel({ booking, onUpdated }) {
             <ol className="assignment-rows">
               {picked.map((id, index) => (
                 <li key={index} className="assignment-row">
-                  <span className={index === 0 ? 'assignment-badge assignment-badge--primary' : 'assignment-badge'}>{index === 0 ? 'Primary' : 'Technician'}</span>
+                  <span className={index === 0 ? 'assignment-badge assignment-badge--primary' : 'assignment-badge'}>
+                    {index === 0 ? 'Primary' : (<><span className="assignment-badge-long">Technician</span><span className="assignment-badge-num" aria-hidden="true">{index + 1}</span></>)}
+                  </span>
                   <select
                     className="sdm-tech-select assignment-row-select"
                     value={id}
@@ -128,6 +130,7 @@ function AssignmentPanel({ booking, onUpdated }) {
                     {optionsFor(index, id)}
                   </select>
                   <span className="assignment-row-actions">
+                    <span className="assignment-row-move">
                     {index > 0 && (
                       <button type="button" className="assignment-icon-btn" onClick={() => setPicked((prev) => moveItem(prev, index, index - 1))} disabled={saving} aria-label={index === 1 ? 'Make primary' : `Move technician ${index + 1} up`} title={index === 1 ? 'Make primary' : 'Move up'}>
                         <FiArrowUp aria-hidden="true" />
@@ -138,6 +141,7 @@ function AssignmentPanel({ booking, onUpdated }) {
                         <FiArrowDown aria-hidden="true" />
                       </button>
                     )}
+                    </span>
                     <button type="button" className="assignment-icon-btn assignment-icon-btn--remove" onClick={() => setPicked((prev) => prev.filter((_, i) => i !== index))} disabled={saving || !canRemoveTechnician({ count: picked.length, service: booking.service, status: booking.status })} aria-label={`Remove technician ${index + 1}`} title="Remove">
                       <FiX aria-hidden="true" />
                     </button>
@@ -146,29 +150,30 @@ function AssignmentPanel({ booking, onUpdated }) {
               ))}
             </ol>
 
-            <div className="assignment-panel-x6">
+            {/* Add another technician, then why (optional), then Save assignment last: the reason is asked before the action */}
+            <div className="assignment-actions">
               <button
                 type="button"
-                className="sdm-btn sdm-btn-outline"
+                className="sdm-btn sdm-btn-outline assignment-add"
                 onClick={() => setPicked((prev) => [...prev, ''])}
                 disabled={saving || !picked[picked.length - 1]}
               >
                 Add another technician
               </button>
-              <button type="button" className="sdm-btn sdm-btn-primary" onClick={save} disabled={saving || !dirty || incomplete}>
+              <input
+                type="text"
+                className="ma-input assignment-reason"
+                aria-label="Reason for the change"
+                placeholder="Reason for the change (optional)"
+                maxLength={200}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                disabled={saving}
+              />
+              <button type="button" className="sdm-btn sdm-btn-primary assignment-save" onClick={save} disabled={saving || !dirty || incomplete}>
                 {saving ? 'Saving...' : 'Save assignment'}
               </button>
             </div>
-            <input
-              type="text"
-              className="ma-input"
-              aria-label="Reason for the change"
-              placeholder="Reason for the change (optional)"
-              maxLength={200}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              disabled={saving}
-            />
             {error && <div className="sdm-error assignment-panel-x8">{error}</div>}
             <SuggestedDates
               dates={suggestedDates}

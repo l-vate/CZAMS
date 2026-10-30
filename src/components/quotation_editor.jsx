@@ -81,7 +81,7 @@ function QuotationEditor({ booking, onUpdated }) {
             {isInstallation && <li><strong>Prices:</strong> {booking.taxInclusive ? 'include VAT' : booking.isCommercial ? 'VAT (12%) is added on top' : 'no VAT charged'}</li>}
             <li><strong>Site:</strong> {siteText || 'Not given'}</li>
           </ul>
-          {canEdit && <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => { setDraft(draftOf(booking)); setEditing(true); }}>Edit quotation details</button>}
+          {canEdit && <button type="button" className="sdm-btn sdm-btn-outline sdm-section-action" onClick={() => { setDraft(draftOf(booking)); setEditing(true); }}>Edit quotation details</button>}
         </>
       ) : (
         <div className="scope-add">

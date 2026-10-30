@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { FiArrowLeft, FiMapPin, FiHome, FiClock } from 'react-icons/fi';
+import { FiMapPin, FiHome, FiClock } from 'react-icons/fi';
+import { HiOutlineArrowLongLeft } from 'react-icons/hi2';
 import '../css/auth.css';
 import Snowfall from './landing/snowfall';
 import { BRAND_NAME } from '../config/company';
@@ -15,21 +16,14 @@ const FACTS = [
   { icon: <FiClock />, text: `Open ${HOURS_TEXT}` },
 ];
 
-// smallBackTo: a small Back link that is shown on a tablet or a phone only (the sign in page has no back link on a desktop).
-function AuthShell({ title, subtitle, children, backTo = '/login', backLabel = 'Back to sign in', smallBackTo = null, wide = false, centered = false }) {
+function AuthShell({ title, subtitle, children, backTo = '/login', backLabel = 'Back', wide = false, centered = false }) {
   return (
     <div className="ap-page">
       <div className="ap-backdrop" aria-hidden="true"><Snowfall /></div>
 
       {backTo && (
         <header className="ap-top">
-          <Link to={backTo} className="ap-back"><FiArrowLeft aria-hidden="true" /> {backLabel}</Link>
-        </header>
-      )}
-
-      {!backTo && smallBackTo && (
-        <header className="ap-top ap-top--small">
-          <Link to={smallBackTo} className="ap-back ap-back--small"><FiArrowLeft aria-hidden="true" /> Back</Link>
+          <Link to={backTo} className="ap-back" aria-label={backLabel} title={backLabel}><HiOutlineArrowLongLeft aria-hidden="true" /></Link>
         </header>
       )}
 
@@ -56,8 +50,6 @@ function AuthShell({ title, subtitle, children, backTo = '/login', backLabel = '
           {children}
         </section>
       </main>
-
-      <footer className="ap-footer">&copy; {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.</footer>
     </div>
   );
 }

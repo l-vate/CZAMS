@@ -234,7 +234,7 @@ paymentStatus: b.paymentStatus,
     >
       <div className="customer-billings-x1">
         {paymentSettingsFailed && <PaymentSettingsUnavailable onRetry={refetchPaymentSettings} />}
-        <div className="customer-billings-x2">
+        <div className="customer-billings-x2 billing-filter-pills">
           {filters.map((filter) => (
             <button
               key={filter}
@@ -246,6 +246,13 @@ paymentStatus: b.paymentStatus,
               {filter}
             </button>
           ))}
+        </div>
+        {/* On a phone (up to 768 px) the pills fold into one dropdown; it sets the same filter as the pills */}
+        <div className="billing-filter-select">
+          <label htmlFor="billing-filter-select">Show</label>
+          <select id="billing-filter-select" value={activeFilter} onChange={(e) => setActiveFilter(e.target.value)}>
+            {filters.map((filter) => <option key={filter} value={filter}>{filter}</option>)}
+          </select>
         </div>
       </div>
 

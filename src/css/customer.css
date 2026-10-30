@@ -2139,3 +2139,24 @@
 
 /* Billing: a bill whose proof is waiting says so instead of offering Pay Now */
 .billing-waiting-note { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 6px; padding: 4px 12px; border-radius: 999px; background: #fff4e0; color: #8a5200; font-size: 12.5px; font-weight: 700; }
+
+/* Billing filter on a phone: one dropdown in place of the pill rows (the pills stay above 768 px) */
+.billing-filter-select { display: none; }
+@media (max-width: 768px) {
+  .billing-filter-pills { display: none !important; }
+  .billing-filter-select { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+  .billing-filter-select label { font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+  .billing-filter-select select {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 40px 0 14px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    background-color: var(--white);
+    color: var(--navy);
+    font: inherit;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .billing-filter-select select:focus-visible { outline: 3px solid var(--coral); outline-offset: 2px; }
+}

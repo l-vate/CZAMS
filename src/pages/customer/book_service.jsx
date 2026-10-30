@@ -1057,13 +1057,14 @@ function BookService() {
         </>
       )}
 
-      {!isLast && nextProblem() && (
-        <p className="bs-next-reason" role="status" id="bs-next-reason">{nextProblem()}</p>
-      )}
-      <div className="bs-nav-row">
+      {/* the step text, then (when Next is off) why, then Back and Next: one footer, the same on every step */}
+      <div className="bs-nav-row bs-footer">
         <span className="bs-step-label">
           {stepCounter(steps, step)}
         </span>
+        {!isLast && nextProblem() && (
+          <p className="bs-next-reason" role="status" id="bs-next-reason">{nextProblem()}</p>
+        )}
 
         <div className="bs-nav-btns">
           {step > 1 && (

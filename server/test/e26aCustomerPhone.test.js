@@ -172,3 +172,43 @@ test('A4: the cards are compact on a phone and the shared staff card is untouche
   assert.match(css, /\.billing-btn \{[^}]*min-height: 44px/);
   assert.match(src('css', 'staff.css'), /\.tech-job-card \{[^}]*padding: 18px 22px/, 'the shared card keeps its padding');
 });
+
+// ---- A5: the Book Service wizard on a phone
+
+test('A5: the footer is one block: step text, then why Next is off, then Back and Next, the same on every step', () => {
+  const page = src('pages', 'customer', 'book_service.jsx');
+  const footer = page.slice(page.indexOf('bs-nav-row bs-footer'));
+  assert.ok(footer.indexOf('bs-step-label') < footer.indexOf('bs-next-reason'), 'the step text comes first');
+  assert.ok(footer.indexOf('bs-next-reason') < footer.indexOf('bs-nav-btns'), 'the reason comes before the buttons');
+  assert.equal((page.match(/bs-nav-row/g) || []).length, 1, 'one footer for all five steps');
+  assert.match(footer, /\{!isLast && nextProblem\(\) && \(/);
+  const css = src('css', 'customer.css');
+  const phone = phoneBlock(css, 'BOOK SERVICE ON A PHONE');
+  assert.match(phone, /\.bs-nav-row \{[^}]*grid-template-areas: "label" "reason" "btns"[^}]*safe-area-inset-bottom/s);
+  assert.match(phone, /\.bs-nav-btns \{ display: flex; gap: 12px; \}/);
+  assert.match(phone, /\.bs-nav-btns > button \{ flex: 1 1 0; min-width: 0; min-height: 48px/);
+  assert.match(phone, /\.bs-next-reason \{[^}]*text-align: left/);
+  assert.match(css, /grid-template-areas: "reason reason" "label btns"/, 'wider screens keep the reason above one row');
+});
+
+test('A5: the problem description is at least 100 px tall on a phone, vertical resize only, and unchanged on desktop', () => {
+  const css = src('css', 'customer.css');
+  const phone = phoneBlock(css, 'BOOK SERVICE ON A PHONE');
+  assert.match(phone, /\.bs-textarea \{ min-height: 100px; overflow-y: auto; \}/);
+  assert.match(css, /\.bs-textarea \{[^}]*resize: vertical/s);
+  assert.match(src('pages', 'customer', 'book_service.jsx'), /className="bs-textarea"\s*rows=\{2\}/, 'the desktop box keeps its two rows');
+  assert.match(phone, /\.unit-entry-remove \{ width: 44px; height: 44px; \}/);
+  assert.match(phone, /\.time-btn \{ min-height: 44px; \}/);
+});
+
+test('A5: one spacing rhythm for every field group, defined once', () => {
+  const css = src('css', 'customer.css');
+  assert.match(css, /\.bs-card \{\s*--bs-gap-label: 8px;\s*--bs-gap-hint: 8px;\s*--bs-gap-inputs: 12px;\s*--bs-gap-group: 20px;/);
+  assert.match(css, /\.bs-field-group \{\s*display: flex;\s*flex-direction: column;\s*gap: var\(--bs-gap-label\);\s*margin-bottom: var\(--bs-gap-group\);/);
+  assert.match(css, /\.bs-card > \.bs-two-col \{ margin-bottom: var\(--bs-gap-group\); row-gap: var\(--bs-gap-group\); \}/, 'Date and Time keep the gap below them when stacked');
+  assert.match(css, /\.bs-field-group \.bs-two-col \{ gap: var\(--bs-gap-inputs\); \}/);
+  const phone = phoneBlock(css, 'BOOK SERVICE ON A PHONE');
+  assert.match(phone, /\.bs-card \{ --bs-gap-group: 24px; \}/);
+  assert.match(phone, /\.bs-card \.closure-upcoming \{ margin: var\(--bs-gap-hint\) 0 calc\(var\(--bs-gap-hint\) - var\(--bs-gap-group\)\); \}/);
+  assert.match(src('css', 'components', 'closures.css'), /\.closure-upcoming \{ margin: 6px 0 0;/, 'the shared helper line is unchanged elsewhere');
+});

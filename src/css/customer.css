@@ -342,14 +342,33 @@
   flex-shrink: 0;
 }
 
+/* One spacing rhythm for every field group in the five steps, defined here and nowhere else:
+   label to input and input to hint 8 px, inputs inside one group 12 px apart, one group to the next 24 px. */
+.bs-card {
+  --bs-gap-label: 8px;
+  --bs-gap-hint: 8px;
+  --bs-gap-inputs: 12px;
+  --bs-gap-group: 20px; /* 24 px on a phone, set once in the phone block at the end of this file */
+}
+
 .bs-field-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 20px;
+  gap: var(--bs-gap-label);
+  margin-bottom: var(--bs-gap-group);
 }
 
 .bs-field-group:last-child { margin-bottom: 0; }
+
+/* two groups side by side (Date and Time): the pair keeps the group gap below it, whichever group is last; stacked, the rows keep it too */
+.bs-card > .bs-two-col { margin-bottom: var(--bs-gap-group); row-gap: var(--bs-gap-group); }
+.bs-card > .bs-two-col > .bs-field-group { margin-bottom: 0; }
+/* inputs inside one group (Site details, the unit rows' hints) */
+.bs-field-group .bs-two-col { gap: var(--bs-gap-inputs); }
+.bs-card .bs-field-group > .bs-field-error,
+.bs-card .bs-field-group > .bs-area-warning,
+.bs-card .bs-field-group > .customer-book-service-x2 { margin: 0; }
+
 
 .waiver-box {
   padding: 14px 16px;
@@ -428,6 +447,8 @@
   outline: none;
   width: 100%;
   resize: vertical;
+  box-sizing: border-box;
+  line-height: 1.5;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -743,11 +764,15 @@
 }
 
 .bs-nav-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "reason reason" "label btns";
   align-items: center;
-  justify-content: space-between;
   padding-top: 4px;
 }
+.bs-nav-row .bs-step-label { grid-area: label; }
+.bs-nav-row .bs-nav-btns { grid-area: btns; }
+.bs-nav-row .bs-next-reason { grid-area: reason; }
 
 .bs-step-label { font-size: 13px; color: var(--ink-soft); font-weight: 500; }
 
@@ -2276,4 +2301,28 @@
 }
 @media (max-width: 340px) {
   .billing-btn { flex-basis: 100%; }
+}
+
+/* ============ BOOK SERVICE ON A PHONE ============
+   The footer: the step text on its own row, why Next is off under it, then Back and Next side by side at equal width. It stays in the page
+   flow (it never covers a field) and keeps room for the phone's bottom edge. */
+@media (max-width: 768px) {
+  .bs-nav-row {
+    grid-template-columns: 1fr;
+    grid-template-areas: "label" "reason" "btns";
+    row-gap: 8px;
+    padding: 4px 0 calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+  .bs-nav-row .bs-step-label { font-size: 13px; text-align: left; }
+  .bs-nav-row .bs-next-reason { margin: 0; text-align: left; font-size: 13px; overflow-wrap: anywhere; }
+  .bs-nav-row .bs-nav-btns { display: flex; gap: 12px; }
+  .bs-nav-row .bs-nav-btns > button { flex: 1 1 0; min-width: 0; min-height: 48px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  .bs-card { --bs-gap-group: 24px; }
+  /* the date helper line ("Earliest available date ...") is a hint: 8 px above it and 8 px below it, before the next group */
+  .bs-card .closure-upcoming { margin: var(--bs-gap-hint) 0 calc(var(--bs-gap-hint) - var(--bs-gap-group)); }
+  .bs-textarea { min-height: 100px; overflow-y: auto; }
+  .time-btn { min-height: 44px; }
+  .unit-entry-remove { width: 44px; height: 44px; }
+  .unit-entry-row .bs-select, .unit-entry-row .bs-input { min-height: 44px; min-width: 0; }
+  .bs-card .bs-input, .bs-card .bs-select, .bs-card .bs-textarea { font-size: 16px; }
 }

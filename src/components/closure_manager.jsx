@@ -8,6 +8,7 @@ import { manilaTodayKey } from '../utils/manilaTime';
 import { capitalizeReason, splitUpcoming, closureSummary, SHORT_LIST } from '../utils/calendarPanels';
 import CollapsiblePanel from './collapsible_panel';
 import { usePanelOpen } from '../hooks/usePanelOpen';
+import { closureDateProblem, closureWindow } from '../utils/dateRules';
 
 const MAX_RANGE_DAYS = 31;
 
@@ -62,6 +63,10 @@ function ClosureManager() {
     setWarning('');
     const text = reason.trim();
     if (!date) { setError('Choose a date.'); return; }
+    const firstProblem = closureDateProblem(date);
+    if (firstProblem) { setError(firstProblem); return; }
+    const lastProblem = endDate ? closureDateProblem(endDate) : null;
+    if (lastProblem) { setError(lastProblem); return; }
     if (text.length < REASON_MIN || text.length > REASON_MAX) {
       setError(`Give a reason of ${REASON_MIN} to ${REASON_MAX} characters.`);
       return;
@@ -162,6 +167,8 @@ function ClosureManager() {
           type="date"
           className="ma-input"
           aria-label="Closed date"
+          min={closureWindow().min}
+          max={closureWindow().max}
           value={date}
           onChange={(e) => setDate(e.target.value)}
         />
@@ -170,7 +177,8 @@ function ClosureManager() {
           className="ma-input"
           aria-label="Last closed date (optional, to close several days)"
           title="Last date (optional, to close several days)"
-          min={date || undefined}
+          min={date || closureWindow().min}
+          max={closureWindow().max}
           value={endDate}
           onChange={(e) => setEndDate(e.target.value)}
         />

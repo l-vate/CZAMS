@@ -22,7 +22,7 @@ const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const pad = (n) => String(n).padStart(2, '0');
 const keyOf = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
 
-function ClosureDateInput({ value, onChange, min, className = 'bs-input', id, showEarliest = false, blockFull = false, showClosedList = true }) {
+function ClosureDateInput({ value, onChange, min, max, className = 'bs-input', id, showEarliest = false, blockFull = false, showClosedList = true }) {
   const [closures, setClosures] = useState([]);
   const [fullDays, setFullDays] = useState(() => new Map()); // date key -> the public availability answer of a day with no block left
   const [limitedDays, setLimitedDays] = useState(() => new Map()); // the same for a day with one block left: it can be picked, and says which block is gone
@@ -79,6 +79,7 @@ function ClosureDateInput({ value, onChange, min, className = 'bs-input', id, sh
   const problemOf = (key) => {
     if (key < today) return { text: 'Past', kind: 'past' };
     if (min && key < min) return { text: 'Too soon to book', kind: 'past' };
+    if (max && key > max) return { text: 'Too far ahead', kind: 'past' };
     if (SUNDAY_CLOSED && isSundayKey(key)) return { text: closedWords('Sunday'), kind: 'closed' };
     if (closedKeys.has(key)) return { text: closedWords(reasonOf.get(key)), kind: 'closed' };
     if (fullDays.has(key)) {
@@ -91,8 +92,13 @@ function ClosureDateInput({ value, onChange, min, className = 'bs-input', id, sh
   // a day that can be picked but has one block gone: "Morning: No technicians available · Afternoon: Available"
   const partialOf = (key) => (limitedDays.has(key) ? blocksText(limitedDays.get(key)) : null);
 
+  // the picker does not page past the month of the first and the last pickable day
+  const lastMonth = max ? Number(max.slice(0, 4)) * 12 + Number(max.slice(5, 7)) - 1 : null;
+  const firstMonth = min ? Number(min.slice(0, 4)) * 12 + Number(min.slice(5, 7)) - 1 : null;
+  const viewMonth = view.year * 12 + view.month;
   const shift = (delta) => { setNote(''); setView((v) => {
     const total = v.year * 12 + v.month + delta;
+    if ((lastMonth !== null && total > lastMonth) || (firstMonth !== null && total < firstMonth - 1)) return v;
     return { year: Math.floor(total / 12), month: total % 12 };
   }); };
 
@@ -121,7 +127,7 @@ function ClosureDateInput({ value, onChange, min, className = 'bs-input', id, sh
           <div className="date-picker-head">
             <button type="button" className="date-picker-nav" aria-label="Previous month" onClick={() => shift(-1)}>&lsaquo;</button>
             <strong>{MONTHS[view.month]} {view.year}</strong>
-            <button type="button" className="date-picker-nav" aria-label="Next month" onClick={() => shift(1)}>&rsaquo;</button>
+            <button type="button" className="date-picker-nav" aria-label="Next month" onClick={() => shift(1)} disabled={lastMonth !== null && viewMonth >= lastMonth}>&rsaquo;</button>
           </div>
           <div className="date-picker-grid">
             {WEEKDAYS.map((d) => <span key={d} className="date-picker-weekday">{d}</span>)}
@@ -153,7 +159,7 @@ function ClosureDateInput({ value, onChange, min, className = 'bs-input', id, sh
         </div>
       )}
       {showEarliest && (
-        <p className="closure-upcoming">Earliest available date is {formatClosureDate(earliest)}.</p>
+        <p className="closure-upcoming">Earliest available date is {formatClosureDate(earliest)}.{max ? ` The latest date you can choose is ${formatClosureDate(max)}.` : ''}</p>
       )}
       {showClosedList && closures.length > 0 && (
         <p className="closure-upcoming">

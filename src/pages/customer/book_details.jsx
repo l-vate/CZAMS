@@ -9,7 +9,8 @@ import { getBookingLineItems, getPaymentBreakdown, formatPeso } from '../../util
 import QuotationTerms from '../../components/quotation_terms';
 import { vatInside } from '../../utils/quotationTerms';
 import { getMemberNames } from '../../utils/assignments';
-import { earliestBookingKey, manilaTodayKey } from '../../utils/manilaTime';
+import { manilaTodayKey } from '../../utils/manilaTime';
+import { bookingWindow, bookingDateProblem } from '../../utils/dateRules';
 import { bookingHeading } from '../../utils/bookingHeading';
 import { cancelRuleNote } from '../../config/cancellation';
 import { usePaymentSettings, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
@@ -122,9 +123,10 @@ function RescheduleModal({ booking, onClose, onSubmit, submitting }) {
   const [time, setTime] = useState(booking.time || '');
   const needsApproval = [BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status);
 
-  const minDate = earliestBookingKey(3); // 3 days after today in Manila, YYYY-MM-DD for <input type="date">
+  const { min: minDate, max: maxDate } = bookingWindow(); // 3 days after today to 5 months after today in Manila (utils/dateRules.js)
 
-  const isDateValid = date >= minDate;
+  const dateProblem = bookingDateProblem(date);
+  const isDateValid = !dateProblem;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -137,11 +139,12 @@ function RescheduleModal({ booking, onClose, onSubmit, submitting }) {
           </p>
         )}
 
-        <p className="cancel-confirm-text">A new service date must be at least <strong>3 days</strong> from today.</p>
+        <p className="cancel-confirm-text">A new service date must be at least <strong>3 days</strong> from today and no more than <strong>5 months</strong> ahead.</p>
 
         <div className="bs-field-group">
           <label className="bs-label">New Date</label>
-          <ClosureDateInput min={minDate} value={date} onChange={setDate} showEarliest blockFull showClosedList={false} />
+          <ClosureDateInput min={minDate} max={maxDate} value={date} onChange={setDate} showEarliest blockFull showClosedList={false} />
+          {date && dateProblem && <p className="date-problem" role="alert">{dateProblem}</p>}
         </div>
 
         <div className="bs-field-group">

@@ -4,6 +4,7 @@ import ReportSheet from '../../components/report_sheet';
 import StatementOfAccount from '../../components/statement_of_account';
 import { loadReportData } from '../../services/analyticsService';
 import { manilaTodayKey, addDaysToKey } from '../../utils/manilaTime';
+import { pastWindow, pastRangeProblem } from '../../utils/dateRules';
 import { csvFilename, downloadCsv } from '../../utils/csvExport';
 import {
   REPORT_TYPES, DATE_BASES, BUILDERS, formatRange, formatGeneratedAt,
@@ -109,6 +110,8 @@ meta: {
           <input
             id="report-from"
             type="date"
+            min={pastWindow().min}
+            max={pastWindow().max}
             value={filters.fromKey}
             onChange={(e) => setFilters({ ...filters, fromKey: e.target.value })}
           />
@@ -119,11 +122,14 @@ meta: {
           <input
             id="report-to"
             type="date"
+            min={pastWindow().min}
+            max={pastWindow().max}
             value={filters.toKey}
             onChange={(e) => setFilters({ ...filters, toKey: e.target.value })}
           />
         </div>
 
+        {pastRangeProblem(filters.fromKey, filters.toKey) && <p className="date-problem" role="alert">{pastRangeProblem(filters.fromKey, filters.toKey)}</p>}
         <div className="report-control">
           <label htmlFor="report-client">Client type</label>
           <select

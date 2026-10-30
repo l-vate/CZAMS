@@ -8,6 +8,7 @@ import { manilaTodayKey } from '../utils/manilaTime';
 import { capitalizeReason, splitUpcoming, groupByDate, limitGroups, leaveSummary, SHORT_LIST } from '../utils/calendarPanels';
 import CollapsiblePanel from './collapsible_panel';
 import { usePanelOpen } from '../hooks/usePanelOpen';
+import { leaveDateProblem, leaveWindow } from '../utils/dateRules';
 
 const REASON_MAX = 200;
 const WHOLE_DAY = ['Morning', 'Afternoon'];
@@ -92,6 +93,8 @@ function TechnicianAvailabilityManager() {
     setError('');
     setWarning('');
     if (!date) { setError('Choose a date.'); return; }
+    const dateProblem = leaveDateProblem(date);
+    if (dateProblem) { setError(dateProblem); return; }
     if (picked.length === 0) { setError('Choose at least one technician.'); return; }
     const blocks = WHEN_CHOICES.find((c) => c.key === when).blocks;
     setSaving(true);
@@ -140,6 +143,8 @@ function TechnicianAvailabilityManager() {
           type="date"
           className="ma-input"
           aria-label="Date"
+          min={leaveWindow().min}
+          max={leaveWindow().max}
           value={date}
           onChange={(e) => setDate(e.target.value)}
         />

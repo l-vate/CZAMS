@@ -12,6 +12,7 @@ import UnitRequestPanel from './unit_request_panel';
 import { unitChangeOf } from '../utils/suppliedUnitChoice';
 import CannotSupplyPanel from './cannot_supply_panel';
 import ConfirmUnitPanel from './confirm_unit_panel';
+import { bookingWindow } from '../utils/dateRules';
 import { legacyDistanceAmount } from '../utils/chargeRows';
 import { describeWorks } from '../utils/mayNeedWorks';
 import ClosureDateInput from './closure_date_input';
@@ -574,6 +575,9 @@ const [report, setReport] = useState(null);
                                             <label className="sdm-row-label admin-service-details-modal-x10">New Date</label>
                                             <ClosureDateInput
                                                 className="ma-input"
+                                                min={bookingWindow().min}
+                                                max={bookingWindow().max}
+                                                showEarliest
                                                 value={disruptionDate}
                                                 onChange={setDisruptionDate}
                                             />
@@ -616,7 +620,7 @@ const [report, setReport] = useState(null);
                                     <div className="admin-service-details-modal-x9">
                                         <div>
                                             <label className="sdm-row-label admin-service-details-modal-x10">New Date</label>
-                                            <ClosureDateInput className="ma-input" value={disruptionDate} onChange={setDisruptionDate} />
+                                            <ClosureDateInput className="ma-input" min={bookingWindow().min} max={bookingWindow().max} showEarliest value={disruptionDate} onChange={setDisruptionDate} />
                                         </div>
                                         <div>
                                             <label className="sdm-row-label admin-service-details-modal-x10">New Time</label>

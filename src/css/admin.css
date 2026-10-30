@@ -3100,3 +3100,10 @@
   text-align: right;
   font-size: 13px;
 }
+
+/* A date that is outside the allowed range, said under or beside the date input */
+.date-problem {
+  margin: 4px 0 0;
+  color: var(--danger);
+  font-size: 13px;
+}

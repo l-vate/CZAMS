@@ -20,7 +20,7 @@ import { useServices } from '../../hooks/useServices';
 import { useTechnicians } from '../../hooks/useTechnicians';
 import { useMyClassification, useMyAgreedTerms, useIsCommercialClient } from '../../hooks/useMyClassification';
 import { getUnitPrice } from '../../utils/bookingPricing';
-import { earliestBookingKey } from '../../utils/manilaTime';
+import { bookingWindow, bookingDateProblem } from '../../utils/dateRules';
 import { isValidContactNumber, getAccountPhone } from '../../utils/contact';
 import { usePaymentSettings, getDownPaymentOptions, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
 import { isWithinQuezonCity } from '../../utils/serviceArea';
@@ -442,7 +442,7 @@ export function Step3({ form, setForm, technicians }) {
     return () => { cancelled = true; };
   }, []);
 
-  const minDate = earliestBookingKey(3); // 3 days after today in Manila, YYYY-MM-DD for <input type="date">
+  const { min: minDate, max: maxDate } = bookingWindow(); // 3 days after today to 5 months after today in Manila (utils/dateRules.js)
 
   // Hard-Block Technician Double-Booking: this is a UX convenience (hide the
   // obviously-unavailable options) - the real enforcement is server-side on
@@ -474,6 +474,7 @@ export function Step3({ form, setForm, technicians }) {
           <label className="bs-label">Date &amp; Time</label>
           <ClosureDateInput
             min={minDate}
+            max={maxDate}
             value={form.date}
             onChange={(date) => setForm({ ...form, date })}
             showEarliest
@@ -934,8 +935,8 @@ function BookService() {
       if (!form.address) missing.push('your address');
       if (!isValidContactNumber(form.contactNumber)) missing.push('a valid contact number');
       if (missing.length > 0) return `Add ${missing.join(', ')} to continue.`;
-      // both are Manila day keys, so a plain comparison is right
-      return form.date >= earliestBookingKey(3) ? '' : 'Choose a date at least 3 days from today.';
+      // the same sentences the server sends: not in the past, at least 3 days ahead, no more than 5 months ahead
+      return bookingDateProblem(form.date) || '';
     }
     if (current === STEP_ID.BEFORE_YOU_PAY) return worksIncomplete(form.mayNeedWorks) ? 'Answer every question in this step, or choose that none of it applies.' : '';
     if (current === STEP_ID.PAYMENT) {

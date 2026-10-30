@@ -3,6 +3,7 @@ import AdminLayout from './admin_layout';
 import LoadError from '../../components/load_error';
 import AuditEntry from '../../components/audit_entry';
 import { listAuditLog } from '../../services/auditService';
+import { pastWindow, pastRangeProblem } from '../../utils/dateRules';
 
 const RECORD_TYPES = ['', 'Booking', 'User', 'PaymentSettings', 'Promo', 'Service', 'Announcement', 'SuppliedUnit', 'Closure', 'TechnicianOff', 'Report', 'BackJob'];
 const EMPTY = { from: '', to: '', actor: '', action: '', entityType: '', entityId: '' };
@@ -29,8 +30,11 @@ function AuditLog() {
     load(applied, page);
   }, [applied, page]);
 
+  const rangeProblem = pastRangeProblem(filters.from, filters.to); // from 2009-01-01 up to today
+
   const apply = (e) => {
     e.preventDefault();
+    if (rangeProblem) return;
     setPage(1);
     setApplied(filters);
   };
@@ -40,8 +44,9 @@ function AuditLog() {
   return (
     <AdminLayout title="Audit Log">
       <form className="req-filters" onSubmit={apply} aria-label="Filter the audit log">
-        <label>From <input type="date" className="ma-input" value={filters.from} onChange={set('from')} /></label>
-        <label>To <input type="date" className="ma-input" value={filters.to} onChange={set('to')} /></label>
+        <label>From <input type="date" className="ma-input" min={pastWindow().min} max={pastWindow().max} value={filters.from} onChange={set('from')} /></label>
+        <label>To <input type="date" className="ma-input" min={pastWindow().min} max={pastWindow().max} value={filters.to} onChange={set('to')} /></label>
+        {rangeProblem && <p className="date-problem" role="alert">{rangeProblem}</p>}
         <label>Admin id <input type="text" className="ma-input" value={filters.actor} onChange={set('actor')} placeholder="any" /></label>
         <label>Action <input type="text" className="ma-input" value={filters.action} onChange={set('action')} placeholder="for example payment.verify" /></label>
         <label>Record

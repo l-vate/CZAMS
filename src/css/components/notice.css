@@ -1,15 +1,23 @@
 /* A short message over the page (components/notice.jsx), in place of a browser alert. */
-.notice-toast {
+.notice-region {
   position: fixed;
-  left: 50%;
-  bottom: 24px;
-  transform: translateX(-50%);
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  left: 12px;
+  right: 12px;
   z-index: 10000;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;   /* the empty strip never blocks the page; the message itself takes clicks */
+}
+
+.notice-toast {
+  pointer-events: auto;
   display: flex;
   align-items: center;
   gap: 12px;
-  max-width: min(520px, calc(100vw - 32px));
-  padding: 12px 16px;
+  width: 100%;
+  max-width: 520px;
+  padding: 10px 8px 10px 16px;
   border-radius: 10px;
   background: #0b2545;
   color: #fff;
@@ -18,15 +26,19 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 }
 
+.notice-toast span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
 .notice-toast-close {
   flex: none;
-  min-width: 28px;
-  min-height: 28px;
+  min-width: 44px;
+  min-height: 44px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.18);
   color: inherit;
   font: inherit;
+  font-size: 1.4rem;
+  line-height: 1;
   cursor: pointer;
 }
 

@@ -11,6 +11,7 @@ import { listMyReports, submitReport } from '../../services/reportService';
 import { PHOTO_MAX_BYTES, PHOTO_MIME_TYPES } from '../../constants/reportPhoto';
 import { shrinkPhoto } from '../../utils/photoShrink';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
+import { addMonthsKey, BOOKING_MAX_MONTHS } from '../../utils/dateRules';
 import { ProofLink, ProofImage } from '../../components/proof_file';
 import { BackJobBadge, BackJobInfo } from '../../components/back_job_info';
 
@@ -107,6 +108,10 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
     }
     if (form.followUpRequired && form.followUpDate < todayKey()) {
       setError('The follow-up date cannot be in the past.');
+      return;
+    }
+    if (form.followUpRequired && form.followUpDate > addMonthsKey(todayKey(), BOOKING_MAX_MONTHS)) {
+      setError(`The follow-up date can be at most ${BOOKING_MAX_MONTHS} months ahead.`);
       return;
     }
     if (form.preExistingIssueFlagged && !form.preExistingIssueDescription.trim()) {
@@ -299,6 +304,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
                 name="followUpDate"
                 className="tech-search-input"
                 min={todayKey()}
+                max={addMonthsKey(todayKey(), BOOKING_MAX_MONTHS)}
                 value={form.followUpDate}
                 onChange={handleChange}
               />

@@ -9,15 +9,15 @@ import { getBookingLineItems, getPaymentBreakdown, formatPeso } from '../../util
 import QuotationTerms from '../../components/quotation_terms';
 import { vatInside } from '../../utils/quotationTerms';
 import { getMemberNames } from '../../utils/assignments';
-import { earliestBookingKey, manilaTodayKey } from '../../utils/manilaTime';
+import { manilaTodayKey } from '../../utils/manilaTime';
+import { bookingWindow, bookingDateProblem } from '../../utils/dateRules';
 import { bookingHeading } from '../../utils/bookingHeading';
-import { SAME_DAY_CANCEL_WARNING, CANCEL_POLICY_NOTE, showsSameDayWarning } from '../../config/cancellation';
+import { cancelRuleNote } from '../../config/cancellation';
 import { usePaymentSettings, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
 import PaymentModal from '../../components/payment_modal';
 import { unitChangeOf } from '../../utils/suppliedUnitChoice';
 import { submitPayment, submitBalancePayment } from '../../services/paymentService';
 import { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } from '../../constants/paymentStatus';
-import { SERVICE_TYPE } from '../../constants/serviceTypes';
 import {
   FiCheck, FiBell, FiPrinter,
   FiCalendar, FiClock, FiMapPin, FiInfo, FiCreditCard,
@@ -123,9 +123,10 @@ function RescheduleModal({ booking, onClose, onSubmit, submitting }) {
   const [time, setTime] = useState(booking.time || '');
   const needsApproval = [BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status);
 
-  const minDate = earliestBookingKey(3); // 3 days after today in Manila, YYYY-MM-DD for <input type="date">
+  const { min: minDate, max: maxDate } = bookingWindow(); // 3 days after today to 5 months after today in Manila (utils/dateRules.js)
 
-  const isDateValid = date >= minDate;
+  const dateProblem = bookingDateProblem(date);
+  const isDateValid = !dateProblem;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -138,11 +139,12 @@ function RescheduleModal({ booking, onClose, onSubmit, submitting }) {
           </p>
         )}
 
-        <p className="cancel-confirm-text">A new service date must be at least <strong>3 days</strong> from today.</p>
+        <p className="cancel-confirm-text">A new service date must be at least <strong>3 days</strong> from today and no more than <strong>5 months</strong> ahead.</p>
 
         <div className="bs-field-group">
           <label className="bs-label">New Date</label>
-          <ClosureDateInput min={minDate} value={date} onChange={setDate} showEarliest blockFull showClosedList={false} />
+          <ClosureDateInput min={minDate} max={maxDate} value={date} onChange={setDate} showEarliest blockFull showClosedList={false} />
+          {date && dateProblem && <p className="date-problem" role="alert">{dateProblem}</p>}
         </div>
 
         <div className="bs-field-group">
@@ -176,7 +178,7 @@ function RescheduleModal({ booking, onClose, onSubmit, submitting }) {
   );
 }
 
-function CancelConfirmDialog({ onKeep, onConfirmCancel, sameDayWarning = false }) {
+function CancelConfirmDialog({ onKeep, onConfirmCancel, ruleNote }) {
   return (
     <div className="modal-overlay" onClick={onKeep}>
       <div className="modal-card cancel-confirm-card" onClick={(e) => e.stopPropagation()}>
@@ -185,9 +187,7 @@ function CancelConfirmDialog({ onKeep, onConfirmCancel, sameDayWarning = false }
         <p className="cancel-confirm-text">
           This action can't be undone. Your technician assignment and scheduled slot will be released.
         </p>
-        {sameDayWarning
-          ? <p className="cancel-confirm-text" role="note"><strong>{SAME_DAY_CANCEL_WARNING}</strong></p>
-          : <p className="cancel-confirm-text" role="note">{CANCEL_POLICY_NOTE}</p>}
+        <p className="cancel-confirm-text" role="note"><strong>{ruleNote}</strong></p>
         <div className="cancel-confirm-actions">
           <button className="bs-back-btn" onClick={onKeep}>Keep booking</button>
           <button className="cancel-booking-btn" onClick={onConfirmCancel}>Yes, cancel it</button>
@@ -463,13 +463,18 @@ function BookDetails() {
 
   // The down payment can be sent while nothing has been sent (or the last proof was rejected). An installation is confirmed by our team first.
   // The down payment is the percent of the service units only: the price of a unit we supply is not part of it.
-  const downPaymentOpen = [PAYMENT_STATUS.UNPAID, PAYMENT_STATUS.REJECTED].includes(booking.paymentStatus) && dpPercent > 0 && toPayNow > 0
+  // What is due comes from the server (utils/paymentDue.js), the same answer Billing uses. An Installation with a unit we supply waits for the
+  // owner to confirm the unit before anything is due.
+  const paymentDue = booking.paymentDue || { kind: null };
+  const dpWouldBeOpen = [PAYMENT_STATUS.UNPAID, PAYMENT_STATUS.REJECTED].includes(booking.paymentStatus) && dpPercent > 0 && toPayNow > 0
     && [BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED].includes(booking.status);
-  const waitingForConfirmation = downPaymentOpen && booking.service?.serviceType === SERVICE_TYPE.INSTALLATION && booking.status === BOOKING_STATUS.PENDING;
+  const waitingForConfirmation = dpWouldBeOpen && Boolean(paymentDue.waitingForUnit);
+  const downPaymentOpen = dpWouldBeOpen && (paymentDue.kind === 'down' || waitingForConfirmation);
   // Once the service is Completed the rest of the price is due: the balance is open while the down payment is verified and the balance is
   // neither paid nor waiting to be verified.
   const balanceDue = booking.status === BOOKING_STATUS.COMPLETED && booking.paymentStatus === PAYMENT_STATUS.PARTIALLY_PAID
-    && !booking.balancePaid && booking.balancePaymentStatus !== BALANCE_PAYMENT_STATUS.PAID && booking.balancePaymentStatus !== BALANCE_PAYMENT_STATUS.TO_VERIFY && remaining > 0;
+    && !booking.balancePaid && booking.balancePaymentStatus !== BALANCE_PAYMENT_STATUS.PAID && booking.balancePaymentStatus !== BALANCE_PAYMENT_STATUS.TO_VERIFY && remaining > 0
+    || paymentDue.kind === 'balance'; // a booking with no down payment owes the whole balance once it is Completed
   const balanceToVerify = booking.status === BOOKING_STATUS.COMPLETED && booking.balancePaymentStatus === BALANCE_PAYMENT_STATUS.TO_VERIFY;
   const handlePaySubmit = async ({ proof, referenceNumber }) => {
     try {
@@ -641,7 +646,7 @@ function BookDetails() {
         <CancelConfirmDialog
           onKeep={() => setShowCancel(false)}
           onConfirmCancel={handleConfirmCancel}
-          sameDayWarning={showsSameDayWarning(booking, manilaTodayKey())}
+          ruleNote={cancelRuleNote(booking, manilaTodayKey())}
         />
       )}
 
@@ -839,12 +844,12 @@ function BookDetails() {
                 <div className="summary-row"><span>Payment Terms</span><span>{booking.paymentTermsDays} days after completion</span></div>
               )}
               <div className="summary-row"><span>Down Payment</span><span>{dpPercent === null ? 'Not set' : `${dpPercent}%`}</span></div>
-              <div className="summary-row"><span>{downPaymentOpen ? 'Down Payment Due' : 'Amount Paid'}</span><span>₱{toPayNow.toLocaleString()}</span></div>
+              <div className="summary-row"><span>{downPaymentOpen ? 'Down Payment Due' : booking.paymentStatus === PAYMENT_STATUS.TO_VERIFY ? 'Down Payment Sent (not yet verified)' : [PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(booking.paymentStatus) ? 'Down Payment Verified' : 'Down Payment'}</span><span>₱{toPayNow.toLocaleString()}</span></div>
               <div className="summary-row"><span>Remaining Balance</span><span>₱{remaining.toLocaleString()}</span></div>
               <div className="summary-row"><span>Payment Mode</span><span>{booking.paymentMode || '-'}</span></div>
               {downPaymentOpen && (
                 waitingForConfirmation ? (
-                  <p className="booking-pay-note">Our team has to confirm your installation first. You can pay the down payment once it is confirmed.</p>
+                  <p className="booking-pay-note">We are confirming the unit. You will be asked to pay your down payment once it is confirmed.</p>
                 ) : (
                   <div className="booking-pay-action">
                     <button type="button" className="pay-down-btn" onClick={() => setShowPay(true)} disabled={!paymentMethods || paymentMethods.length === 0}>

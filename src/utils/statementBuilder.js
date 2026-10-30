@@ -34,7 +34,9 @@ export function buildStatement(customerId, bookings, filters, pricingOf) {
 
   const lines = mine.map((b) => {
     const cancelled = b.status === 'Cancelled';
-    const { total } = pricingOf(b);
+    // what the customer owes in all: the price plus the VAT of a commercial client (the sales figures leave VAT out; a statement does not)
+    const priced = pricingOf(b);
+    const total = priced.grandTotal ?? priced.total;
     // Cancelled bookings are listed for reference but not billed. Their Paid is what the customer
     // is out of pocket after any processed refund.
     const paid = cancelled ? paidAtCancellation(b, pricingOf) - refundedAmount(b) : amountPaid(b, pricingOf);

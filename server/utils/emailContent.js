@@ -14,6 +14,7 @@ const KINDS = {
   [T.BOOKING_CANCELLED]: ['Booking cancelled', 'coral', 'CANCELLED', 'Open the booking to see the details. If a down payment was verified, the refund is handled in the app and you will be told.', 'A booking was cancelled.'],
   [T.PAYMENT_SUBMITTED]: ['Payment proof received', 'amber', 'PAYMENT TO CHECK', 'Open the booking to see the proof and its status.', 'A payment proof was received.'],
   [T.PAYMENT_VERIFIED]: ['Payment verified', 'green', 'PAYMENT VERIFIED', null, 'Your payment was verified.'],
+  [T.PAYMENT_DUE]: ['Payment due', 'amber', 'PAYMENT DUE', 'Open Payment & Billing in the app and use Pay Now. Send your proof once you have paid.', 'A payment is due on your booking.'],
   [T.PAYMENT_REJECTED]: ['Payment needs attention', 'coral', 'PAYMENT REJECTED', 'Open the booking to see why, and send a new proof.', 'Your payment proof needs attention.'],
   [T.CHARGE_UPDATED]: ['Charges updated', 'amber', 'CHARGES UPDATED', 'Open the booking to see the updated total.', 'The charges on your booking changed.'],
   [T.SCOPE_UPDATED]: ['Scope of works updated', 'amber', 'SCOPE UPDATED', 'Open the booking to see the updated scope and total.', 'The scope of works on your booking changed.'],

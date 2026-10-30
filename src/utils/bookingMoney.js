@@ -2,6 +2,6 @@
 import { getPaymentBreakdown } from './bookingPricing';
 
 export function pricingOf(booking) {
-  const { total, downPayment, balance } = getPaymentBreakdown(booking);
-  return { total, downPayment, balance };
+  const { total, grandTotal, downPayment, balance } = getPaymentBreakdown(booking);
+  return { total, grandTotal, downPayment, balance };
 }

@@ -15,6 +15,7 @@ import { customerLabel } from '../../utils/customerLabel';
 
 import { clientGroupOf } from '../../utils/clientGroup';
 import { dayKeyOf } from '../../utils/manilaTime';
+import { pastWindow, pastRangeProblem } from '../../utils/dateRules';
 const peso = (n) => `₱${(Math.round(n) || 0).toLocaleString()}`;
 
 
@@ -218,9 +219,10 @@ function Analytics() {
 
                 <div className="analytics-range">
                     <label htmlFor="an-from">From</label>
-                    <input id="an-from" type="date" value={range.fromKey} onChange={(e) => setRange({ ...range, fromKey: e.target.value })} />
+                    <input id="an-from" type="date" min={pastWindow().min} max={pastWindow().max} value={range.fromKey} onChange={(e) => setRange({ ...range, fromKey: e.target.value })} />
                     <label htmlFor="an-to">To</label>
-                    <input id="an-to" type="date" value={range.toKey} onChange={(e) => setRange({ ...range, toKey: e.target.value })} />
+                    <input id="an-to" type="date" min={pastWindow().min} max={pastWindow().max} value={range.toKey} onChange={(e) => setRange({ ...range, toKey: e.target.value })} />
+                    {pastRangeProblem(range.fromKey, range.toKey) && <span className="date-problem" role="alert">{pastRangeProblem(range.fromKey, range.toKey)}</span>}
                     <label htmlFor="an-basis">Date basis</label>
                     <select id="an-basis" value={range.dateBasis} onChange={(e) => setRange({ ...range, dateBasis: e.target.value })}>
                         {DATE_BASES.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}

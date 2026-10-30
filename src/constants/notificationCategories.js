@@ -49,6 +49,7 @@ export const NOTIFICATION_CATEGORY = Object.freeze({
   payment_submitted: CATEGORY.PAYMENTS,
   payment_verified: CATEGORY.PAYMENTS,
   payment_rejected: CATEGORY.PAYMENTS,
+  payment_due: CATEGORY.PAYMENTS,
   charge_updated: CATEGORY.PAYMENTS,
   quotation_updated: CATEGORY.PAYMENTS,
   discount_requested: CATEGORY.PAYMENTS,

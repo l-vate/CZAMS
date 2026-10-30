@@ -80,14 +80,17 @@ test('the balance is online only too: Cash or Cheque is refused, GCash and Bank 
   }
 });
 
-test('the admin can record a payment received in person in cash or by cheque, for the down payment and the balance', async () => {
+test('the admin can record the balance received in person in cash or by cheque, and there is no in-person down payment', async () => {
   const b = booking();
   const dp = await record({ track: 'down', method: 'Cash', amount: 1000 });
-  assert.equal(dp.status, 200, JSON.stringify(dp.body));
-  assert.equal(b.paymentStatus, 'partially_paid');
+  assert.equal(dp.status, 400, 'the down payment is sent online and verified, never recorded in person');
+  assert.match(dp.body.message, /no in-person down payment/);
+  assert.equal(b.paymentStatus, 'Unpaid');
+  b.paymentStatus = 'partially_paid';
+  b.downPaymentPaidAmount = 1000;
   const bal = await record({ track: 'balance', method: 'Cheque', amount: 1000, reference: 'CHQ-0001' });
   assert.equal(bal.status, 200, JSON.stringify(bal.body));
-  assert.deepEqual(b.paymentEvents.map((e) => [e.track, e.method, e.inPerson]), [['down', 'Cash', true], ['balance', 'Cheque', true]]);
+  assert.deepEqual(b.paymentEvents.map((e) => [e.track, e.method, e.inPerson]), [['balance', 'Cheque', true]]);
 });
 
 test('a technician and a customer cannot record a payment in person', async () => {

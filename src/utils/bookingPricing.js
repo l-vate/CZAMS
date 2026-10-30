@@ -167,18 +167,41 @@ export function getBookingLineItems(booking) {
   };
 }
 
+// Mirror of the server's rules (server/utils/pricing.js: isPriceLocked, getVatDue, getDownPaymentBase). Keep the two in sync.
+const PRICING_VERSION = 2;
+const DOWN_SENT = ['to_verify', 'partially_paid', 'fully_paid'];
+
+export function isPriceLocked(booking) {
+  if ((booking?.pricingVersion || 1) >= PRICING_VERSION) return false;
+  return booking?.status === 'Completed' || booking?.status === 'Cancelled'
+    || booking?.paymentStatus === 'fully_paid' || booking?.balancePaid === true || booking?.balancePaymentStatus === 'paid';
+}
+
+// The VAT still to be paid on top of the base price (0 for a residential client, quoted prices that include VAT, or a locked price).
+export function getVatDue(booking, basePrice) {
+  if (!booking?.isCommercial || booking?.taxInclusive || isPriceLocked(booking)) return 0;
+  return Math.round(basePrice * 0.12);
+}
+
 // Total, down payment and balance for a saved booking - the single place every screen
-// gets them from. If the discount was approved after a down payment had already been
-// verified, what the customer really paid stands (nothing is auto-refunded): the
-// balance is just lower, floored at 0, and any excess is reported as `overpaid`.
+// gets them from. total is the price before VAT; vat is the VAT still to be added; grandTotal is what the customer owes in all, and the
+// balance is that minus the down payment, so VAT is collected in the balance. A down payment that was sent keeps its amount. If the
+// discount was approved after a down payment had already been verified, what the customer really paid stands (nothing is
+// auto-refunded): the balance is just lower, floored at 0, and any excess is reported as `overpaid`.
 export function getPaymentBreakdown(booking) {
   const { basePrice, unitsSubtotal, discountAmount } = getBookingLineItems(booking);
+  const vat = getVatDue(booking, basePrice);
+  const grandTotal = basePrice + vat;
+  // the down payment works off the base price only (the discounted service units); scope lines, a supplied unit, charges and VAT follow in the balance
   const due = Math.round(unitsSubtotal * ((booking?.downPaymentPercent || 0) / 100));
   const alreadyPaid = booking?.discount?.status === 'Approved' ? (booking.discount.dpPaidBeforeApproval || 0) : 0;
-  const downPayment = alreadyPaid > 0 ? alreadyPaid : due;
-  const rawBalance = basePrice - downPayment;
+  const sentAmount = DOWN_SENT.includes(booking?.paymentStatus) && typeof booking?.downPaymentPaidAmount === 'number' ? booking.downPaymentPaidAmount : 0;
+  const downPayment = alreadyPaid > 0 ? alreadyPaid : (sentAmount > 0 ? sentAmount : due);
+  const rawBalance = grandTotal - downPayment;
   return {
     total: basePrice,
+    vat,
+    grandTotal,
     downPayment,
     balance: Math.max(0, rawBalance),
     overpaid: rawBalance < 0 ? -rawBalance : 0,

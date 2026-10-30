@@ -23,6 +23,7 @@ const SOON_AFTER_WORKING_DAYS = Object.freeze({
   extension_request: 0,
   disruption_report: 0,
   payment_proof: 1,
+  waiting_payment: 99,
   refund_waiting: 2,
 });
 
@@ -30,7 +31,7 @@ const SOON_AFTER_WORKING_DAYS = Object.freeze({
 const GROUPS = Object.freeze({
   today: Object.freeze(['today_pending', 'today_unstaffed', 'today_proof', 'no_show']),
   decision: Object.freeze(['pending_approval', 'unit_confirmation', 'cannot_supply', 'discount_review', 'back_job_review', 'extension_request', 'disruption_report']),
-  money: Object.freeze(['payment_proof', 'refund_waiting']),
+  money: Object.freeze(['payment_proof', 'refund_waiting', 'waiting_payment']),
 });
 const GROUP_KEYS = Object.freeze(['today', 'decision', 'money']);
 

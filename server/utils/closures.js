@@ -24,8 +24,9 @@ function formatClosureDate(key) {
 // What an admin is allowed to add. Returns { problem, values }: problem is null or
 // { status, message }; values are the trimmed fields to store. `today` is a Manila date key.
 function readClosureInput({ date, reason }, today = manilaTodayKey()) {
-  if (!isRealDateKey(date)) return { problem: invalid('Choose a valid date (YYYY-MM-DD).') };
-  if (date < today) return { problem: invalid('A closure cannot be on a date that has already passed.') };
+  const { closureDateProblem } = require('./dateRules'); // required here: dateRules reads isRealDateKey from this file
+  const dateProblem = closureDateProblem(date, today);
+  if (dateProblem) return { problem: invalid(dateProblem) };
   const text = typeof reason === 'string' ? reason.trim() : '';
   if (text.length < REASON_MIN || text.length > REASON_MAX) {
     return { problem: invalid(`Give a reason of ${REASON_MIN} to ${REASON_MAX} characters.`) };

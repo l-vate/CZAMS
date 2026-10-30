@@ -514,6 +514,12 @@ const bookingSchema = new mongoose.Schema({
     // a Senior/PWD discount approved after the customer paid must not shrink their refund.
     // Bookings made before this field existed have none and fall back to the current computation.
     downPaymentPaidAmount: Number,
+    // Which price rules the booking follows (utils/pricing.js PRICING_VERSION). Set when the booking is made. A booking without it was made
+    // before VAT and the down payment base were fixed, and keeps its old amounts once it is Completed, fully paid or cancelled.
+    pricingVersion: Number,
+    // When the owner confirmed it can supply the unit(s) on an Installation. The down payment falls due from this moment, so a customer
+    // is never asked to pay for a unit nobody has confirmed. Absent on bookings that do not need it.
+    unitConfirmedAt: Date,
 // optimisticConcurrency: a save is refused (VersionError, answered as a 409) when the booking changed since it was read, so two
 // admins acting on the same booking at once cannot both succeed or both notify the customer.
 }, { timestamps: true, optimisticConcurrency: true });

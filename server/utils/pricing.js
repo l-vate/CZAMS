@@ -139,18 +139,49 @@ function getVatAmount(booking) {
   return booking?.taxInclusive ? Math.round((base * 12) / 112) : Math.round(base * 0.12);
 }
 
-// Down payment and balance. If the discount was approved after a down payment had
-// already been verified, what the customer actually paid stands (nothing is
-// auto-refunded): the balance is just lower, floored at 0, and any excess is reported
-// as `overpaid` so admin can see it.
+// The rules for VAT and for the down payment base changed in E25 (pricingVersion 2, stamped on a booking when it is made). A booking made
+// before that keeps the amounts it was paid and reported at once it is Completed, fully paid or cancelled: nothing stored is rewritten and
+// its number never moves under the customer. Every other booking follows the current rules.
+const PRICING_VERSION = 2;
+function isPriceLocked(booking) {
+  if ((booking?.pricingVersion || 1) >= PRICING_VERSION) return false;
+  return booking?.status === 'Completed' || booking?.status === 'Cancelled'
+    || booking?.paymentStatus === 'fully_paid' || booking?.balancePaid === true || booking?.balancePaymentStatus === 'paid';
+}
+
+// The VAT still to be paid on top of the base price: 12% for a commercial client unless the quoted prices already include it. 0 for a
+// booking whose price is locked.
+function getVatDue(booking) {
+  if (!booking?.isCommercial || booking?.taxInclusive || isPriceLocked(booking)) return 0;
+  return getVatAmount(booking);
+}
+
+// A down payment that was sent (waiting or verified) keeps the amount it was sent at; a rejected or unsent one follows the price.
+const DOWN_SENT = ['to_verify', 'partially_paid', 'fully_paid'];
+
+// The part of the price the down payment percentage works off: the BASE PRICE only, the discounted service units. Scope of works lines, the
+// unit a customer buys, a distance or mobilization charge and VAT are not in it: they follow in the balance. (Owner decision, E25 follow-up.)
+function getDownPaymentBase(booking) {
+  return getBookingUnitsSubtotal(booking);
+}
+
+// Down payment and balance. total is the base price without VAT; vat is the VAT still to be added; grandTotal is what the customer owes in
+// all. The balance is the grand total minus the down payment, so the VAT is collected in it. If the discount was approved after a down
+// payment had already been verified, what the customer actually paid stands (nothing is auto-refunded): the balance is just lower, floored
+// at 0, and any excess is reported as `overpaid` so admin can see it.
 function getPaymentBreakdown(booking) {
   const total = getBookingBasePrice(booking);
-  const due = Math.round(getBookingUnitsSubtotal(booking) * ((booking?.downPaymentPercent || 0) / 100));
+  const vat = getVatDue(booking);
+  const grandTotal = total + vat;
+  const due = Math.round(getDownPaymentBase(booking) * ((booking?.downPaymentPercent || 0) / 100));
   const alreadyPaid = booking?.discount?.status === 'Approved' ? (booking.discount.dpPaidBeforeApproval || 0) : 0;
-  const downPayment = alreadyPaid > 0 ? alreadyPaid : due;
-  const rawBalance = total - downPayment;
+  const sentAmount = DOWN_SENT.includes(booking?.paymentStatus) && typeof booking?.downPaymentPaidAmount === 'number' ? booking.downPaymentPaidAmount : 0;
+  const downPayment = alreadyPaid > 0 ? alreadyPaid : (sentAmount > 0 ? sentAmount : due);
+  const rawBalance = grandTotal - downPayment;
   return {
     total,
+    vat,
+    grandTotal,
     downPayment,
     balance: Math.max(0, rawBalance),
     overpaid: rawBalance < 0 ? -rawBalance : 0,
@@ -174,5 +205,9 @@ module.exports = {
   getBookingUnitsSubtotal,
   getBookingBasePrice,
   getVatAmount,
+  getVatDue,
+  isPriceLocked,
+  getDownPaymentBase,
+  PRICING_VERSION,
   getPaymentBreakdown,
 };

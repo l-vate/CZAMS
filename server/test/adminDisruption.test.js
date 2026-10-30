@@ -61,7 +61,8 @@ const move = async (as, body, id = 'CZ-1') => {
   const res = await fetch(`${base}/api/bookings/${id}/disruption/reschedule`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
   return { status: res.status, body: await res.json().catch(() => ({})) };
 };
-const NEW = { date: '2026-10-27', time: 'Afternoon' };
+const { bookableDay } = require('./helpers/bookableDay');
+const NEW = { date: bookableDay(4), time: 'Afternoon' }; // a day the booking rules accept whatever day the tests run (not a Sunday, 3 days to 5 months ahead)
 const sent = () => notes.filter((n) => n.type === 'Disruption Rescheduled' || /rescheduled/i.test(n.message || ''));
 
 test('the admin can reschedule an In Progress job with no report, giving the reason', async () => {

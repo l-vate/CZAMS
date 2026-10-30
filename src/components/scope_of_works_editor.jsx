@@ -53,7 +53,8 @@ function ScopeOfWorksEditor({ booking, onUpdated }) {
       <label>
         Kind
         <select className="ma-input" value={value.kind} onChange={(e) => chooseKind(setValue, value, e.target.value)} id={`${idPrefix}-kind`}>
-          {KINDS.map((k) => <option key={k} value={k}>{PRESETS[k].label}</option>)}
+          {/* an Installation service already includes the installation, so a new Installation line would charge it twice (an old one stays editable) */}
+          {KINDS.filter((k) => !(k === 'installation' && booking.service?.serviceType === 'Installation' && value.kind !== 'installation')).map((k) => <option key={k} value={k}>{PRESETS[k].label}</option>)}
         </select>
       </label>
       <label className="scope-form-wide">
@@ -167,7 +168,7 @@ function ScopeOfWorksEditor({ booking, onUpdated }) {
             </div>
           </div>
         ) : (
-          <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => { setAdding(true); chooseKind(setDraft, EMPTY, 'installation'); }}>+ Add line</button>
+          <button type="button" className="sdm-btn sdm-btn-outline" onClick={() => { setAdding(true); chooseKind(setDraft, EMPTY, booking.service?.serviceType === 'Installation' ? 'dismantling' : 'installation'); }}>+ Add line</button>
         )
       ) : (
         <p className="sdm-muted">The scope of works can only be changed while a booking is Pending, Approved or In Progress.</p>

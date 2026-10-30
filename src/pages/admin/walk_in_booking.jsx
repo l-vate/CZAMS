@@ -26,6 +26,7 @@ import { listUsers, createUser } from '../../services/userService';
 import { selectableCustomers } from '../../utils/walkInCustomers';
 import { ROLE } from '../../constants/roles';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
+import { bookingDateProblem } from '../../utils/dateRules';
 
 const TOTAL_STEPS = 6;
 const STEP_LABELS = ['Customer', 'Choose Service', 'Unit Details', 'Location & Schedule', 'Payment', 'Booking Summary'];
@@ -509,11 +510,8 @@ function WalkInBooking() {
     }
     if (step === 4) {
       if (!form.date || !form.time || !form.address || !isValidContactNumber(form.contactNumber)) return false;
-      const minDate = new Date();
-      minDate.setDate(minDate.getDate() + 3);
-      minDate.setHours(0, 0, 0, 0);
-      const selected = new Date(form.date);
-      return selected >= minDate;
+      // the same rule as the server (utils/dateRules.js): at least 3 days ahead and no more than 5 months ahead, Manila time
+      return !bookingDateProblem(form.date);
     }
     if (step === 5) {
       if (isBilledOnTerms) return true;

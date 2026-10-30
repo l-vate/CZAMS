@@ -30,7 +30,10 @@ const BOOKING_FIELDS = [
   'bookingId', 'customer', 'service', 'status', 'date', 'time', 'assignments', 'technician', 'createdAt', 'updatedAt',
   'paymentStatus', 'balancePaymentStatus', 'paymentCheckAfterCancel', 'refund.status', 'refund.requestedAt', 'refund.paymentUnverified',
   'units.supplied.source', 'units.supplied.status', 'units.supplied.chosenAt', 'unitDecline.reason', 'unitDecline.declinedAt',
-  'discount.status', 'discount.requestedAt', 'extensionRequest.status', 'extensionRequest.requestedAt', 'disruption.status', 'disruption.reportedAt',
+  // what the down payment rules need to tell "waiting for the customer" from "the owner has to confirm the unit" (utils/paymentDue.js)
+  'downPaymentPercent', 'downPaymentPaidAmount', 'clientSuppliedUnit', 'unitConfirmedAt', 'pricingVersion', 'isCommercial', 'taxInclusive',
+  'units.type', 'units.quantity', 'units.supplied.price', 'priceSnapshot', 'scopeLines', 'distanceAdjustment', 'mobilizationFee', 'promo', 'balancePaid',
+  'discount.status', 'discount.requestedAt', 'discount.percent', 'discount.dpPaidBeforeApproval', 'extensionRequest.status', 'extensionRequest.requestedAt', 'disruption.status', 'disruption.reportedAt',
 ].join(' ');
 
 router.get('/needs-attention', async (req, res) => {
@@ -49,11 +52,11 @@ router.get('/needs-attention', async (req, res) => {
       BackJob.find({ isOpen: true, status: BACK_JOB_STATUS.NOT_COVERED }).select('originalBookingId customer reportedAt status isOpen').lean(),
     ]);
 
-    // the services of the Approved bookings in the window: the only ones whose staffing is looked at
+    // the services of the Approved bookings in the window (whose staffing is looked at) and of the Pending ones (whose payment rules need the price)
     const serviceIds = [...new Set(bookings
-      .filter((b) => b.status === BOOKING_STATUS.APPROVED && b.date && b.date <= windowEnd)
+      .filter((b) => b.status === BOOKING_STATUS.PENDING || (b.status === BOOKING_STATUS.APPROVED && b.date && b.date <= windowEnd))
       .map((b) => String(b.service)))];
-    const services = serviceIds.length > 0 ? await Service.find({ _id: { $in: serviceIds } }).select('name serviceType minTechnicians').lean() : [];
+    const services = serviceIds.length > 0 ? await Service.find({ _id: { $in: serviceIds } }).select('name serviceType minTechnicians price unitTypePricing').lean() : [];
     const servicesById = new Map(services.map((s) => [String(s._id), s]));
 
     // ?all=1 lifts only the cap on items per group (the notifications page merges and rolls them up); counts, order and rules stay the same

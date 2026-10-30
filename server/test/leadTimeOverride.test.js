@@ -1,12 +1,13 @@
 // Run with: npm test (inside server/). Only the admin (the owner) can go past the 3-day lead time, and only the admin can approve, reject or
-// move a booking. A customer is held to the lead time on every path (book, reschedule); an admin booking a walk-in is too; the one way
-// past it is the admin moving a booking (reschedule/use-date), which a customer or a technician cannot do. Sunday and closed dates stay
-// blocked even for the admin. The real routes run; only the database is replaced.
+// move a booking. A customer is held to the lead time on every path (book, reschedule); an admin booking a walk-in is too, and since E25 so is
+// the admin moving a booking (reschedule/use-date), which a customer or a technician cannot do at all. Sunday and closed dates stay blocked
+// even for the admin. The real routes run; only the database is replaced.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const harness = require('./helpers/createBooking');
 const { manilaTodayKey } = require('../utils/timeBlocks');
 const { addDays } = require('../utils/extensionDays');
+const { bookableDay } = require('./helpers/bookableDay');
 
 const { state, post, call, addBooking, goodDate } = harness;
 
@@ -45,10 +46,14 @@ test('a customer is held to the lead time when rescheduling too', async () => {
   assert.match(res.body.message, /at least 3 days/);
 });
 
-test('the admin moving a booking is the way past the lead time: a booking can be moved to tomorrow', async () => {
+test('the admin moving a booking is held to the lead time too (E25 owner decision): tomorrow is refused, the earliest bookable day works', async () => {
   const b = pending();
-  const tomorrow = addDays(today(), 1);
-  const date = new Date(`${tomorrow}T00:00:00Z`).getUTCDay() === 0 ? addDays(today(), 2) : tomorrow;
+  const original = b.date;
+  const tomorrow = await call('PATCH', '/CZ-1/reschedule/use-date', 'ADM1', { date: addDays(today(), 1), time: 'Afternoon' }, { role: 'admin' });
+  assert.equal(tomorrow.status, 400);
+  assert.match(tomorrow.body.message, /at least 3 days notice/);
+  assert.equal(b.date, original);
+  const date = bookableDay(0);
   const res = await call('PATCH', '/CZ-1/reschedule/use-date', 'ADM1', { date, time: 'Afternoon' }, { role: 'admin' });
   assert.equal(res.status, 200, JSON.stringify(res.body));
   assert.equal(b.date, date);

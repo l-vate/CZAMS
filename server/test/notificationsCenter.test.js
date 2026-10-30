@@ -123,7 +123,7 @@ test('mark all as read for a category changes only that category, and All change
   assert.deepEqual(markCategoryRead(MIXED, 'all').filter((n) => !n.read), []);
   const unknown = [note(1, 'brand_new_kind'), note(2, 'chat_message')];
   assert.deepEqual(markCategoryRead(unknown, 'other').map((n) => n.read), [true, false]);
-  assert.deepEqual(readFilterFor('payments').types.sort(), ['charge_updated', 'discount_approved', 'discount_rejected', 'discount_requested', 'payment_rejected', 'payment_submitted', 'payment_verified', 'quotation_updated']);
+  assert.deepEqual(readFilterFor('payments').types.sort(), ['charge_updated', 'discount_approved', 'discount_rejected', 'discount_requested', 'payment_due', 'payment_rejected', 'payment_submitted', 'payment_verified', 'quotation_updated']);
 });
 
 test('the page wires the buttons to the server with the category filter, and keeps the click behaviour', () => {

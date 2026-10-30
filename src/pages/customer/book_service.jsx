@@ -20,7 +20,7 @@ import { useServices } from '../../hooks/useServices';
 import { useTechnicians } from '../../hooks/useTechnicians';
 import { useMyClassification, useMyAgreedTerms, useIsCommercialClient } from '../../hooks/useMyClassification';
 import { getUnitPrice } from '../../utils/bookingPricing';
-import { earliestBookingKey } from '../../utils/manilaTime';
+import { bookingWindow, bookingDateProblem } from '../../utils/dateRules';
 import { isValidContactNumber, getAccountPhone } from '../../utils/contact';
 import { usePaymentSettings, getDownPaymentOptions, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
 import { isWithinQuezonCity } from '../../utils/serviceArea';
@@ -442,7 +442,7 @@ export function Step3({ form, setForm, technicians }) {
     return () => { cancelled = true; };
   }, []);
 
-  const minDate = earliestBookingKey(3); // 3 days after today in Manila, YYYY-MM-DD for <input type="date">
+  const { min: minDate, max: maxDate } = bookingWindow(); // 3 days after today to 5 months after today in Manila (utils/dateRules.js)
 
   // Hard-Block Technician Double-Booking: this is a UX convenience (hide the
   // obviously-unavailable options) - the real enforcement is server-side on
@@ -474,6 +474,7 @@ export function Step3({ form, setForm, technicians }) {
           <label className="bs-label">Date &amp; Time</label>
           <ClosureDateInput
             min={minDate}
+            max={maxDate}
             value={form.date}
             onChange={(date) => setForm({ ...form, date })}
             showEarliest
@@ -736,10 +737,16 @@ const handleSubmitPayment = ({ proof, referenceNumber }) => {
           <div className="cost-divider" />
 
           {isInstallationBooking && !isNoDownPayment ? (
-            <div className="bs-callout" role="note">
-              <strong>Wait for our confirmation before paying.</strong> We first confirm your installation (the unit, the price and the date). Once it is
-              confirmed, send your down payment of ₱{toPayNow.toLocaleString()}.00 from Payment &amp; Billing.
-            </div>
+            form.clientSuppliedUnit ? (
+              <div className="bs-callout" role="note">
+                <strong>Your down payment is due once you book.</strong> After you confirm, send your down payment of ₱{toPayNow.toLocaleString()}.00 from Payment &amp; Billing.
+              </div>
+            ) : (
+              <div className="bs-callout" role="note">
+                <strong>We are confirming the unit.</strong> You will be asked to pay your down payment of ₱{toPayNow.toLocaleString()}.00 once it is confirmed.
+                We will tell you in the app and by email, and you pay from Payment &amp; Billing.
+              </div>
+            )
           ) : isNoDownPayment ? (
             <p className="customer-book-service-x4">
               As a return customer, no down payment is required. The full amount will be due upon completion of service.
@@ -900,38 +907,50 @@ function BookService() {
   const current = steps[step - 1]?.id;
   const isLast = step === totalSteps;
 
-const canNext = () => {
-    if (current === STEP_ID.SERVICE) return !!form.service;
+// Why Next is off, in a sentence the customer can act on, or '' when they can go on. The button is greyed out and this is printed under it.
+  const nextProblem = () => {
+    if (current === STEP_ID.SERVICE) return form.service ? '' : 'Choose a service to continue.';
     if (current === STEP_ID.UNIT) {
       const units = form.units || [];
-      if (units.length === 0) return false;
-      if (units.some((u) => !u.type || !Number.isInteger(u.quantity) || u.quantity < 1 || u.quantity > MAX_UNIT_QUANTITY)) return false;
-      if (units.some((u) => !chosenBrand(u))) return false; // the brand of every unit is required
+      if (units.length === 0) return 'Add at least one unit.';
+      if (units.some((u) => !u.type)) return 'Choose the type for every unit.';
+      if (units.some((u) => !Number.isInteger(u.quantity) || u.quantity < 1 || u.quantity > MAX_UNIT_QUANTITY)) return `Enter a quantity from 1 to ${MAX_UNIT_QUANTITY} for every unit.`;
+      if (units.some((u) => !chosenBrand(u))) return 'Choose the brand of every unit.'; // the brand of every unit is required
       const selectedService = services.find((s) => s.id === form.service);
       const isInstallation = selectedService?.serviceType === SERVICE_TYPE.INSTALLATION;
       if (isInstallation && form.clientSuppliedUnit) {
         const accountName = getAccountName();
         const waiverNameMatches = (form.unitWaiverName || '').trim().toLowerCase() === accountName.trim().toLowerCase();
-        return !!form.unitWaiverAcknowledged && waiverNameMatches;
+        if (!form.unitWaiverAcknowledged) return 'Tick the box to confirm you understand the waiver for your own unit.';
+        return waiverNameMatches ? '' : 'Type your name exactly as it is on your account to sign the waiver.';
       }
       // the company supplies the unit: every unit entry needs a catalog unit, or a request that tells the owner what is wanted
-      if (isInstallation && !units.every(hasChoice)) return false;
-      return true;
+      if (isInstallation && !units.every(hasChoice)) return 'Choose a unit from the list for every unit, or ask the owner if yours is not listed.';
+      return '';
     }
     if (current === STEP_ID.SCHEDULE) {
-      if (!form.date || !form.time || !form.address || !isValidContactNumber(form.contactNumber)) return false;
-      return form.date >= earliestBookingKey(3); // both are Manila day keys, so a plain comparison is right
+      const missing = [];
+      if (!form.date) missing.push('a date');
+      if (!form.time) missing.push('a time');
+      if (!form.address) missing.push('your address');
+      if (!isValidContactNumber(form.contactNumber)) missing.push('a valid contact number');
+      if (missing.length > 0) return `Add ${missing.join(', ')} to continue.`;
+      // the same sentences the server sends: not in the past, at least 3 days ahead, no more than 5 months ahead
+      return bookingDateProblem(form.date) || '';
     }
-    if (current === STEP_ID.BEFORE_YOU_PAY) return !worksIncomplete(form.mayNeedWorks);
+    if (current === STEP_ID.BEFORE_YOU_PAY) return worksIncomplete(form.mayNeedWorks) ? 'Answer every question in this step, or choose that none of it applies.' : '';
     if (current === STEP_ID.PAYMENT) {
       const { dpPercent } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages));
-      if (form.discountType && (!form.discountIdFileObj || !form.discountConsent)) return false; // a customer always attaches the ID photo and agrees to its use
-      if (dpPercent === 0) return true;
-      if (services.find((x) => x.id === form.service)?.serviceType === SERVICE_TYPE.INSTALLATION) return true; // paid after the owner confirms it
-      return form.paymentStatus === PAYMENT_STATUS.TO_VERIFY || form.paymentStatus === PAYMENT_STATUS.FULLY_PAID;
+      // a customer always attaches the ID photo and agrees to its use
+      if (form.discountType && !form.discountIdFileObj) return 'Attach a photo of your ID for the discount, or remove the discount request.';
+      if (form.discountType && !form.discountConsent) return 'Agree that we may view your ID to check the discount, or remove the discount request.';
+      if (dpPercent === 0) return '';
+      if (services.find((x) => x.id === form.service)?.serviceType === SERVICE_TYPE.INSTALLATION) return ''; // paid from Payment & Billing, once it is due
+      return form.paymentStatus === PAYMENT_STATUS.TO_VERIFY || form.paymentStatus === PAYMENT_STATUS.FULLY_PAID ? '' : 'Send your down payment proof with Pay Downpayment to continue.';
     }
-    return true;
+    return '';
   };
+  const canNext = () => nextProblem() === '';
 
  const handleConfirmBooking = async () => {
     // one click only: the button stays off until the answer comes back, so a second click cannot send the booking again
@@ -1022,6 +1041,9 @@ const canNext = () => {
         </>
       )}
 
+      {!isLast && nextProblem() && (
+        <p className="bs-next-reason" role="status" id="bs-next-reason">{nextProblem()}</p>
+      )}
       <div className="bs-nav-row">
         <span className="bs-step-label">
           {stepCounter(steps, step)}
@@ -1038,6 +1060,7 @@ const canNext = () => {
               className="bs-next-btn"
               onClick={() => setStep(step + 1)}
               disabled={!canNext() || ([STEP_ID.PAYMENT, STEP_ID.SUMMARY].includes(current) && !paymentSettingsReady)}
+              aria-describedby={nextProblem() ? 'bs-next-reason' : undefined}
             >
               {current === STEP_ID.PAYMENT ? <>Book <FiArrowRight /></> : <>Next <FiArrowRight /></>}
             </button>

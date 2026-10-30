@@ -2050,3 +2050,50 @@
   .balance-reminder { flex-direction: column; align-items: stretch; }
   .balance-reminder-btn { width: 100%; }
 }
+
+/* Billing: the "Due now" list at the top, and the note under a bill that waits for the owner to confirm the unit */
+.customer-billings-x6.customer-billings-wait {
+  color: var(--ink-soft);
+}
+.billing-due {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--warning);
+  border-radius: 10px;
+  background: var(--white);
+}
+.billing-due-title {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+.billing-due-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.billing-due-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.billing-due-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 160px;
+  min-width: 0;
+}
+.billing-due-amount {
+  font-weight: 700;
+}
+
+/* Why Next is off, right above the buttons */
+.bs-next-reason {
+  margin: 0 0 8px;
+  text-align: right;
+  font-size: 13px;
+  color: var(--ink-soft);
+}

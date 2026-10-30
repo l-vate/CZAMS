@@ -4,6 +4,7 @@ import { attempt, orFallback } from '../../services/apiClient';
 import { listPromos, createPromo, updatePromo, deletePromo } from '../../services/promotionService';
 import { listAllServices } from '../../services/serviceCatalogService';
 import { manilaToday, describeDiscount } from '../../utils/promos';
+import { EARLIEST_DATE } from '../../utils/dateRules';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
 
 // default window: today for 30 days
@@ -159,7 +160,7 @@ function Promotions() {
           </div>
           <div className="bs-field-group">
             <label className="bs-label" htmlFor="promo-start">Starts</label>
-            <input id="promo-start" type="date" className="bs-input" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
+            <input id="promo-start" type="date" className="bs-input" min={EARLIEST_DATE} value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
           </div>
           <div className="bs-field-group">
             <label className="bs-label" htmlFor="promo-end">Ends (included)</label>

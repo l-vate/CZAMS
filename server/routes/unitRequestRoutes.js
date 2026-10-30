@@ -17,9 +17,23 @@ const { sendProblem, invalid } = require('../utils/validation');
 const { sendRouteError } = require('../utils/routeErrors');
 const { withWarranty } = require('../utils/bookingView');
 const { ASSIGNMENT_POPULATE } = require('../utils/assignments');
-const { readResolution, brandModelOf, LIMITS, REASON_MIN } = require('../utils/suppliedUnits');
+const { readResolution, brandModelOf, unitsNeedingOwner, LIMITS, REASON_MIN } = require('../utils/suppliedUnits');
+const { paymentDueOf } = require('../utils/paymentDue');
+const { SERVICE_TYPE } = require('../constants/serviceTypes');
 const { getBookingBasePrice, getVatAmount } = require('../utils/pricing');
 const { peso } = require('../utils/scopeLines');
+
+// The customer is asked to pay the down payment, in the app and by email, the moment the owner confirms the unit (only when one is due).
+async function askForDownPayment(booking) {
+  const due = paymentDueOf(booking);
+  if (due.kind !== 'down') return;
+  await sendNotification(
+    booking.customer,
+    NOTIFICATION_TYPE.PAYMENT_DUE,
+    `Booking ${booking.bookingId}: your unit is confirmed. Please pay your down payment of ${peso(due.amount)} to secure your booking.`,
+    { booking },
+  );
+}
 
 const findItem = (id) => (mongoose.isValidObjectId(id) ? SuppliedUnit.findById(id) : null);
 
@@ -49,6 +63,7 @@ router.patch('/:bookingId/units/:index/resolve', auth, allowRoles(ROLE.ADMIN), a
     let type;
     let action;
     let meta;
+    let confirmedNow = false;
 
     if (resolution.kind === 'declined') {
       unit.supplied = { ...plain(supplied), status: 'Declined', declineReason: resolution.reason, ...who };
@@ -69,6 +84,11 @@ router.patch('/:bookingId/units/:index/resolve', auth, allowRoles(ROLE.ADMIN), a
       // once no unit on the booking is declined any more, the customer's "cannot supply" notice goes
       if (!(booking.units || []).some((u) => u.supplied && u.supplied.status === 'Declined')) booking.unitDecline = undefined;
       if (booking.isCommercial) booking.vatAmount = getVatAmount(booking);
+      // Every request settled and nothing declined: the unit is confirmed, so the down payment falls due now.
+      if (unitsNeedingOwner(booking.units).length === 0 && !(booking.unitDecline && booking.unitDecline.reason)) {
+        booking.unitConfirmedAt = now;
+        confirmedNow = true;
+      }
       type = NOTIFICATION_TYPE.UNIT_REQUEST_RESOLVED;
       action = 'unit_request.resolve';
       const chosen = [unit.supplied.brand, unit.supplied.model].filter(Boolean).join(' ') || unit.type;
@@ -79,6 +99,43 @@ router.patch('/:bookingId/units/:index/resolve', auth, allowRoles(ROLE.ADMIN), a
     await booking.save();
     await recordAudit({ actor: { id: req.userId, role: req.userRole }, action, entityType: 'Booking', entityId: booking.bookingId, summary: `Settled a unit request on a booking (${resolution.kind})`, meta });
     await sendNotification(booking.customer, type, message, { booking });
+    if (confirmedNow) await askForDownPayment(booking);
+
+    const populated = await booking.populate([
+      { path: 'service' },
+      { path: 'customer', select: 'name email phone clientType companyName representativeName' },
+      { path: 'technician', select: 'name' },
+      ...ASSIGNMENT_POPULATE,
+    ]);
+    res.json(withWarranty(populated));
+  } catch (err) {
+    sendRouteError(res, err);
+  }
+});
+
+// Confirm the unit on an Installation that Cooling Zone supplies the unit for, when it is a unit from the catalog (nothing to settle). Admin only,
+// on a Pending booking. From this moment the customer is asked for the down payment. A unit the customer asked for that is not in the catalog
+// is confirmed by settling the request instead, which confirms the booking when the last one is settled.
+router.patch('/:bookingId/confirm-unit', auth, allowRoles(ROLE.ADMIN), async (req, res) => {
+  try {
+    const booking = await Booking.findOne({ bookingId: req.params.bookingId }).populate('service');
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    if (booking.service?.serviceType !== SERVICE_TYPE.INSTALLATION || booking.clientSuppliedUnit === true || !(booking.units || []).some((u) => u.supplied)) {
+      return sendProblem(res, invalid('This booking has no unit that Cooling Zone is to supply.'));
+    }
+    if (booking.status !== BOOKING_STATUS.PENDING) return sendProblem(res, invalid('A unit can only be confirmed while the booking is Pending.'));
+    if (unitsNeedingOwner(booking.units).length > 0) return sendProblem(res, invalid('Settle the unit request on this booking first (pick a unit, enter a price, or decline it).', 409));
+    if (booking.unitDecline && booking.unitDecline.reason) return sendProblem(res, invalid('Withdraw the cannot-supply notice first, then confirm the unit.', 409));
+    if (booking.unitConfirmedAt) return sendProblem(res, invalid('The unit on this booking is already confirmed.', 409));
+
+    booking.unitConfirmedAt = new Date();
+    await booking.save();
+    await recordAudit({ actor: { id: req.userId, role: req.userRole }, action: 'booking.unit_confirm', entityType: 'Booking', entityId: booking.bookingId, summary: 'Confirmed the unit on a booking' });
+    if (paymentDueOf(booking).kind === 'down') {
+      await askForDownPayment(booking);
+    } else {
+      await sendNotification(booking.customer, NOTIFICATION_TYPE.UNIT_REQUEST_RESOLVED, `Booking ${booking.bookingId}: we confirmed your unit.`, { booking });
+    }
 
     const populated = await booking.populate([
       { path: 'service' },

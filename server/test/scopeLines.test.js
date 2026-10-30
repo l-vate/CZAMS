@@ -35,7 +35,7 @@ function makeBooking(over = {}) {
   const b = {
     bookingId: 'CZ-1', customer: 'CUS1', status: 'Pending', isCommercial: false, downPaymentPercent: 50,
     paymentStatus: 'Unpaid', balancePaymentStatus: 'None', distanceAdjustment: 0, mobilizationFee: 0, scopeLines: [],
-    service: { name: 'Installation', serviceType: 'Installation', price: 1000, unitTypePricing: [] },
+    service: { name: 'Repair', serviceType: 'Repair', price: 1000, unitTypePricing: [] },
     units: [{ type: 'Split Type', quantity: 2 }], discount: { status: 'None' },
     toObject() { return JSON.parse(JSON.stringify(this)); }, // functions are left out
     // Mongoose gives every new line an id when it is saved
@@ -114,15 +114,31 @@ test('an Other line needs a description; a bad kind, quantity or rate is refused
 });
 
 // ---- totals, VAT and the down payment
-test('adding a line raises the total and the balance, and the down payment does not move', async () => {
+test('adding a line raises the total and the balance, and the down payment (the base price only) does not move', async () => {
   const before = getPaymentBreakdown(doc);
   assert.equal(before.total, 2000);
   assert.equal(before.downPayment, 1000);
-  await add({ kind: 'installation', quantity: 2, unitRate: 1500 });
+  await add({ kind: 'dismantling', quantity: 2, unitRate: 1500 });
   const after = getPaymentBreakdown(doc);
   assert.equal(after.total, 5000);
-  assert.equal(after.downPayment, 1000, 'the down payment is untouched');
+  assert.equal(after.downPayment, 1000, 'the down payment is the percent of the base price: scope lines follow in the balance');
   assert.equal(after.balance, 4000);
+});
+
+test('once a down payment proof is sent its amount is fixed: a new line only moves the balance', async () => {
+  doc = makeBooking({ paymentStatus: 'to_verify', downPaymentPaidAmount: 1000 });
+  await add({ kind: 'dismantling', quantity: 2, unitRate: 1500 });
+  const after = getPaymentBreakdown(doc);
+  assert.equal(after.total, 5000);
+  assert.equal(after.downPayment, 1000, 'the amount that was sent does not move');
+  assert.equal(after.balance, 4000);
+});
+
+test('a distance line and a supplied unit are not part of the down payment', async () => {
+  doc = makeBooking();
+  await call('POST', '', { kind: 'distance', quantity: 1, unitRate: 500 });
+  assert.equal(getPaymentBreakdown(doc).total, 2500);
+  assert.equal(getPaymentBreakdown(doc).downPayment, 1000);
 });
 
 test('an already paid down payment keeps its recorded amount', async () => {
@@ -179,6 +195,7 @@ test('the Senior/PWD discount takes its percent off the service lines and never 
   assert.equal(getDiscountAmount(doc), 600);
   assert.equal(getBookingUnitsSubtotal(doc), 1600, 'the down payment base only changes by the discount on the units');
   assert.equal(getBookingBasePrice(doc), 1600 + 800 + 500);
+  // the down payment works off the base price only: the discounted units 1600 at the booking's percent
   assert.equal(getPaymentBreakdown(doc).downPayment, 800);
 });
 
@@ -271,4 +288,32 @@ test('the customer sees the scope of works as a breakdown, without who added it'
   assert.equal(view.scopeLines.length, 1);
   assert.deepEqual(Object.keys(view.scopeLines[0]).sort(), ['addedAt', 'amount', 'description', 'kind', 'quantity', 'unitLabel', 'unitRate']);
   assert.equal(view.scopeLines[0].amount, 3000);
+});
+
+// ---- the installation is already in an Installation's price (E25)
+test('an Installation line cannot be added to an Installation service, which would charge the installation twice', async () => {
+  doc = makeBooking({ service: { name: 'Installation', serviceType: 'Installation', price: 1000, unitTypePricing: [] } });
+  const refused = await add({ kind: 'installation', quantity: 1, unitRate: 1000 });
+  assert.equal(refused.status, 400);
+  assert.match(refused.body.message, /charge it twice|twice/);
+  assert.equal(doc.scopeLines.length, 0);
+  assert.equal(getBookingBasePrice(doc), 2000, 'the price is unchanged');
+  // other work is still allowed on an Installation
+  assert.equal((await add({ kind: 'dismantling', quantity: 1, unitRate: 800 })).status, 200);
+  assert.equal(getBookingBasePrice(doc), 2800);
+});
+
+test('a service that is not an Installation can still have an Installation line', async () => {
+  const ok = await add({ kind: 'installation', quantity: 1, unitRate: 1000 });
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+  assert.equal(getBookingBasePrice(doc), 3000);
+});
+
+test('an Installation line that was already on an Installation booking can still be edited', async () => {
+  doc = makeBooking({
+    service: { name: 'Installation', serviceType: 'Installation', price: 1000, unitTypePricing: [] },
+    scopeLines: [{ _id: 'L1', kind: 'installation', description: 'Installation', quantity: 1, unitLabel: 'unit', unitRate: 2000, amount: 2000 }],
+  });
+  const edited = await call('PATCH', '/L1', { quantity: 2, reason: 'two units' });
+  assert.equal(edited.status, 200, JSON.stringify(edited.body));
 });

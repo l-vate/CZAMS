@@ -20,3 +20,17 @@ export function showsSameDayWarning(booking, todayKey) {
   if (!booking || !todayKey) return false;
   return booking.date <= todayKey && ['to_verify', 'partially_paid', 'fully_paid'].includes(booking.paymentStatus);
 }
+
+// What the "Cancel this booking?" dialog says: only the rule that applies to this booking, never both. (CANCEL_POLICY_NOTE above states both and
+// stays for the landing page, which speaks to everyone.)
+export const FULL_REFUND_NOTE = 'The booked date has not come yet, so your verified down payment is refunded in full.';
+export const TRANSPORT_FEE_NOTE = 'You are cancelling on or after the booked date, so the transportation fee set by our team may be deducted from your down payment before it is refunded.';
+export const NOTHING_TO_REFUND_NOTE = 'You have not paid a down payment for this booking, so there is nothing to refund.';
+
+// The single sentence for this booking: the fee rule on or after the booked date (down payment on file or waiting to be checked), the full refund
+// before it, or nothing to refund when no down payment was sent.
+export function cancelRuleNote(booking, todayKey) {
+  const sent = booking && ['to_verify', 'partially_paid', 'fully_paid'].includes(booking.paymentStatus);
+  if (!sent) return NOTHING_TO_REFUND_NOTE;
+  return showsSameDayWarning(booking, todayKey) ? TRANSPORT_FEE_NOTE : FULL_REFUND_NOTE;
+}

@@ -4,8 +4,7 @@ const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } = require('../constants/paymentStatus');
 const { invalid } = require('./validation');
 const { ONLINE_PAYMENT_MODES } = require('../constants/paymentModes');
-const { SERVICE_TYPE } = require('../constants/serviceTypes');
-const { unitsNeedingOwner } = require('./suppliedUnits');
+const { unitAwaitingConfirmation } = require('./paymentDue');
 
 const DOWN_PAYMENT_BOOKING_STATUSES = Object.freeze([BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED]);
 const BALANCE_BOOKING_STATUSES = Object.freeze([BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS, BOOKING_STATUS.COMPLETED]);
@@ -33,10 +32,9 @@ function downPaymentProblem(booking) {
   if (!DOWN_PAYMENT_BOOKING_STATUSES.includes(booking.status)) {
     return invalid(`A down payment cannot be sent for a booking that is ${booking.status}. It can be sent while the booking is Pending or Approved.`);
   }
-  // An installation whose unit the owner has not confirmed yet (a unit the customer asked for that is not in the catalog, still open or
-  // declined): the down payment is sent after the owner has settled it. The owner approves a booking only once its down payment is paid.
-  if (booking.service?.serviceType === SERVICE_TYPE.INSTALLATION
-    && (unitsNeedingOwner(booking.units).length > 0 || (booking.unitDecline && booking.unitDecline.reason))) {
+  // An installation whose unit Cooling Zone supplies and the owner has not confirmed yet (a request still open or declined, or a catalog unit
+  // nobody has confirmed): the down payment is sent after the owner confirms. The owner approves a booking only once its down payment is paid.
+  if (unitAwaitingConfirmation(booking)) {
     return invalid('Our team has to confirm the unit first. You can send the down payment once it is confirmed.');
   }
   if (!(booking.downPaymentPercent > 0)) return invalid('No down payment is due for this booking.');

@@ -1,0 +1,6 @@
+{
+  "bookingMaxMonths": 5,
+  "closureMaxMonths": 5,
+  "leaveMaxMonths": 5,
+  "earliestDate": "2009-01-01"
+}

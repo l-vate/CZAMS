@@ -5,6 +5,7 @@ import { DATE_BASES, formatRange, formatGeneratedAt } from '../utils/reportBuild
 import { downloadCsv } from '../utils/csvExport';
 
 import { manilaTodayKey } from '../utils/manilaTime';
+import { pastWindow, pastRangeProblem } from '../utils/dateRules';
 import { BRAND_NAME, COMPANY_PHONE } from '../config/company';
 const slug = (text) => String(text || 'customer').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'customer';
 
@@ -32,6 +33,8 @@ function StatementOfAccount({ data }) {
     if (!form.customerId) { setError('Choose a customer.'); return; }
     if (!form.fromKey || !form.toKey) { setError('Choose both a start and an end date.'); return; }
     if (form.fromKey > form.toKey) { setError('The start date must be on or before the end date.'); return; }
+    const rangeProblem = pastRangeProblem(form.fromKey, form.toKey); // from 2009-01-01 up to today
+    if (rangeProblem) { setError(rangeProblem); return; }
     setError('');
     const customer = data.customers.find((c) => c._id === form.customerId);
     const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -66,11 +69,11 @@ function StatementOfAccount({ data }) {
         </div>
         <div className="report-control">
           <label htmlFor="statement-from">From</label>
-          <input id="statement-from" type="date" value={form.fromKey} onChange={(e) => setForm({ ...form, fromKey: e.target.value })} />
+          <input id="statement-from" type="date" min={pastWindow().min} max={pastWindow().max} value={form.fromKey} onChange={(e) => setForm({ ...form, fromKey: e.target.value })} />
         </div>
         <div className="report-control">
           <label htmlFor="statement-to">To</label>
-          <input id="statement-to" type="date" value={form.toKey} onChange={(e) => setForm({ ...form, toKey: e.target.value })} />
+          <input id="statement-to" type="date" min={pastWindow().min} max={pastWindow().max} value={form.toKey} onChange={(e) => setForm({ ...form, toKey: e.target.value })} />
         </div>
         <div className="report-control">
           <label htmlFor="statement-basis">Date basis</label>
@@ -150,7 +153,7 @@ function StatementSheet({ customer, statement, meta }) {
         )}
         <p className="statement-outstanding">Outstanding balance: <strong>{statementPeso(statement.outstanding)}</strong></p>
         <ul className="report-notes">
-          <li>Total is the final price of each booking after any approved discount, with distance or mobilization charges. VAT for commercial clients is not included, the same as on the Payments page.</li>
+          <li>Total is the final price of each booking after any approved discount, with distance or mobilization charges. For commercial clients the total includes the 12% VAT, the same as on the Payments page.</li>
           <li>Paid is what the customer has paid and the admin has verified, after any refund already processed.</li>
           <li>Cancelled bookings are listed for reference only: they are not billed and owe nothing.</li>
           <li>Free back-job repair visits have nothing to pay and are not listed.</li>

@@ -10,6 +10,7 @@ export const NOTIFICATION_TYPE = Object.freeze({
   JOB_UNASSIGNED: 'job_unassigned',
   PAYMENT_VERIFIED: 'payment_verified',
   PAYMENT_REJECTED: 'payment_rejected',
+  PAYMENT_DUE: 'payment_due',
   CHARGE_UPDATED: 'charge_updated',
   SCOPE_UPDATED: 'scope_updated',
   QUOTATION_UPDATED: 'quotation_updated',

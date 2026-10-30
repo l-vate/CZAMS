@@ -2,6 +2,8 @@
 // technician should see. Pure, so it can be tested without a database.
 // Both functions return { status, message }, or null when there is nothing to say.
 
+const { addMonthsKey, BOOKING_MAX_MONTHS, EARLIEST_DATE } = require('./dateRules');
+
 const RESOLUTIONS = Object.freeze(['Complete', 'Partial', 'Unresolved']);
 const LABOR_HOURS_MAX = 24;
 
@@ -42,6 +44,9 @@ function validateReportInput({ laborHours, issueResolution, followUpRequired, fo
     const day = dayKey(followUpDate);
     if (!day) return bad('The follow-up date must be a valid date.');
     if (today && day < today) return bad('The follow-up date cannot be in the past.');
+    // a follow-up is a visit to book, so it is held to the same furthest day as a booking (utils/dateRules.js)
+    // (the edit route passes a placeholder day of 0000-01-01 when the follow-up is not being changed: then nothing is held against today)
+    if (today && today >= EARLIEST_DATE && day > addMonthsKey(today, BOOKING_MAX_MONTHS)) return bad(`The follow-up date can be at most ${BOOKING_MAX_MONTHS} months ahead.`);
   }
   return null;
 }

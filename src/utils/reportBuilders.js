@@ -7,7 +7,7 @@
 //
 // Dates: all range checks compare Manila calendar-day keys (utils/manilaTime.js): a range runs from 00:00:00 on the first day to
 // 23:59:59 on the last, both included, in Philippine time whatever the browser's zone is.
-import { getBookingLineItems } from './bookingPricing';
+import { getBookingLineItems, getPaymentBreakdown, isPriceLocked } from './bookingPricing';
 import { pricingOf } from './bookingMoney';
 import { amountPaid, refundedAmount } from './salesFigures';
 import { dayKeyOf, formatManilaDay } from './manilaTime';
@@ -266,7 +266,9 @@ export function buildPaymentsReport(data, filters) {
   const groups = PAYMENT_GROUPS.map((g) => {
     const members = billable.filter((b) => getPaymentGroup(b) === g.key);
     const total = members.reduce((s, b) => s + getBookingLineItems(b).basePrice, 0);
-    const vat = members.reduce((s, b) => s + (b.vatAmount || 0), 0);
+    // the VAT each booking really carries: the current rules for a booking still open, what was stored for one already done or paid; none
+    // when the quoted prices already include it (it is inside the total)
+    const vat = members.reduce((s, b) => s + (b.taxInclusive ? 0 : (isPriceLocked(b) ? (b.vatAmount || 0) : getPaymentBreakdown(b).vat)), 0);
     return { ...g, count: members.length, total, vat };
   });
   const sum = (field) => groups.reduce((s, g) => s + g[field], 0);

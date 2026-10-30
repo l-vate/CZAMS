@@ -20,8 +20,9 @@ const { sendNotification, notifyAdmins } = require('../utils/notifications');
 const Report = require('../models/Report');
 const {
   getBookingBasePrice, getBookingUnitsSubtotal, getBookingGrossUnitsSubtotal, getBookingTotalQuantity,
-  getSeniorDiscountAmount, getAppliedDiscount, getPaymentBreakdown,
+  getSeniorDiscountAmount, getAppliedDiscount, getPaymentBreakdown, getVatAmount, PRICING_VERSION,
 } = require('../utils/pricing');
+const { approvalPaymentBlock } = require('../utils/paymentDue');
 const Promo = require('../models/Promo');
 const { pickBestPromo } = require('../utils/promos');
 const { manilaTodayKey } = require('../utils/timeBlocks');
@@ -53,7 +54,8 @@ const { KINDS } = require('../storage/fileStore');
 const { withLocks, LockBusyError } = require('../utils/slotLock');
 const { duplicateKey, findActiveDuplicate, DuplicateBookingError } = require('../utils/duplicateBooking');
 const { PendingLimitError, SlotTakenError, slotKey, pendingLimitKey, assertUnderPendingLimit, assertSlotOpen } = require('../utils/pendingHold');
-const { manilaToday, isAtLeastDaysAhead } = require('../utils/manilaDate');
+const { manilaToday } = require('../utils/manilaDate');
+const { bookingDateProblem } = require('../utils/dateRules');
 const { readFeedback } = require('../utils/feedbackInput');
 const { normalizeContactNumber } = require('../utils/contactNumber');
 const { sendRouteError } = require('../utils/routeErrors');
@@ -75,7 +77,6 @@ const SuppliedUnit = require('../models/SuppliedUnit');
 const { resolveRefundAmounts } = require('../utils/refundAmounts');
 const Closure = require('../models/Closure');
 const { businessDayProblem } = require('../utils/businessDays');
-const { isRealDateKey } = require('../utils/closures');
 const { nextWorkingDayKey, extensionSlotProblem, addDays } = require('../utils/extensionDays');
 const {
   ASSIGNMENT_POPULATE, getMemberIds, getLeadIds, getPrimaryLeadId, getRoleFor,
@@ -121,9 +122,9 @@ const customerProofImagesOnly = (req, res, next) => {
   return next();
 };
 
-// Validate date: a real YYYY-MM-DD date at least MIN_LEAD_DAYS (constants/scheduling.js) after today in Manila (utils/manilaDate.js),
+// The booking date rule lives in utils/dateRules.js: a real date, not in the past, at least MIN_LEAD_DAYS ahead and no more than 5 calendar months
+// ahead (Manila). bookingDateProblem returns the sentence to show, or null. Older note: a real YYYY-MM-DD date at least MIN_LEAD_DAYS (constants/scheduling.js) after today in Manila (utils/manilaDate.js),
 // whatever time zone the server runs in.
-const isDateAllowed = (dateStr) => isAtLeastDaysAhead(dateStr, scheduling.MIN_LEAD_DAYS);
 
 // The next dates when enough technicians are free, offered with a refusal. It is a help, never the answer: if looking them
 // up fails or takes more than a few seconds, the refusal goes out without them.
@@ -178,7 +179,7 @@ const todayDateString = () => manilaToday();
 // The down payment in pesos, from the booking's totals right now (units minus any applied discount,
 // times the down payment percent).
 function computeDownPaymentAmount(booking) {
-  return Math.round(getBookingUnitsSubtotal(booking) * ((booking.downPaymentPercent || 0) / 100));
+  return getPaymentBreakdown(booking).downPayment;
 }
 
 // The reason an owner-initiated cancellation must carry: 3 to 200 characters. { problem } or { reason }.
@@ -373,11 +374,8 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
       }
     }
 
-    if (!isDateAllowed(date)) {
-      return res.status(400).json({
-        message: 'Selected date must be at least 3 days from today.'
-      });
-    }
+    const dateProblem = bookingDateProblem(date);
+    if (dateProblem) return res.status(400).json({ message: dateProblem });
 
     const closedOnCreate = await businessDayProblem(Closure, date);
     if (closedOnCreate) return sendProblem(res, closedOnCreate);
@@ -667,6 +665,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
           isActivelyLeaking: isActivelyLeaking === 'true' || isActivelyLeaking === true,
         } : undefined,
         isCommercial,
+        pricingVersion: PRICING_VERSION,
         poNumber: isCommercial ? (String(poNumber ?? '').trim().slice(0, 40) || null) : null,
         paymentTermsDays: termsDays,
         ...(discount ? { discount } : {}),
@@ -705,13 +704,12 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
     // 12% VAT, additive on top of the VAT-exclusive base price (after any approved
     // discount) - computed after populate since getBookingBasePrice needs the populated
     // service for per-unit-type pricing.
-    if (isCommercial) {
-      const basePrice = getBookingBasePrice(populated);
-      populated.vatAmount = Math.round(basePrice * 0.12);
-    }
-    // The amount of a down payment on file is recorded when it is verified or received, never from a submission nobody
-    // has checked.
-    if (isCommercial || discountApprovedNow || bestPromo) {
+    if (isCommercial) populated.vatAmount = getVatAmount(populated);
+    // A proof sent with the booking fixes the down payment at what the booking came to now. It is still waiting to be verified, and the
+    // amount only becomes a payment on file when an admin verifies it.
+    const proofSentWithBooking = paymentStatus === PAYMENT_STATUS.TO_VERIFY;
+    if (proofSentWithBooking) populated.downPaymentPaidAmount = getPaymentBreakdown(populated).downPayment;
+    if (isCommercial || discountApprovedNow || bestPromo || proofSentWithBooking) {
       await populated.save();
     }
 
@@ -962,6 +960,8 @@ router.patch('/:bookingId/pay', auth, allowRoles(ROLE.CUSTOMER), paymentLimiter,
       },
       { $set: {
         paymentStatus: PAYMENT_STATUS.TO_VERIFY,
+        // the amount the customer was asked to pay stays what it was when they sent it, whatever the total does afterwards
+        downPaymentPaidAmount: getPaymentBreakdown(booking).downPayment,
         ...(proofFile ? { proofFile } : {}),
         ...(submission.reference ? { referenceNumber: submission.reference } : {}),
       } },
@@ -1194,7 +1194,7 @@ router.patch('/:bookingId/discount/approve', auth, auditSpecs.discountApprove, a
     }
 
     if (booking.isCommercial) {
-      booking.vatAmount = Math.round(getBookingUnitsSubtotal(booking) * 0.12);
+      booking.vatAmount = getVatAmount(booking);
     }
 
     await booking.save();
@@ -1329,11 +1329,8 @@ router.patch('/:bookingId/reschedule', auth, allowRoles(ROLE.CUSTOMER), async (r
   try {
     const { date, time } = req.body;
 
-    if (!isDateAllowed(date)) {
-      return res.status(400).json({
-        message: 'New date must be at least 3 days from today.'
-      });
-    }
+    const dateProblem = bookingDateProblem(date);
+    if (dateProblem) return res.status(400).json({ message: dateProblem });
 
     const closedOnReschedule = await businessDayProblem(Closure, date);
     if (closedOnReschedule) return sendProblem(res, closedOnReschedule);
@@ -1785,9 +1782,8 @@ router.patch('/:bookingId/reschedule/use-date', auth, auditSpecs.rescheduleUseDa
       return res.status(403).json({ message: 'Forbidden' });
     }
     const { date, time } = req.body || {};
-    if (typeof date !== 'string' || !isRealDateKey(date) || date < manilaTodayKey()) {
-      return res.status(400).json({ message: 'Choose a real date that is not in the past.' });
-    }
+    const dateProblem = bookingDateProblem(date);
+    if (dateProblem) return res.status(400).json({ message: dateProblem });
     if (!TIME_BLOCKS.includes(time)) return res.status(400).json({ message: 'Time must be Morning or Afternoon.' });
 
     const booking = await Booking.findOne({ bookingId: req.params.bookingId });
@@ -2187,10 +2183,10 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
         return sendProblem(res, invalid('The owner said this unit cannot be supplied. Withdraw that first, or cancel the booking.', 409));
       }
       // The down payment has to be paid (and verified) before a booking is approved. A booking with no down payment due is the exception.
-      const dpDue = booking.downPaymentPercent > 0 && getPaymentBreakdown(booking).downPayment > 0;
-      const dpPaid = [PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(paymentStatus || booking.paymentStatus);
-      if (dpDue && !dpPaid) {
-        return sendProblem(res, invalid('The down payment has to be paid and verified before this booking can be approved.', 409));
+      // The reason is worded for the admin (utils/paymentDue.js), the same sentence their booking screen shows beside the disabled Approve button.
+      const block = approvalPaymentBlock(paymentStatus ? { ...booking.toObject(), service: booking.service, paymentStatus } : booking);
+      if (block) {
+        return sendProblem(res, invalid(`The down payment has to be paid and verified before this booking can be approved. ${block.message}`, 409));
       }
     }
 
@@ -2547,8 +2543,9 @@ router.patch('/:bookingId/no-show/decision', auth, allowRoles(ROLE.ADMIN), audit
       if (![BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status)) {
         return res.status(400).json({ message: 'Only an Approved or In Progress booking can be rescheduled.' });
       }
-      if (!date || !time || !isRealDateKey(date)) return sendProblem(res, invalid('Choose the new date and time.'));
-      if (date < manilaToday()) return sendProblem(res, invalid('The new date cannot be in the past.'));
+      if (!date || !time) return sendProblem(res, invalid('Choose the new date and time.'));
+      const noShowDateProblem = bookingDateProblem(date);
+      if (noShowDateProblem) return sendProblem(res, invalid(noShowDateProblem));
       if (!TIME_BLOCKS.includes(time)) return res.status(400).json({ message: 'Time must be Morning or Afternoon.' });
       const closed = await businessDayProblem(Closure, date);
       if (closed) return sendProblem(res, closed);
@@ -2829,6 +2826,8 @@ router.patch('/:bookingId/disruption/reschedule', auth, auditSpecs.disruptionRes
     if (!date || !time) {
       return res.status(400).json({ message: 'A new date and time are required.' });
     }
+    const disruptionDateProblem = bookingDateProblem(date);
+    if (disruptionDateProblem) return res.status(400).json({ message: disruptionDateProblem });
 
     const booking = await Booking.findOne({ bookingId: req.params.bookingId }).populate('service');
     if (!booking) return res.status(404).json({ message: 'Booking not found' });

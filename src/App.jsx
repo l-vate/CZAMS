@@ -45,6 +45,7 @@ import NotificationsPage from './pages/notifications';
 import NotFoundPage from './pages/not_found_page';
 
 import RequireRole from './components/require_role';
+import ScrollToTop from './components/scroll_to_top';
 import { ROLE } from './constants/roles';
 import { refreshSession } from './services/sessionService';
 
@@ -57,6 +58,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <Routes>
 
         {/* Public Pages */}

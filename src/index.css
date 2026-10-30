@@ -1003,3 +1003,11 @@ h1, h2, h3, h4, h5, h6 {
 .not-found-title { margin: 0; }
 .not-found-text { margin: 0; max-width: 40ch; }
 .not-found-btn { text-decoration: none; }
+
+/* the top of the booking wizard: where Next and Back scroll to, with room for the sticky page chrome */
+.bs-wizard-top { scroll-margin-top: 12px; height: 0; }
+.bs-card-title:focus { outline: none; }
+
+/* ---------- anything that covers the page: the page behind it is held still (components/modal_manager.jsx) ---------- */
+html.scroll-locked { scroll-behavior: auto; }
+.modal-overlay, .cbd-overlay, .sdm-overlay, .ann-modal-overlay, .svc-modal-overlay { overscroll-behavior: contain; }

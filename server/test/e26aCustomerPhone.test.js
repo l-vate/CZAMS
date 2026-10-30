@@ -109,7 +109,7 @@ test('A3: the desktop layout is untouched, the staff profile keeps its own rules
   assert.match(src('css', 'staff.css'), /.profile-card {[^}]*padding: 32px/, 'the shared base card rule is unchanged');
   const page = src('pages', 'customer', 'profile.jsx');
   for (const [id, attrs] of [['firstName', 'autoComplete="given-name"'], ['lastName', 'autoComplete="family-name"'], ['email', 'autoComplete="email"\s*inputMode="email"'], ['phone', 'autoComplete="tel"\s*inputMode="tel"'], ['address', 'autoComplete="street-address"']]) {
-    assert.match(page, new RegExp(`id="${id}"\s*name="${id}"\s*${attrs}\s*onFocus=\{revealField\}`), id);
+    assert.match(page, new RegExp(`id="${id}"\\s*name="${id}"\\s*${attrs}\\s*onFocus=\\{revealField\\}`), id);
   }
   assert.match(page, /scrollIntoView\(\{ block: 'center', behavior: 'smooth' \}\)/, 'the focused field scrolls into view');
 });

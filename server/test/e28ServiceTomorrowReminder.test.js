@@ -238,3 +238,15 @@ test('the block text and the schedule', () => {
   const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
   assert.match(server, /startServiceTomorrowReminderSchedule\(\);/);
 });
+
+test('if reading the booking after the claim fails, the claim is given back and the next run sends the reminder', async () => {
+  const booking = make('CZ-1');
+  const realPopulate = booking.populate;
+  booking.populate = async () => { throw new Error('read failed'); };
+  const failed = await runServiceTomorrowReminders({ now: AT_HOUR });
+  assert.equal(failed.failed, 1);
+  assert.ok(!byId('CZ-1').serviceReminderSentFor, 'the claim was given back');
+  booking.populate = realPopulate;
+  const retried = await runServiceTomorrowReminders({ now: MID_DAY });
+  assert.equal(retried.reminded, 1);
+});

@@ -7,6 +7,7 @@
 const Booking = require('../models/Booking');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
+require('../models/Service'); // registers the model the booking's service is read through
 const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const { NOTIFICATION_TYPE } = require('../constants/notificationTypes');
 const settings = require('../constants/serviceTomorrowReminder');
@@ -65,12 +66,13 @@ async function remindOne(booking, tomorrow, now) {
     { _id: booking._id, status: BOOKING_STATUS.APPROVED, date: tomorrow, serviceReminderSentFor: { $ne: tomorrow } },
     { $set: { serviceReminderSentFor: tomorrow, serviceReminderSentAt: now } },
     { returnDocument: 'after' }
-  ).populate('service', 'name');
+  );
   if (!claimed) return null;
 
   const memberIds = getMemberIds(claimed);
   const result = { customer: false, technicians: 0 };
   try {
+    await claimed.populate('service', 'name');
     const members = memberIds.length > 0 ? await User.find({ _id: { $in: memberIds } }).select('name') : [];
     const names = memberIds.map((id) => members.find((m) => String(m._id) === String(id))).filter(Boolean).map((m) => m.name);
 

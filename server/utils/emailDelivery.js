@@ -51,6 +51,12 @@ const EMAIL_NOTIFICATION_TYPES = new Set([
   NOTIFICATION_TYPE.NO_SHOW_REJECTED,
 ]);
 
+// An address that must never be mailed: the reserved ".invalid" top level domain never resolves, and example.com, example.org and example.net are
+// reserved for documentation (RFC 2606), so a message to them can only bounce or reach a stranger. The evaluator sample accounts and test data use
+// them. Subdomains count too. Nothing is queued, sent or retried for such an address.
+const isUndeliverableAddress = (email) => /@([^@\s]*\.)?(invalid|example\.(com|org|net))\s*$/i.test(String(email || ''));
+const UNDELIVERABLE_MESSAGE = 'Not sent: the address is on a reserved domain (.invalid or example.com) that is never mailed.';
+
 const MAX_ATTEMPTS = 5;
 const BATCH_SIZE = 10;
 const PROCESSING_LEASE_MS = 10 * 60 * 1000;
@@ -86,6 +92,8 @@ async function queueNotificationEmail(userId, type, message, notificationId, env
 
   const recipient = await User.findById(userId).select('email role');
   if (!recipient?.email) return null;
+  // an address that can never be delivered (the reserved .invalid domain, used by the evaluator sample accounts) is never queued: no attempt, no retry, no log noise
+  if (isUndeliverableAddress(recipient.email)) return null;
 
   const { html, text } = renderNotificationEmail({ type, message, appUrl: env.APP_URL, booking, recipientRole: recipient.role });
   return EmailDelivery.create({
@@ -98,6 +106,8 @@ async function queueNotificationEmail(userId, type, message, notificationId, env
 }
 
 async function sendEmail(delivery, env = process.env) {
+  // the last line of defence: whichever way a message gets here (the queue, a password reset), it is never handed to the mail transport
+  if (isUndeliverableAddress(delivery.recipientEmail)) throw new Error(UNDELIVERABLE_MESSAGE);
   const config = smtpConfig(env);
   if (!config) throw new Error('SMTP email settings are incomplete.');
 
@@ -148,6 +158,13 @@ async function processPendingEmailDeliveries({ now = new Date(), send = sendEmai
       { sort: { nextAttemptAt: 1, createdAt: 1 }, new: true }
     );
     if (!delivery) break;
+
+    // a message already queued for such an address (made before this rule) is marked failed at once: no attempt, no retry, no log line per try
+    if (isUndeliverableAddress(delivery.recipientEmail)) {
+      await EmailDelivery.updateOne({ _id: delivery._id }, { $set: { status: 'failed', lastError: UNDELIVERABLE_MESSAGE }, $unset: { processingAt: 1 } });
+      processed += 1;
+      continue;
+    }
 
     try {
       await send(delivery);
@@ -202,6 +219,8 @@ module.exports = {
   buildMessage,
   sendEmailNow,
   queueNotificationEmail,
+  isUndeliverableAddress,
+  UNDELIVERABLE_MESSAGE,
   processPendingEmailDeliveries,
   startEmailDeliverySchedule,
 };

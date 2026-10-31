@@ -36,6 +36,9 @@ const userSchema = new mongoose.Schema({
   // Commercial customers only, shown on their invoice. Accounts made before these existed have none.
   companyName: { type: String, maxlength: 80 },
   representativeName: { type: String, maxlength: 80 },
+  // Evaluator sample data (scripts/seedEvaluatorData.js): the marker that lets the script find, and remove, only what it made. Nothing else reads these.
+  isEvaluatorSample: { type: Boolean, default: undefined },
+  evaluatorBatch: { type: String, default: undefined },
 }, { timestamps: true, collection: 'users' });
 
 // The password (a bcrypt hash, or an old plain-text value) never leaves the server in a response.

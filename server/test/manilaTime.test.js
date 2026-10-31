@@ -74,7 +74,7 @@ test('the service reminder runs on Manila time: the cron has the Asia/Manila tim
   const fs = require('node:fs');
   const job = fs.readFileSync(path.join(__dirname, '..', 'jobs', 'serviceReminderJob.js'), 'utf8');
   assert.match(job, /\{ timezone: TIMEZONE \}/);
-  assert.match(job, /monthsAgoManilaKey\(SERVICE_REMINDER_TRIGGER_MONTHS\)/);
+  assert.match(job, /monthsAgoManilaKey\(SERVICE_REMINDER_TRIGGER_MONTHS(, now)?\)/);
   assert.doesNotMatch(job, /setMonth/);
   const classification = fs.readFileSync(path.join(__dirname, '..', 'utils', 'classification.js'), 'utf8');
   assert.match(classification, /monthsAgoManila\(RETURN_CUSTOMER_WINDOW_MONTHS\)/);

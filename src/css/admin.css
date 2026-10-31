@@ -3133,3 +3133,22 @@
 @media (max-width: 340px) {
   .stats-container { grid-template-columns: 1fr; }
 }
+
+/* Booking cards: "View details" is a real secondary button (it used to look like an underlined text link), at the right of the card, full width
+   on a phone. Its ::after still stretches over the card, so the whole card opens the details. */
+.req-card-bottom { display: flex; justify-content: flex-end; margin-top: 4px; }
+.req-card-link {
+  justify-content: center;
+  padding: 0 18px;
+  border: 1.5px solid #b8c7d6;
+  border-radius: 10px;
+  background: var(--white);
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.req-card-link:hover, .req-card:hover .req-card-link { background: var(--frost); border-color: var(--navy); color: var(--navy); text-decoration: none; }
+.req-card-link:focus-visible { outline: 3px solid var(--action-focus); outline-offset: 2px; }
+@media (max-width: 768px) {
+  .req-card-bottom { display: block; }
+  .req-card-link { display: flex; width: 100%; box-sizing: border-box; }
+}

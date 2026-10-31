@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { FiLogOut } from 'react-icons/fi';
 import { NavLink, useNavigate, useLocation } from "react-router-dom"; 
 import { BRAND_NAME, BRAND_SHORT, BRAND_SUB } from '../../config/company';
 import { resetNeedsAttention } from '../../hooks/useNeedsAttention';
@@ -151,7 +152,7 @@ function AdminSidebar({ onNavigate }) {
 
       <div className="sidebar-logout">
         <button type="button" className="sidebar-link" onClick={handleLogout}>
-          Log Out
+          <FiLogOut aria-hidden="true" /> Log Out
         </button>
       </div>
     </aside>

@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
 import PaymentModal from '../../components/payment_modal';
 import ReceiptModal from '../../components/receipt_modal';
-import { FiClock, FiFileText, FiCreditCard, FiEye } from 'react-icons/fi';
+import { FiClock, FiFileText, FiCreditCard, FiEye, FiCalendar } from 'react-icons/fi';
+import { billBadgeKey, formatBookedDate, formatCreatedDate, peso2 } from '../../utils/billingCard';
 import { getBookingLineItems, getPaymentBreakdown } from '../../utils/bookingPricing';
 import { usePaymentSettings } from '../../utils/paymentSettings';
 import PaymentSettingsUnavailable from '../../components/payment_settings_unavailable';
-import { getFilterPillStyle, textOnFill } from '../../utils/statusColors';
+import { getFilterPillStyle } from '../../utils/statusColors';
 import { ApiError } from '../../services/apiClient';
 import { listMyBookings } from '../../services/bookingService';
 import { submitPayment, submitBalancePayment } from '../../services/paymentService';
@@ -168,7 +169,8 @@ paymentStatus: b.paymentStatus,
     });
 
   // the down payments and balances that are due right now, newest first
-  const dueBills = bills.filter((bill) => bill.due.kind && !bill.isCancelled && !bill.isBackJob && !bill.awaitingConfirmation)
+  // a proof that is still waiting to be verified is not asked for again (the server refuses a second one): that bill shows "Waiting for verification"
+  const dueBills = bills.filter((bill) => bill.due.kind && !bill.isCancelled && !bill.isBackJob && !bill.awaitingConfirmation && !bill.isToVerify && !bill.isBalanceToVerify)
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   const BILL_STATUS_ORDER = { unpaid: 0, partial: 1, paid: 2 };
@@ -187,20 +189,7 @@ paymentStatus: b.paymentStatus,
   });
   const lastActiveBillIndex = sortedBills.reduce((last, bill, i) => (isCancelledBill(bill) ? last : i), -1);
 
-  // Payment-status colors, converged with admin.css's .status-pill--* (same
-  // tokens from index.css) so the two files can't drift apart again: Partially
-  // Paid and To Verify now match admin's existing blue/amber choices rather than
-  // keeping their own (this file previously had them swapped - To Verify was
-  // blue, Partially Paid was amber). Cancelled is a deliberately neutral gray,
-  // not red - see the --payment-cancelled-* comment in index.css for why.
-  const getStatusColor = (bill) => {
-    if (bill.isRefunded) return 'var(--payment-refunded-txt)';
-    if (bill.isCancelled) return 'var(--payment-cancelled-txt)';
-    if (bill.isFullyPaid) return 'var(--success)';
-    if (bill.isPartiallyPaid) return 'var(--primary)';
-    if (bill.isToVerify) return 'var(--warning)';
-    return 'var(--danger)';
-  };
+  // The status badge colours live in customer.css (.billing-badge--*), one family per state, chosen by billBadgeKey (utils/billingCard.js).
 
   const handlePaymentSubmit = async ({ proof, referenceNumber }) => {
     try {
@@ -233,7 +222,7 @@ paymentStatus: b.paymentStatus,
     >
       <div className="customer-billings-x1">
         {paymentSettingsFailed && <PaymentSettingsUnavailable onRetry={refetchPaymentSettings} />}
-        <div className="customer-billings-x2">
+        <div className="customer-billings-x2 billing-filter-pills">
           {filters.map((filter) => (
             <button
               key={filter}
@@ -245,6 +234,13 @@ paymentStatus: b.paymentStatus,
               {filter}
             </button>
           ))}
+        </div>
+        {/* On a phone (up to 768 px) the pills fold into one dropdown; it sets the same filter as the pills */}
+        <div className="billing-filter-select">
+          <label htmlFor="billing-filter-select">Show</label>
+          <select id="billing-filter-select" value={activeFilter} onChange={(e) => setActiveFilter(e.target.value)}>
+            {filters.map((filter) => <option key={filter} value={filter}>{filter}</option>)}
+          </select>
         </div>
       </div>
 
@@ -288,7 +284,13 @@ paymentStatus: b.paymentStatus,
             const payDown = bill.due.kind === 'down';
             const payBalance = bill.due.kind === 'balance' || (bill.isPartiallyPaid && !bill.isBalancePaid && !bill.isBalanceToVerify && !bill.isCancelled);
             const waitingForConfirmation = bill.awaitingConfirmation && !bill.isCancelled; // an installation is paid after our team confirms the unit
-            const canPay = (payDown || payBalance) && !waitingForConfirmation;
+            const proofWaiting = (bill.isToVerify || bill.isBalanceToVerify) && !bill.isCancelled;
+            const canPay = (payDown || payBalance) && !waitingForConfirmation && !proofWaiting;
+            const badgeKey = billBadgeKey(bill);
+            const openDetails = () => navigate(`/customer/book_details/${bill.id}`);
+            // the same "due now" the list above uses: nothing is due while a proof waits, a unit is being confirmed, or the booking is cancelled
+            const dueNow = Boolean(bill.due.kind) && !bill.isCancelled && !bill.isBackJob && !waitingForConfirmation && !proofWaiting;
+            const dueAmount = bill.due.kind === 'balance' ? bill.remaining : bill.toPayNow;
             const openPayment = () => {
               setSelectedBill(bill);
               setPaymentType(payDown ? 'downpayment' : 'balance');
@@ -304,75 +306,75 @@ paymentStatus: b.paymentStatus,
                 </div>
               )}
             <div
-              className={`tech-job-card ${isCancelledBill(bill) ? 'tech-job-card--dimmed' : ''}`}
-              style={{ borderLeftColor: bill.isBackJob ? 'var(--success)' : getStatusColor(bill) }}
+              className={`tech-job-card billing-card billing-card--${badgeKey} ${isCancelledBill(bill) ? 'tech-job-card--dimmed' : ''}`}
+              onClick={openDetails}
             >
-              <div className="tech-job-info">
-                <div className="tech-job-top-row customer-billings-x4">
-                  <small className="tech-job-date-label">{bill.date}</small>
-                  <span
-                    className="tech-job-status-badge"
-                    style={{ background: bill.isBackJob ? 'var(--success)' : getStatusColor(bill), color: textOnFill(bill.isBackJob ? 'var(--success)' : getStatusColor(bill)) }}
-                  >
-                    {bill.isBackJob ? 'Free (Back Job)' : bill.status}
+              <div className="billing-card-head">
+                <span className="billing-card-service">{bill.service}</span>
+                <span className={`billing-badge billing-badge--${badgeKey}`}>
+                  {bill.isBackJob ? 'Free (Back Job)' : bill.status}
+                </span>
+              </div>
+              <small className="billing-card-id">{bill.id}</small>
+
+              <div className="billing-card-dates">
+                <span className="billing-card-booked"><FiCalendar aria-hidden="true" /> Booked for {formatBookedDate(bill.raw.date)}</span>
+                <span className="billing-card-created">Created {formatCreatedDate(bill.createdAt)}</span>
+              </div>
+
+              <div className="billing-card-money">
+                <span className="billing-card-total">Total <strong>{peso2(bill.basePrice || 0)}</strong></span>
+                {dueNow && (
+                  <span className="billing-card-due">
+                    Due now <strong>{peso2(dueAmount)}</strong> <small>{bill.due.kind === 'balance' ? 'Balance' : 'Down payment'}</small>
                   </span>
-                  {bill.balanceNote && (
-                    <span className={`customer-billings-x5 balance-note--${bill.balanceNote.tone}`}>
-                      {bill.balanceNote.text}
-                    </span>
-                  )}
-                </div>
-
-                <div className="tech-job-service">{bill.service}</div>
-                <small className="tech-job-booking">{bill.id}</small>
-                {bill.isRejected && !bill.isCancelled && (
-                  <p className="customer-billings-x6">
-                    {bill.rejectionReason ? `Payment rejected: ${bill.rejectionReason}. Please send a new proof.` : 'Payment rejected. Please send a new proof.'}
-                  </p>
-                )}
-                {waitingForConfirmation && (
-                  <p className="customer-billings-x6 customer-billings-wait">
-                    We are confirming the unit. You will be asked to pay your down payment once it is confirmed.
-                  </p>
                 )}
               </div>
 
-              <div className="tech-job-meta">
-                <FiClock /> {bill.date}
-              </div>
+              {bill.balanceNote && (
+                <span className={`customer-billings-x5 balance-note--${bill.balanceNote.tone}`}>
+                  {bill.balanceNote.text}
+                </span>
+              )}
+              {bill.isRejected && !bill.isCancelled && (
+                <p className="customer-billings-x6">
+                  {bill.rejectionReason ? `Payment rejected: ${bill.rejectionReason}. Please send a new proof.` : 'Payment rejected. Please send a new proof.'}
+                </p>
+              )}
+              {waitingForConfirmation && (
+                <p className="customer-billings-x6 customer-billings-wait">
+                  We are confirming the unit. You will be asked to pay your down payment once it is confirmed.
+                </p>
+              )}
 
-              <div className="tech-job-meta">
-                Price: ₱{(bill.basePrice || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-
-              <div className="customer-billings-x7">
+              <div className="billing-card-actions">
                 {waitingForConfirmation ? (
-                  <button type="button" className="view-details-btn" disabled title="Our team has to confirm the unit first">
+                  <button type="button" className="billing-btn billing-btn--secondary" disabled title="Our team has to confirm the unit first">
                     <FiClock size={14} /> Confirming your unit
                   </button>
-                ) : canPay ? (
+                ) : canPay && (
                   <button
                     type="button"
-                    className="bs-next-btn customer-billings-x9"
-                    onClick={openPayment}
+                    className="bs-next-btn billing-btn billing-btn--primary"
+                    onClick={(e) => { e.stopPropagation(); openPayment(); }}
                     disabled={!paymentSettingsReady}
                   >
                     <FiCreditCard size={14} /> {bill.isRejected || bill.isBalanceRejected ? 'Resubmit' : 'Pay Now'}
                   </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="view-details-btn"
-                    onClick={() => navigate(`/customer/book_details/${bill.id}`)}
-                  >
-                    <FiEye size={14} /> View Details
-                  </button>
                 )}
-
+                <button
+                  type="button"
+                  className="billing-btn billing-btn--secondary"
+                  onClick={(e) => { e.stopPropagation(); openDetails(); }}
+                >
+                  <FiEye size={14} /> View details
+                </button>
                 {bill.isFullyPaid && !bill.isCancelled && (
                   <button
-                    className="customer-billings-x8"
-                    onClick={() => {
+                    type="button"
+                    className="billing-btn billing-btn--secondary"
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setSelectedBill(bill);
                       setShowReceipt(true);
                     }}

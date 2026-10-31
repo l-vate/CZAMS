@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getMe } from '../services/userService';
 import { documentTitle } from '../utils/receiptStatus';
+import { customerPaymentStatus, PAYMENT_LABEL } from '../utils/customerPayment';
 import { ProofLink } from './proof_file';
 import { BRAND_NAME, COMPANY_PHONE } from '../config/company';
 import { formatDays, formatMonths, siteLines, vatInside } from '../utils/quotationTerms';
@@ -50,6 +51,19 @@ function ReceiptModal({ form, booking, billTo, onClose }) {
   const paymentDueAt = booking?.paymentDueAt || form.paymentDueAt;
   const isBilledOnTerms = isCommercial && !!paymentTermsDays;
 
+  // The Status row says the same as Billing and the booking details (utils/customerPayment.js): nothing reads as paid or partially paid until an
+  // admin has verified the payment. A proof that was just sent is "Waiting for verification". Amounts are not touched.
+  const paymentState = isFullyPaid
+    ? { key: 'fully_paid', label: PAYMENT_LABEL.FULLY_PAID }
+    : customerPaymentStatus({
+      paymentStatus: booking?.paymentStatus ?? form.paymentStatus,
+      balancePaymentStatus: booking?.balancePaymentStatus ?? form.balancePaymentStatus,
+      balancePaid,
+    });
+  const statusText = isBilledOnTerms ? 'Billed on Terms'
+    : paymentState.key === 'unpaid' && dpPercent === null ? 'Down payment not set'
+      : paymentState.label;
+
   // Company details of a Commercial customer. A customer page leaves `billTo` out, so their own
   // account is read once; accounts made before these fields existed simply have none.
   const [ownBillTo, setOwnBillTo] = useState(null);
@@ -74,9 +88,9 @@ function ReceiptModal({ form, booking, billTo, onClose }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="receipt-modal-card" onClick={(e) => e.stopPropagation()}>
 
-        <div className="modal-header">
+        <div className="modal-header receipt-modal-header">
           <span />
-          <button className="modal-close-btn" onClick={onClose}>✕</button>
+          <button className="modal-close-btn" onClick={onClose} aria-label="Close" title="Close">✕</button>
         </div>
 
         <div className="receipt-print-area">
@@ -131,25 +145,25 @@ function ReceiptModal({ form, booking, billTo, onClose }) {
             <table className="receipt-table">
               <thead>
                 <tr>
-                  <th>Description of Service</th>
-                  <th>Quantity</th>
-                  <th>Price</th>
+                  <th className="receipt-col-desc"><span className="receipt-th-long">Description of Service</span><span className="receipt-th-short">Description</span></th>
+                  <th className="receipt-col-qty">Quantity</th>
+                  <th className="receipt-col-price">Price</th>
                 </tr>
               </thead>
               <tbody>
                 {form.lineItems?.length > 0 ? (
                   form.lineItems.filter((li) => !li.isDiscount).map((li, i) => (
                     <tr key={i}>
-                      <td>{form.service || '-'} - {li.type || '-'}{li.brandModel ? ` (${li.brandModel})` : ''}{li.hp ? ` ${li.hp} HP` : ''}</td>
-                      <td>{li.quantity}</td>
-                      <td>₱{li.subtotal.toLocaleString()}</td>
+                      <td className="receipt-col-desc">{form.service || '-'} - {li.type || '-'}{li.brandModel ? ` (${li.brandModel})` : ''}{li.hp ? ` ${li.hp} HP` : ''}</td>
+                      <td className="receipt-col-qty">{li.quantity}</td>
+                      <td className="receipt-col-price">₱{li.subtotal.toLocaleString()}</td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td>{form.service || '-'}</td>
-                    <td>1</td>
-                    <td>₱{basePrice.toLocaleString()}</td>
+                    <td className="receipt-col-desc">{form.service || '-'}</td>
+                    <td className="receipt-col-qty">1</td>
+                    <td className="receipt-col-price">₱{basePrice.toLocaleString()}</td>
                   </tr>
                 )}
               </tbody>
@@ -279,8 +293,8 @@ function ReceiptModal({ form, booking, billTo, onClose }) {
 
             <div className="receipt-info-row">
               <span>Status</span>
-              <span className="receipt-status-paid">
-                {isBilledOnTerms ? 'Billed on Terms' : isFullyPaid ? 'Fully Paid' : dpPercent === null ? 'Down payment not set' : `${dpPercent}% Paid`}
+              <span className={`receipt-status-paid receipt-status--${isBilledOnTerms ? 'terms' : paymentState.key}`}>
+                {statusText}
               </span>
             </div>
 

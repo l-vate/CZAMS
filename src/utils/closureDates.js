@@ -47,3 +47,18 @@ export function formatClosureRange(start, end) {
   if (m1 !== m2) return `${MONTHS[m1 - 1]} ${d1} - ${MONTHS[m2 - 1]} ${d2}, ${y1}`;
   return `${MONTHS[m1 - 1]} ${d1} - ${d2}, ${y1}`;
 }
+
+export const MAX_RANGE_DAYS = 31;
+
+// Every date key from `start` to `end` inclusive, worked out in UTC so the timezone never matters. Stops one past MAX_RANGE_DAYS so a
+// caller can tell the range is too long without building a huge list.
+export function dateRange(start, end) {
+  const keys = [];
+  const [y, m, d] = start.split('-').map(Number);
+  const cursor = new Date(Date.UTC(y, m - 1, d));
+  while (cursor.toISOString().slice(0, 10) <= end && keys.length <= MAX_RANGE_DAYS) {
+    keys.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return keys;
+}

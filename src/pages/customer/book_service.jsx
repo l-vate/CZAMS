@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomerLayout from './customer_layout';
 import PaymentModal from '../../components/payment_modal';
@@ -876,6 +876,21 @@ function BookService() {
   const { notice, showNotice, clearNotice } = useNotice();
   const [submitting, setSubmitting] = useState(false);
   const [step, setStep] = useState(1);
+  const wizardRef = useRef(null);
+  const firstStepRender = useRef(true);
+
+  // Moving between steps (Next and Back): back to the top of the form, and the keyboard focus on the new step's heading.
+  useEffect(() => {
+    if (firstStepRender.current) { firstStepRender.current = false; return; }
+    const root = wizardRef.current;
+    if (!root) return;
+    root.scrollIntoView({ behavior: 'instant', block: 'start' });
+    const heading = root.parentElement.querySelector('.bs-card-title');
+    if (heading) {
+      heading.setAttribute('tabindex', '-1');
+      heading.focus({ preventScroll: true });
+    }
+  }, [step]);
 
   const [form, setForm] = useState({
     service: '',
@@ -1009,6 +1024,7 @@ function BookService() {
       <Notice message={notice} onClose={clearNotice} />
       <h1 className="dashboard-welcome">Tell us what you need</h1>
 
+      <div ref={wizardRef} className="bs-wizard-top" />
       <StepIndicator current={step} total={totalSteps} />
 
       {loading ? (
@@ -1041,13 +1057,14 @@ function BookService() {
         </>
       )}
 
-      {!isLast && nextProblem() && (
-        <p className="bs-next-reason" role="status" id="bs-next-reason">{nextProblem()}</p>
-      )}
-      <div className="bs-nav-row">
+      {/* the step text, then (when Next is off) why, then Back and Next: one footer, the same on every step */}
+      <div className="bs-nav-row bs-footer">
         <span className="bs-step-label">
           {stepCounter(steps, step)}
         </span>
+        {!isLast && nextProblem() && (
+          <p className="bs-next-reason" role="status" id="bs-next-reason">{nextProblem()}</p>
+        )}
 
         <div className="bs-nav-btns">
           {step > 1 && (

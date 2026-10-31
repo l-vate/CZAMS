@@ -31,6 +31,8 @@ import './css/components/user_details_modal.css'
 import "./css/modals/service_request_modal.css"
 import './css/modals/payment_modal.css';
 import './css/modals/receipt_modal.css';
+import './css/components/back_button.css';
+import './css/components/action_buttons.css';
 import './css/modals/service_report_pdf_modal.css';
 
 // last, so the phone touch sizes apply on top of every page's own rules

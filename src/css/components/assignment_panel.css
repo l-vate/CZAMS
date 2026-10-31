@@ -53,7 +53,7 @@
 .assignment-icon-btn:hover:not(:disabled) { background: var(--navy-soft); border-color: var(--navy-soft); color: #fff; }
 .assignment-icon-btn--remove:hover:not(:disabled) { background: var(--danger); border-color: var(--danger); }
 .assignment-icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.assignment-icon-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.assignment-icon-btn:focus-visible { outline: 2px solid var(--action-focus); outline-offset: 2px; }
 .assignment-row-actions .sdm-btn { min-height: 40px; min-width: 40px; padding-left: 8px; padding-right: 8px; font-size: 0.8125rem; white-space: normal; overflow-wrap: anywhere; box-sizing: border-box; }
 .assignment-panel-x1 .assignment-row .sdm-btn:disabled { opacity: 0.5; }
 @media (max-width: 480px) {
@@ -112,4 +112,44 @@
   transition: background 0.15s ease;
 }
 .unit-decline-contact:hover { background: var(--navy); }
-.unit-decline-contact:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.unit-decline-contact:focus-visible { outline: 2px solid var(--action-focus); outline-offset: 2px; }
+
+/* ============ ASSIGNED TECHNICIANS: controls ============
+   Markup order is: Add another technician, the reason, Save assignment (the reason is asked before the action). On a wide screen they look as
+   they always did: Add and Save side by side, the reason full width below them. */
+.assignment-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.assignment-actions .assignment-add { order: 0; }
+.assignment-actions .assignment-save { order: 1; }
+.assignment-actions .assignment-reason { order: 2; flex: 1 1 100%; }
+.assignment-row-move { display: contents; }
+.assignment-badge-num { display: none; }
+
+/* ============ ASSIGNED TECHNICIANS, ADMIN BOOKING ACTIONS ON A PHONE ============ */
+@media (max-width: 768px) {
+  /* one row card per technician: badge, dropdown, 44 px remove button on one line; the move buttons on a line under it */
+  .assignment-row { display: grid; grid-template-columns: auto minmax(0, 1fr) 44px; align-items: center; gap: 8px; padding: 8px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; }
+  .assignment-row .assignment-badge { grid-column: 1; grid-row: 1; min-width: 0; }
+  .assignment-row .assignment-badge-long { display: none; }
+  .assignment-row .assignment-badge-num { display: inline; }
+  .assignment-row .assignment-badge--primary { padding-left: 12px; padding-right: 12px; }
+  .assignment-row .assignment-row-select { grid-column: 2; grid-row: 1; min-height: 44px; width: 100%; }
+  .assignment-row-actions { display: contents; }
+  .assignment-row .assignment-icon-btn--remove { grid-column: 3; grid-row: 1; width: 44px; height: 44px; }
+  .assignment-row-move { grid-column: 1 / -1; grid-row: 2; display: flex; gap: 8px; justify-content: flex-end; }
+  .assignment-row-move:empty { display: none; }
+  .assignment-row .assignment-icon-btn { width: 44px; height: 44px; }
+  .assignment-row-name { grid-column: 2 / -1; }
+
+  /* Add another technician, the reason, Save assignment: right aligned buttons of equal width, 44 px tall, 12 px apart */
+  .assignment-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, max-content); gap: 12px; align-items: start; }
+  .assignment-actions .assignment-add, .assignment-actions .assignment-reason, .assignment-actions .assignment-save { order: 0; }
+  .assignment-actions .assignment-add, .assignment-actions .assignment-save { grid-column: 2; width: 100%; min-height: 44px; justify-content: center; text-align: center; white-space: normal; }
+  .assignment-actions .assignment-reason { grid-column: 1 / -1; min-height: 44px; font-size: 16px; }
+}
+/* a very narrow phone: the badge sits above the dropdown, inside the same row card; the remove button stays at the right end of the dropdown line */
+@media (max-width: 360px) {
+  .assignment-row .assignment-badge { grid-column: 1 / -1; grid-row: 1; justify-self: start; }
+  .assignment-row .assignment-row-select { grid-column: 1 / 3; grid-row: 2; }
+  .assignment-row .assignment-icon-btn--remove { grid-column: 3; grid-row: 2; }
+  .assignment-row-move { grid-row: 3; }
+}

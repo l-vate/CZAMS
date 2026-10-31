@@ -52,7 +52,6 @@ const CLIENT_TYPE_FILTERS = [
   { key: 'all', label: 'All Clients' },
   { key: 'Residential', label: 'Residential' },
   { key: 'Commercial', label: 'Commercial' },
-  { key: 'Unknown', label: 'Deleted accounts' },
 ];
 
 const RECENT_BOOKINGS_LIMIT = 5;

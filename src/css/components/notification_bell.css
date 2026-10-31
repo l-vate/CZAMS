@@ -20,7 +20,7 @@
 }
 
 .topbar-search:focus-within {
-  border-color: var(--primary);
+  border-color: var(--action);
 }
 
 .topbar-search input {
@@ -352,7 +352,7 @@
 
 .notif-tab:hover { color: var(--navy); }
 .notif-tab--active { border-bottom-color: var(--navy-soft); color: var(--navy); }
-.notif-tab:focus-visible { outline: 3px solid var(--primary); outline-offset: -3px; border-radius: 6px; }
+.notif-tab:focus-visible { outline: 3px solid var(--action-focus); outline-offset: -3px; border-radius: 6px; }
 
 .notif-tab-count {
   min-width: 20px;
@@ -478,7 +478,7 @@
 
 .notif-unread-toggle--on .notif-unread-track { background: var(--navy-soft); }
 .notif-unread-toggle--on .notif-unread-knob { transform: translateX(16px); }
-.notif-sort-select:focus-visible, .notif-unread-toggle:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; border-radius: 10px; }
+.notif-sort-select:focus-visible, .notif-unread-toggle:focus-visible { outline: 3px solid var(--action-focus); outline-offset: 2px; border-radius: 10px; }
 
 .notif-limit-note { margin: 12px 0 0; font-size: 12px; color: var(--ink-soft); text-align: center; }
 

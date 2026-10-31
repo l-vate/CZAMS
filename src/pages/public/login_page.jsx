@@ -44,7 +44,7 @@ function LoginPage() {
   };
 
   return (
-    <AuthShell title="Welcome back" subtitle="Sign in to your account to continue." backTo={null} smallBackTo="/">
+    <AuthShell title="Welcome back" subtitle="Sign in to your account to continue." backTo="/">
       <form className="ap-form" onSubmit={handleSubmit}>
         <TextField
           id="email"

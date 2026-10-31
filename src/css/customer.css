@@ -342,14 +342,33 @@
   flex-shrink: 0;
 }
 
+/* One spacing rhythm for every field group in the five steps, defined here and nowhere else:
+   label to input and input to hint 8 px, inputs inside one group 12 px apart, one group to the next 24 px. */
+.bs-card {
+  --bs-gap-label: 8px;
+  --bs-gap-hint: 8px;
+  --bs-gap-inputs: 12px;
+  --bs-gap-group: 20px; /* 24 px on a phone, set once in the phone block at the end of this file */
+}
+
 .bs-field-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 20px;
+  gap: var(--bs-gap-label);
+  margin-bottom: var(--bs-gap-group);
 }
 
 .bs-field-group:last-child { margin-bottom: 0; }
+
+/* two groups side by side (Date and Time): the pair keeps the group gap below it, whichever group is last; stacked, the rows keep it too */
+.bs-card > .bs-two-col { margin-bottom: var(--bs-gap-group); row-gap: var(--bs-gap-group); }
+.bs-card > .bs-two-col > .bs-field-group { margin-bottom: 0; }
+/* inputs inside one group (Site details, the unit rows' hints) */
+.bs-field-group .bs-two-col { gap: var(--bs-gap-inputs); }
+.bs-card .bs-field-group > .bs-field-error,
+.bs-card .bs-field-group > .bs-area-warning,
+.bs-card .bs-field-group > .customer-book-service-x2 { margin: 0; }
+
 
 .waiver-box {
   padding: 14px 16px;
@@ -428,6 +447,8 @@
   outline: none;
   width: 100%;
   resize: vertical;
+  box-sizing: border-box;
+  line-height: 1.5;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -743,11 +764,15 @@
 }
 
 .bs-nav-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "reason reason" "label btns";
   align-items: center;
-  justify-content: space-between;
   padding-top: 4px;
 }
+.bs-nav-row .bs-step-label { grid-area: label; }
+.bs-nav-row .bs-nav-btns { grid-area: btns; }
+.bs-nav-row .bs-next-reason { grid-area: reason; }
 
 .bs-step-label { font-size: 13px; color: var(--ink-soft); font-weight: 500; }
 
@@ -777,7 +802,7 @@
    duplicate has been removed so this is the one intentional definition. */
 .bs-next-btn {
   padding: 11px 28px;
-  background: var(--primary);
+  background: var(--action);
   color: white;
   border: none;
   border-radius: 10px;
@@ -788,7 +813,7 @@
   transition: background 0.2s ease, transform 0.15s ease;
 }
 
-.bs-next-btn:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-1px); }
+.bs-next-btn:hover:not(:disabled) { background: var(--action-hover); transform: translateY(-1px); }
 .bs-next-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ============ MY BOOKINGS =============*/
@@ -1090,7 +1115,7 @@
 .modal-submit-btn {
   width: 100%;
   padding: 14px;
-  background: var(--primary);
+  background: var(--action);
   color: white;
   border: none;
   border-radius: 10px;
@@ -1110,7 +1135,7 @@
 }
 
 .modal-submit-btn:hover {
-  background: var(--primary-hover);
+  background: var(--action-hover);
   transform: translateY(-1px);
 }
 
@@ -1217,14 +1242,14 @@
 }
 
 .confirmation-notif-title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--navy);
   margin-bottom: 4px;
 }
 
 .confirmation-notif-sub {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--ink-soft);
 }
 
@@ -1637,8 +1662,10 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  align-items: flex-end;
+  align-items: stretch;
+  min-width: 150px;
 }
+.customer-billings-x7 > button { justify-content: center; width: 100%; min-height: 38px; font-size: 14px; font-weight: 600; white-space: nowrap; }
 .customer-billings-x8.customer-billings-x8 {
   background: transparent;
   border: 1px solid #d0dde8;
@@ -1803,8 +1830,8 @@
   cursor: pointer;
   font-size: 0.85rem;
   font-weight: 600;
-  color: var(--cz-primary, #2563eb);
-  border: 1px solid var(--cz-primary, #2563eb);
+  color: var(--action);
+  border: 1px solid var(--action);
   border-radius: 999px;
   padding: 6px 14px;
   white-space: nowrap;
@@ -1890,9 +1917,27 @@
 .cancelled-actions .bs-next-btn { background: #0b2545; color: #ffffff; border-color: #0b2545; }
 .cancelled-actions .bs-back-btn { border: 2px solid #0b2545; color: #0b2545; background: #ffffff; }
 .cancelled-actions .cancelled-view-btn { border-color: #e8553a; color: #a8341c; }
-.cancelled-summary { display: grid; gap: 8px; margin-bottom: 14px; border-left: 4px solid #e8553a; }
-.cancelled-summary-line { margin: 0; line-height: 1.6; color: var(--ink, #1e293b); overflow-wrap: anywhere; }
-.cancelled-summary-figures { margin-top: 6px; }
+.cancelled-summary { display: grid; gap: 14px; margin-bottom: 14px; padding: 20px; border-left: 0; border-radius: 18px; }
+.cancelled-head { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 16px; padding: 16px 18px; border-radius: 14px; background: linear-gradient(90deg, #fff1f1, #fff7f6); }
+.cancelled-head-icon { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: #e63946; color: #fff; font-size: 22px; box-shadow: 0 0 0 7px rgba(230, 57, 70, 0.12); }
+.cancelled-head-title { margin: 0; font-size: 17px; line-height: 1.35; color: var(--navy, #0b2545); }
+.cancelled-head-sub { margin: 2px 0 0; font-size: 14px; line-height: 1.5; color: #475569; }
+.cancelled-reason { display: flex; gap: 12px; padding: 16px 18px; border: 1px solid #f8d4d4; border-radius: 14px; background: #fff6f6; }
+.cancelled-reason-icon { flex: 0 0 auto; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: #e63946; color: #fff; font-size: 15px; }
+.cancelled-reason-body { display: grid; gap: 8px; min-width: 0; }
+.cancelled-summary-line { margin: 0; font-size: 14px; line-height: 1.6; color: var(--ink, #1e293b); overflow-wrap: anywhere; }
+.cancelled-summary-figures { margin: 0; border: 1px solid #e5edf5; border-radius: 14px; padding: 4px 14px; background: #fff; }
+.cancelled-summary-figures .summary-row { align-items: center; padding: 11px 0; font-size: 13.5px; }
+.cancelled-figure-label { display: inline-flex; align-items: center; gap: 12px; }
+.cancelled-figure-icon { display: grid; place-items: center; flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%; background: #e8f0fe; color: #2563eb; font-size: 15px; }
+.cancelled-pill { display: inline-flex; align-items: center; gap: 7px; padding: 5px 14px; border-radius: 999px; background: #e6f6ec; color: #15803d; font-weight: 700; }
+.cancelled-pill-dot { width: 8px; height: 8px; border-radius: 50%; background: #16a34a; }
+.cancelled-summary-muted { font-size: 12.5px; color: var(--muted, #64748b); }
+.cancelled-rebook-btn { width: auto; justify-self: start; display: inline-flex; align-items: center; gap: 10px; padding: 14px 28px; border-radius: 999px; background: var(--action); font-weight: 700; box-shadow: 0 8px 20px rgba(11, 37, 69, 0.28); }
+@media (max-width: 640px) {
+  .cancelled-head { grid-template-columns: auto 1fr; }
+  .cancelled-rebook-btn { width: 100%; justify-content: center; }
+}
 .cancelled-refund-card { margin-bottom: 14px; }
 @media (max-width: 480px) {
   .cancelled-actions { flex-direction: column; align-items: stretch; width: 100%; }
@@ -2096,4 +2141,212 @@
   text-align: right;
   font-size: 13px;
   color: var(--ink-soft);
+}
+
+/* ---------- a booking page that feels alive: the cards rise in one after the other and the notification icons get a tint ---------- */
+@keyframes confirm-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+.confirmation-notif-card, .cancelled-summary, .cancelled-refund-card { animation: confirm-rise 0.45s ease both; }
+.confirmation-notif-card:nth-child(2) { animation-delay: 0.08s; }
+.cancelled-summary { animation-delay: 0.16s; }
+.cancelled-refund-card { animation-delay: 0.24s; }
+.confirmation-notif-title svg { vertical-align: -2px; margin-right: 4px; padding: 3px; box-sizing: content-box; width: 14px; height: 14px; border-radius: 50%; background: #e3effb; color: #1d4e89; }
+@media (prefers-reduced-motion: reduce) {
+  .confirmation-notif-card, .cancelled-summary, .cancelled-refund-card { animation: none; }
+}
+
+/* My Bookings with nothing to show: a centered card with an icon and one clear next step */
+.my-bookings-empty { display: grid; justify-items: center; gap: 8px; padding: 44px 20px; text-align: center; background: #fff; border: 1px solid #e2eaf1; border-radius: 16px; }
+.my-bookings-empty-icon { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: #e8f0fe; color: #2563eb; font-size: 26px; }
+.my-bookings-empty-title { margin: 6px 0 0; font-size: 18px; color: var(--navy, #0b2545); }
+.my-bookings-empty-text { margin: 0; font-size: 14px; color: #64748b; }
+.my-bookings-empty-btn { display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; padding: 11px 24px; border-radius: 999px; background: var(--action); color: #fff; font-weight: 700; font-size: 14px; text-decoration: none; box-shadow: 0 8px 20px rgba(11, 37, 69, 0.25); }
+.my-bookings-empty-btn:hover { color: #fff; filter: brightness(1.08); }
+
+/* Billing: a bill whose proof is waiting says so instead of offering Pay Now */
+.billing-waiting-note { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 6px; padding: 4px 12px; border-radius: 999px; background: #fff4e0; color: #8a5200; font-size: 12.5px; font-weight: 700; }
+
+/* Billing filter on a phone: one dropdown in place of the pill rows (the pills stay above 768 px) */
+.billing-filter-select { display: none; }
+@media (max-width: 768px) {
+  .billing-filter-pills { display: none !important; }
+  .billing-filter-select { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+  .billing-filter-select label { font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+  .billing-filter-select select {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 40px 0 14px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    background-color: var(--white);
+    color: var(--navy);
+    font: inherit;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .billing-filter-select select:focus-visible { outline: 3px solid var(--coral); outline-offset: 2px; }
+}
+
+/* ============ PROFILE ON A PHONE ============
+   Up to 768 px every card fits inside the page padding, one column, headings above fields. Only the customer page (.profile-page) is touched:
+   the staff profile shares the base .profile-card rules in staff.css and keeps them. */
+.profile-save-long { display: inline; }
+@media (max-width: 768px) {
+  .profile-page { width: 100%; min-width: 0; gap: 16px; }
+  .profile-page .profile-card {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 16px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+  .profile-page .profile-card--head { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 14px; padding-right: 64px; }
+  .profile-page .profile-card--head:has(.profile-photo-edit) { padding-right: 16px; }
+  .profile-page .profile-avatar-lg { width: 80px; height: 80px; font-size: 2.2rem; }
+  .profile-page .profile-head-text { flex: 1 1 0; min-width: 0; }
+  .profile-page .profile-name { font-size: 1.2rem; overflow-wrap: anywhere; }
+  .profile-page .profile-contact { margin-top: 6px; font-size: 0.875rem; }
+  .profile-page .profile-contact-line { align-items: flex-start; min-width: 0; overflow-wrap: anywhere; }
+  .profile-page .profile-contact-line svg { margin-top: 4px; }
+  .profile-page .profile-edit-btn { top: 12px; right: 12px; width: 44px; height: 44px; }
+  .profile-page .profile-edit-btn:focus-visible,
+  .profile-page .profile-photo-upload-btn:focus-within,
+  .profile-page .bs-input:focus-visible { outline: 3px solid var(--coral); outline-offset: 2px; }
+  /* edit mode: the avatar and the name sit on one row, the Upload Photo button takes the row below */
+  .profile-page .profile-photo-edit { display: contents; }
+  .profile-page .profile-photo-edit .profile-avatar-lg { order: 0; }
+  .profile-page .profile-card--head .profile-head-text { order: 1; }
+  .profile-page .profile-photo-edit .profile-photo-upload-btn {
+    order: 2;
+    flex: 1 1 100%;
+    justify-content: center;
+    box-sizing: border-box;
+    min-height: 44px;
+  }
+  .profile-page .section-title { margin: 0; }
+  .profile-page .profile-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; margin-top: 0; }
+  .profile-page .profile-field { min-width: 0; gap: 8px; }
+  .profile-page .profile-field div { overflow-wrap: anywhere; }
+  .profile-page .profile-field .bs-input { width: 100%; min-width: 0; box-sizing: border-box; min-height: 44px; font-size: 16px; }
+  /* edit mode: Cancel and Save together at the end of the form, on one line, each 44 px tall */
+  .profile-page .profile-edit-actions { flex-direction: row; flex-wrap: nowrap; justify-content: flex-end; gap: 12px; margin-top: 8px; }
+  .profile-page .profile-edit-actions button { width: auto; min-height: 44px; padding: 0 20px; white-space: nowrap; }
+  .profile-page .profile-card--account .account-actions { flex-direction: column; }
+  .profile-page .delete-account-block a { display: inline-flex; align-items: center; min-height: 44px; }
+  .profile-page .profile-card--account .change-password-btn,
+  .profile-page .profile-card--account .delete-account-btn { width: 100%; min-height: 44px; min-width: 0; }
+}
+@media (max-width: 340px) {
+  .profile-save-long { display: none; }
+}
+
+/* ============ BILLING CARDS ============
+   One layout for every bill: service and status badge, booking number, one labelled date, Total and Due now, then the same actions.
+   The shared .tech-job-card shell (staff.css) is left alone: these rules only apply with .billing-card. */
+.billing-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 14px 16px;
+  border-left-width: 3px;
+  cursor: pointer;
+}
+.billing-card:hover { transform: none; }
+.billing-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.billing-card-service { flex: 1 1 auto; min-width: 0; font-weight: 700; font-size: 16px; color: var(--navy); overflow-wrap: anywhere; }
+.billing-card-id { font-size: 12px; color: var(--ink-soft); overflow-wrap: anywhere; }
+.billing-card-dates { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; font-size: 14px; color: var(--navy); }
+.billing-card-booked { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.billing-card-created { font-size: 12px; color: var(--ink-soft); }
+.billing-card-money { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; font-size: 14px; color: var(--ink-soft); }
+.billing-card-money strong { color: var(--navy); }
+.billing-card-due, .billing-card-due strong { color: var(--navy); font-weight: 700; }
+.billing-card-due small { font-size: 12px; font-weight: 600; color: var(--ink-soft); }
+.billing-card-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.billing-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: 1 1 140px; min-height: 44px; padding: 0 14px; font: inherit; font-size: 14px; font-weight: 600; white-space: nowrap; border-radius: 8px; cursor: pointer; }
+.billing-btn--secondary { background: var(--white); color: var(--navy); border: 1px solid #b8c7d6; }
+.billing-btn--secondary:hover:not(:disabled) { border-color: var(--navy); background: var(--frost); }
+.billing-btn--secondary:disabled { opacity: 0.6; cursor: not-allowed; }
+.billing-btn:focus-visible { outline: 3px solid var(--coral); outline-offset: 2px; }
+.billing-card:has(.billing-btn:focus-visible) { box-shadow: none; }
+
+/* the status badge: one colour family per state, always with its text label, none of them the primary button blue (all pairs 4.5 to 1 or better) */
+.billing-badge { flex: 0 0 auto; max-width: 60%; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; line-height: 1.3; text-align: center; }
+.billing-badge--unpaid { background: #e5e7eb; color: #374151; }
+.billing-badge--verify { background: #dbe4f0; color: #1e3a5f; }
+.billing-badge--partial { background: #fde68a; color: #78350f; }
+.billing-badge--paid { background: #bbf7d0; color: #14532d; }
+.billing-badge--rejected { background: #fecaca; color: #7f1d1d; }
+.billing-badge--refunded { background: #e9d5ff; color: #581c87; }
+.billing-badge--cancelled { background: #e5e7eb; color: #4b5563; }
+.billing-badge--backjob { background: #bbf7d0; color: #14532d; }
+.billing-card--unpaid { border-left-color: #9ca3af; }
+.billing-card--verify { border-left-color: #64748b; }
+.billing-card--partial { border-left-color: #d97706; }
+.billing-card--paid { border-left-color: #16a34a; }
+.billing-card--rejected { border-left-color: #dc2626; }
+.billing-card--refunded { border-left-color: #9333ea; }
+.billing-card--cancelled { border-left-color: #9ca3af; }
+.billing-card--backjob { border-left-color: #16a34a; }
+
+/* a phone: tighter, so two or three cards fit on one screen; buttons share a row when they fit and stack at full width when they do not */
+@media (max-width: 768px) {
+  .billing-due-row .bs-next-btn { min-height: 44px; }
+  .billing-card { padding: 12px 14px; gap: 4px; }
+  .billing-card-actions { gap: 8px; }
+  .billing-btn { flex: 1 1 130px; }
+}
+@media (max-width: 340px) {
+  .billing-btn { flex-basis: 100%; }
+}
+
+/* ============ BOOK SERVICE ON A PHONE ============
+   The footer: the step text on its own row, why Next is off under it, then Back and Next side by side at equal width. It stays in the page
+   flow (it never covers a field) and keeps room for the phone's bottom edge. */
+@media (max-width: 768px) {
+  .bs-nav-row {
+    grid-template-columns: 1fr;
+    grid-template-areas: "label" "reason" "btns";
+    row-gap: 8px;
+    padding: 4px 0 calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+  .bs-nav-row .bs-step-label { font-size: 13px; text-align: left; }
+  .bs-nav-row .bs-next-reason { margin: 0; text-align: left; font-size: 13px; overflow-wrap: anywhere; }
+  .bs-nav-row .bs-nav-btns { display: flex; gap: 12px; }
+  .bs-nav-row .bs-nav-btns > button { flex: 1 1 0; min-width: 0; min-height: 48px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  .bs-card { --bs-gap-group: 24px; }
+  /* the date helper line ("Earliest available date ...") is a hint: 8 px above it and 8 px below it, before the next group */
+  .bs-card .closure-upcoming { margin: var(--bs-gap-hint) 0 calc(var(--bs-gap-hint) - var(--bs-gap-group)); }
+  .bs-textarea { min-height: 100px; overflow-y: auto; }
+  .time-btn { min-height: 44px; }
+  .unit-entry-remove { width: 44px; height: 44px; }
+  .unit-entry-row .bs-select, .unit-entry-row .bs-input { min-height: 44px; min-width: 0; }
+  .bs-card .bs-input, .bs-card .bs-select, .bs-card .bs-textarea { font-size: 16px; }
+}
+
+/* ============ BOOKING DETAILS ACTIONS ON A PHONE ============
+   The buttons form one column at the right edge, all as wide as the widest one (never wider than the card), 44 px tall, 12 px apart, with
+   Cancel booking (destructive, red) last and set apart. Notes and forms inside the group still take the full width. */
+@media (max-width: 768px) {
+  .booking-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, max-content); gap: 12px; align-items: start; justify-items: stretch; }
+  .booking-actions > * { grid-column: 1 / -1; }
+  .booking-actions > button { grid-column: 2; width: 100%; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-align: center; }
+  .booking-actions > .cancel-booking-btn { margin-top: 12px; }
+}
+
+/* ============ NOTIFICATION CARDS ON A PHONE ============
+   "In-app notification" and "Email notification" sit in one row at equal width and height; text wraps (the masked address included, so it is
+   all on screen and all read out). At 340 px and below they stack, as they always did. */
+@media (max-width: 768px) {
+  .confirmation-notif-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .confirmation-notif-card { min-width: 0; padding: 12px; overflow-wrap: anywhere; }
+  .confirmation-notif-title { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; font-size: 13.5px; line-height: 1.3; }
+  .confirmation-notif-title svg { flex: none; margin-right: 0; }
+  .confirmation-notif-sub, .email-status-title { font-size: 13px; line-height: 1.4; }
+}
+@media (max-width: 340px) {
+  .confirmation-notif-row { grid-template-columns: 1fr; }
 }

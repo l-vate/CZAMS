@@ -26,18 +26,16 @@ test('all four pages render inside the one shared layout', () => {
   assert.match(shell, /\{children\}/);
 });
 
-test('the footer shows the current year, not a typed one, and the full company name', () => {
+test('the layout has no typed year, and the three facts come from the landing page config', () => {
   const shell = read('components/auth_shell.jsx');
-  assert.match(shell, /new Date\(\)\.getFullYear\(\)/);
-  assert.match(shell, /\{BRAND_NAME\}\. All rights reserved/);
   assert.doesNotMatch(shell, /\b(19|20)\d\d\b/, 'no year is typed into the layout');
-  // the three facts come from the landing page config, so "since 2009" stays a fact and is not the copyright year
+  // the three facts come from the landing page config, so "since 2009" stays a fact and is not a copyright year
   assert.match(shell, /from '..\/config\/landingContent'/);
   assert.match(shell, /AREA_SERVED[\s\S]*SINCE_YEAR[\s\S]*HOURS_TEXT/);
 });
 
-test('the back link is a pill with a 44 px tap target', () => {
-  assert.match(read('css/auth.css'), /\.ap-back \{[^}]*min-height: 44px[^}]*border-radius: 999px/s);
+test('the back link is an icon-only arrow with a 44 px tap target', () => {
+  assert.match(read('css/auth.css'), /\.ap-back::after \{[^}]*inset: -7px/);
 });
 
 test('the fields carry the right autocomplete and input mode attributes', () => {

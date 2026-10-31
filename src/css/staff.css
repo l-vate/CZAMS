@@ -1102,8 +1102,8 @@
   cursor: pointer;
   font-size: 0.85rem;
   font-weight: 600;
-  color: var(--cz-primary, #2563eb);
-  border: 1px solid var(--cz-primary, #2563eb);
+  color: var(--action);
+  border: 1px solid var(--action);
   border-radius: 999px;
   padding: 6px 14px;
 }
@@ -1260,7 +1260,7 @@
 }
 .tech-job-action-btn svg { flex: 0 0 auto; width: 15px; height: 15px; }
 .tech-job-action-btn:hover { background: var(--navy-soft); border-color: var(--navy-soft); color: #fff; }
-.tech-job-action-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.tech-job-action-btn:focus-visible { outline: 2px solid var(--action-focus); outline-offset: 2px; }
 .tech-job-divider { display: flex; align-items: center; gap: 12px; margin: 14px 0 8px; color: #6f6f6f; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; }
 .tech-job-divider-line { flex: 1; height: 1px; background: #dfe5ec; }
 @media (max-width: 768px) { .tech-job-actions { padding-top: 10px; } }
@@ -1285,7 +1285,7 @@
   transition: background 0.15s ease, transform 0.15s ease;
 }
 .tech-job-primary-btn:hover { background: var(--navy); transform: translateY(-1px); }
-.tech-job-primary-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.tech-job-primary-btn:focus-visible { outline: 2px solid var(--action-focus); outline-offset: 2px; }
 
 .tech-feedback-summary { margin: 0 0 12px; color: var(--ink-soft); font-size: 0.9rem; }
 .tech-feedback-summary strong { color: var(--navy); }

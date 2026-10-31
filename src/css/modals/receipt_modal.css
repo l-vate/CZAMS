@@ -138,3 +138,49 @@
   color: #64748b;
   margin: 2px 0 0;
 }
+
+/* ============ INVOICE AND RECEIPT: STATUS, TABLE, "VIEW FILE" ============ */
+/* the Status pill: one colour family per payment state (the same families as the Billing badges); green is only for a verified, fully paid one */
+.receipt-status--unpaid { background: #e5e7eb; color: #374151; }
+.receipt-status--to_verify { background: #dbe4f0; color: #1e3a5f; }
+.receipt-status--down_verified { background: #fde68a; color: #78350f; }
+.receipt-status--rejected { background: #fecaca; color: #7f1d1d; }
+.receipt-status--terms { background: #dbe4f0; color: #1e3a5f; }
+.receipt-th-short { display: none; }
+
+@media screen {
+  /* "View File" in the brand link style: navy, underline on hover and focus, a 44 px target */
+  .receipt-modal-card .proof-link,
+  .customer-dashboard-shell .proof-link { display: inline-flex; align-items: center; min-height: 44px; color: var(--navy); font-weight: 600; text-decoration: none; }
+  .receipt-modal-card .proof-link:hover,
+  .receipt-modal-card .proof-link:focus-visible,
+  .customer-dashboard-shell .proof-link:hover,
+  .customer-dashboard-shell .proof-link:focus-visible { text-decoration: underline; }
+  .receipt-modal-card .proof-link:focus-visible,
+  .customer-dashboard-shell .proof-link:focus-visible { outline: 3px solid var(--coral); outline-offset: 2px; border-radius: 4px; }
+}
+
+/* ============ INVOICE AND RECEIPT ON A PHONE (screen only: printing and the PDF are not touched) ============
+   12 px from the screen edge, 16 px inside at the sides and 16 to 20 px top and bottom. The header (with the 44 px Close button in the top right
+   corner, on its own row above the logo) stays in view while the content scrolls. The description takes the width; Quantity and Price are as
+   narrow as their content, with right aligned numbers. */
+@media screen and (max-width: 768px) {
+  .modal-overlay:has(.receipt-modal-card) { padding: 12px; }
+  .receipt-modal-card { width: 100%; max-height: calc(100dvh - 24px); padding: 0; box-sizing: border-box; }
+  .receipt-modal-card .receipt-modal-header { position: sticky; top: 0; z-index: 2; justify-content: flex-end; padding: 8px 8px 0; background: #fff; }
+  .receipt-modal-card .modal-close-btn { width: 44px; height: 44px; }
+  .receipt-modal-card .modal-close-btn:focus-visible { outline: 3px solid var(--coral); outline-offset: 2px; }
+  .receipt-modal-card .receipt-print-area { padding: 8px 16px 20px; }
+  .receipt-modal-card .receipt-print-btn { margin: 0 auto 20px; min-height: 44px; }
+  .receipt-th-long { display: none; }
+  .receipt-th-short { display: inline; }
+  .receipt-table { table-layout: auto; }
+  .receipt-table th, .receipt-table td { font-size: 14px; }
+  .receipt-table th { white-space: nowrap; }
+  .receipt-table .receipt-col-desc { width: auto; text-align: left; overflow-wrap: anywhere; }
+  .receipt-table .receipt-col-qty, .receipt-table .receipt-col-price { width: 1%; white-space: nowrap; text-align: right; }
+  .receipt-table th.receipt-col-qty, .receipt-table td.receipt-col-qty { text-align: right; }
+  .receipt-info-row { align-items: flex-start; }
+  .receipt-info-row span:first-child { flex: 0 1 45%; min-width: 0; overflow-wrap: anywhere; }
+  .receipt-info-row span:last-child { flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; }
+}

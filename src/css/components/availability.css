@@ -169,3 +169,13 @@
   .avail { padding: 14px 8px; }
   .avail-grid { gap: 3px; }
 }
+
+/* The selected day: the date, its message and the button sit on one even rhythm (8 px, then 16 px before the button); the button is a 44 px
+   target and takes the full width on a phone. */
+.avail-detail { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 16px; padding-top: 16px; }
+.avail-detail strong { display: block; line-height: 1.3; }
+.avail-detail p { margin: 0; line-height: 1.5; }
+.avail-detail .lp-btn { margin-top: 8px; min-height: 44px; }
+@media (max-width: 480px) {
+  .avail-detail .lp-btn { width: 100%; justify-content: center; }
+}

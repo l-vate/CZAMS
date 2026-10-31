@@ -8,7 +8,7 @@ import { proofNameOf } from '../utils/proofPath';
 
 // A link that opens the file in a new tab. The tab is opened on the click itself, so a pop-up
 // blocker allows it, and pointed at the file once the link arrives.
-export function ProofLink({ path, className, children = 'View File' }) {
+export function ProofLink({ path, className = 'proof-link', children = 'View File' }) {
   const [error, setError] = useState('');
 
   // not a stored proof path or an external link (a file name picked but not uploaded yet): plain text

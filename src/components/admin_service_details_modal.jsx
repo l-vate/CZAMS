@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FiArrowLeft, FiArrowRight } from 'react-icons/fi';
+import { FiArrowRight } from 'react-icons/fi';
 import { getBookingLineItems, getPaymentBreakdown, formatPeso } from '../utils/bookingPricing';
 import AssignmentPanel from './assignment_panel';
 import CancelBookingDialog from './cancel_booking_dialog';
@@ -19,6 +19,7 @@ import ClosureDateInput from './closure_date_input';
 import { warrantyStatusText } from '../utils/warrantyText';
 import { BRAND_SHORT } from '../config/company';
 import ReceiptModal from './receipt_modal';
+import BackButton from './back_button';
 import { buildReceiptForm } from '../utils/receiptData';
 import { getMemberIds } from '../utils/assignments';
 import { isWithinQuezonCity } from '../utils/serviceArea';
@@ -345,14 +346,16 @@ const [report, setReport] = useState(null);
                 {!asPage && <button type="button" className="modal-close-btn sdm-close-position" onClick={onClose}>✕</button>}
                 <div className="sdm-body">
                     {asPage && (
-                        <button type="button" className="sdm-back sdm-back--in-card" onClick={onClose}>
-                            <FiArrowLeft /> Back to Bookings
-                        </button>
+                        <BackButton label="Back to Bookings" className="sdm-back sdm-back--in-card" onClick={onClose} />
                     )}
                     <div className="sdm-titlebar">
                         <div>
                             <h2 className="sdm-title">Booking Details</h2>
                             <p className="sdm-subtitle">Booking ID: {booking.bookingId}</p>
+                            {/* on a phone this line sits here, under the booking ID, instead of under the Cancel button (the footer copy is hidden there) */}
+                            {booking.status === BOOKING_STATUS.APPROVED && (
+                                <p className="sdm-subtitle sdm-header-note">Starts automatically at the start of its service day.</p>
+                            )}
                         </div>
                         <span
                             className="sdm-badge"
@@ -577,7 +580,7 @@ const [report, setReport] = useState(null);
                                                 className="ma-input"
                                                 min={adminRescheduleWindow().min}
                                                 max={adminRescheduleWindow().max}
-                                                showEarliest
+                                                showClosedList={false}
                                                 value={disruptionDate}
                                                 onChange={setDisruptionDate}
                                             />
@@ -620,7 +623,7 @@ const [report, setReport] = useState(null);
                                     <div className="admin-service-details-modal-x9">
                                         <div>
                                             <label className="sdm-row-label admin-service-details-modal-x10">New Date</label>
-                                            <ClosureDateInput className="ma-input" min={adminRescheduleWindow().min} max={adminRescheduleWindow().max} showEarliest value={disruptionDate} onChange={setDisruptionDate} />
+                                            <ClosureDateInput className="ma-input" min={adminRescheduleWindow().min} max={adminRescheduleWindow().max} showClosedList={false} value={disruptionDate} onChange={setDisruptionDate} />
                                         </div>
                                         <div>
                                             <label className="sdm-row-label admin-service-details-modal-x10">New Time</label>
@@ -1220,14 +1223,9 @@ const [report, setReport] = useState(null);
 </div>
 
                 <div className="sdm-footer">
-                    {canCancel && (
-                        <button className="sdm-btn sdm-btn-danger" onClick={handleCancel} disabled={saving}>
-                            Cancel Booking
-                        </button>
-                    )}
                     <div className="sdm-footer-actions">
                         {booking.status === BOOKING_STATUS.APPROVED && (
-                            <span className="sdm-muted">Starts automatically at the start of its service day.</span>
+                            <span className="sdm-muted sdm-footer-start-note">Starts automatically at the start of its service day.</span>
                         )}
                         {booking.status === BOOKING_STATUS.IN_PROGRESS && (
                             <span className="sdm-muted">Completes when the technician submits the service report.</span>
@@ -1257,6 +1255,12 @@ const [report, setReport] = useState(null);
                             </button>
                         ))}
                     </div>
+                    {/* last in the page order, so it is also the last action for the keyboard; the stylesheet keeps it first on a wide screen */}
+                    {canCancel && (
+                        <button className="sdm-btn sdm-btn-danger" onClick={handleCancel} disabled={saving}>
+                            Cancel Booking
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

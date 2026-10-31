@@ -354,12 +354,12 @@
 }
 
 .sdm-btn-primary {
-    background: var(--primary);
+    background: var(--action);
     color: #fff;
 }
 
 .sdm-btn-primary:hover:not(:disabled) {
-    background: var(--primary-hover);
+    background: var(--action-hover);
 }
 
 /* No longer needs position: sticky - it's a flex sibling of .sdm-body outside
@@ -456,7 +456,7 @@
     text-decoration: none;
 }
 .sdm-verify-payment:hover { background: var(--navy, #0b2545); }
-.sdm-verify-payment:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+.sdm-verify-payment:focus-visible { outline: 3px solid var(--action-focus); outline-offset: 2px; }
 .sdm-page-card {
     background: #fff;
     border: 1px solid #e2e8f0;
@@ -476,4 +476,20 @@
     .sdm-page-card { border-radius: 16px; }
     .sdm-page-card .sdm-body { padding: 16px 14px 8px; }
     .sdm-page-card .sdm-footer { padding: 14px; }
+}
+
+/* ============ ADMIN BOOKING DETAILS: footer and section buttons ============
+   Cancel Booking comes last in the markup; on a wide screen it is shown first, as before. */
+.sdm-footer > .sdm-btn-danger { order: -1; }
+.sdm-header-note { display: none; }
+@media (max-width: 768px) {
+    /* the sentence that Approved bookings start by themselves sits under the booking ID here, not under the Cancel button */
+    .sdm-header-note { display: block; margin-top: 2px; font-size: 0.78rem; color: #64748b; }
+    .sdm-footer-start-note { display: none; }
+    /* the actions in one column; Cancel Booking last, in red, at the right, with extra room above it */
+    .sdm-footer { flex-direction: column; align-items: stretch; justify-content: flex-start; }
+    .sdm-footer-actions { order: 1; justify-content: flex-end; flex: 0 1 auto; }
+    .sdm-footer > .sdm-btn-danger { order: 2; align-self: flex-end; margin-top: 12px; min-height: 44px; min-width: 160px; justify-content: center; }
+    /* + Add line and Edit quotation details: right aligned, one width, 44 px tall */
+    .sdm-section-action { display: flex; align-items: center; justify-content: center; width: min(100%, 220px); min-height: 44px; margin-left: auto; box-sizing: border-box; }
 }

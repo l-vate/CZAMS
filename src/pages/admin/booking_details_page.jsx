@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { FiArrowLeft } from 'react-icons/fi';
+import BackButton from '../../components/back_button';
 import AdminLayout from './admin_layout';
 import AdminServiceDetailsModal from '../../components/admin_service_details_modal';
 import { listBookings } from '../../services/bookingService';
@@ -37,9 +37,7 @@ function BookingDetailsPage() {
       <div className="page-container sdm-page-wrap">
         {/* once the booking is loaded the Back button is inside its card; until then (loading or an error) there is no card */}
         {!booking && (
-          <button type="button" className="sdm-back" onClick={back}>
-            <FiArrowLeft /> Back to Bookings
-          </button>
+          <BackButton label="Back to Bookings" className="sdm-back" onClick={back} />
         )}
         {loadError ? (
           <p className="req-empty" role="alert">{loadError}</p>

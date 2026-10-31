@@ -10,8 +10,9 @@ const src = (...f) => fs.readFileSync(path.join(__dirname, '..', '..', 'src', ..
 
 test('a completed booking with a balance still to pay shows the reminder with a Pay Balance button', () => {
   const page = src('pages', 'customer', 'book_details.jsx');
-  assert.match(page, /const balanceDue = booking\.status === BOOKING_STATUS\.COMPLETED && booking\.paymentStatus === PAYMENT_STATUS\.PARTIALLY_PAID/);
-  assert.match(page, /!booking\.balancePaid[^\n]*BALANCE_PAYMENT_STATUS\.PAID[^\n]*BALANCE_PAYMENT_STATUS\.TO_VERIFY[^\n]*remaining > 0/, 'not when paid, not when waiting to be verified, not when nothing is left');
+  assert.match(page, /const balanceDue = !balanceProofWaiting && \(booking\.status === BOOKING_STATUS\.COMPLETED && booking\.paymentStatus === PAYMENT_STATUS\.PARTIALLY_PAID/);
+  assert.match(page, /const balanceProofWaiting = booking\.balancePaymentStatus === BALANCE_PAYMENT_STATUS\.TO_VERIFY;/);
+  assert.match(page, /!booking\.balancePaid[^\n]*BALANCE_PAYMENT_STATUS\.PAID[^\n]*remaining > 0/,'not when paid, not when waiting to be verified, not when nothing is left');
   assert.match(page, /\{balanceDue && \(\s*<section className="balance-reminder" role="status"/);
   assert.match(page, /Your service is complete\. Please pay your balance\./);
   assert.match(page, /Remaining balance: <strong>\{formatPeso\(remaining\)\}<\/strong>/);
@@ -38,14 +39,11 @@ test('the reminder stacks on a phone with a full width button', () => {
   assert.match(css, /@media \(max-width: 600px\) \{\s*\.balance-reminder \{ flex-direction: column;[^}]*\}\s*\.balance-reminder-btn \{ width: 100%; \}/);
 });
 
-test('the sign in and registration pages have a small Back link that a desktop does not show', () => {
-  assert.match(src('pages', 'public', 'login_page.jsx'), /backTo=\{null\} smallBackTo="\/"/);
-  assert.match(src('pages', 'public', 'register_page.jsx'), /backTo=\{null\} smallBackTo="\/login"/);
+test('the sign in and registration pages have an icon-only Back link on every screen size', () => {
+  assert.match(src('pages', 'public', 'login_page.jsx'), /backTo="\/"/);
+  assert.match(src('pages', 'public', 'register_page.jsx'), /backTo="\/login"/);
   const shell = src('components', 'auth_shell.jsx');
-  assert.match(shell, /!backTo && smallBackTo && \(\s*<header className="ap-top ap-top--small">/);
-  assert.match(shell, /className="ap-back ap-back--small"[^>]*>[^<]*<FiArrowLeft aria-hidden="true" \/> Back</);
+  assert.match(shell, /className="ap-back" aria-label=\{backLabel\}[^>]*><HiOutlineArrowLongLeft aria-hidden="true" \/><\/Link>/);
   const css = src('css', 'auth.css');
-  assert.match(css, /@media \(min-width: 1024px\) \{ \.ap-top--small \{ display: none; \} \}/);
-  assert.match(css, /\.ap-back--small \{[^}]*min-height: 34px[^}]*font-size: 13px/);
-  assert.match(css, /\.ap-back--small::after \{[^}]*inset: -5px/, 'the tap area is still 44 px tall');
+  assert.match(css, /\.ap-back::after \{[^}]*inset: -7px/, 'the tap area is still 44 px');
 });

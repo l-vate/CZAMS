@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import CustomerLayout from './customer_layout';
 import { useNavigate } from 'react-router-dom';
-import { FiClock, FiMapPin, FiEye, FiStar } from 'react-icons/fi';
+import { FiClock, FiMapPin, FiEye, FiStar, FiCalendar, FiArrowRight } from 'react-icons/fi';
 import FeedbackModal from '../../components/feedback_modal';
 import { getFilterPillStyle } from '../../utils/statusColors';
 import { ApiError } from '../../services/apiClient';
@@ -179,7 +179,14 @@ function MyBookings() {
       ) : failed ? (
         <LoadError message="Could not load your bookings." onRetry={retry} />
       ) : filteredBookings.length === 0 ? (
-        <p className="customer-my-bookings-x3">No bookings found. <a href="/customer/book_service">Book one now</a></p>
+        <div className="my-bookings-empty">
+          <span className="my-bookings-empty-icon" aria-hidden="true"><FiCalendar /></span>
+          <h3 className="my-bookings-empty-title">No bookings found</h3>
+          <p className="my-bookings-empty-text">
+            {activeFilter === 'All' ? 'You have not booked a service yet.' : `You have no ${activeFilter.toLowerCase()} bookings.`}
+          </p>
+          <a className="my-bookings-empty-btn" href="/customer/book_service">Book a service <FiArrowRight /></a>
+        </div>
       ) : (
         <div className="tech-job-list">
           {sortedBookings.map((booking, i) => (

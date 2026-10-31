@@ -27,6 +27,12 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
   const [preparing, setPreparing] = useState(false);
   const [fileError, setFileError] = useState('');
   const [referenceNumber, setReferenceNumber] = useState(initialReference || '');
+  // A field's error shows once the person has left that field or pressed SUBMIT, never as soon as the window opens.
+  const [proofTouched, setProofTouched] = useState(false);
+  const [referenceTouched, setReferenceTouched] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const showProofError = submitted || proofTouched;
+  const showReferenceError = submitted || referenceTouched;
 
   // GCash and Bank Transfer need the proof file and the reference number together. Cash needs
   // neither. A booking with no mode on record keeps the old rule (proof required, no reference).
@@ -34,6 +40,11 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
   const proofRequired = requiresReference || !selectedModeName;
   const referenceProblem = requiresReference ? referenceError(referenceNumber, selectedModeName) : '';
   const canSubmit = (!proofRequired || !!proof) && !referenceProblem && !preparing;
+
+  const handleSubmit = () => {
+    if (!canSubmit) { setSubmitted(true); return; }
+    onSubmit({ proof, referenceNumber: requiresReference ? normalizeReference(referenceNumber, selectedModeName) : undefined });
+  };
 
   const MAX_SIZE = 5 * 1024 * 1024; // 5MB
   const ALLOWED_TYPES = ['image/jpeg', 'image/png'];
@@ -64,11 +75,11 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
   };
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="payment-modal-title" onClick={(e) => e.stopPropagation()}>
 
         <div className="modal-header">
-          <h4 className="modal-title">{isBalance ? 'Settle Remaining Balance' : 'Cost Breakdown'}</h4>
-          <button className="modal-close-btn" onClick={onClose}>✕</button>
+          <h4 className="modal-title" id="payment-modal-title">{isBalance ? 'Settle Remaining Balance' : 'Cost Breakdown'}</h4>
+          <button className="modal-close-btn" onClick={onClose} aria-label="Close">✕</button>
         </div>
 
         <div className="modal-cost-rows">
@@ -120,6 +131,7 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
               accept="image/jpeg,image/png"
               className="payment-modal-x1"
               onChange={handleProofChange}
+              onBlur={() => setProofTouched(true)}
             />
           </label>
           {preparing && <p className="sdm-muted" role="status">Preparing photo...</p>}
@@ -128,7 +140,7 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
               {fileError}
             </p>
           )}
-          {proofRequired && !proof && !fileError && (
+          {proofRequired && !proof && !fileError && showProofError && (
             <p className="payment-modal-x2">
               Proof of payment is required to submit.
             </p>
@@ -148,16 +160,17 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
               inputMode={isGcashMode(selectedModeName) ? 'numeric' : 'text'}
               autoComplete="off"
               aria-describedby="payment-reference-hint"
-              aria-invalid={Boolean(referenceProblem && referenceNumber !== '')}
+              aria-invalid={Boolean(referenceProblem && showReferenceError)}
               value={referenceNumber}
               onChange={(e) => setReferenceNumber(e.target.value)}
+              onBlur={() => setReferenceTouched(true)}
               placeholder={referencePlaceholder(selectedModeName)}
             />
             <p id="payment-reference-hint" className="sdm-muted">{referenceHint(selectedModeName)}</p>
-            {referenceProblem && referenceNumber !== '' && (
+            {referenceProblem && referenceNumber !== '' && showReferenceError && (
               <p className="payment-modal-x2" role="alert">{referenceProblem}</p>
             )}
-            {referenceNumber === '' && (
+            {referenceNumber === '' && showReferenceError && (
               <p className="payment-modal-x2">The reference number is required to submit.</p>
             )}
           </div>
@@ -165,8 +178,8 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
 
         <button
           className="modal-submit-btn"
-          onClick={() => onSubmit({ proof, referenceNumber: requiresReference ? normalizeReference(referenceNumber, selectedModeName) : undefined })}
-          disabled={!canSubmit}
+          onClick={handleSubmit}
+          disabled={preparing}
         >
           SUBMIT
         </button>

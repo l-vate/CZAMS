@@ -53,7 +53,7 @@ function RegisterPage() {
   };
 
   return (
-    <AuthShell title="Create your account" subtitle="Fill in your details to get started." backTo={null} smallBackTo="/login" wide>
+    <AuthShell title="Create your account" subtitle="Fill in your details to get started." backTo="/login" wide>
       <form className="ap-form ap-form--two" onSubmit={handleSubmit}>
         <TextField
           id="firstName"

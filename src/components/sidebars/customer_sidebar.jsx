@@ -1,4 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
+import { FiLogOut } from 'react-icons/fi';
 import { BRAND_NAME, BRAND_SHORT, BRAND_SUB } from '../../config/company';
 
 function CustomerSidebar({ onNavigate }) {
@@ -52,7 +53,7 @@ function CustomerSidebar({ onNavigate }) {
 
       <div className="sidebar-logout">
         <button type="button" className="sidebar-link" onClick={handleLogout}>
-          Log Out
+          <FiLogOut aria-hidden="true" /> Log Out
         </button>
       </div>
     </aside>

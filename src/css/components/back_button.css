@@ -1,0 +1,9 @@
+/* The shared Back button (components/back_button.jsx). The words are visible above 768 px; on a phone they are hidden visually and stay for
+   assistive technology, and the button is the 44 px arrow. Each page keeps its own look through an extra class (.sdm-back, .ma-back-link). */
+.back-btn { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.back-btn:focus-visible { outline: 3px solid var(--coral); outline-offset: 2px; }
+@media (max-width: 768px) {
+  button.back-btn { justify-content: center; border: 1.5px solid #e2e8f0; border-radius: 10px; background: #fff; color: #0f172a; margin-bottom: 16px; width: 44px; height: 44px; min-width: 44px; min-height: 44px; padding: 0; box-sizing: border-box; }
+  button.back-btn svg { font-size: 20px; }
+  .back-btn-text { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+}

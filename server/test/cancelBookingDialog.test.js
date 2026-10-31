@@ -147,7 +147,8 @@ test('the customer reads who cancelled, for each case', async () => {
 
 test('the customer sees the reason for an owner cancellation and for an admin cancellation, and never for their own', () => {
   const page = src('src', 'pages', 'customer', 'book_details.jsx');
-  assert.match(page, /\{booking\.cancelReason && \(booking\.ownerCancelled \|\| booking\.cancelledBy === 'admin' \|\| expired\) && <p className="cancelled-summary-line"><strong>Reason:<\/strong> \{booking\.cancelReason\}<\/p>\}/);
+  assert.match(page, /const showReason = booking\.cancelReason && \(booking\.ownerCancelled \|\| booking\.cancelledBy === 'admin' \|\| expired\);/);
+  assert.match(page, /\{showReason && <p className="cancelled-summary-line"><strong>Reason:<\/strong> \{booking\.cancelReason\}<\/p>\}/);
 });
 
 test('the refund text for each case is the one the server rule makes true', async () => {

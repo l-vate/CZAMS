@@ -32,8 +32,23 @@ const { approvalPaymentBlock } = require('./paymentDue');
 const BOOKING_PATH = (bookingId) => `/admin/services/requests/${encodeURIComponent(bookingId)}`;
 const PAYMENTS_PATH = (filter, bookingId) => `/admin/payments?filter=${filter}&q=${encodeURIComponent(bookingId)}`;
 
-const toDate = (value) => (value ? new Date(value) : null);
-const keyOf = (value) => (value ? manilaTodayKey(new Date(value)) : null);
+// A date that cannot be read (a stored value that is not a date) counts as no date, so one odd record never breaks the whole answer.
+const toDate = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+const keyOf = (value) => { const date = toDate(value); return date ? manilaTodayKey(date) : null; };
+
+// One booking at a time: a record that cannot be read is left out of the list (and said once in the log, without its number or any name) instead of
+// turning the whole "Needs action" list into an error for the admin.
+function guarded(task) {
+  try {
+    task();
+  } catch (err) {
+    console.error('Needs action: one booking could not be read and was left out:', err.message);
+  }
+}
 
 // How many working days (Manila days that are not closed Sundays) lie after `fromKey`, up to and including `toKey`. 0 when the same day.
 function workingDaysBetween(fromKey, toKey) {
@@ -87,7 +102,7 @@ function collectItems({ bookings = [], backJobs = [], servicesById = new Map(), 
   const tomorrowKey = addDays(todayKey, TODAY_WINDOW_DAYS);
   const items = [];
 
-  for (const b of bookings) {
+  for (const b of bookings) guarded(() => {
     const base = { bookingId: b.bookingId, customerId: customerIdOf(b), date: b.date || null };
     const add = (kind, extra) => items.push(makeItem(kind, b, { ...base, link: BOOKING_PATH(b.bookingId), ...extra }, now, todayKey));
     const pending = b.status === BOOKING_STATUS.PENDING;
@@ -161,10 +176,10 @@ function collectItems({ bookings = [], backJobs = [], servicesById = new Map(), 
         link: PAYMENTS_PATH('refund', b.bookingId),
       });
     }
-  }
+  });
 
-  for (const claim of backJobs) {
-    if (claim.isOpen === false || claim.status !== BACK_JOB_STATUS.NOT_COVERED) continue;
+  for (const claim of backJobs) guarded(() => {
+    if (claim.isOpen === false || claim.status !== BACK_JOB_STATUS.NOT_COVERED) return;
     items.push(makeItem('back_job_review', claim, {
       bookingId: claim.originalBookingId,
       customerId: customerIdOf(claim),
@@ -173,7 +188,7 @@ function collectItems({ bookings = [], backJobs = [], servicesById = new Map(), 
       waitingSince: claim.reportedAt,
       link: '/admin/back-jobs?filter=Not%20Covered',
     }, now, todayKey));
-  }
+  });
   return items;
 }
 

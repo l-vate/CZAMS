@@ -336,3 +336,24 @@ test('?all=1 lifts only the cap on items per group: same counts, same order, eve
   assert.deepEqual(full.groups.decision.items.slice(0, 5), capped.groups.decision.items, 'the first five are the same five');
   assert.equal((await fetch(url, { headers: { Authorization: `Bearer ${token('T1', 'staff')}` } })).status, 403, 'still admin only');
 });
+
+test('one booking with unreadable data is left out, and every other booking is still listed (the list never turns into an error)', () => {
+  const { collectItems } = require('../utils/needsAttention');
+  const NOW = new Date('2026-11-10T04:00:00Z');
+  const good = { bookingId: 'CZ-GOOD', customer: 'CUS1', service: 'S1', status: 'Pending', date: '2026-11-11', createdAt: '2026-11-09T01:00:00Z', paymentStatus: 'partially_paid', units: [{ type: 'Split Type', quantity: 1 }] };
+  const odd = [
+    { ...good, bookingId: 'CZ-BADDATE', createdAt: 'not a date', refund: { status: 'Pending', requestedAt: 'also not a date' } },
+    { ...good, bookingId: 'CZ-NULLS', units: [null, undefined], assignments: [null], discount: { status: 'Pending', requestedAt: {} } },
+    { ...good, bookingId: 'CZ-NOSERVICE', service: null, status: 'Approved' },
+  ];
+  let items;
+  const originalError = console.error;
+  console.error = () => {};
+  try {
+    items = collectItems({ bookings: [...odd, good], now: NOW });
+  } finally {
+    console.error = originalError;
+  }
+  assert.ok(items.some((i) => i.bookingId === 'CZ-GOOD'), 'the readable booking is listed');
+  assert.ok(items.every((i) => Number.isFinite(i.waitingMinutes) && !Number.isNaN(Date.parse(i.waitingSince))), 'every item has a readable waiting time');
+});

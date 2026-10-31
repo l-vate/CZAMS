@@ -493,6 +493,9 @@ function BookDetails() {
   const { downPayment: toPayNow, balance: remaining } = getPaymentBreakdown({ ...booking, downPaymentPercent: dpPercent });
 
   const isFullyPaid = isBookingFullyPaid(booking);
+  // the balance is settled once it is verified, or our team recorded it in person (cheque, cash, a counter payment): then nothing remains to pay
+  const balanceSettled = isFullyPaid || booking.balancePaid || booking.balancePaymentStatus === BALANCE_PAYMENT_STATUS.PAID;
+  const inPerson = booking.balanceRecordedInPerson || null;
 
   // The down payment can be sent while nothing has been sent (or the last proof was rejected). An installation is confirmed by our team first.
   // The down payment is the percent of the service units only: the price of a unit we supply is not part of it.
@@ -886,8 +889,14 @@ function BookDetails() {
               )}
               <div className="summary-row"><span>Down Payment</span><span>{dpPercent === null ? 'Not set' : `${dpPercent}%`}</span></div>
               <div className="summary-row"><span>{downPaymentOpen ? 'Down Payment Due' : booking.paymentStatus === PAYMENT_STATUS.TO_VERIFY ? 'Down Payment Sent (not yet verified)' : [PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(booking.paymentStatus) ? 'Down Payment Verified' : 'Down Payment'}</span><span>₱{toPayNow.toLocaleString()}</span></div>
-              <div className="summary-row"><span>Remaining Balance</span><span>₱{remaining.toLocaleString()}</span></div>
+              <div className="summary-row"><span>Remaining Balance</span><span>{balanceSettled ? '₱0 (paid)' : `₱${remaining.toLocaleString()}`}</span></div>
               <div className="summary-row"><span>Payment Mode</span><span>{booking.paymentMode || '-'}</span></div>
+              {balanceSettled && (inPerson?.method || booking.paymentMode2) && (
+                <div className="summary-row"><span>Balance Payment Mode</span><span>{inPerson?.method || booking.paymentMode2}{inPerson ? ' (received in person)' : ''}</span></div>
+              )}
+              {balanceSettled && (inPerson?.reference || booking.balanceReferenceNumber) && (
+                <div className="summary-row"><span>{inPerson ? 'Balance Reference or Cheque No.' : 'Balance Reference No.'}</span><span>{inPerson?.reference || booking.balanceReferenceNumber}</span></div>
+              )}
               {downPaymentOpen && (
                 waitingForConfirmation ? (
                   <p className="booking-pay-note">We are confirming the unit. You will be asked to pay your down payment once it is confirmed.</p>
@@ -917,7 +926,7 @@ function BookDetails() {
                     {booking.balanceProofFile ? (
                     <ProofLink path={booking.balanceProofFile}>View File</ProofLink>
                     ) : (
-                      'None'
+                      inPerson ? 'Received in person' : 'None'
                     )}
                   </span>
                 </div>

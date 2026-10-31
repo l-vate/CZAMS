@@ -13,3 +13,19 @@
   .audit-entry-when { white-space: normal; display: block; }
   .audit-entry-toggle { width: 100%; }
 }
+
+/* View details: labelled rows (what happened, who, when, which record), then what changed in words, then the action code for support. */
+.audit-entry-panel { flex: 1 1 100%; margin: 4px 0 0; padding: 12px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; display: grid; gap: 10px; }
+.audit-entry-panel .audit-entry-details { margin: 0; padding: 0; background: none; border-radius: 0; grid-template-columns: minmax(96px, max-content) minmax(0, 1fr); gap: 6px 14px; }
+.audit-entry-panel .audit-entry-details dd { color: #0f172a; }
+.audit-entry-subhead { margin: 0; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #475569; }
+.audit-entry-values { padding-top: 8px; border-top: 1px solid #e2e8f0; }
+.audit-entry-code { margin: 0; font-size: 0.8125rem; color: #475569; }
+.audit-entry-code code { font-size: 0.8125rem; background: #e8eef5; padding: 1px 6px; border-radius: 4px; color: #1e293b; }
+.audit-entry-toggle { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; }
+.audit-entry-toggle:focus-visible { outline: 3px solid var(--action-focus); outline-offset: 2px; }
+@media (max-width: 480px) {
+  .audit-entry-panel .audit-entry-details { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .audit-entry-panel .audit-entry-details dt { margin-top: 8px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  .audit-entry-panel .audit-entry-details dd { font-size: 0.9375rem; }
+}

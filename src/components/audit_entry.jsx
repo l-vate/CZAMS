@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { describeAudit, auditDetails } from '../utils/auditText';
 
 // One audit line, readable by default: who, what happened in plain words, and when (Manila). The technical details (action code, record,
@@ -18,12 +18,23 @@ function AuditEntry({ line, startOpen = false }) {
         {open ? 'Hide details' : 'View details'}
       </button>
       {open && (
-        <dl id={panelId} className="audit-entry-details">
-          <dt>Action</dt><dd>{details.action}</dd>
-          {details.record && (<><dt>Record</dt><dd>{details.record}</dd></>)}
-          {details.role && (<><dt>Role</dt><dd>{details.role}</dd></>)}
-          {details.meta && (<><dt>Values</dt><dd><pre className="audit-entry-json">{details.meta}</pre></dd></>)}
-        </dl>
+        <div id={panelId} className="audit-entry-panel">
+          <dl className="audit-entry-details">
+            <dt>What happened</dt><dd>{details.what}</dd>
+            <dt>Done by</dt><dd>{details.who}</dd>
+            {details.when && (<><dt>When</dt><dd>{details.when}</dd></>)}
+            {details.record && (<><dt>Record</dt><dd>{details.record}</dd></>)}
+          </dl>
+          {details.values.length > 0 && (
+            <>
+              <p className="audit-entry-subhead">What changed</p>
+              <dl className="audit-entry-details audit-entry-values">
+                {details.values.map(([label, value]) => (<Fragment key={label}><dt>{label}</dt><dd>{value}</dd></Fragment>))}
+              </dl>
+            </>
+          )}
+          <p className="audit-entry-code">Action code: <code>{details.action}</code></p>
+        </div>
       )}
     </li>
   );

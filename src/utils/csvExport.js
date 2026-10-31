@@ -4,11 +4,17 @@ const UTF8_BOM = '﻿';
 // A cell that starts with one of these is read as a formula by Excel and Sheets.
 const FORMULA_START = /^[=+\-@\t\r]/;
 
+// A calendar date written as text: 2026-11-03, or Nov 3, 2026 (also with the full month name). Excel and Sheets turn such text into a real date
+// and then show ########## when the column is narrower than the date, which is what a CSV always gives them. So a date is written as a text
+// value instead: it keeps reading as written and never shows hashes. Only this exact shape is treated so, and it holds no formula.
+const DATE_TEXT = /^(\d{4}-\d{2}-\d{2}|[A-Z][a-z]{2,8} \d{1,2}, \d{4})$/;
+
 // One cell as CSV text. Text that could run as a formula gets a leading single quote, and
 // anything with a comma, quote or line break is wrapped in quotes with inner quotes doubled.
 export function csvCell(value) {
   if (value === null || value === undefined) return '';
   let text = String(value);
+  if (typeof value === 'string' && DATE_TEXT.test(text)) return `"=""${text}"""`;
   if (typeof value !== 'number' && FORMULA_START.test(text)) text = `'${text}`;
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }

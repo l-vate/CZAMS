@@ -48,6 +48,8 @@ const HIDDEN = [
   'reportId', 'report', '__v', 'id', 'paymentEvents', 'needsReassignment', 'paymentCheckAfterCancel',
   // the raw quotation settings; the customer gets the effective terms (quotationTerms) instead
   'quotation',
+  // the day-before reminder's bookkeeping (jobs/serviceTomorrowReminderJob.js)
+  'serviceReminderSentFor', 'serviceReminderSentAt',
 ];
 
 function toCustomerView(booking) {

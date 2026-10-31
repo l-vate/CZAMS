@@ -48,6 +48,9 @@ const NOTIFICATION_TYPE = Object.freeze({
   NO_SHOW_REPORTED: 'no_show_reported',
   NO_SHOW_CONFIRMED: 'no_show_confirmed',
   NO_SHOW_REJECTED: 'no_show_rejected',
+  // the day before an Approved service: one for the customer (also emailed), one for each technician (in-app only)
+  BOOKING_TOMORROW_REMINDER: 'booking_tomorrow_reminder',
+  JOB_TOMORROW_REMINDER: 'job_tomorrow_reminder',
 });
 
 module.exports = { NOTIFICATION_TYPE };

@@ -28,7 +28,7 @@ test('no category is listed for a kind the server does not send (a stale or miss
 });
 
 test('each kind is in exactly one category, and every category used is a real, labelled one', () => {
-  assert.equal(KINDS.length, 47);
+  assert.equal(KINDS.length, 49);
   for (const kind of KINDS) {
     const owners = cats.CATEGORY_ORDER.filter((c) => cats.typesInCategory(c).includes(kind));
     assert.equal(owners.length, 1, kind);

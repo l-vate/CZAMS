@@ -26,8 +26,8 @@ const booking = (over = {}) => ({
 });
 const render = (type, extra = {}) => renderNotificationEmail({ type, message: `Booking CZ-2026-0001 update for ${type}.`, appUrl: APP_URL, booking: booking(), ...extra });
 
-test('every kind that is emailed has content in the shared set, and the count is the known 38', () => {
-  assert.equal(EMAIL_NOTIFICATION_TYPES.size, 38);
+test('every kind that is emailed has content in the shared set, and the count is the known 39', () => {
+  assert.equal(EMAIL_NOTIFICATION_TYPES.size, 39);
   for (const type of EMAIL_NOTIFICATION_TYPES) assert.ok(KINDS[type], `${type} has no content`);
 });
 
@@ -178,7 +178,7 @@ test('the queue is unchanged: subjects, recipients and one email per notificatio
     for (const type of EMAIL_NOTIFICATION_TYPES) {
       await queueNotificationEmail('CUS1', type, 'Booking CZ-2026-0001 update.', `N-${type}`, { ...process.env, APP_URL }, booking());
     }
-    assert.equal(created.length, 38, 'one email per notification');
+    assert.equal(created.length, 39, 'one email per notification');
     const titleCase = (type) => `CZAMS: ${type.split('_').map((part) => part[0].toUpperCase() + part.slice(1)).join(' ')}`;
     [...EMAIL_NOTIFICATION_TYPES].forEach((type, i) => {
       assert.equal(created[i].subject, titleCase(type), `subject of ${type}`);

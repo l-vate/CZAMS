@@ -45,6 +45,7 @@ const KINDS = {
   [T.BACKJOB_RECEIVED]: ['Back job request received', 'blue', 'REQUEST RECEIVED', 'We will check your warranty and get back to you.', 'We received your back job request.'],
   [T.BACKJOB_DECIDED]: ['Back job decision', 'blue', 'DECISION MADE', 'Open the booking to see the decision.', 'A decision was made on your back job.'],
   [T.SERVICE_REMINDER]: ['Time for your next service', 'blue', 'REMINDER', 'You can book your next service in the app.', 'It is time for your next service.'],
+  [T.BOOKING_TOMORROW_REMINDER]: ['Your service is tomorrow', 'blue', 'SERVICE TOMORROW', 'Please make sure someone can let our technicians in. If you need to change anything, open your booking.', 'Your service is tomorrow.'],
   [T.CHAT_MESSAGE]: ['New message', 'blue', 'NEW MESSAGE', 'Open the app to read it and reply.', 'You have a new message.'],
   [T.INSTRUCTIONS_UPDATED]: ['Job instructions updated', 'blue', 'INSTRUCTIONS UPDATED', 'Open the job to read them.', 'The instructions for a job were updated.'],
   [T.REPORT_REMOVED]: ['Service report removed', 'amber', 'ACTION NEEDED', 'Open the booking to see what is needed.', 'A service report was removed.'],

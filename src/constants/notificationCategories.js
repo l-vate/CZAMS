@@ -45,6 +45,7 @@ export const NOTIFICATION_CATEGORY = Object.freeze({
   reschedule_denied: CATEGORY.BOOKINGS,
   scope_updated: CATEGORY.BOOKINGS,
   service_reminder: CATEGORY.BOOKINGS,
+  booking_tomorrow_reminder: CATEGORY.BOOKINGS,
   // Payments: money in, and what the price is made of
   payment_submitted: CATEGORY.PAYMENTS,
   payment_verified: CATEGORY.PAYMENTS,
@@ -67,6 +68,7 @@ export const NOTIFICATION_CATEGORY = Object.freeze({
   // Jobs and reports: the work itself, from assignment to the service report and back jobs
   job_assigned: CATEGORY.JOBS,
   job_unassigned: CATEGORY.JOBS,
+  job_tomorrow_reminder: CATEGORY.JOBS,
   instructions_updated: CATEGORY.JOBS,
   report_removed: CATEGORY.JOBS,
   no_show_reported: CATEGORY.JOBS,

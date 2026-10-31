@@ -308,6 +308,10 @@ const bookingSchema = new mongoose.Schema({
     // way can still be cancelled by the customer until the job is done, under the usual rule.
     startedBySystem: { type: Boolean, default: false },
     startedAt: Date,
+    // The booked date (YYYY-MM-DD) the "Your service is tomorrow" reminder was last sent for, and when (jobs/serviceTomorrowReminderJob.js). A reschedule
+    // to another date is a new date, so it is reminded again. Nothing else reads these two.
+    serviceReminderSentFor: { type: String, default: null },
+    serviceReminderSentAt: Date,
     // The customer's report that the technicians did not come (utils/noShow.js). One per booking. The admin decides; a report never refunds
     // anything by itself and creates no rating or score for any technician.
     noShow: {

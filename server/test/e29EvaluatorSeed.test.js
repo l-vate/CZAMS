@@ -93,7 +93,7 @@ test.beforeEach(() => {
 
 const lines = [];
 const log = (line) => lines.push(String(line));
-const go = (over = {}) => seed.run({ now: NOW, dbName: 'CZAMS_audit_test', env: ENV, log, store, ...over });
+const go = (over = {}) => seed.run({ now: NOW, audit: true, dbName: 'CZAMS_audit_test', env: ENV, log, store, ...over });
 const reset = () => { lines.length = 0; };
 
 // the records that are not Evaluator ones: an admin, a real customer with a similar address, and a real booking with its notification
@@ -211,14 +211,95 @@ test('the Approved bookings stay Approved after the expiry and auto-start jobs r
   assert.ok(db.bookings.filter((b) => b.evaluatorKey && b.evaluatorKey.startsWith('approved')).every((b) => b.status === 'Approved'), 'the three Approved bookings are still Approved ten days in');
 });
 
-test('the allowlist guard refuses an unknown database, before anything is read or written', async () => {
+test('with --audit only the audit database is allowed, before anything is read or written', async () => {
   assert.deepEqual(seed.ALLOWLIST, ['CZAMS_audit_test']);
-  await assert.rejects(go({ dbName: 'CZAMS', apply: true }), /not on the allowlist/);
+  await assert.rejects(go({ dbName: 'SomeOtherDb', apply: true }), /only CZAMS_audit_test is allowed/);
+  await assert.rejects(go({ dbName: 'SomeOtherDb', apply: true, live: true, env: { ...ENV, EVALUATOR_LIVE_DB_NAME: 'SomeOtherDb' } }), /only CZAMS_audit_test is allowed/, 'the live flag and variable do not widen --audit');
   await assert.rejects(go({ dbName: '' }), /does not name a database/);
+  await assert.rejects(go({ dbName: 'SomeOtherDb', cleanup: true }), /only CZAMS_audit_test is allowed/);
   assert.equal(db.users.length, 0);
-  assert.equal(seed.checkDatabase('CZAMS', { live: true }).ok, true, 'only the extra flag lets another database through');
-  assert.equal(seed.checkDatabase('CZAMS_audit_test').live, false);
-  await assert.rejects(go({ dbName: 'CZAMS', cleanup: true }), /not on the allowlist/);
+  assert.equal(seed.checkDatabase('CZAMS_audit_test', { audit: true }).ok, true);
+  assert.equal(seed.checkDatabase('CZAMS_audit_test', { audit: true }).live, false);
+});
+
+// a made up name stands in for the live one: the real name is never written in the code or the tests
+const LIVE = 'SampleLiveDatabase';
+const liveEnv = (over = {}) => ({ ...ENV, EVALUATOR_LIVE_DB_NAME: LIVE, ...over });
+const live = (over = {}) => go({ audit: false, live: true, dbName: LIVE, env: liveEnv(), ...over });
+
+test('without --audit the script runs only when the flag, the variable and an exact name all agree', async () => {
+  // all three: it runs (a dry run here)
+  const ok = await live();
+  assert.equal(ok.applied, false);
+  assert.match(lines.join('\n'), /Database: SampleLiveDatabase \(the live database/);
+  reset();
+  // no flag
+  await assert.rejects(live({ live: false }), /needs --i-know-this-is-live/);
+  // no variable, or an empty or blank one
+  await assert.rejects(live({ env: ENV }), /set EVALUATOR_LIVE_DB_NAME/);
+  await assert.rejects(live({ env: liveEnv({ EVALUATOR_LIVE_DB_NAME: '' }) }), /set EVALUATOR_LIVE_DB_NAME/);
+  await assert.rejects(live({ env: liveEnv({ EVALUATOR_LIVE_DB_NAME: '   ' }) }), /set EVALUATOR_LIVE_DB_NAME/);
+  // a name that is not exactly the variable: other case, a prefix, a suffix, the audit database
+  for (const name of ['samplelivedatabase', 'SampleLive', 'SampleLiveDatabase2', 'CZAMS_audit_test', 'SampleLiveDatabase ']) {
+    await assert.rejects(live({ dbName: name }), /not the name in EVALUATOR_LIVE_DB_NAME/, name);
+  }
+  // an allowlisted name is not a way in without --audit either
+  await assert.rejects(go({ audit: false, dbName: 'CZAMS_audit_test' }), /needs --i-know-this-is-live/);
+  await assert.rejects(go({ audit: false, live: true, dbName: 'CZAMS_audit_test' }), /set EVALUATOR_LIVE_DB_NAME/);
+  assert.equal(db.users.length, 0, 'nothing was written by any refused run');
+  assert.equal(db.bookings.length, 0);
+});
+
+test('the same guard covers apply, cleanup and show-existing without --audit', async () => {
+  for (const mode of [{ apply: true }, { cleanup: true }, { cleanup: true, apply: true }, { showExisting: true }]) {
+    await assert.rejects(live({ ...mode, live: false }), /needs --i-know-this-is-live/);
+    await assert.rejects(live({ ...mode, env: ENV }), /set EVALUATOR_LIVE_DB_NAME/);
+    await assert.rejects(live({ ...mode, dbName: 'Other' }), /not the name in EVALUATOR_LIVE_DB_NAME/);
+  }
+  assert.equal(db.users.length, 0);
+});
+
+test('the live name is never written in the code, and the passwords are still needed to write on the live database', async () => {
+  const source = require('node:fs').readFileSync(require.resolve('../scripts/seedEvaluatorData.js'), 'utf8');
+  assert.match(source, /EVALUATOR_LIVE_DB_NAME/);
+  const names = [...source.matchAll(/CZAMS[A-Za-z_]*/g)].map((m) => m[0]).filter((n) => n !== 'CZAMS_audit_test' && n !== 'CZAMS');
+  assert.deepEqual(names, [], 'no other database name appears');
+  await assert.rejects(live({ apply: true, env: { EVALUATOR_LIVE_DB_NAME: LIVE } }), /EVALUATOR_TECHNICIAN_PASSWORD/);
+  const done = await live({ apply: true });
+  assert.equal(done.usersCreated, 2);
+  assert.match(lines.join('\n'), /Live database: the 3 month reminder job was not run from here/);
+  assert.equal(db.reminders.length, 0, 'the global reminder job is left to the server on a live database');
+});
+
+test('show-existing is read only and prints counts and dates only', async () => {
+  const before = snapshot();
+  await go({ showExisting: true, env: {} });
+  assert.match(lines.join('\n'), /technicianone@example\.com: no account yet/);
+  assert.match(lines.join('\n'), /customerone@example\.com: no account yet/);
+  assert.equal(snapshot(), before);
+  db.users.push({ _id: 'CUS55', name: 'Secret Name', email: 'customerone@example.com', role: 'customer', password: 'x', isActive: true });
+  db.users.push({ _id: 'STF55', name: 'Other Secret', email: 'technicianone@example.com', role: 'staff', password: 'x', isActive: true });
+  const add = (id, status, service, date, extra = {}) => db.bookings.push({ _id: id, bookingId: id, customer: 'CUS55', status, service, date, basePrice: 98765, ...extra });
+  add('B1', 'Completed', 'S-CLEAN', '2026-05-02', { completedAt: new Date('2026-05-02T02:00:00Z'), assignments: [{ lead: 'STF55' }] });
+  add('B2', 'Completed', 'S-CLEAN', '2026-08-09', { completedAt: new Date('2026-08-09T02:00:00Z'), assignments: [{ lead: 'STF55' }] });
+  add('B3', 'Completed', 'S-INSTALL', '2026-09-20', { completedAt: new Date('2026-09-20T02:00:00Z') });
+  add('B4', 'Pending', 'S-CLEAN', '2026-11-20');
+  add('B5', 'Approved', 'S-CHECK', '2026-11-25', { assignments: [{ lead: 'STF55' }] });
+  const unrelated = JSON.stringify(db.bookings);
+  reset();
+  const result = await go({ showExisting: true, env: {} });
+  const text = lines.join('\n');
+  assert.match(text, /customerone@example\.com: account exists, 5 bookings/);
+  assert.match(text, /by status: Approved 1, Completed 3, Pending 1/);
+  assert.match(text, /by service type: Check-up 1, Cleaning 3, Installation 1/);
+  assert.match(text, /latest Completed cleaning: 2026-08-09/);
+  assert.match(text, /technicianone@example\.com: account exists, 3 bookings assigned/);
+  assert.equal(result.customer.latestCompletedCleaning, '2026-08-09');
+  assert.equal(result.technician.latestCompletedCleaning, '2026-08-09');
+  for (const secret of ['Secret Name', 'Other Secret', '98765', 'B1', 'CUS55', 'STF55']) assert.ok(!text.includes(secret), `the output holds no ${secret}`);
+  assert.equal(JSON.stringify(db.bookings), unrelated, 'nothing was written');
+  assert.equal(db.reminders.length, 0);
+  assert.equal(db.notes.length, 0);
 });
 
 test('it refuses to run when either password is missing, and a password never appears in any output or stored as text', async () => {

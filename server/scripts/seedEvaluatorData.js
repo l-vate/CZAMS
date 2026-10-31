@@ -13,9 +13,15 @@
 // The script refuses to run (seeding or a dry run of it) when either is missing, and never prints them. An account that already exists keeps its
 // password unless --reset-passwords is given.
 //
-// Without --audit the script connects with MONGO_URI (the environment, else server/.env) and REFUSES unless the database name is on the
-// allowlist below or --i-know-this-is-live is given as well, before any connection is made. It prints the database NAME only, never the
-// connection string.
+// With --audit the script connects to CZAMS_audit_test only (scripts/lib/auditDb.js) and the allowlist below applies.
+// Without --audit it connects with MONGO_URI (the environment, else server/.env) and runs ONLY when all three are true, checked before any
+// connection is made and again on the connected database: --i-know-this-is-live is passed, the environment variable EVALUATOR_LIVE_DB_NAME is
+// set, and the database name equals that variable exactly. The live name is never written in the code. Otherwise it refuses. It prints the
+// database NAME only, never the connection string.
+//
+//   node scripts/seedEvaluatorData.js --show-existing [--audit | --i-know-this-is-live]   read only: for the two accounts, counts by status and
+//   service type, and the date of the latest Completed cleaning (counts and dates only: no names, no amounts). It writes nothing and needs no
+//   passwords. Run it before --apply to see what history the accounts already have.
 //
 // Everything it creates carries the marker isEvaluatorSample: true and evaluatorBatch: 'e29' (or is tied to a marked booking). It finds its own
 // records by that marker and never touches anything else, so a second run creates nothing and --cleanup removes only these. The bookings follow
@@ -42,12 +48,22 @@ const marker = () => ({ isEvaluatorSample: true, evaluatorBatch: BATCH });
 
 // ---- pure helpers ----------------------------------------------------------------------------------------------------------------------
 
-// Refuses a database that is not on the allowlist unless the owner said so. Prints nothing; the caller prints the name.
-function checkDatabase(name, { live = false } = {}) {
+const LIVE_DB_VAR = 'EVALUATOR_LIVE_DB_NAME';
+
+// Decides whether this database may be used. Prints nothing; the caller prints the name.
+//   audit  (--audit): the name must be on the allowlist (CZAMS_audit_test).
+//   not audit:        all of these must hold: live (--i-know-this-is-live), liveName (the value of EVALUATOR_LIVE_DB_NAME) is set, and the name
+//                     equals it exactly. Nothing else is accepted, not even an allowlisted name.
+function checkDatabase(name, { audit = false, live = false, liveName = '' } = {}) {
   if (!name || typeof name !== 'string') return { ok: false, message: 'The connection string does not name a database, so nothing was done.' };
-  if (ALLOWLIST.includes(name)) return { ok: true, live: false };
-  if (live) return { ok: true, live: true };
-  return { ok: false, message: `Refusing to run on the database "${name}": it is not on the allowlist (${ALLOWLIST.join(', ')}). Add --i-know-this-is-live only if you mean the live database.` };
+  if (audit) {
+    if (ALLOWLIST.includes(name)) return { ok: true, live: false };
+    return { ok: false, message: `Refusing to run on the database "${name}" with --audit: only ${ALLOWLIST.join(', ')} is allowed.` };
+  }
+  if (!live) return { ok: false, message: `Refusing to run on the database "${name}": without --audit the script needs --i-know-this-is-live, ${LIVE_DB_VAR} set to the database name, and a connection to exactly that database.` };
+  if (typeof liveName !== 'string' || liveName.trim() === '') return { ok: false, message: `Refusing to run on the database "${name}": set ${LIVE_DB_VAR} to the exact name of the database you mean.` };
+  if (name !== liveName) return { ok: false, message: `Refusing to run: the connected database is "${name}", which is not the name in ${LIVE_DB_VAR}. Nothing was done.` };
+  return { ok: true, live: true };
 }
 
 // The two passwords, from the environment. Names only in a message, never a value.
@@ -80,20 +96,59 @@ const manilaMorning = (key) => new Date(`${key}T02:00:00Z`); // 10:00 in Manila
 // `options`: { apply, cleanup, resetPasswords, live, now, dbName, env, log, store, runReminders }. Returns a summary of counts.
 async function run(options = {}) {
   const {
-    apply = false, cleanup = false, resetPasswords = false, live = false, now = new Date(), dbName, env = process.env,
+    apply = false, cleanup = false, showExisting = false, resetPasswords = false, audit = false, live = false, now = new Date(), dbName, env = process.env,
     log = console.log, store = null, runReminders = true,
   } = options;
-  const verdict = checkDatabase(dbName, { live });
+  const verdict = checkDatabase(dbName, { audit, live, liveName: env[LIVE_DB_VAR] });
   if (!verdict.ok) throw new Error(verdict.message);
   let passwords = null;
-  if (!cleanup) {
+  if (!cleanup && !showExisting) {
     const read = readPasswords(env);
     if (!read.ok) throw new Error(read.message);
     passwords = read.passwords;
   }
-  log(`Database: ${dbName}${verdict.live ? ' (NOT on the allowlist: --i-know-this-is-live was given)' : ''}`);
+  log(`Database: ${dbName}${verdict.live ? ' (the live database: it matches EVALUATOR_LIVE_DB_NAME)' : ''}`);
+  if (showExisting) { log('Mode: show existing (read only)'); return runShowExisting({ log }); }
   log(apply ? 'Mode: APPLY (writes)' : 'Mode: dry run (nothing is written)');
   return cleanup ? runCleanup({ apply, log, store }) : runSeed({ apply, resetPasswords, now, log, store, runReminders, live: verdict.live, passwords });
+}
+
+// Read only: what the two accounts already have, as counts and dates. No names, no amounts, no ids, nothing is written.
+async function runShowExisting({ log }) {
+  const User = require('../models/User');
+  const Booking = require('../models/Booking');
+  const Service = require('../models/Service');
+  const { effectiveCompletedAt } = require('../utils/completion');
+  const { manilaDateKey } = require('../utils/manilaDate');
+  const services = await Service.find({});
+  const typeOf = new Map(services.map((s) => [String(s._id), s.serviceType || 'Unknown']));
+  const tally = (list, keyOf) => {
+    const counts = new Map();
+    list.forEach((item) => counts.set(keyOf(item), (counts.get(keyOf(item)) || 0) + 1));
+    return [...counts.entries()].sort((a, b) => String(a[0]).localeCompare(String(b[0]))).map(([k, n]) => `${k} ${n}`).join(', ') || 'none';
+  };
+  const result = {};
+  for (const account of ACCOUNTS) {
+    const user = await User.findOne({ email: account.email });
+    if (!user) {
+      log(`${account.email}: no account yet`);
+      result[account.key] = { exists: false };
+      continue;
+    }
+    const filter = account.role === 'customer'
+      ? { customer: user._id }
+      : { $or: [{ technician: user._id }, { 'assignments.lead': user._id }, { 'assignments.helper': user._id }] };
+    const bookings = await Booking.find(filter);
+    const serviceTypeOf = (b) => typeOf.get(String(b.service)) || 'Unknown';
+    const cleanings = bookings.filter((b) => b.status === 'Completed' && serviceTypeOf(b) === 'Cleaning');
+    const latest = cleanings.map((b) => manilaDateKey(effectiveCompletedAt(b))).sort().pop() || null;
+    log(`${account.email}: account exists, ${bookings.length} booking${account.role === 'customer' ? 's' : 's assigned'}`);
+    log(`  by status: ${tally(bookings, (b) => b.status)}`);
+    log(`  by service type: ${tally(bookings, serviceTypeOf)}`);
+    log(`  latest Completed cleaning: ${latest || 'none'}`);
+    result[account.key] = { exists: true, bookings: bookings.length, latestCompletedCleaning: latest };
+  }
+  return result;
 }
 
 async function loadMarked() {
@@ -317,26 +372,32 @@ async function runSeed({ apply, resetPasswords, now, log, store, runReminders, l
 
 async function main() {
   const args = new Set(process.argv.slice(2));
-  // the passwords and the database name are checked BEFORE any connection is made
-  if (!args.has('--cleanup')) {
+  const audit = args.has('--audit');
+  const live = args.has('--i-know-this-is-live');
+  const readOnly = args.has('--show-existing');
+  // the passwords are needed only to write accounts, and are checked BEFORE any connection is made
+  if (!args.has('--cleanup') && !readOnly) {
     const read = readPasswords(process.env);
     if (!read.ok) { console.error(read.message); process.exit(1); }
   }
   const mongoose = require('mongoose');
   const { databaseNameOf, connectAudit } = require('./lib/auditDb');
   const { createGridFsStore } = require('../storage/fileStore');
-  if (args.has('--audit')) {
+  if (audit) {
     await connectAudit(mongoose);
   } else {
     require('dns').setServers(['8.8.8.8', '8.8.4.4']);
     require('dotenv').config({ path: path.join(__dirname, '..', '.env'), quiet: true });
-    const verdict = checkDatabase(databaseNameOf(process.env.MONGO_URI), { live: args.has('--i-know-this-is-live') });
+    // the database named in the connection string is checked BEFORE connecting: the flag, the variable, and an exact match
+    const name = databaseNameOf(process.env.MONGO_URI);
+    console.log(`Database named by the connection: ${name || '(none)'}`);
+    const verdict = checkDatabase(name, { audit: false, live, liveName: process.env[LIVE_DB_VAR] });
     if (!verdict.ok) { console.error(verdict.message); process.exit(1); }
     await mongoose.connect(process.env.MONGO_URI);
   }
   try {
     await run({
-      apply: args.has('--apply'), cleanup: args.has('--cleanup'), resetPasswords: args.has('--reset-passwords'), live: args.has('--i-know-this-is-live'),
+      apply: args.has('--apply'), cleanup: args.has('--cleanup'), showExisting: readOnly, resetPasswords: args.has('--reset-passwords'), audit, live,
       dbName: mongoose.connection.name, store: createGridFsStore(),
     });
   } finally {
@@ -348,4 +409,4 @@ if (require.main === module) {
   main().catch((err) => { console.error(err.message); process.exit(1); });
 }
 
-module.exports = { run, checkDatabase, readPasswords, ALLOWLIST, ACCOUNTS, BATCH, SEED_ACTOR, PROOF_PNG, TECHNICIAN_PASSWORD_VAR, CUSTOMER_PASSWORD_VAR };
+module.exports = { run, checkDatabase, readPasswords, LIVE_DB_VAR, ALLOWLIST, ACCOUNTS, BATCH, SEED_ACTOR, PROOF_PNG, TECHNICIAN_PASSWORD_VAR, CUSTOMER_PASSWORD_VAR };

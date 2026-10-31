@@ -39,13 +39,47 @@ export function describeAudit(line) {
   return { who, what, when };
 }
 
-// The text inside "View details": the record and the values, with the raw JSON at the end. Never shown until the person asks.
+const ENTITY_LABEL = { Booking: 'Booking', User: 'Account', Service: 'Service', TechnicianOff: 'Technician time off', Closure: 'Closed date', Report: 'Service report', Promo: 'Promotion' };
+
+// "distanceAdjustment" becomes "Distance adjustment"; "unit_source" becomes "Unit source".
+function labelOf(key) {
+  const text = String(key).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[._]+/g, ' ').trim().toLowerCase();
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+const MONEY_KEY = /amount|fee|adjustment|price|total|payment$/i;
+const peso = (n) => '₱' + Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 });
+
+// One value in words: Yes or No, a peso amount for a money field, a list joined with commas, a "before to after" pair, or a short text.
+function valueOf(key, value) {
+  if (value === null || value === undefined || value === '') return 'None';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'number') return MONEY_KEY.test(key) ? peso(value) : String(value);
+  if (Array.isArray(value)) return value.length === 0 ? 'None' : value.map((v) => valueOf(key, v)).join(', ');
+  if (typeof value === 'object') {
+    if ('before' in value || 'after' in value) return valueOf(key, value.before) + ' → ' + valueOf(key, value.after);
+    return Object.entries(value).map(([k, v]) => labelOf(k) + ': ' + valueOf(k, v)).join('; ');
+  }
+  return String(value);
+}
+
+// The text inside "View details", as labelled rows instead of raw JSON: what happened, who, when, which record, the values that changed (named
+// in words), and the action code last, for support. Never shown until the person asks.
 export function auditDetails(line) {
-  const meta = line?.meta && Object.keys(line.meta).length > 0 ? JSON.stringify(line.meta, null, 2) : '';
+  const { who, what } = describeAudit(line);
+  const meta = line?.meta && Object.keys(line.meta).length > 0 ? line.meta : null;
+  const exact = line?.createdAt ? new Date(line.createdAt).toLocaleString('en-US', { timeZone: 'Asia/Manila', dateStyle: 'long', timeStyle: 'medium' }) + ' (Manila time)' : '';
+  const typeName = String(line?.entityType || '');
+  const capitalised = typeName.charAt(0).toUpperCase() + typeName.slice(1);
+  const kind = ENTITY_LABEL[capitalised] || capitalised;
   return {
+    what,
+    who: [who, line?.actor?.role ? `(${line.actor.role})` : ''].filter(Boolean).join(' '),
+    when: exact,
     action: line?.action || '',
-    record: [line?.entityType, line?.entityId].filter(Boolean).join(' '),
+    record: [kind, line?.entityId].filter(Boolean).join(' '),
     role: line?.actor?.role || '',
-    meta,
+    values: meta ? Object.entries(meta).map(([key, value]) => [labelOf(key), valueOf(key, value)]) : [],
+    meta: meta ? JSON.stringify(meta, null, 2) : '',
   };
 }

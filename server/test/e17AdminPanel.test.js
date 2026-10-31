@@ -95,7 +95,7 @@ test('View details holds the action, the record and the values', async () => {
   const html = await render('/src/components/audit_entry.jsx', { line, startOpen: true });
   assert.match(html, /Hide details/);
   assert.match(html, /technician_off\.set/);
-  assert.match(html, /TechnicianOff 2026-11-25/);
+  assert.match(html, /Technician time off 2026-11-25/);
   assert.match(html, /STF4223/);
 });
 

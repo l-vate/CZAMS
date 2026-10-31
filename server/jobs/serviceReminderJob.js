@@ -23,7 +23,8 @@ const SERVICE_REMINDER_TRIGGER_MONTHS = 3;
 // send anything itself. See deliverPendingServiceReminders() below for the
 // delivery step, kept separate so detection never has to change to swap how
 // (or whether) delivery happens.
-async function runServiceReminderCheck() {
+// `now` defaults to the real time; it is a parameter only so a test (or the evaluator seed script) can use a fixed clock. Nothing else changed.
+async function runServiceReminderCheck(now = new Date()) {
   const cleaningServices = await Service.find({ serviceType: SERVICE_TYPE.CLEANING }).select('_id');
   const cleaningServiceIds = cleaningServices.map((s) => s._id);
 
@@ -53,7 +54,7 @@ async function runServiceReminderCheck() {
 
   // Due once the Manila day of the cleaning is three calendar months back or more, so the answer does not depend on
   // the server's time zone.
-  const dueCutoffKey = monthsAgoManilaKey(SERVICE_REMINDER_TRIGGER_MONTHS);
+  const dueCutoffKey = monthsAgoManilaKey(SERVICE_REMINDER_TRIGGER_MONTHS, now);
 
   let remindersCreated = 0;
   for (const [customerId, booking] of latestByCustomer) {

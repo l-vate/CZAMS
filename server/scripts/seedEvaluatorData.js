@@ -107,9 +107,9 @@ async function loadMarked() {
 
 // What is tied to the marked records: notifications (to a marked account, or about a marked booking), reminders (about a marked booking) and
 // audit lines (about a marked booking or account, or written by the seed). Nothing else.
-function tiedFilters({ userIds, bookingIds }) {
+function tiedFilters({ userIds, bookingIds, noteIds = [] }) {
   return {
-    notifications: { $or: [{ user: { $in: userIds } }, { relatedBookingId: { $in: bookingIds } }] },
+    notifications: { $or: [{ user: { $in: userIds } }, { relatedBookingId: { $in: bookingIds } }, { _id: { $in: noteIds } }] },
     reminders: { lastCleaningBookingId: { $in: bookingIds } },
     audits: { $or: [{ 'actor.id': SEED_ACTOR.id }, { entityId: { $in: [...bookingIds, ...userIds] } }] },
   };
@@ -126,7 +126,13 @@ async function runCleanup({ apply, log, store }) {
   const userIds = users.map((u) => u._id);
   const bookingIds = bookings.map((b) => b.bookingId);
   const files = [...new Set(bookings.flatMap((b) => [b.proofFile, b.balanceProofFile]).filter(Boolean))];
-  const filters = tiedFilters({ userIds, bookingIds });
+  // The 3 month reminder notification has no booking link, and its customer may be an account the script did not make. It is found through the
+  // reminder about a marked booking: the same customer, the "book again" kind, naming that booking's cleaning date. Nothing else matches.
+  const reminderRows = await ServiceReminder.find({ lastCleaningBookingId: { $in: bookingIds } });
+  const reminderDates = reminderRows.map((r) => new Date(r.lastCleaningDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila' }));
+  const reminderNotes = reminderRows.length === 0 ? [] : (await Notification.find({ type: 'service_reminder', user: { $in: reminderRows.map((r) => r.customer) } }))
+    .filter((n) => !n.relatedBookingId && reminderDates.some((d) => String(n.message).includes(d)));
+  const filters = tiedFilters({ userIds, bookingIds, noteIds: reminderNotes.map((n) => n._id) });
   const counts = { users: users.length, bookings: bookings.length, reports: reports.length, files: files.length, notifications: 0, reminders: 0, auditLines: 0 };
   const nothing = userIds.length === 0 && bookingIds.length === 0;
   if (!nothing) {
@@ -297,7 +303,7 @@ async function runSeed({ apply, resetPasswords, now, log, store, runReminders, l
   // ---- the 3 month reminder: the real job, once. It looks at every customer, which is what the server does every midnight and at every start,
   // so on a live database it is left to the server (the Evaluator customer is flagged at the next start) rather than run from here.
   if (runReminders && !live) {
-    const check = await runServiceReminderCheck();
+    const check = await runServiceReminderCheck(now);
     const sent = await deliverPendingServiceReminders();
     log(`The 3 month reminder job ran once: ${check.remindersCreated} flagged, ${sent.delivered} delivered.`);
   } else if (live) {

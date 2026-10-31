@@ -51,6 +51,9 @@ const EMAIL_NOTIFICATION_TYPES = new Set([
   NOTIFICATION_TYPE.NO_SHOW_REJECTED,
 ]);
 
+// The ".invalid" top level domain is reserved so that it never resolves (RFC 2606): mail to it can only fail.
+const isUndeliverableAddress = (email) => /@[^@]*\.invalid\s*$/i.test(String(email || ''));
+
 const MAX_ATTEMPTS = 5;
 const BATCH_SIZE = 10;
 const PROCESSING_LEASE_MS = 10 * 60 * 1000;
@@ -86,6 +89,8 @@ async function queueNotificationEmail(userId, type, message, notificationId, env
 
   const recipient = await User.findById(userId).select('email role');
   if (!recipient?.email) return null;
+  // an address that can never be delivered (the reserved .invalid domain, used by the evaluator sample accounts) is never queued: no attempt, no retry, no log noise
+  if (isUndeliverableAddress(recipient.email)) return null;
 
   const { html, text } = renderNotificationEmail({ type, message, appUrl: env.APP_URL, booking, recipientRole: recipient.role });
   return EmailDelivery.create({

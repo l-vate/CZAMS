@@ -67,6 +67,10 @@ const reportSchema = new mongoose.Schema({
     },
     
     // Additional metadata
+
+    // Evaluator sample data (scripts/seedEvaluatorData.js): the marker that lets the script find, and remove, only what it made. Nothing else reads these.
+    isEvaluatorSample: { type: Boolean, default: undefined },
+    evaluatorBatch: { type: String, default: undefined },
     isFinal: {
         type: Boolean,
         default: true

@@ -50,6 +50,8 @@ const HIDDEN = [
   'quotation',
   // the day-before reminder's bookkeeping (jobs/serviceTomorrowReminderJob.js)
   'serviceReminderSentFor', 'serviceReminderSentAt',
+  // evaluator sample data markers (scripts/seedEvaluatorData.js)
+  'isEvaluatorSample', 'evaluatorBatch', 'evaluatorKey',
 ];
 
 function toCustomerView(booking) {

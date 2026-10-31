@@ -308,6 +308,10 @@ const bookingSchema = new mongoose.Schema({
     // way can still be cancelled by the customer until the job is done, under the usual rule.
     startedBySystem: { type: Boolean, default: false },
     startedAt: Date,
+    // Evaluator sample data (scripts/seedEvaluatorData.js): the marker that lets the script find, and remove, only what it made. Nothing else reads these.
+    isEvaluatorSample: { type: Boolean, default: undefined },
+    evaluatorBatch: { type: String, default: undefined },
+    evaluatorKey: { type: String, default: undefined },
     // The booked date (YYYY-MM-DD) the "Your service is tomorrow" reminder was last sent for, and when (jobs/serviceTomorrowReminderJob.js). A reschedule
     // to another date is a new date, so it is reminded again. Nothing else reads these two.
     serviceReminderSentFor: { type: String, default: null },

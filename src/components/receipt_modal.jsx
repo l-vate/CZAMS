@@ -33,7 +33,9 @@ function ReceiptModal({ form, booking, billTo, onClose }) {
   const proofFile = booking?.proofFile || form.proofFile;
   const balanceProofFile = booking?.balanceProofFile || form.balanceProofFile;
   const referenceNumber = booking?.referenceNumber || form.referenceNumber;
-  const balanceReferenceNumber = booking?.balanceReferenceNumber || form.balanceReferenceNumber;
+  // a balance our team recorded in person has its reference or cheque number on the payment record, not on the booking (the customer view carries it as balanceRecordedInPerson)
+  const recordedBalance = booking?.balanceRecordedInPerson || [...(Array.isArray(booking?.paymentEvents) ? booking.paymentEvents : [])].reverse().find((e) => e.track === 'balance' && e.status === 'recorded');
+  const balanceReferenceNumber = booking?.balanceReferenceNumber || form.balanceReferenceNumber || recordedBalance?.reference;
   const paymentMode2 = booking?.paymentMode2 || form.paymentMode2;
   const balancePaid = booking?.balancePaid || form.balancePaid;
   const isSinglePayment = dpPercent === 100; // paid in full upfront, no separate balance stage

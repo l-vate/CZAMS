@@ -71,6 +71,12 @@ function toCustomerView(booking) {
   if (b.paymentStatus === 'rejected') out.downPaymentRejectionReason = lastRejection('down')?.reason || '';
   if (b.balancePaymentStatus === 'rejected') out.balanceRejectionReason = lastRejection('balance')?.reason || '';
 
+  // A payment our team received in person (cash, cheque, or GCash or a bank transfer at the counter) has no proof file and no customer reference,
+  // so the customer's own screens would show nothing for it. This is what they may see of it: how it was paid, the reference or cheque number
+  // given, and when. Never who recorded it or the amounts of the log.
+  const recorded = [...(Array.isArray(b.paymentEvents) ? b.paymentEvents : [])].reverse().find((e) => e.track === 'balance' && e.status === 'recorded');
+  if (recorded) out.balanceRecordedInPerson = { method: recorded.method || '', reference: recorded.reference || '', at: recorded.at || null };
+
   // The technicians on a Pending booking are only a proposal and can change, so the customer sees them once the booking
   // is Approved (and after). A Cancelled booking shows none.
   const showTechnicians = TECHNICIANS_VISIBLE_STATUSES.includes(b.status);

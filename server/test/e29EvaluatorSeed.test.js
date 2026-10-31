@@ -24,8 +24,8 @@ const seed = require('../scripts/seedEvaluatorData');
 
 // 2026-11-10 12:00 in Manila (UTC+8): the day the script is run
 const NOW = new Date('2026-11-10T04:00:00Z');
-const TECH_PASSWORD = 'Tech-secret-1234';
-const CUSTOMER_PASSWORD = 'Cust-secret-5678';
+const TECH_PASSWORD = `${require('node:crypto').randomBytes(12).toString('base64url')}-42`; // made fresh for each run
+const CUSTOMER_PASSWORD = `${require('node:crypto').randomBytes(12).toString('base64url')}-77`;
 const ENV = { EVALUATOR_TECHNICIAN_PASSWORD: TECH_PASSWORD, EVALUATOR_CUSTOMER_PASSWORD: CUSTOMER_PASSWORD };
 
 let db;

@@ -2245,7 +2245,7 @@
 /* ============ BILLING CARDS ============
    One layout for every bill: service and status badge, booking number, one labelled date, Total and Due now, then the same actions.
    The shared .tech-job-card shell (staff.css) is left alone: these rules only apply with .billing-card. */
-.billing-card {
+.tech-job-card.billing-card {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -2254,7 +2254,7 @@
   border-left-width: 3px;
   cursor: pointer;
 }
-.billing-card:hover { transform: none; }
+.tech-job-card.billing-card:hover { transform: none; }
 .billing-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .billing-card-service { flex: 1 1 auto; min-width: 0; font-weight: 700; font-size: 16px; color: var(--navy); overflow-wrap: anywhere; }
 .billing-card-id { font-size: 12px; color: var(--ink-soft); overflow-wrap: anywhere; }
@@ -2295,7 +2295,7 @@
 /* a phone: tighter, so two or three cards fit on one screen; buttons share a row when they fit and stack at full width when they do not */
 @media (max-width: 768px) {
   .billing-due-row .bs-next-btn { min-height: 44px; }
-  .billing-card { padding: 12px 14px; gap: 4px; }
+  .tech-job-card.billing-card { padding: 12px 14px; gap: 4px; }
   .billing-card-actions { gap: 8px; }
   .billing-btn { flex: 1 1 130px; }
 }
@@ -2359,4 +2359,24 @@
 @media (max-width: 768px) {
   .my-bookings-actions { width: 100%; justify-self: stretch; }
   .my-bookings-actions .view-details-btn { flex: 1 1 130px; justify-content: center; min-height: 44px; }
+}
+
+/* Billing cards on a wide screen: one row, in four columns (the service and its badge over the booking number, the dates, the money, the
+   actions at the right). Notes about the payment take the full width under it. */
+@media (min-width: 769px) {
+  .tech-job-card.billing-card {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1.2fr) auto;
+    align-items: center;
+    column-gap: 24px;
+    row-gap: 4px;
+    padding: 16px 20px;
+  }
+  .billing-card > .billing-card-head { grid-column: 1; grid-row: 1; }
+  .billing-card > .billing-card-id { grid-column: 1; grid-row: 2; }
+  .billing-card > .billing-card-dates { grid-column: 2; grid-row: 1 / 3; flex-direction: column; align-items: flex-start; }
+  .billing-card > .billing-card-money { grid-column: 3; grid-row: 1 / 3; flex-direction: column; align-items: flex-start; }
+  .billing-card > .billing-card-actions { grid-column: 4; grid-row: 1 / 3; flex-wrap: nowrap; margin-top: 0; justify-content: flex-end; }
+  .billing-card > .billing-card-actions .billing-btn { flex: 0 0 auto; }
+  .billing-card > .customer-billings-x5, .billing-card > .customer-billings-x6 { grid-column: 1 / -1; }
 }

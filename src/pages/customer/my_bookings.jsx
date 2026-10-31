@@ -219,21 +219,25 @@ function MyBookings() {
                   <FiMapPin /> {formatAddress(booking.address)}
                 </div>
 
-                <button
-                  className="view-details-btn"
-                  onClick={() => navigate(`/customer/book_details/${booking.bookingId}`, { state: { booking } })}
-                >
-                  <FiEye size={14} /> View Details
-                </button>
-
-                {getFeedbackAction(booking) && (
+                <div className="my-bookings-actions">
                   <button
-                    className="tech-job-view-link customer-my-bookings-x6"
-                    onClick={() => handleOpenFeedback(booking, getFeedbackAction(booking))}
+                    type="button"
+                    className="view-details-btn"
+                    onClick={() => navigate(`/customer/book_details/${booking.bookingId}`, { state: { booking } })}
                   >
-                    <FiStar /> {FEEDBACK_ACTION_LABEL[getFeedbackAction(booking)]}
+                    <FiEye size={14} /> View Details
                   </button>
-                )}
+
+                  {getFeedbackAction(booking) && (
+                    <button
+                      type="button"
+                      className="view-details-btn my-bookings-feedback-btn"
+                      onClick={() => handleOpenFeedback(booking, getFeedbackAction(booking))}
+                    >
+                      <FiStar size={14} /> {FEEDBACK_ACTION_LABEL[getFeedbackAction(booking)]}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))}

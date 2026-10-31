@@ -2350,3 +2350,13 @@
 @media (max-width: 340px) {
   .confirmation-notif-row { grid-template-columns: 1fr; }
 }
+
+/* My Bookings: View Details and Leave Feedback are the same kind of button (the feedback one used to look like an underlined link), side by side
+   at the right, and 44 px tall on a phone. */
+.my-bookings-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; justify-self: end; }
+.my-bookings-actions .view-details-btn { justify-self: auto; }
+.my-bookings-actions .view-details-btn:focus-visible { outline: 3px solid var(--action-focus); outline-offset: 2px; }
+@media (max-width: 768px) {
+  .my-bookings-actions { width: 100%; justify-self: stretch; }
+  .my-bookings-actions .view-details-btn { flex: 1 1 130px; justify-content: center; min-height: 44px; }
+}

@@ -61,11 +61,13 @@ app.use(errorHandler);
 // process, a job whose time passed while it was asleep is caught up at the next start (see jobs/).
 const { startServiceReminderSchedule } = require('./jobs/serviceReminderJob');
 const { startBookingStatusSchedule } = require('./jobs/bookingStatusJob');
+const { startServiceTomorrowReminderSchedule } = require('./jobs/serviceTomorrowReminderJob');
 const { startIdPhotoRetentionSchedule } = require('./jobs/idPhotoRetentionJob');
 const { startEmailDeliverySchedule } = require('./utils/emailDelivery');
 databaseReady.then(() => {
   startServiceReminderSchedule();
   startBookingStatusSchedule();
+  startServiceTomorrowReminderSchedule();
   startIdPhotoRetentionSchedule();
   startEmailDeliverySchedule();
   // say once, plainly, if a unique index could not be built (utils/indexWatch.js); the server keeps running

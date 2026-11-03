@@ -45,6 +45,8 @@ import { NoShowCustomerCard } from '../../components/no_show_panels';
 import { refundText, refundFigures, cancelledByText } from '../../utils/cancelledSummary';
 import { useNotice } from '../../hooks/useNotice';
 import { hpLabel } from '../../utils/hpLabel';
+import { namePartProblem } from '../../utils/personName';
+import { isValidContactNumber } from '../../utils/contact';
 // The signed-in customer, read when a page is drawn (not when this file is first loaded: that is before sign in, so it was empty until a reload).
 const readStoredUser = () => {
   try { return JSON.parse(localStorage.getItem('user') || '{}') || {}; } catch { return {}; }
@@ -126,6 +128,11 @@ function DiscountRequestForm({ bookingId, onRequested }) {
 function RescheduleModal({ booking, onClose, onSubmit, submitting }) {
   const [date, setDate] = useState(booking.date || '');
   const [time, setTime] = useState(booking.time || '');
+  // optional: who to ask for and the number to call, filled in with what the booking has now (the account's own name and phone when it has none)
+  const [contactName, setContactName] = useState(booking.contactName || readStoredUser().name || '');
+  const [contactNumber, setContactNumber] = useState(booking.contactNumber || readStoredUser().phone || '');
+  const contactNameProblem = contactName.trim() ? namePartProblem('Contact name', contactName) : '';
+  const contactNumberProblem = contactNumber.trim() && !isValidContactNumber(contactNumber) ? 'Enter a valid contact number (7 to 15 digits).' : '';
   const needsApproval = [BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status);
 
   const { min: minDate, max: maxDate } = bookingWindow(); // 3 days after today to 5 months after today in Manila (utils/dateRules.js)
@@ -168,12 +175,25 @@ function RescheduleModal({ booking, onClose, onSubmit, submitting }) {
           </div>
         </div>
 
+        <div className="bs-field-group">
+          <label className="bs-label" htmlFor="reschedule-contact-name">Contact name <span className="bs-label-hint">(optional)</span></label>
+          <input id="reschedule-contact-name" type="text" className="bs-input" maxLength={100} autoComplete="name" value={contactName} onChange={(e) => setContactName(e.target.value)} aria-invalid={Boolean(contactNameProblem)} />
+          {contactNameProblem && <p className="date-problem" role="alert">{contactNameProblem}</p>}
+        </div>
+
+        <div className="bs-field-group">
+          <label className="bs-label" htmlFor="reschedule-contact-number">Contact number <span className="bs-label-hint">(optional)</span></label>
+          <input id="reschedule-contact-number" type="tel" inputMode="tel" className="bs-input" autoComplete="tel" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} aria-invalid={Boolean(contactNumberProblem)} />
+          {contactNumberProblem && <p className="date-problem" role="alert">{contactNumberProblem}</p>}
+          <p className="cancel-confirm-text">These apply to this booking only. Your profile does not change.</p>
+        </div>
+
         <div className="cancel-confirm-actions">
           <button className="bs-back-btn" onClick={onClose}>Cancel</button>
           <button
             className="bs-next-btn"
-            disabled={!date || !time || !isDateValid || submitting}
-            onClick={() => onSubmit({ date, time })}
+            disabled={!date || !time || !isDateValid || Boolean(contactNameProblem) || Boolean(contactNumberProblem) || submitting}
+            onClick={() => onSubmit({ date, time, contactName: contactName.trim(), contactNumber: contactNumber.trim() })}
           >
             {needsApproval ? 'Submit Request' : 'Confirm Reschedule'}
           </button>
@@ -574,10 +594,10 @@ function BookDetails() {
     }
   };
 
-  const handleRescheduleSubmit = async ({ date, time }) => {
+  const handleRescheduleSubmit = async ({ date, time, contactName, contactNumber }) => {
     setRescheduling(true);
     try {
-      const data = await rescheduleBooking(booking.bookingId, { date, time });
+      const data = await rescheduleBooking(booking.bookingId, { date, time, contactName, contactNumber });
       setBooking(data);
       setShowReschedule(false);
     } catch (err) {
@@ -842,8 +862,8 @@ function BookDetails() {
               <div className="confirmation-detail-item">
                 <span className="confirmation-detail-icon"><FiPhone /></span>
                 <div>
-                  <p className="confirmation-detail-label">Contact Number</p>
-                  <p className="confirmation-detail-value">{booking.contactNumber || storedUser.phone || 'N/A'}</p>
+                  <p className="confirmation-detail-label">{booking.contactName ? 'Contact' : 'Contact Number'}</p>
+                  <p className="confirmation-detail-value">{booking.contactName ? `${booking.contactName}, ` : ''}{booking.contactNumber || storedUser.phone || 'N/A'}</p>
                 </div>
               </div>
 

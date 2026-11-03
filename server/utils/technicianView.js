@@ -32,6 +32,7 @@ function toTechnicianView(booking, extra = {}) {
     time: b.time,
     address: b.address,
     contactNumber: b.contactNumber,
+    contactName: b.contactName,
     problemDescription: b.problemDescription,
     technicianInstructions: b.technicianInstructions,
     site: b.site ? pick(b.site, ['building', 'floorRoom', 'attention']) : undefined,

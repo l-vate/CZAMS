@@ -172,6 +172,8 @@ const bookingSchema = new mongoose.Schema({
     // before this field existed have none and must stay saveable; readers fall back
     // to the customer's profile phone.
     contactNumber: String,
+    // Who to ask for, set only when the customer names someone else while rescheduling. Empty means the customer's own name.
+    contactName: String,
     downPaymentPercent: Number,
     paymentMode: String,
     paymentMode2: String,
@@ -204,6 +206,9 @@ const bookingSchema = new mongoose.Schema({
     rescheduleRequest: {
         requestedDate: String,
         requestedTime: String,
+        // New contact details the customer asked for with the request. They reach the booking only when the admin approves it.
+        requestedContactName: String,
+        requestedContactNumber: String,
         status: { type: String, enum: ['None', 'Pending', 'Approved', 'Denied'], default: 'None' },
     },
     

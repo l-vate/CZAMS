@@ -1318,6 +1318,9 @@
   .staff-dashboard-shell .change-password-btn { min-height: 44px; min-width: 170px; justify-content: center; box-sizing: border-box; }
   .staff-dashboard-shell .profile-card:has(.account-actions) { padding-right: 16px; }
   .staff-dashboard-shell .account-actions { width: 100%; }
+
+  /* the calendar sits in the page flow, no fixed height, so its lists scroll with the page */
+  .staff-calendar-x1.staff-calendar-x1 { height: auto; }
 }
 @media (max-width: 340px) {
   .staff-dashboard-shell .change-password-btn { width: 100%; min-width: 0; }

@@ -92,7 +92,7 @@ function Calendar() {
         <LoadError message="Could not load your schedule." onRetry={retry} />
       ) : (
         <div className="staff-calendar-x1">
-          <CalendarView jobs={jobs} title="My Schedule" />
+          <CalendarView jobs={jobs} title="My Schedule" phoneLayout />
         </div>
       )}
     </StaffLayout>

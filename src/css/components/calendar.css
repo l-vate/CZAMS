@@ -470,3 +470,69 @@
 @media (max-width: 768px) {
   .cal-sidebar { display: none; }
 }
+/* ============ STAFF CALENDAR ON A PHONE ============
+   Only a calendar given `phoneLayout` (the staff one) renders .cal-shell--phone, and only up to 768 px, so the admin calendar and every wider
+   screen keep the hour grid, the chip grid and the side panel. */
+@media (max-width: 768px) {
+  .cal-shell--phone { flex-direction: column; height: auto; overflow: visible; }
+  .cal-shell--phone .cal-main { width: 100%; }
+  .cal-shell--phone .cal-toolbar { flex-direction: column; align-items: stretch; gap: 10px; padding: 12px; }
+  .cal-shell--phone .cal-toolbar-left { justify-content: space-between; gap: 8px; min-width: 0; }
+  .cal-shell--phone .cal-header-label { font-size: 17px; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .cal-shell--phone .cal-nav-buttons { gap: 4px; flex: none; }
+  .cal-shell--phone .cal-icon-btn { width: 44px; height: 44px; align-items: center; justify-content: center; }
+  .cal-shell--phone .cal-toolbar-right { display: block; }
+  .cal-shell--phone .cal-toolbar-right > .cal-icon-btn { display: none; }
+  .cal-shell--phone .cal-view-toggle { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; box-sizing: border-box; }
+  .cal-shell--phone .cal-view-btn { min-height: 44px; padding: 0 4px; font-size: 14px; }
+  .cal-shell--phone .cal-view-btn-active,
+  .cal-shell--phone .cal-view-btn-active:hover { background: var(--action); }
+  .cal-shell--phone :is(.cal-icon-btn, .cal-view-btn, .cal-phone-cell, .cal-phone-job, .cal-sheet-close):focus-visible { outline: 3px solid var(--coral); outline-offset: 2px; }
+
+  .cal-phone-body { padding: 8px 4px 16px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .cal-phone-weekdays,
+  .cal-phone-month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .cal-phone-weekdays div { text-align: center; padding: 4px 0; font-size: 12px; font-weight: 600; color: var(--ink-soft); }
+  .cal-phone-month { gap: 2px; }
+  .cal-phone-cell {
+    min-width: 0; min-height: 52px; padding: 4px 0; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--navy);
+    display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; font: inherit;
+  }
+  .cal-phone-cell-number { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border-radius: 999px; font-size: 14px; font-weight: 600; }
+  .cal-phone-cell-today .cal-phone-cell-number { background: var(--primary); color: var(--white); }
+  .cal-phone-cell-outside { color: var(--mist); }
+  .cal-phone-cell-outside .cal-phone-cell-number { color: var(--mist); }
+  .cal-phone-cell-selected { border-color: var(--action); background: var(--bg-main); }
+  .cal-phone-dots { display: flex; align-items: center; justify-content: center; gap: 3px; min-height: 8px; }
+  .cal-phone-dots i { width: 7px; height: 7px; border-radius: 999px; }
+  .cal-phone-dots b { font-size: 10px; line-height: 1; color: var(--ink-soft); }
+
+  .cal-phone-heading,
+  .cal-phone-empty,
+  .cal-phone-list { margin-left: 8px; margin-right: 8px; }
+  .cal-phone-heading { margin: 8px 8px 0; font-size: 14px; font-weight: 700; color: var(--navy); }
+  .cal-phone-heading-today { color: var(--primary); }
+  .cal-phone-day { display: flex; flex-direction: column; gap: 6px; }
+  .cal-phone-empty { margin: 0; font-size: 13px; color: var(--ink-soft); }
+  .cal-phone-list { display: flex; flex-direction: column; gap: 8px; }
+  .cal-phone-job {
+    display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px; box-sizing: border-box; padding: 8px 10px; text-align: left;
+    border: 1px solid var(--card-border); border-left: 4px solid; border-radius: 8px; background: var(--white); color: var(--navy); cursor: pointer; font: inherit;
+  }
+  .cal-phone-job-time { flex: none; width: 70px; display: flex; flex-direction: column; font-size: 12px; color: var(--ink-soft); }
+  .cal-phone-job-time span:first-child { font-weight: 700; color: var(--navy); }
+  .cal-phone-job-text { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .cal-phone-job-title { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+  .cal-phone-job-customer { font-size: 12px; color: var(--ink-soft); overflow-wrap: anywhere; }
+  .cal-phone-job .cal-status-pill { flex: none; }
+  .cal-phone-job.cal-job-cancelled { opacity: 0.75; }
+  .cal-phone-job.cal-job-cancelled .cal-phone-job-title { text-decoration: line-through; }
+
+  /* details: the shared modal as a bottom sheet */
+  .cal-sheet-overlay { align-items: flex-end; padding: 0; }
+  .cal-sheet { max-width: none; max-height: 85vh; max-height: 85dvh; border-radius: 16px 16px 0 0; padding: 16px 16px calc(20px + env(safe-area-inset-bottom, 0px)); gap: 8px; }
+  .cal-sheet-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .cal-sheet-head .cal-detail-title { flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; }
+  .cal-sheet .cal-sheet-close { width: 44px; height: 44px; }
+  .cal-sheet .cal-status-pill { align-self: flex-start; }
+}

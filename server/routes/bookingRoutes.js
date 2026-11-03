@@ -550,6 +550,9 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
       const modeProblem = onlinePaymentModeProblem(paymentMode) || onlinePaymentModeProblem(paymentMode2);
       if (modeProblem) return sendProblem(res, modeProblem);
     }
+    if (dpPercent > 0 && !String(paymentMode || '').trim()) {
+      return res.status(400).json({ message: 'Choose a mode of payment for the down payment.' });
+    }
     if (dpPercent > 0 && !allowedModes.includes(paymentMode)) {
       return res.status(400).json({ message: 'Choose a valid payment mode.' });
     }

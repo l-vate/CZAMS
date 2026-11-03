@@ -99,3 +99,18 @@ test('Names: the forms check before sending, and the pages read the parts throug
   assert.doesNotMatch(staff, /\.split\(' '\)/);
   assert.match(src('utils', 'session.js'), /FRESH_FIELDS = \['name', 'firstName', 'lastName'/);
 });
+
+// ---- 3: the mode of payment
+
+test('Payment mode: Next on the Payment step stays off, with the reason under it, until a mode is chosen (Installation included)', () => {
+  const page = src('pages', 'customer', 'book_service.jsx');
+  const at = page.indexOf('if (dpPercent === 0) return \'\';');
+  assert.ok(at > 0);
+  const rest = page.slice(at, at + 700);
+  assert.match(rest, /if \(!form\.paymentMode\) return 'Choose a mode of payment for your down payment to continue\.';/);
+  assert.ok(rest.indexOf('!form.paymentMode') < rest.indexOf('SERVICE_TYPE.INSTALLATION'), 'asked before the Installation shortcut');
+  assert.ok(rest.indexOf('!form.paymentMode') < rest.indexOf('PAYMENT_STATUS.TO_VERIFY'), 'asked before a sent proof counts');
+  assert.match(page, /\{!isLast && nextProblem\(\) && \(\s*<p className="bs-next-reason" role="status" id="bs-next-reason">/);
+  assert.match(page, /disabled=\{!canNext\(\)/);
+  assert.match(page, /downPaymentPercent: opt\.value, paymentMode: '', paymentMode2: ''/, 'a new down payment option clears the mode, so it is asked again');
+});

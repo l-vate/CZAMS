@@ -961,6 +961,8 @@ function BookService() {
       if (form.discountType && !form.discountIdFileObj) return 'Attach a photo of your ID for the discount, or remove the discount request.';
       if (form.discountType && !form.discountConsent) return 'Agree that we may view your ID to check the discount, or remove the discount request.';
       if (dpPercent === 0) return '';
+      // a down payment is due, so how it will be paid is chosen first (the server refuses a booking without it too)
+      if (!form.paymentMode) return 'Choose a mode of payment for your down payment to continue.';
       if (services.find((x) => x.id === form.service)?.serviceType === SERVICE_TYPE.INSTALLATION) return ''; // paid from Payment & Billing, once it is due
       return form.paymentStatus === PAYMENT_STATUS.TO_VERIFY || form.paymentStatus === PAYMENT_STATUS.FULLY_PAID ? '' : 'Send your down payment proof with Pay Downpayment to continue.';
     }

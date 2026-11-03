@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { matchingUnits, groupByBrand, unitLabel, chosenBrand, NOT_LISTED_NOTES_MAX, NOT_LISTED_BRAND_MAX } from '../utils/suppliedUnitChoice';
 import { formatPeso } from '../utils/bookingPricing';
+import { hpLabel } from '../utils/hpLabel';
 
 // The choice of unit for one unit entry of an installation where the company supplies the unit: the catalog items that fit the unit type
 // and horsepower already chosen, grouped by brand, and "Not listed, ask the owner". An empty list or no match says so and leaves the
@@ -38,7 +39,7 @@ function SuppliedUnitPicker({ unit, index, items, loaded, onChange }) {
 
   return (
     <fieldset className="supplied-picker">
-      <legend>Unit we supply ({unit.type}, {unit.hp} HP)</legend>
+      <legend>Unit we supply ({unit.type}, {hpLabel(unit.hp)})</legend>
       {matches.length === 0 && (
         <p className="supplied-picker-hint">We do not have this unit listed. Your booking is sent as Pending and the owner will confirm it.</p>
       )}

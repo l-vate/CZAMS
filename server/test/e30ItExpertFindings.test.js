@@ -163,3 +163,43 @@ test('View File: a row that ends in the 44 px link is centered, on the booking p
   const details = src('pages', 'customer', 'book_details.jsx');
   assert.match(details, /<span>Proof of Payment<\/span>\s*<span className="cost-link">\s*\{booking\.proofFile \? \(\s*<ProofLink path=\{booking\.proofFile\}>View File<\/ProofLink>/);
 });
+
+// ---- 7: Log out asks first
+
+test('Log out: every role\'s menu (desktop sidebar and phone drawer) uses the one control that asks first', () => {
+  ['admin_sidebar.jsx', 'customer_sidebar.jsx', 'staff_sidebar.jsx'].forEach((file) => {
+    const text = src('components', 'sidebars', file);
+    assert.match(text, /import LogoutButton from '\.\.\/logout_button';/, file);
+    assert.match(text, /<LogoutButton onLogout=\{handleLogout\} \/>/, file);
+    assert.doesNotMatch(text, /className="sidebar-logout"/, `${file} has no Log Out button that signs out at once`);
+    assert.match(text, /navigate\("?'?\/login"?'?, \{ replace: true \}\)/, `${file} ends on the login page`);
+  });
+});
+
+test('Log out: the question is the shared modal, with Cancel focused, Escape closing, and the focus coming back', () => {
+  const text = src('components', 'logout_button.jsx');
+  assert.match(text, /Log out of CZAMS\?/);
+  assert.match(text, /<button type="button" ref=\{cancelRef\} className="bs-back-btn" onClick=\{onCancel\}>Cancel<\/button>/);
+  assert.match(text, /<button type="button" className="bs-next-btn" onClick=\{onConfirm\}>Log out<\/button>/);
+  assert.match(text, /cancelRef\.current\?\.focus\(/, 'Cancel has the focus');
+  assert.match(text, /e\.key === 'Escape'/);
+  assert.match(text, /className="modal-overlay" onClick=\{onCancel\}/, 'a tap outside closes it');
+  assert.match(text, /role="dialog"\s+aria-modal="true"\s+aria-labelledby="logout-dialog-title"/);
+  assert.match(text, /openerRef\.current\?\.focus\(/, 'the focus goes back to the Log Out button');
+  assert.match(text, /createPortal\(/, 'drawn on the page itself, so the menu\'s own stacking cannot hide it');
+  assert.match(text, /onConfirm=\{\(\) => \{ setAsking\(false\); onLogout\(\); \}\}/, 'signing out only happens on the Log out button');
+  // the shared modal selector is what holds the page still and traps Tab
+  assert.match(src('utils', 'scrollLock.js'), /MODAL_SELECTOR = '\.modal-overlay,/);
+});
+
+test('Log out: the buttons are the same width and 44 px tall, and an automatic sign out never asks', () => {
+  const css = src('css', 'components', 'sidebar.css');
+  assert.match(css, /\.logout-dialog \.logout-dialog-actions \{ flex-direction: row; justify-content: flex-end;/);
+  assert.match(css, /\.logout-dialog \.logout-dialog-actions button \{ flex: 0 0 140px; min-height: 44px;/);
+  ['services/apiClient.js', 'utils/sessionRefresh.js'].forEach((file) => {
+    const text = src(...file.split('/'));
+    assert.doesNotMatch(text, /logout_button|LogoutButton|LogoutDialog/, `${file} signs out without a question`);
+    assert.match(text, /clearSession\(\)/);
+  });
+  assert.match(src('services', 'apiClient.js'), /clearSession\(\);\s+setSessionNotice\(endMessage\);\s+window\.location\.assign\('\/login'\);/);
+});

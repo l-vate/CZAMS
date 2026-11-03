@@ -175,7 +175,8 @@ test('Staff screens: 44 px controls, modals and the menu are phone rules scoped 
 
 test('Staff menu: Log Out stays pinned at the bottom of the phone menu, as on the customer side', () => {
   const sidebar = src('components', 'sidebars', 'staff_sidebar.jsx');
-  assert.match(sidebar, /<div className="sidebar-logout">/);
+  assert.match(sidebar, /<LogoutButton onLogout=\{handleLogout\} \/>/);
+  assert.match(src('components', 'logout_button.jsx'), /<div className="sidebar-logout">/);
   const css = src('css', 'components', 'sidebar.css');
   const phone = phoneBlock(css, 'Log Out is pinned', 900);
   assert.match(phone, /\.dashboard-shell \.sidebar \{[^}]*height: 100dvh;[^}]*overflow: hidden/s);

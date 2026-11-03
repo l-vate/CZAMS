@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { FiLogOut } from 'react-icons/fi';
+import LogoutButton from '../logout_button';
 import { clearSession } from '../../utils/session';
 import { BRAND_NAME, BRAND_SHORT, BRAND_SUB } from '../../config/company';
 
@@ -54,11 +54,7 @@ function Sidebar({ onNavigate }) {
         </nav>
       </div>
 
-      <div className="sidebar-logout">
-        <button type="button" className="sidebar-link" onClick={handleLogout}>
-          <FiLogOut aria-hidden="true" /> Log Out
-        </button>
-      </div>
+      <LogoutButton onLogout={handleLogout} />
     </aside>
   );
 }

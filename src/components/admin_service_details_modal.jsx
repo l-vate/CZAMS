@@ -35,6 +35,7 @@ import { TIME_BLOCK } from '../constants/timeBlocks';
 import { SERVICE_TYPE } from '../constants/serviceTypes';
 import { ProofLink, ProofImage } from './proof_file';
 import { customerLabel } from '../utils/customerLabel';
+import { hpLabel } from '../utils/hpLabel';
 
 // Admin only approves (and cancels). A booking becomes In Progress by itself when its
 // time block starts and Completed when the technician submits the service report.
@@ -441,7 +442,7 @@ const [report, setReport] = useState(null);
                                 <p className="sdm-unit-line" key={i}>
                                     Unit: {li.quantity}× {li.type}
                                     {li.brandModel ? ` · ${li.brandModel}` : ''}
-                                    {li.hp ? ` · ${li.hp} HP` : ''}
+                                    {li.hp ? ` · ${hpLabel(li.hp)}` : ''}
                                     {li.supplied?.source === 'requested' ? ` · ${li.supplied.status === 'Declined' ? 'request declined' : 'needs owner confirmation'}` : ''}
                                     {unitChangeOf(li) && (
                                         <span className="unit-change-note">

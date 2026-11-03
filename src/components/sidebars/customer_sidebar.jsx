@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { FiLogOut } from 'react-icons/fi';
+import LogoutButton from '../logout_button';
 import { BRAND_NAME, BRAND_SHORT, BRAND_SUB } from '../../config/company';
 
 function CustomerSidebar({ onNavigate }) {
@@ -9,7 +9,8 @@ function CustomerSidebar({ onNavigate }) {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     if (onNavigate) onNavigate();
-    navigate("/login");
+    // replace, so Back does not return to a private page
+    navigate("/login", { replace: true });
   };
 
   const linkClass = ({ isActive }) =>
@@ -51,11 +52,7 @@ function CustomerSidebar({ onNavigate }) {
         </nav>
       </div>
 
-      <div className="sidebar-logout">
-        <button type="button" className="sidebar-link" onClick={handleLogout}>
-          <FiLogOut aria-hidden="true" /> Log Out
-        </button>
-      </div>
+      <LogoutButton onLogout={handleLogout} />
     </aside>
   );
 }

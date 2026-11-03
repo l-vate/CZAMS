@@ -5,6 +5,7 @@ import { customerPaymentStatus, PAYMENT_LABEL } from '../utils/customerPayment';
 import { ProofLink } from './proof_file';
 import { BRAND_NAME, COMPANY_PHONE } from '../config/company';
 import { formatDays, formatMonths, siteLines, vatInside } from '../utils/quotationTerms';
+import { hpLabel } from '../utils/hpLabel';
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -156,7 +157,7 @@ function ReceiptModal({ form, booking, billTo, onClose }) {
                 {form.lineItems?.length > 0 ? (
                   form.lineItems.filter((li) => !li.isDiscount).map((li, i) => (
                     <tr key={i}>
-                      <td className="receipt-col-desc">{form.service || '-'} - {li.type || '-'}{li.brandModel ? ` (${li.brandModel})` : ''}{li.hp ? ` ${li.hp} HP` : ''}</td>
+                      <td className="receipt-col-desc">{form.service || '-'} - {li.type || '-'}{li.brandModel ? ` (${li.brandModel})` : ''}{li.hp ? ` ${hpLabel(li.hp)}` : ''}</td>
                       <td className="receipt-col-qty">{li.quantity}</td>
                       <td className="receipt-col-price">₱{li.subtotal.toLocaleString()}</td>
                     </tr>

@@ -1,4 +1,5 @@
-// What a customer (or the admin booking for a walk-in) chose for each unit entry of an Installation with a unit from the company: a unit
+
+import { hpLabel } from './hpLabel';// What a customer (or the admin booking for a walk-in) chose for each unit entry of an Installation with a unit from the company: a unit
 // from the catalog, or "Not listed, ask the owner". The server re-checks everything (utils/suppliedUnits.js); this only lets the form
 // narrow the list, price the booking and refuse to go on without a choice.
 export const NOT_LISTED_NOTES_MAX = 300;
@@ -87,7 +88,7 @@ export function unitChangeOf(unit) {
   const s = unit?.supplied;
   const asked = s?.request;
   if (!s || s.status !== 'Resolved' || !asked) return null;
-  const hpText = (hp) => (hp ? `${hp} HP` : '');
+  const hpText = (hp) => hpLabel(hp);
   const requested = [asked.brand, hpText(asked.hp)].filter(Boolean).join(' ') || 'the unit asked for';
   const changedTo = [[s.brand, s.model].filter(Boolean).join(' '), hpText(s.hp || unit.hp)].filter(Boolean).join(', ');
   // shown whenever what was asked for and what we supply are not the same thing: a different brand, a model that was not asked for, or another horsepower

@@ -6,6 +6,7 @@ import { listMyBookings } from '../../services/bookingService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
 
 import LoadError from '../../components/load_error';
+import { greetingName } from '../../utils/personName';
 // Same badge/accent classes as the technician dashboard's "Upcoming jobs" card
 // (staff.css) - this section is styled to match that one directly.
 const NEXT_SERVICE_BADGE_CLASS = {
@@ -39,7 +40,7 @@ function Dashboard() {
 
   const storedUser = localStorage.getItem('user');
   const firstName = storedUser
-    ? (JSON.parse(storedUser).name || '').split(' ')[0]
+    ? greetingName(JSON.parse(storedUser))
     : 'User';
 
   // A failed load is an error with a Retry, never zeros and "No upcoming bookings".

@@ -48,6 +48,7 @@ import { pluralize } from '../../utils/pluralize';
 import { CUSTOMER_UNIT_NOTE } from '../../utils/warrantyText';
 import { AC_BRANDS, OTHER_BRAND, HP_OPTIONS } from '../../constants/unitOptions';
 import { BRAND_NAME } from '../../config/company';
+import { hpLabel } from '../../utils/hpLabel';
 // System Configuration Module: payment methods and down payment percentages used
 // to be hardcoded here (DOWN_PAYMENT_OPTIONS / PAYMENT_MODES / getDownPaymentOptions).
 // Both are now admin-managed - see src/utils/paymentSettings.js (usePaymentSettings,
@@ -335,7 +336,7 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
                 className="unit-entry-hp"
                 ariaLabel="Horsepower (HP)"
                 value={unit.hp || ''}
-                options={[{ value: '', label: 'HP' }, ...HP_OPTIONS.map((hp) => ({ value: hp, label: `${hp} HP` }))]}
+                options={[{ value: '', label: 'HP' }, ...HP_OPTIONS.map((hp) => ({ value: hp, label: hpLabel(hp) }))]}
                 onChange={(hp) => updateUnit(index, { hp })}
               />
 
@@ -808,7 +809,7 @@ export function Step5({ form, services, technicians, downPaymentPercentages, dis
           {lineItems.map((li, i) => (
             <div className="summary-row" key={i}>
               <span>Unit {i + 1}</span>
-              <span>{li.quantity}× {li.type || '-'}{li.brandModel ? ` - ${li.brandModel}` : ''}{li.hp ? ` - ${li.hp} HP` : ''}</span>
+              <span>{li.quantity}× {li.type || '-'}{li.brandModel ? ` - ${li.brandModel}` : ''}{li.hp ? ` - ${hpLabel(li.hp)}` : ''}</span>
             </div>
           ))}
           <div className="summary-row"><span>Date &amp; Time</span><span>{form.date ? `${form.date}, ${form.time || ''}` : '-'}</span></div>
@@ -960,6 +961,8 @@ function BookService() {
       if (form.discountType && !form.discountIdFileObj) return 'Attach a photo of your ID for the discount, or remove the discount request.';
       if (form.discountType && !form.discountConsent) return 'Agree that we may view your ID to check the discount, or remove the discount request.';
       if (dpPercent === 0) return '';
+      // a down payment is due, so how it will be paid is chosen first (the server refuses a booking without it too)
+      if (!form.paymentMode) return 'Choose a mode of payment for your down payment to continue.';
       if (services.find((x) => x.id === form.service)?.serviceType === SERVICE_TYPE.INSTALLATION) return ''; // paid from Payment & Billing, once it is due
       return form.paymentStatus === PAYMENT_STATUS.TO_VERIFY || form.paymentStatus === PAYMENT_STATUS.FULLY_PAID ? '' : 'Send your down payment proof with Pay Downpayment to continue.';
     }

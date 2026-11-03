@@ -4,6 +4,7 @@ import { attempt } from '../services/apiClient';
 import { formatPeso } from '../utils/bookingPricing';
 import { matchingUnits, unitLabel } from '../utils/suppliedUnitChoice';
 import { BOOKING_STATUS } from '../constants/bookingStatus';
+import { hpLabel } from '../utils/hpLabel';
 
 // "Unit needs owner confirmation": the unit entries of a booking where the customer asked for a unit that is not in the catalog. The owner
 // settles each one here: pick a catalog unit that fits, enter the unit and its price (a short note is optional), or decline with a reason. Until every request
@@ -51,7 +52,7 @@ function UnitRequestPanel({ booking, onUpdated }) {
         return (
           <div key={index} className="unit-request">
             <p className="unit-request-title">
-              {unit.quantity}× {unit.type}{unit.hp ? `, ${unit.hp} HP` : ''}
+              {unit.quantity}× {unit.type}{unit.hp ? `, ${hpLabel(unit.hp)}` : ''}
               <span className={`unit-request-flag${declined ? ' is-declined' : ''}`}>{declined ? 'Declined' : 'Needs confirmation'}</span>
             </p>
             <p className="sdm-muted">
@@ -74,7 +75,7 @@ function UnitRequestPanel({ booking, onUpdated }) {
                 </div>
                 {open.mode === 'catalog' && (
                   fits.length === 0 ? (
-                    <p className="sdm-muted">No active catalog unit matches {unit.type} at {unit.hp || '?'} HP. Enter the unit here instead (the list may be out of date), or decline.</p>
+                    <p className="sdm-muted">No active catalog unit matches {unit.type} at {unit.hp ? hpLabel(unit.hp) : '? HP'}. Enter the unit here instead (the list may be out of date), or decline.</p>
                   ) : (
                     <label className="scope-form-wide">
                       Catalog unit

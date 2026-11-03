@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FiLogOut } from 'react-icons/fi';
+import LogoutButton from '../logout_button';
 import { NavLink, useNavigate, useLocation } from "react-router-dom"; 
 import { BRAND_NAME, BRAND_SHORT, BRAND_SUB } from '../../config/company';
 import { resetNeedsAttention } from '../../hooks/useNeedsAttention';
@@ -26,7 +26,8 @@ function AdminSidebar({ onNavigate }) {
     localStorage.removeItem("user");
     resetNeedsAttention();
     if (onNavigate) onNavigate();
-    navigate("/login");
+    // replace, so Back does not return to a private page
+    navigate("/login", { replace: true });
   };
 
   const linkClass = ({ isActive }) => (isActive ? "sidebar-link active" : "sidebar-link");
@@ -150,11 +151,7 @@ function AdminSidebar({ onNavigate }) {
         </nav>
       </div>
 
-      <div className="sidebar-logout">
-        <button type="button" className="sidebar-link" onClick={handleLogout}>
-          <FiLogOut aria-hidden="true" /> Log Out
-        </button>
-      </div>
+      <LogoutButton onLogout={handleLogout} />
     </aside>
   );
 }

@@ -6,6 +6,7 @@ import { UNIT_TYPES } from '../../constants/unitTypes';
 import { HP_OPTIONS } from '../../constants/unitOptions';
 import { formatPeso } from '../../utils/bookingPricing';
 import { hpChoiceFor } from '../../utils/suppliedUnitChoice';
+import { hpLabel } from '../../utils/hpLabel';
 
 const EMPTY = { brand: '', model: '', type: UNIT_TYPES[0], hp: HP_OPTIONS[2], inverter: 'true', price: '' };
 
@@ -104,7 +105,7 @@ function SuppliedUnits() {
           <label>
             Horsepower
             <select className="ma-input" value={form.hp} onChange={(e) => setForm({ ...form, hp: e.target.value })}>
-              {HP_OPTIONS.map((hp) => <option key={hp} value={hp}>{hp} HP</option>)}
+              {HP_OPTIONS.map((hp) => <option key={hp} value={hp}>{hpLabel(hp)}</option>)}
             </select>
           </label>
           <label>
@@ -141,7 +142,7 @@ function SuppliedUnits() {
                   <span className={`tech-job-status-badge ${item.isActive ? 'tech-status-completed' : 'tech-status-cancelled'}`}>{item.isActive ? 'Active' : 'Hidden from customers'}</span>
                 </div>
                 <div className="tech-job-service">{item.brand} {item.model} <small>({item.inverter ? 'inverter' : 'non-inverter'})</small></div>
-                <small className="tech-job-booking">{item.type} · {item.hp} HP · {formatPeso(item.price)} each</small>
+                <small className="tech-job-booking">{item.type} · {hpLabel(item.hp)} · {formatPeso(item.price)} each</small>
               </div>
               <div className="admin-promotions-x3">
                 <button type="button" className="view-details-btn" onClick={() => edit(item)}>Edit</button>

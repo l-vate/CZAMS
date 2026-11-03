@@ -174,7 +174,8 @@ test('a bill whose proof is waiting is not in Due now and has no Pay Now, but sa
 test('Log Out is outside the scrolling part of the drawer for every role, with an icon, and the drawer is as tall as the visible screen', () => {
   for (const role of ['customer', 'staff', 'admin']) {
     const sidebar = src('components', 'sidebars', `${role}_sidebar.jsx`);
-    assert.match(sidebar, /<div className="sidebar-logout">\s*<button type="button" className="sidebar-link" onClick=\{handleLogout\}>\s*<FiLogOut aria-hidden="true" \/> Log Out/, role);
+    assert.match(sidebar, /<LogoutButton onLogout=\{handleLogout\} \/>/, role);
+    assert.match(src('components', 'logout_button.jsx'), /<div className="sidebar-logout">\s*<button type="button" ref=\{openerRef\} className="sidebar-link" onClick=\{\(\) => setAsking\(true\)\}>\s*<FiLogOut aria-hidden="true" \/> Log Out/, role);
   }
   const css = src('css', 'components', 'sidebar.css');
   assert.match(css, /\.dashboard-shell \.sidebar \{[^}]*height: 100dvh[^}]*overflow: hidden/s);

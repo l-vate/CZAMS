@@ -1321,6 +1321,26 @@
 
   /* the calendar sits in the page flow, no fixed height, so its lists scroll with the page */
   .staff-calendar-x1.staff-calendar-x1 { height: auto; }
+
+  /* top bar and menu: 44 px tap targets, the same as the admin and customer bars */
+  .staff-dashboard-shell .sidebar-toggle-btn,
+  .staff-dashboard-shell .notif-bell-btn { min-width: 44px; min-height: 44px; }
+  .staff-dashboard-shell .sidebar .sidebar-link { min-height: 44px; box-sizing: border-box; display: flex; align-items: center; }
+  .staff-dashboard-shell .dashboard-main { min-width: 0; }
+  .staff-dashboard-shell .dashboard-body { min-width: 0; }
+  .staff-dashboard-shell .filter-pill { min-height: 44px; }
+  .staff-dashboard-shell :is(.sidebar-toggle-btn, .notif-bell-btn, .filter-pill, .info-card-view-all, .notif-mark-all-btn, .profile-edit-btn, .change-password-btn, .tech-job-primary-btn):focus-visible { outline: 3px solid var(--coral); outline-offset: 2px; }
+
+  /* every other control on the staff screens is 44 px tall */
+  .staff-dashboard-shell :is(.tech-sort-btn, .tech-search-input, .view-details-btn, .tech-job-action-btn, .tech-job-primary-btn, .info-card-view-all, .chat-input, .notif-mark-all-btn) { min-height: 44px; box-sizing: border-box; }
+  .staff-dashboard-shell :is(.info-card-view-all, .notif-mark-all-btn) { display: inline-flex; align-items: center; }
+  .staff-dashboard-shell .chat-send-btn { min-width: 44px; min-height: 44px; }
+  /* mobile_touch.css gives inputs a 40 px minimum with a stronger selector, so a text field takes its 44 px as a height */
+  .staff-dashboard-shell .tech-search-input { height: 44px; }
+  /* the shared modals opened from the staff screens */
+  .staff-dashboard-shell .modal-overlay .modal-close-btn { width: 44px; height: 44px; }
+  .staff-dashboard-shell .modal-overlay :is(.bs-back-btn, .bs-next-btn, .modal-submit-btn, .tech-search-input, .signature-pad-clear-btn, .tech-job-primary-btn) { min-height: 44px; box-sizing: border-box; }
+  .staff-dashboard-shell .modal-overlay .signature-pad-clear-btn { min-width: 44px; }
 }
 @media (max-width: 340px) {
   .staff-dashboard-shell .change-password-btn { width: 100%; min-width: 0; }

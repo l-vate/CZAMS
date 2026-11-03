@@ -1289,3 +1289,36 @@
 
 .tech-feedback-summary { margin: 0 0 12px; color: var(--ink-soft); font-size: 0.9rem; }
 .tech-feedback-summary strong { color: var(--navy); }
+
+/* ============ TECHNICIAN SCREENS ON A PHONE ============
+   Up to 768 px, staff only (everything is under .staff-dashboard-shell). Wider screens are untouched. */
+@media (max-width: 768px) {
+  /* Profile: the card keeps the avatar and the text on one row with room for the 44 px pencil; the text wraps, nothing runs off the card */
+  .staff-dashboard-shell .profile-card {
+    box-sizing: border-box; width: 100%; min-width: 0; margin: 0 0 16px; padding: 16px; padding-right: 68px;
+    flex-wrap: wrap; gap: 14px;
+  }
+  .staff-dashboard-shell .profile-card > div:not(.profile-avatar-lg):not(.staff-profile-x1):not(.tech-profile-edit-form):not(.account-actions) { flex: 1 1 0; min-width: 0; }
+  .staff-dashboard-shell .profile-avatar-lg { width: 80px; height: 80px; font-size: 2.2rem; }
+  .staff-dashboard-shell .profile-name { font-size: 1.2rem; overflow-wrap: anywhere; }
+  .staff-dashboard-shell .profile-id { overflow-wrap: anywhere; }
+  .staff-dashboard-shell .profile-contact { margin-top: 6px; font-size: 0.875rem; }
+  .staff-dashboard-shell .profile-contact-line { align-items: flex-start; min-width: 0; overflow-wrap: anywhere; }
+  .staff-dashboard-shell .profile-contact-line svg { margin-top: 4px; }
+  .staff-dashboard-shell .profile-edit-btn { top: 12px; right: 12px; width: 44px; height: 44px; }
+  /* edit mode: one column, the same as the customer profile */
+  .staff-dashboard-shell .profile-card:has(.tech-profile-edit-form) { flex-direction: column; align-items: stretch; padding-right: 16px; }
+  .staff-dashboard-shell .tech-profile-edit-form { max-width: none; width: 100%; min-width: 0; gap: 16px; }
+  .staff-dashboard-shell .tech-profile-edit-form .bs-input { width: 100%; min-width: 0; box-sizing: border-box; min-height: 44px; font-size: 16px; }
+  .staff-dashboard-shell .profile-photo-upload-btn { min-height: 44px; justify-content: center; box-sizing: border-box; }
+  .staff-dashboard-shell .tech-profile-edit-form .cancel-confirm-actions { flex-direction: row; justify-content: flex-end; gap: 12px; }
+  .staff-dashboard-shell .tech-profile-edit-form .cancel-confirm-actions button { flex: 0 0 140px; min-height: 44px; }
+  /* Account Settings: Change Password is one navy button, right aligned */
+  .staff-dashboard-shell .account-actions { margin: 0; justify-content: flex-end; }
+  .staff-dashboard-shell .change-password-btn { min-height: 44px; min-width: 170px; justify-content: center; box-sizing: border-box; }
+  .staff-dashboard-shell .profile-card:has(.account-actions) { padding-right: 16px; }
+  .staff-dashboard-shell .account-actions { width: 100%; }
+}
+@media (max-width: 340px) {
+  .staff-dashboard-shell .change-password-btn { width: 100%; min-width: 0; }
+}

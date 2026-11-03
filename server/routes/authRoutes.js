@@ -58,6 +58,8 @@ router.post('/register', registerLimiter, async (req, res) => {
     const user = await createWithUniqueUserId((id) => User.create({
       _id: id,
       name: `${firstName.trim()} ${lastName.trim()}`,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
       email: normalizeEmail(email),
       phone: phone.trim(),
       password: hashedPassword,
@@ -76,6 +78,8 @@ router.post('/register', registerLimiter, async (req, res) => {
       user: {
     id: user._id,
     name: user.name,
+    firstName: user.firstName,
+    lastName: user.lastName,
     email: user.email,
     role: user.role,
     phone: user.phone,
@@ -121,6 +125,8 @@ router.post('/login', loginLimiter, async (req, res) => {
       user: {
     id: user._id,
     name: user.name,
+    firstName: user.firstName,
+    lastName: user.lastName,
     email: user.email,
     role: user.role,
     phone: user.phone,
@@ -221,6 +227,8 @@ router.put('/profile', auth, async (req, res) => {
     }
 
     user.name = `${firstName.trim()} ${lastName.trim()}`;
+    user.firstName = firstName.trim();
+    user.lastName = lastName.trim();
     if (typeof phone === 'string' && phone.trim()) user.phone = phone.trim();
     if (typeof address === 'string' && address.trim()) user.address = address.trim();
 
@@ -230,6 +238,8 @@ router.put('/profile', auth, async (req, res) => {
       user: {
         id: user._id,
         name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
         email: user.email,
         role: user.role,
         phone: user.phone,
@@ -266,6 +276,8 @@ router.post('/profile/photo', auth, uploadLimiter, upload.single('photo'), async
       user: {
         id: user._id,
         name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
         email: user.email,
         role: user.role,
         phone: user.phone,

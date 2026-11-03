@@ -8,6 +8,7 @@ import { getTechnicianStats, listTechnicianJobs, getTechnicianFeedback } from '.
 import { listPublicAnnouncements } from '../../services/announcementService';
 import { BOOKING_STATUS } from '../../constants/bookingStatus';
 import { BackJobBadge } from '../../components/back_job_info';
+import { greetingName } from '../../utils/personName';
 
 
 // Same categories the Landing Page Module uses for the public announcement
@@ -42,7 +43,7 @@ const CATEGORY_ACCENT_CLASS = {
 function Dashboard() {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user'));
-  const firstName = user?.name?.split(' ')[0] || 'Technician';
+  const firstName = greetingName(user, 'Technician');
 
   const [stats, setStats] = useState({ ongoing: 0, completed: 0, pendingReports: 0, backJobs: { ongoing: 0, completed: 0 } });
   const [loading, setLoading] = useState(true);

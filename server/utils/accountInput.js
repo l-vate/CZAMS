@@ -7,6 +7,8 @@ const { normalizeContactNumber } = require('./contactNumber');
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const NAME_MAX = 50;
+// A name part: letters (accented ones too), spaces, hyphens, apostrophes and periods, starting with a letter. No digits or symbols.
+const NAME_PATTERN = /^[\p{L}\p{M}][\p{L}\p{M} '\u2019.-]*$/u;
 
 const text = (v) => (typeof v === 'string' ? v.trim() : '');
 
@@ -30,6 +32,8 @@ function nameProblem(firstName, lastName) {
   if (!first) return invalid('First name is required.');
   if (!last) return invalid('Last name is required.');
   if (first.length > NAME_MAX || last.length > NAME_MAX) return invalid(`Each name must be ${NAME_MAX} characters or fewer.`);
+  if (!NAME_PATTERN.test(first)) return invalid('First name can only have letters, spaces, hyphens, apostrophes and periods.');
+  if (!NAME_PATTERN.test(last)) return invalid('Last name can only have letters, spaces, hyphens, apostrophes and periods.');
   return null;
 }
 
@@ -58,4 +62,4 @@ function validateProfileUpdate({ firstName, lastName, email, phone }) {
   return nameProblem(firstName, lastName) || emailProblem(email) || phoneProblem(phone, { required: false });
 }
 
-module.exports = { normalizeEmail, findUserByEmail, validateRegistration, validateProfileUpdate, EMAIL_PATTERN, NAME_MAX };
+module.exports = { normalizeEmail, findUserByEmail, validateRegistration, validateProfileUpdate, EMAIL_PATTERN, NAME_MAX, NAME_PATTERN };

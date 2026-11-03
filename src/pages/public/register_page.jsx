@@ -6,6 +6,7 @@ import { register } from '../../services/authService';
 import AuthShell from '../../components/auth_shell';
 import { TextField, SelectField, PasswordField, PasswordRules, FormAlert, SubmitButton } from '../../components/auth_fields';
 import { passwordIsAcceptable } from '../../utils/passwordChecks';
+import { namePartProblem } from '../../utils/personName';
 
 function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -30,6 +31,11 @@ function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    const nameError = namePartProblem('First name', formData.firstName) || namePartProblem('Last name', formData.lastName);
+    if (nameError) {
+      setError(nameError);
+      return;
+    }
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match.');
       return;

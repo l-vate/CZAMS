@@ -4,6 +4,9 @@ const mongoose = require('mongoose');
 const userSchema = new mongoose.Schema({
   _id: { type: String },
   name: String,
+  // The two parts the name was entered as, kept so the Profile shows each exactly as typed. Accounts made before these existed have only `name`.
+  firstName: String,
+  lastName: String,
   email: { type: String, unique: true, required: true },
   password: { type: String, required: true },
   role: { type: String, enum: ROLE_VALUES, default: ROLE.CUSTOMER },

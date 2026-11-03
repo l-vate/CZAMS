@@ -12,6 +12,7 @@ import { countActiveBookings, deletionBlockNote } from '../../utils/deletionBloc
 
 import Notice from '../../components/notice';
 import { useNotice } from '../../hooks/useNotice';
+import { nameParts, namePartProblem } from '../../utils/personName';
 /* ── Delete Account Confirm Dialog ─────────────────────── */
 function DeleteAccountDialog({ onKeep, onConfirmDelete, deleting }) {
   return (
@@ -54,9 +55,7 @@ function Profile() {
     return { firstName: '', lastName: '', email: '', phone: '', address: '', memberSince: '', photo: null };
   }
   const parsed = JSON.parse(stored);
-  const nameParts = (parsed.name || '').split(' ');
-  const firstName = nameParts[0] || '';
-  const lastName = nameParts.slice(1).join(' ') || '';
+  const { firstName, lastName } = nameParts(parsed);
 
   return {
     firstName,
@@ -124,6 +123,11 @@ const [user, setUser] = useState(loadUserFromStorage);
 
 
   const handleSaveProfile = async () => {
+  const nameError = namePartProblem('First name', editForm.firstName) || namePartProblem('Last name', editForm.lastName);
+  if (nameError) {
+    showNotice(nameError);
+    return;
+  }
   try {
     const data = await updateProfile({
       firstName: editForm.firstName,
@@ -135,10 +139,8 @@ const [user, setUser] = useState(loadUserFromStorage);
 
     localStorage.setItem('user', JSON.stringify(data.user));
 
-    const nameParts = (data.user.name || '').split(' ');
     setUser({
-      firstName: nameParts[0] || '',
-      lastName: nameParts.slice(1).join(' ') || '',
+      ...nameParts(data.user),
       email: data.user.email || '',
       phone: data.user.phone || '',
       address: data.user.address || '',

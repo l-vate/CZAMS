@@ -9,6 +9,7 @@ import {
   FiLock,
 } from 'react-icons/fi';
 import { API_BASE } from '../../config/api';
+import { nameParts, namePartProblem } from '../../utils/personName';
 import { withFallback } from '../../services/apiClient';
 import { uploadProfilePhoto, updateProfile } from '../../services/authService';
 import ChangePasswordModal from '../../components/change_password_modal';
@@ -17,6 +18,7 @@ import ChangePasswordModal from '../../components/change_password_modal';
 function buildProfileFromUser(user) {
   return {
     name: user?.name || 'Technician',
+    ...nameParts(user),
     companyId: user?.id || '',
     email: user?.email || '',
     phone: user?.phone || '',
@@ -58,6 +60,11 @@ function Profile() {
   };
 
   const handleSave = async () => {
+    const nameError = namePartProblem('First name', editForm.firstName) || namePartProblem('Last name', editForm.lastName);
+    if (nameError) {
+      setSaveError(nameError);
+      return;
+    }
     setSaving(true);
     setSaveError('');
     try {
@@ -68,12 +75,9 @@ function Profile() {
         latestUser = photoData.user;
       }
 
-      const [firstName, ...rest] = editForm.name.trim().split(' ');
-      const lastName = rest.join(' ');
-
       const infoData = await updateProfile({
-        firstName,
-        lastName,
+        firstName: editForm.firstName.trim(),
+        lastName: editForm.lastName.trim(),
         email: editForm.email,
         phone: editForm.phone,
       }).catch(withFallback('Update failed'));
@@ -141,13 +145,27 @@ function Profile() {
         {isEditing ? (
           <div className="tech-profile-edit-form">
             <div className="form-group">
-              <label htmlFor="name">Full Name</label>
+              <label htmlFor="firstName">First Name</label>
               <input
                 type="text"
-                id="name"
-                name="name"
+                id="firstName"
+                name="firstName"
                 className="bs-input"
-                value={editForm.name}
+                maxLength={50}
+                value={editForm.firstName}
+                onChange={handleEditChange}
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="lastName">Last Name</label>
+              <input
+                type="text"
+                id="lastName"
+                name="lastName"
+                className="bs-input"
+                maxLength={50}
+                value={editForm.lastName}
                 onChange={handleEditChange}
               />
             </div>

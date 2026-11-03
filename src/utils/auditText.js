@@ -4,6 +4,7 @@
 const PHRASES = {
   'booking.approve': 'Approved a booking',
   'booking.cancel': 'Cancelled a booking',
+  'booking.contact_change': 'Changed the contact details on a booking',
   'booking.charges': 'Changed the charges on a booking',
   'booking.instructions': 'Changed the instructions on a booking',
   'booking.unit_source': 'Changed where the unit comes from',

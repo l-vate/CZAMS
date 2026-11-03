@@ -94,8 +94,8 @@ export function decideNoShow(bookingId, { action, reason, date, time }) {
   return request(`${booking(bookingId)}/no-show/decision`, { method: 'PATCH', body: { action, reason, date, time } });
 }
 
-export function rescheduleBooking(bookingId, { date, time }) {
-  return request(`${booking(bookingId)}/reschedule`, { method: 'PATCH', body: { date, time } });
+export function rescheduleBooking(bookingId, { date, time, contactName, contactNumber }) {
+  return request(`${booking(bookingId)}/reschedule`, { method: 'PATCH', body: { date, time, contactName, contactNumber } });
 }
 
 // Ask for the Senior Citizen / PWD discount on an existing booking. `type` is 'Senior' | 'PWD', `idFile` the photo of a valid ID

@@ -58,6 +58,7 @@ const { manilaToday } = require('../utils/manilaDate');
 const { bookingDateProblem, adminRescheduleDateProblem } = require('../utils/dateRules');
 const { readFeedback } = require('../utils/feedbackInput');
 const { normalizeContactNumber } = require('../utils/contactNumber');
+const { contactInputProblem, contactChange, contactChangeSentence } = require('../utils/rescheduleContact');
 const { sendRouteError } = require('../utils/routeErrors');
 const { planPaymentChange, planInPersonPayment, commitPayment } = require('../utils/paymentVerification');
 const { describeChargeChanges } = require('../utils/chargeNotice');
@@ -1325,6 +1326,25 @@ router.patch('/:bookingId/unit-purchase-proof', auth, auditSpecs.unitPurchasePro
   }
 });
 
+// Puts a contact change (see utils/rescheduleContact.js) on the booking. The caller saves.
+function applyContactChange(booking, change) {
+  if (change.name !== undefined) booking.contactName = change.name;
+  if (change.number !== undefined) booking.contactNumber = change.number;
+}
+
+// The audit line for a contact change that reached the booking, with the old and the new values.
+async function recordContactChange(booking, change, actor) {
+  if (!change.changed) return;
+  await recordAudit({
+    actor,
+    action: 'booking.contact_change',
+    entityType: 'Booking',
+    entityId: booking.bookingId,
+    summary: 'The customer changed the contact details on a booking',
+    meta: { oldName: change.old.name, newName: change.name, oldNumber: change.old.number, newNumber: change.number },
+  });
+}
+
 // Request a reschedule. Only a Pending booking (the date changes straight away) or an Approved one (the admin must
 // approve the new date) can be moved. An In Progress, Completed or Cancelled booking cannot. A booking has one open
 // request at a time: a second one while the first waits is refused and does not notify the admins again.
@@ -1334,6 +1354,10 @@ router.patch('/:bookingId/reschedule', auth, allowRoles(ROLE.CUSTOMER), async (r
 
     const dateProblem = bookingDateProblem(date);
     if (dateProblem) return res.status(400).json({ message: dateProblem });
+
+    // the optional contact name and number: the booking form's rules, checked before anything is looked up
+    const contactProblem = contactInputProblem(req.body);
+    if (contactProblem) return sendProblem(res, contactProblem);
 
     const closedOnReschedule = await businessDayProblem(Closure, date);
     if (closedOnReschedule) return sendProblem(res, closedOnReschedule);
@@ -1358,6 +1382,10 @@ router.patch('/:bookingId/reschedule', auth, allowRoles(ROLE.CUSTOMER), async (r
       return res.status(400).json({ message: 'That is the date and time the booking already has. Choose another.' });
     }
 
+    // New contact details belong to this booking only, never to the customer's account. An unchanged value is not a change.
+    const account = await User.findById(req.userId).select('name phone');
+    const change = contactChange(req.body, { name: booking.contactName || (account && account.name), number: booking.contactNumber || (account && account.phone) });
+
     const populateAfter = [
       { path: 'service' },
       { path: 'technician', select: 'name' },
@@ -1372,8 +1400,11 @@ router.patch('/:bookingId/reschedule', auth, allowRoles(ROLE.CUSTOMER), async (r
         booking.date = date;
         booking.time = time;
         booking.rescheduleRequest = { requestedDate: null, requestedTime: null, status: 'None' };
+        // a Pending booking moves at once, so its new contact details apply at once
+        applyContactChange(booking, change);
         await booking.save();
       });
+      await recordContactChange(booking, change, { id: req.userId, role: req.userRole });
       await booking.populate('service');
       await repropose(booking, req.userId);
       const populated = await booking.populate(populateAfter);
@@ -1386,7 +1417,8 @@ router.patch('/:bookingId/reschedule', auth, allowRoles(ROLE.CUSTOMER), async (r
     // One open request per booking. The status check is part of the update, so two requests at once cannot both pass.
     const updated = await Booking.findOneAndUpdate(
       { _id: booking._id, customer: req.userId, status: BOOKING_STATUS.APPROVED, 'rescheduleRequest.status': { $ne: 'Pending' } },
-      { $set: { rescheduleRequest: { requestedDate: date, requestedTime: time, status: 'Pending' } } },
+      // the new contact details wait on the request: they reach the booking only if the admin approves it
+      { $set: { rescheduleRequest: { requestedDate: date, requestedTime: time, status: 'Pending', ...(change.name !== undefined ? { requestedContactName: change.name } : {}), ...(change.number !== undefined ? { requestedContactNumber: change.number } : {}) } } },
       { new: true }
     );
     if (!updated) {
@@ -1395,7 +1427,7 @@ router.patch('/:bookingId/reschedule', auth, allowRoles(ROLE.CUSTOMER), async (r
 
     await notifyAdmins(
       NOTIFICATION_TYPE.RESCHEDULE_REQUESTED,
-      `Booking ${updated.bookingId}: the customer asked to move the service to ${date}, ${time}. Approval needed.`,
+      `Booking ${updated.bookingId}: the customer asked to move the service to ${date}, ${time}. Approval needed.${contactChangeSentence(change)}`,
       { booking: updated }
     );
     // the customer gets a confirmation that the request was received
@@ -1699,7 +1731,7 @@ router.get('/', auth, async (req, res) => {
 // are closed, no closure date), and the technicians on it must be free then (a Pending booking has only a proposal, so it is
 // proposed again afterwards instead). The customer and the technicians are told. Returns { error: { status, message,
 // suggestedDates? } } or { ok: true }. Shared by approving a customer's request and by the admin's one-click "use this date".
-async function approveRescheduleTo(booking, date, time, { by }) {
+async function approveRescheduleTo(booking, date, time, { by, actor }) {
   // The shop may have been closed on that date after the customer asked.
   const closed = await businessDayProblem(Closure, date);
   if (closed) return { error: { status: closed.status || 400, message: closed.message } };
@@ -1725,10 +1757,24 @@ async function approveRescheduleTo(booking, date, time, { by }) {
   booking.extensionDays = [];
   if (booking.extensionRequest?.status === 'Pending') booking.extensionRequest.status = 'Denied';
 
+  // Approving the customer's own request also brings the contact details they asked for with it (an admin's own move does not).
+  // They are compared again with what the booking has now.
+  let contact = { changed: false, old: {} };
+  if (by === 'customer') {
+    const asked = booking.rescheduleRequest || {};
+    const account = await User.findById(booking.customer).select('name phone');
+    contact = contactChange(
+      { contactName: asked.requestedContactName, contactNumber: asked.requestedContactNumber },
+      { name: booking.contactName || (account && account.name), number: booking.contactNumber || (account && account.phone) },
+    );
+    applyContactChange(booking, contact);
+  }
+
   booking.date = date;
   booking.time = time;
   booking.rescheduleRequest = { requestedDate: null, requestedTime: null, status: 'Approved' };
   await booking.save();
+  await recordContactChange(booking, contact, actor);
 
   const who = by === 'admin' ? 'our team' : 'the customer';
   await sendNotification(
@@ -1765,7 +1811,7 @@ router.patch('/:bookingId/reschedule/approve', auth, auditSpecs.rescheduleApprov
     }
 
     await booking.populate('service');
-    const moved = await approveRescheduleTo(booking, booking.rescheduleRequest.requestedDate, booking.rescheduleRequest.requestedTime, { by: 'customer' });
+    const moved = await approveRescheduleTo(booking, booking.rescheduleRequest.requestedDate, booking.rescheduleRequest.requestedTime, { by: 'customer', actor: { id: req.userId, role: req.userRole } });
     if (moved.error) {
       return res.status(moved.error.status).json({ message: moved.error.message, ...(moved.error.suggestedDates ? { suggestedDates: moved.error.suggestedDates } : {}) });
     }
@@ -1826,7 +1872,10 @@ router.patch('/:bookingId/reschedule/deny', auth, auditSpecs.rescheduleDeny, asy
       return res.status(400).json({ message: 'No pending reschedule request.' });
     }
     
+    // a denied request changes nothing, the contact details it carried included
     booking.rescheduleRequest.status = 'Denied';
+    booking.rescheduleRequest.requestedContactName = undefined;
+    booking.rescheduleRequest.requestedContactNumber = undefined;
     await booking.save();
 
     await sendNotification(

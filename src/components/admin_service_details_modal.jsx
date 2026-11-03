@@ -430,7 +430,7 @@ const [report, setReport] = useState(null);
                         <Icon name="user" />
                         <span>{customerLabel(booking.customer)}</span>
                         {booking.customer?.email && <span className="sdm-muted">· {booking.customer.email}</span>}
-                        <span className="sdm-muted">· Contact: {booking.contactNumber || booking.customer?.phone || 'N/A'}</span>
+                        <span className="sdm-muted">· Contact: {booking.contactName ? `${booking.contactName}, ` : ''}{booking.contactNumber || booking.customer?.phone || 'N/A'}</span>
                         {booking.customer?.companyName && <span className="sdm-muted">· Company: {booking.customer.companyName}</span>}
                         {booking.customer?.representativeName && <span className="sdm-muted">· Representative: {booking.customer.representativeName}</span>}
                     </div>
@@ -551,6 +551,11 @@ const [report, setReport] = useState(null);
                                     <p className="admin-service-details-modal-x7">
                                         Requested: <strong>{booking.rescheduleRequest.requestedDate}, {booking.rescheduleRequest.requestedTime}</strong>
                                     </p>
+                                    {(booking.rescheduleRequest.requestedContactName || booking.rescheduleRequest.requestedContactNumber) && (
+                                        <p className="admin-service-details-modal-x7">
+                                            New contact details if approved: <strong>{[booking.rescheduleRequest.requestedContactName, booking.rescheduleRequest.requestedContactNumber].filter(Boolean).join(', ')}</strong>
+                                        </p>
+                                    )}
                                     <div className="admin-service-details-modal-x8">
                                         <button
                                             className="sdm-btn sdm-btn-danger"

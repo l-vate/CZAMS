@@ -85,8 +85,8 @@ function JobDetailsModal({ job, onClose }) {
           <div className="tech-job-detail-cell">
             <span className="confirmation-detail-icon"><FiPhone /></span>
             <div>
-              <p className="confirmation-detail-label">Contact Number</p>
-              <p className="confirmation-detail-value">{job.contactNumber || '-'}</p>
+              <p className="confirmation-detail-label">{job.contactName ? 'Contact' : 'Contact Number'}</p>
+              <p className="confirmation-detail-value">{job.contactName ? `${job.contactName}, ` : ''}{job.contactNumber || '-'}</p>
             </div>
           </div>
 
@@ -304,6 +304,7 @@ function toViewJob(booking) {
     time: booking.time,
     customerName: booking.customer?.name || 'Customer',
     contactNumber: booking.contactNumber || booking.customer?.phone || '',
+    contactName: booking.contactName || '',
     unitType: getUnitsSummary(booking, { withBrand: true }),
     problemDescription: booking.problemDescription,
     technicianInstructions: booking.technicianInstructions,

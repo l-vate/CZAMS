@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const HOUR_HEIGHT = 56; // px per hour row
@@ -51,10 +51,34 @@ function formatHour(h) {
   return `${hour} ${period}`;
 }
 
-export default function CalendarView({ jobs = [], title = "Calendar", onJobClick }) {
-  const [view, setView] = useState("Week"); // Day | Week | Month
+const PHONE_QUERY = "(max-width: 768px)";
+const MONTH_WEEKDAY_LETTERS = ["M", "T", "W", "T", "F", "S", "S"];
+
+// True up to 768 px. Only read when `phoneLayout` is on, so the admin calendar never changes.
+function useIsPhone() {
+  const query = useMemo(() => (typeof window !== "undefined" && window.matchMedia ? window.matchMedia(PHONE_QUERY) : null), []);
+  const [phone, setPhone] = useState(Boolean(query?.matches));
+  useEffect(() => {
+    if (!query) return undefined;
+    const onChange = (e) => setPhone(e.matches);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, [query]);
+  return phone;
+}
+
+function blockLabel(job) {
+  return job.startHour < 12 ? "Morning" : "Afternoon";
+}
+
+export default function CalendarView({ jobs = [], title = "Calendar", onJobClick, phoneLayout = false }) {
+  const isPhone = useIsPhone();
+  const phone = phoneLayout && isPhone;
+  // On a phone the month grid with a day list under it reads best; wider screens keep the Week default.
+  const [view, setView] = useState(() => (phoneLayout && isPhone ? "Month" : "Week")); // Day | Week | Month
   const [anchorDate, setAnchorDate] = useState(new Date());
   const [selectedJob, setSelectedJob] = useState(null);
+  const [selectedDayKey, setSelectedDayKey] = useState(() => toKey(new Date()));
 
   const today = new Date();
   const todayKey = toKey(today);
@@ -103,8 +127,19 @@ export default function CalendarView({ jobs = [], title = "Calendar", onJobClick
 
   const headerLabel = `${MONTH_NAMES[anchorDate.getMonth()]} ${anchorDate.getFullYear()}`;
 
+  const openJob = (job) => {
+    setSelectedJob(job);
+    onJobClick?.(job);
+  };
+
+  // The day the phone month list shows: the tapped day while it is inside the month on screen, else today or the 1st.
+  const monthPrefix = toKey(anchorDate).slice(0, 7);
+  const phoneDayKey = selectedDayKey.startsWith(monthPrefix)
+    ? selectedDayKey
+    : (todayKey.startsWith(monthPrefix) ? todayKey : `${monthPrefix}-01`);
+
   return (
-    <div className="cal-shell">
+    <div className={`cal-shell${phone ? " cal-shell--phone" : ""}`}>
       <MiniMonthPicker anchorDate={anchorDate} onSelect={setAnchorDate} onToday={goToday} title={title} />
 
       <div className="cal-main">
@@ -128,6 +163,7 @@ export default function CalendarView({ jobs = [], title = "Calendar", onJobClick
                 <button
                   key={v}
                   onClick={() => setView(v)}
+                  aria-pressed={view === v}
                   className={`cal-view-btn ${view === v ? "cal-view-btn-active" : ""}`}
                 >
                   {v}
@@ -143,7 +179,18 @@ export default function CalendarView({ jobs = [], title = "Calendar", onJobClick
           </div>
         </div>
 
-        {view === "Month" ? (
+        {phone ? (
+          <PhoneBody
+            view={view}
+            anchorDate={anchorDate}
+            weekDays={weekDays}
+            jobsByDay={jobsByDay}
+            todayKey={todayKey}
+            dayKey={phoneDayKey}
+            onPickDay={(d) => { setSelectedDayKey(toKey(d)); if (d.getMonth() !== anchorDate.getMonth()) setAnchorDate(d); }}
+            onJobClick={openJob}
+          />
+        ) : view === "Month" ? (
           <MonthGrid
             anchorDate={anchorDate}
             jobsByDay={jobsByDay}
@@ -230,7 +277,152 @@ export default function CalendarView({ jobs = [], title = "Calendar", onJobClick
         )}
       </div>
 
-      {selectedJob && <JobDetailPanel job={selectedJob} onClose={() => setSelectedJob(null)} />}
+      {selectedJob && (phone
+        ? <JobDetailSheet job={selectedJob} onClose={() => setSelectedJob(null)} />
+        : <JobDetailPanel job={selectedJob} onClose={() => setSelectedJob(null)} />)}
+    </div>
+  );
+}
+
+// ---- phone layout (staff calendar, up to 768 px): lists instead of the hour grid and the chip grid ----
+
+function PhoneJobRow({ job, onJobClick }) {
+  return (
+    <button type="button" className={`cal-phone-job cal-job-${job.status}`} onClick={() => onJobClick(job)}>
+      <span className="cal-phone-job-time">
+        <span>{blockLabel(job)}</span>
+        <span>{formatHour(Math.floor(job.startHour))}</span>
+      </span>
+      <span className="cal-phone-job-text">
+        <span className="cal-phone-job-title">{job.title}</span>
+        <span className="cal-phone-job-customer">{job.customer}</span>
+      </span>
+      <span className={`cal-status-pill cal-job-${job.status}`}>{job.status}</span>
+    </button>
+  );
+}
+
+function sortedJobs(list) {
+  return [...list].sort((a, b) => a.startHour - b.startHour);
+}
+
+function PhoneDayList({ jobs, onJobClick, emptyText = "No jobs this day." }) {
+  if (jobs.length === 0) return <p className="cal-phone-empty">{emptyText}</p>;
+  return (
+    <div className="cal-phone-list">
+      {sortedJobs(jobs).map((job) => <PhoneJobRow key={job.id} job={job} onJobClick={onJobClick} />)}
+    </div>
+  );
+}
+
+function longDate(d) {
+  return `${DAY_NAMES[d.getDay()]} ${MONTH_NAMES[d.getMonth()].slice(0, 3)} ${d.getDate()}`;
+}
+
+function PhoneBody({ view, anchorDate, weekDays, jobsByDay, todayKey, dayKey, onPickDay, onJobClick }) {
+  const days = useMemo(() => getMonthGridDays(anchorDate), [anchorDate]);
+
+  if (view === "Day") {
+    return (
+      <div className="cal-phone-body">
+        <h3 className="cal-phone-heading">{longDate(anchorDate)}</h3>
+        <PhoneDayList jobs={jobsByDay[toKey(anchorDate)] || []} onJobClick={onJobClick} />
+      </div>
+    );
+  }
+
+  if (view === "Week") {
+    return (
+      <div className="cal-phone-body">
+        {weekDays.map((d) => {
+          const key = toKey(d);
+          return (
+            <section key={key} className="cal-phone-day">
+              <h3 className={`cal-phone-heading${key === todayKey ? " cal-phone-heading-today" : ""}`}>{longDate(d)}</h3>
+              <PhoneDayList jobs={jobsByDay[key] || []} onJobClick={onJobClick} emptyText="No jobs." />
+            </section>
+          );
+        })}
+      </div>
+    );
+  }
+
+  const [y, m, dd] = dayKey.split("-").map(Number);
+  const selected = new Date(y, m - 1, dd);
+  const lastRowStart = 35; // the sixth week is dropped when it is only the next month
+  const shown = days[lastRowStart].getMonth() === anchorDate.getMonth() ? days : days.slice(0, lastRowStart);
+  return (
+    <div className="cal-phone-body">
+      <div className="cal-phone-weekdays">
+        {MONTH_WEEKDAY_LETTERS.map((letter, i) => <div key={i} aria-hidden="true">{letter}</div>)}
+      </div>
+      <div className="cal-phone-month">
+        {shown.map((d) => {
+          const key = toKey(d);
+          const count = (jobsByDay[key] || []).length;
+          const outside = d.getMonth() !== anchorDate.getMonth();
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onPickDay(d)}
+              aria-pressed={key === dayKey}
+              aria-label={`${longDate(d)}, ${count === 0 ? "no jobs" : `${count} ${count === 1 ? "job" : "jobs"}`}`}
+              className={`cal-phone-cell${outside ? " cal-phone-cell-outside" : ""}${key === dayKey ? " cal-phone-cell-selected" : ""}${key === todayKey ? " cal-phone-cell-today" : ""}`}
+            >
+              <span className="cal-phone-cell-number">{d.getDate()}</span>
+              <span className="cal-phone-dots" aria-hidden="true">
+                {(jobsByDay[key] || []).slice(0, 3).map((job) => <i key={job.id} className={`cal-dot-${job.status}`} />)}
+                {count > 3 && <b>+{count - 3}</b>}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <h3 className="cal-phone-heading">{longDate(selected)}</h3>
+      <PhoneDayList jobs={jobsByDay[dayKey] || []} onJobClick={onJobClick} />
+    </div>
+  );
+}
+
+// The phone version of the details: the shared modal (ModalManager locks the page, traps Tab and returns focus), as a bottom sheet.
+function JobDetailSheet({ job, onClose }) {
+  const closeRef = useRef(null);
+  useEffect(() => {
+    closeRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  return (
+    <div className="modal-overlay cal-sheet-overlay" onClick={onClose}>
+      <div
+        className="modal-card cal-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cal-sheet-title"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
+      >
+        <div className="cal-sheet-head">
+          <h3 id="cal-sheet-title" className="cal-detail-title">{job.title}</h3>
+          <button type="button" ref={closeRef} onClick={onClose} className="modal-close-btn cal-sheet-close" aria-label="Close">
+            <CloseIcon />
+          </button>
+        </div>
+        <span className={`cal-status-pill cal-job-${job.status}`}>{job.status}</span>
+        <p className="cal-detail-time">
+          {formatHour(Math.floor(job.startHour))} – {formatHour(Math.floor(job.endHour))}
+        </p>
+        <div className="cal-detail-fields">
+          <div>
+            <p className="cal-detail-label">Customer</p>
+            <p className="cal-detail-value">{job.customer}</p>
+          </div>
+          <div>
+            <p className="cal-detail-label">Date</p>
+            <p className="cal-detail-value">{job.date}</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

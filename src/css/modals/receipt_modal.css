@@ -140,6 +140,8 @@
 }
 
 /* ============ INVOICE AND RECEIPT: STATUS, TABLE, "VIEW FILE" ============ */
+/* a row that ends in the View File link is centered (its label lines up with the 44 px link), also on a phone where rows are top aligned */
+.receipt-info-row:has(.proof-link) { align-items: center; }
 /* the Status pill: one colour family per payment state (the same families as the Billing badges); green is only for a verified, fully paid one */
 .receipt-status--unpaid { background: #e5e7eb; color: #374151; }
 .receipt-status--to_verify { background: #dbe4f0; color: #1e3a5f; }

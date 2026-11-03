@@ -746,6 +746,8 @@
   gap: 16px;
 }
 
+/* a row that ends in the 44 px View File link is centered, so its label lines up with the link, on a phone and on a desktop */
+.summary-row:has(.proof-link) { align-items: center; }
 .summary-row span:last-child {
   font-weight: 600;
   color: var(--navy);

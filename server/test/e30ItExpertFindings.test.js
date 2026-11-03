@@ -146,3 +146,20 @@ test('Invoice: the document shows the name, address and contact it is given, for
     assert.match(html, /0\.75 HP/, 'the capacity is shown in full');
   }
 });
+
+// ---- 6: View File
+
+test('View File: a row that ends in the 44 px link is centered, on the booking page, the invoice and the receipt, on a phone and a desktop', () => {
+  const customer = src('css', 'customer.css');
+  assert.match(customer, /\.summary-row:has\(\.proof-link\) \{ align-items: center; \}/);
+  const receipt = src('css', 'modals', 'receipt_modal.css');
+  const rule = receipt.indexOf('.receipt-info-row:has(.proof-link) { align-items: center; }');
+  const phoneRule = receipt.indexOf('.receipt-info-row { align-items: flex-start; }');
+  assert.ok(rule > 0 && phoneRule > 0);
+  // the centered row is not inside a media block, so it applies at every width, and it is more specific than the phone's top alignment
+  assert.doesNotMatch(receipt.slice(0, rule).split('@media').pop().split('}').slice(0, 1).join(''), /receipt-info-row/);
+  assert.match(receipt, /\.receipt-modal-card \.proof-link,\s*\.customer-dashboard-shell \.proof-link \{ display: inline-flex; align-items: center; min-height: 44px;/);
+  // the customer's proof rows still use the shared link
+  const details = src('pages', 'customer', 'book_details.jsx');
+  assert.match(details, /<span>Proof of Payment<\/span>\s*<span className="cost-link">\s*\{booking\.proofFile \? \(\s*<ProofLink path=\{booking\.proofFile\}>View File<\/ProofLink>/);
+});

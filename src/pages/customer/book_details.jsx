@@ -45,7 +45,10 @@ import { NoShowCustomerCard } from '../../components/no_show_panels';
 import { refundText, refundFigures, cancelledByText } from '../../utils/cancelledSummary';
 import { useNotice } from '../../hooks/useNotice';
 import { hpLabel } from '../../utils/hpLabel';
-const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+// The signed-in customer, read when a page is drawn (not when this file is first loaded: that is before sign in, so it was empty until a reload).
+const readStoredUser = () => {
+  try { return JSON.parse(localStorage.getItem('user') || '{}') || {}; } catch { return {}; }
+};
 
 const FEEDBACK_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -405,6 +408,7 @@ export function CancelledSummary({ booking, formatWhen, onBookAgain }) {
 }
 
 function BookDetails() {
+  const storedUser = readStoredUser();
   const { bookingId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -530,7 +534,7 @@ function BookDetails() {
     createdAt: booking.createdAt,
     customerName: storedUser.name || '-',
     address: booking.address,
-    contactNumber: storedUser.phone || '-',
+    contactNumber: booking.contactNumber || storedUser.phone || '-',
     service: booking.service?.name || '-',
     lineItems,
     basePrice,

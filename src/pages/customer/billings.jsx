@@ -97,7 +97,7 @@ function Billings() {
             rejectionReason: rejectionReasonOf(b),
             customerName: storedUser.name || '-',
             address: b.address,
-            contactNumber: storedUser.phone || '-',
+            contactNumber: b.contactNumber || storedUser.phone || '-',
             paymentMode: b.paymentMode,
             paymentMode2: b.paymentMode2,
             proofFile: b.proofFile,

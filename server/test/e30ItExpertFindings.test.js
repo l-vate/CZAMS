@@ -114,3 +114,35 @@ test('Payment mode: Next on the Payment step stays off, with the reason under it
   assert.match(page, /disabled=\{!canNext\(\)/);
   assert.match(page, /downPaymentPercent: opt\.value, paymentMode: '', paymentMode2: ''/, 'a new down payment option clears the mode, so it is asked again');
 });
+
+// ---- 5: the customer's own invoice and receipt
+
+test('Invoice: the customer pages read the signed in customer when they are drawn, not when the file loads', () => {
+  const details = src('pages', 'customer', 'book_details.jsx');
+  assert.doesNotMatch(details, /^const storedUser = /m, 'a constant read at load time is empty until a reload');
+  assert.match(details, /const readStoredUser = \(\) => \{/);
+  assert.match(details, /function BookDetails\(\) \{\s+const storedUser = readStoredUser\(\);/);
+  assert.match(details, /customerName: storedUser\.name \|\| '-',/);
+  assert.match(details, /contactNumber: booking\.contactNumber \|\| storedUser\.phone \|\| '-',/);
+  const billings = src('pages', 'customer', 'billings.jsx');
+  assert.match(billings, /customerName: storedUser\.name \|\| '-',/);
+  assert.match(billings, /contactNumber: b\.contactNumber \|\| storedUser\.phone \|\| '-',/);
+});
+
+test('Invoice: the document shows the name, address and contact it is given, for an invoice and for a receipt', async () => {
+  const { default: ReceiptModal } = await vite.ssrLoadModule('/src/components/receipt_modal.jsx');
+  const { createElement } = require('node:module').createRequire(path.join(__dirname, '..', '..', 'package.json'))('react');
+  const { renderToStaticMarkup } = require('node:module').createRequire(path.join(__dirname, '..', '..', 'package.json'))('react-dom/server');
+  for (const isFullyPaid of [false, true]) {
+    const form = {
+      id: 'CZ-1', createdAt: '2026-11-03T00:00:00.000Z', customerName: 'Ana Reyes', address: '12 Maple St, Quezon City', contactNumber: '09171230001',
+      service: 'Installation', lineItems: [{ type: 'Split Type', quantity: 1, hp: '0.75', subtotal: 5000 }], basePrice: 5000, toPayNow: 2500, remaining: 2500,
+      downPaymentPercent: 50, paymentMode: 'GCash', isFullyPaid,
+    };
+    const html = renderToStaticMarkup(createElement(ReceiptModal, { form, booking: { bookingId: 'CZ-1' }, onClose() {} }));
+    assert.match(html, /Customer Name:<\/span><span>Ana Reyes</);
+    assert.match(html, /Address:<\/span><span>12 Maple St, Quezon City</);
+    assert.match(html, /Contact Number:<\/span><span>09171230001</);
+    assert.match(html, /0\.75 HP/, 'the capacity is shown in full');
+  }
+});

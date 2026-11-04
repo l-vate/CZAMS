@@ -159,7 +159,7 @@ function ClosureDateInput({ value, onChange, min, max, className = 'bs-input', i
         </div>
       )}
       {showEarliest && (
-        <p className="closure-upcoming">Earliest available date is {formatClosureDate(earliest)}.{max ? ` The latest date you can choose is ${formatClosureDate(max)}.` : ''}</p>
+        <p className="closure-upcoming">Earliest available date is {formatClosureDate(earliest)}.</p>
       )}
       {showClosedList && closures.length > 0 && (
         <p className="closure-upcoming">

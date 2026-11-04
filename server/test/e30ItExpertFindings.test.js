@@ -194,7 +194,7 @@ test('Log out: the question is the shared modal, with Cancel focused, Escape clo
 
 test('Log out: the buttons are the same width and 44 px tall, and an automatic sign out never asks', () => {
   const css = src('css', 'components', 'sidebar.css');
-  assert.match(css, /\.logout-dialog \.logout-dialog-actions \{ flex-direction: row; justify-content: flex-end;/);
+  assert.match(css, /\.logout-dialog \.logout-dialog-actions \{ flex-direction: row; justify-content: center;/);
   assert.match(css, /\.logout-dialog \.logout-dialog-actions button \{ flex: 0 0 140px; min-height: 44px;/);
   ['services/apiClient.js', 'utils/sessionRefresh.js'].forEach((file) => {
     const text = src(...file.split('/'));

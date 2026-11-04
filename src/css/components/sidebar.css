@@ -27,10 +27,15 @@
 }
 
 /* The "Log out of CZAMS?" question (components/logout_button.jsx): Cancel and Log out side by side at the right, the same width, 44 px tall */
-.logout-dialog .logout-dialog-actions { flex-direction: row; justify-content: flex-end; gap: 12px; }
+.logout-dialog .logout-dialog-actions { flex-direction: row; justify-content: center; gap: 12px; }
 .logout-dialog .logout-dialog-actions button { flex: 0 0 140px; min-height: 44px; box-sizing: border-box; }
 .logout-dialog .logout-dialog-actions button:focus-visible { outline: 3px solid var(--coral); outline-offset: 2px; }
-.logout-dialog .cancel-confirm-text { text-align: center; }
+.logout-dialog { max-width: 420px; padding: 24px; gap: 8px; }
+.logout-dialog .cancel-confirm-title { justify-content: center; text-align: center; }
+.logout-dialog .cancel-confirm-text { text-align: center; margin: 0; }
+.logout-dialog .logout-dialog-actions { margin-top: 16px; }
+.logout-dialog .bs-back-btn { background: var(--white); border: 1.5px solid var(--mist); color: var(--navy); }
+.logout-dialog .bs-back-btn:hover { border-color: var(--navy); }
 @media (max-width: 340px) {
   .logout-dialog .logout-dialog-actions button { flex: 1 1 0; min-width: 0; }
 }

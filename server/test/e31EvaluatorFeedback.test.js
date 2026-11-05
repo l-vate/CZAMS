@@ -123,3 +123,25 @@ test('View File: the pill is a flex box that centers its label both ways, so the
   const link = src('components', 'proof_file.jsx');
   assert.match(link, /children = 'View File'/);
 });
+
+// ---- 7: one duplicate reference warning
+
+test('duplicate reference: one warning lists every other booking, with a cap, and the server answer is unchanged', async () => {
+  const { referenceWarnings, bookingList } = await vite.ssrLoadModule('/src/utils/referenceWarning.js');
+  const four = ['CZ-2026-4817', 'CZ-2026-3400', 'CZ-2026-1111', 'CZ-2026-2222'].map((bookingId) => ({ bookingId, reference: '1234567890123', method: 'GCash' }));
+  const out = referenceWarnings(four);
+  assert.equal(out.length, 1, 'four bookings, one warning');
+  assert.equal(out[0].text, 'This GCash reference number was already used on bookings CZ-2026-4817, CZ-2026-3400 and 2 more. Check that it is not the same payment submitted twice.');
+  assert.equal(referenceWarnings(four.slice(0, 1))[0].text, 'This GCash reference number was already used on booking CZ-2026-4817. Check that it is not the same payment submitted twice.');
+  assert.match(referenceWarnings(four.slice(0, 2))[0].text, /bookings CZ-2026-4817 and CZ-2026-3400\./);
+  assert.match(referenceWarnings(four.slice(0, 3))[0].text, /bookings CZ-2026-4817, CZ-2026-3400 and CZ-2026-1111\./);
+  assert.equal(bookingList(['A', 'B', 'C', 'D', 'E']), 'A, B and 3 more');
+  assert.equal(referenceWarnings([four[0], four[0]]).length, 1, 'a booking that matches on both payments is listed once');
+  assert.match(referenceWarnings([{ bookingId: 'CZ-1' }])[0].text, /^This reference number was already used on booking CZ-1\./, 'no method on file');
+  assert.deepEqual(referenceWarnings([]), []);
+  assert.deepEqual(referenceWarnings(undefined), []);
+  // the component renders from the helper and the server still sends one row per other booking
+  assert.match(src('components', 'payment_reference.jsx'), /referenceWarnings\(duplicates\)\.map/);
+  const server = fs.readFileSync(path.join(__dirname, '..', 'utils', 'paymentReference.js'), 'utf8');
+  assert.match(server, /found\.push\(\{ bookingId: o\.bookingId, reference: match\.reference, method: match\.mode \|\| null \}\)/);
+});

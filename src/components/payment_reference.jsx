@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getReferenceDuplicates } from '../services/bookingService';
+import { referenceWarnings } from '../utils/referenceWarning';
 
 const NOT_RECORDED = 'Not recorded';
 
@@ -25,9 +26,9 @@ function PaymentReference({ booking }) {
       {booking?.balanceReferenceNumber && (
         <span>Balance: {booking.balanceReferenceNumber}</span>
       )}
-      {hasReference && duplicates.map((d) => (
-        <span key={d.bookingId} className="payment-reference-dup" role="alert">
-          Warning: this {d.method ? `${d.method} ` : ''}reference number was already used on booking {d.bookingId}. Check that it is not the same payment submitted twice.
+      {hasReference && referenceWarnings(duplicates).map((w) => (
+        <span key={w.key} className="payment-reference-dup" role="alert">
+          Warning: {w.text}
         </span>
       ))}
     </span>

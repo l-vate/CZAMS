@@ -145,3 +145,28 @@ test('duplicate reference: one warning lists every other booking, with a cap, an
   const server = fs.readFileSync(path.join(__dirname, '..', 'utils', 'paymentReference.js'), 'utf8');
   assert.match(server, /found\.push\(\{ bookingId: o\.bookingId, reference: match\.reference, method: match\.mode \|\| null \}\)/);
 });
+
+// ---- 8: the payment review window after a payment is verified
+
+test('payment review: Approve and Reject only while a proof is waiting; a verified payment shows who verified it and when', async () => {
+  const { paymentReviewState } = await vite.ssrLoadModule('/src/utils/paymentReview.js');
+  assert.equal(paymentReviewState({ paymentStatus: 'to_verify' }).awaiting, true);
+  assert.equal(paymentReviewState({ paymentStatus: 'partially_paid', balancePaymentStatus: 'to_verify' }).awaiting, true, 'a balance proof is waiting');
+  const verified = paymentReviewState({
+    paymentStatus: 'partially_paid',
+    paymentEvents: [{ track: 'down', status: 'verified', by: { name: 'Admin One' }, at: '2026-11-05T02:30:00.000Z' }],
+  });
+  assert.equal(verified.awaiting, false);
+  assert.equal(verified.notes[0].text, 'Down payment verified by Admin One on Nov 5, 2026, 10:30 AM');
+  assert.equal(paymentReviewState({ paymentStatus: 'fully_paid' }).notes[0].text, 'Down payment verified', 'an older booking has no line');
+  const rejected = paymentReviewState({ paymentStatus: 'rejected', paymentEvents: [{ track: 'down', status: 'rejected', reason: 'Wrong reference', by: { name: 'Admin One' }, at: '2026-11-05T02:30:00.000Z' }] });
+  assert.equal(rejected.awaiting, false);
+  assert.match(rejected.notes[0].text, /^Down payment rejected by Admin One on .+\. Reason: Wrong reference$/);
+  assert.equal(paymentReviewState({ paymentStatus: 'fully_paid', balancePaymentStatus: 'paid' }).notes.length, 2);
+
+  const page = src('pages', 'admin', 'payments.jsx');
+  assert.match(page, /\{awaiting \? \(/, 'the buttons are inside the waiting branch');
+  assert.ok(page.indexOf('{awaiting ? (') < page.indexOf("{submitting ? 'Processing...' : 'Approve'}"));
+  assert.ok(page.indexOf("{submitting ? 'Processing...' : 'Approve'}") < page.indexOf('payment-review-outcome'));
+  assert.match(page, /paymentsList\.find\(\(p\) => p\.id === selectedPayment\.id\)/, 'the window follows the fresh list after an approval');
+});

@@ -33,6 +33,18 @@ const downPaymentAmount = (booking) => (typeof booking.downPaymentPaidAmount ===
   ? booking.downPaymentPaidAmount
   : getPaymentBreakdown(booking).downPayment);
 
+// Who verified a payment and when, from the record (paymentEvents), worded for the admin. Used when a second approval of the same payment
+// arrives (a stale screen, a second tab, two admins): the answer says what already happened, and nothing is written.
+function verifiedBy(booking, track) {
+  const events = Array.isArray(booking.paymentEvents) ? booking.paymentEvents : [];
+  const found = [...events].reverse().find((e) => e.track === track && (e.status === 'verified' || e.status === 'recorded'));
+  if (!found) return '';
+  const when = found.at ? new Date(found.at).toLocaleString('en-US', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' }) : '';
+  return ` by ${found.by?.name || 'an admin'}${when ? ` on ${when}` : ''}`;
+}
+const alreadyVerified = (booking, track) => invalid(
+  `This ${track === 'balance' ? 'balance' : 'down'} payment was already verified${verifiedBy(booking, track)}. Nothing was changed.`, 409);
+
 // Reads the payment part of an admin-update request. Returns { problem } or { plan } where plan is null (no payment change)
 // or { track, action, expect, set, unset, event }.
 function planPaymentChange(booking, { paymentStatus, balancePaymentStatus, balancePaid, reverse, reason } = {}) {
@@ -53,6 +65,8 @@ function planPaymentChange(booking, { paymentStatus, balancePaymentStatus, balan
     if (typeof paymentStatus !== 'string' || !PAYMENT_STATUS_VALUES.includes(paymentStatus)) {
       return { problem: invalid(`Payment status must be one of: ${PAYMENT_STATUS_VALUES.join(', ')}.`) };
     }
+    // approving a payment that is already verified: refused with who verified it and when, so a second tab or a second admin changes nothing
+    if (VERIFIED_DOWN.includes(booking.paymentStatus) && VERIFIED_DOWN.includes(paymentStatus)) return { problem: alreadyVerified(booking, 'down') };
     if (booking.paymentStatus !== PAYMENT_STATUS.TO_VERIFY) {
       return { problem: invalid(paymentStatus === booking.paymentStatus
         ? 'That payment already has this status.'
@@ -83,6 +97,9 @@ function planPaymentChange(booking, { paymentStatus, balancePaymentStatus, balan
   // the balance track
   if (typeof balancePaymentStatus !== 'string' || !BALANCE_PAYMENT_STATUS_VALUES.includes(balancePaymentStatus)) {
     return { problem: invalid(`Balance status must be one of: ${BALANCE_PAYMENT_STATUS_VALUES.join(', ')}.`) };
+  }
+  if (booking.balancePaymentStatus === BALANCE_PAYMENT_STATUS.PAID && balancePaymentStatus === BALANCE_PAYMENT_STATUS.PAID) {
+    return { problem: alreadyVerified(booking, 'balance') };
   }
   if (booking.balancePaymentStatus !== BALANCE_PAYMENT_STATUS.TO_VERIFY) {
     return { problem: invalid('Only a balance payment that is waiting to be verified can be verified or rejected. To undo a verification use Reverse.') };

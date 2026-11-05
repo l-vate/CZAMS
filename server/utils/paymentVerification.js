@@ -43,7 +43,7 @@ function verifiedBy(booking, track) {
   return ` by ${found.by?.name || 'an admin'}${when ? ` on ${when}` : ''}`;
 }
 const alreadyVerified = (booking, track) => invalid(
-  `This ${track === 'balance' ? 'balance' : 'down'} payment was already verified${verifiedBy(booking, track)}. Nothing was changed.`, 409);
+  `This ${track === 'balance' ? 'balance' : 'down'} payment was already verified${verifiedBy(booking, track)}. Nothing was changed.`, 400);
 
 // Reads the payment part of an admin-update request. Returns { problem } or { plan } where plan is null (no payment change)
 // or { track, action, expect, set, unset, event }.

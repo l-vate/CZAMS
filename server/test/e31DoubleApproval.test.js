@@ -34,7 +34,7 @@ test('a second approval of a verified down payment is refused with who and when,
   assert.ok(before.audits >= 1, 'the first approval is on the audit log');
 
   const second = await update({ paymentStatus: 'partially_paid' }, 'ADM2');
-  assert.equal(second.status, 409);
+  assert.equal(second.status, 400, 'the same status the route always used for a payment that cannot be verified');
   assert.match(second.body.message, /^This down payment was already verified by Admin One on .+\. Nothing was changed\.$/);
   assert.equal(state.bookings[0].paymentEvents.length, before.events, 'no second payment line');
   assert.equal(state.audits.length, before.audits, 'no second audit line');
@@ -43,7 +43,7 @@ test('a second approval of a verified down payment is refused with who and when,
 
   // the other verified value (a stale screen that asks for Fully Paid) is the same refusal
   const other = await update({ paymentStatus: 'fully_paid' }, 'ADM2');
-  assert.equal(other.status, 409);
+  assert.equal(other.status, 400);
   assert.equal(state.audits.length, before.audits);
 });
 
@@ -52,7 +52,7 @@ test('a second approval of a verified balance is refused the same way', async ()
   assert.equal((await update({ balancePaymentStatus: 'paid' })).status, 200);
   const before = { events: state.bookings[0].paymentEvents.length, audits: state.audits.length, notes: customerNotes().length };
   const again = await update({ balancePaymentStatus: 'paid' }, 'ADM2');
-  assert.equal(again.status, 409);
+  assert.equal(again.status, 400);
   assert.match(again.body.message, /^This balance payment was already verified by Admin One on .+\. Nothing was changed\.$/);
   assert.deepEqual({ events: state.bookings[0].paymentEvents.length, audits: state.audits.length, notes: customerNotes().length }, before);
 });

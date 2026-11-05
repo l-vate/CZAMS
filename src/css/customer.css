@@ -2027,7 +2027,11 @@
 /* the figures that matter most */
 .confirmation-details-card .cost-link a,
 .confirmation-details-card .cost-link button {
-  display: inline-block;
+  /* flex: the link is at least 44 px tall (receipt_modal.css), and a label in a plain inline box sat at the top of that height */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
   padding: 3px 12px;
   border: 1px solid #bcd3ea;
   border-radius: 999px;

@@ -105,3 +105,21 @@ test('profile: Cancel and Save Changes come after the fields, in the same order,
   assert.match(staffCss, /\.tech-profile-edit-actions button \{ flex: 0 0 140px; width: 140px; \}/);
   assert.match(staffCss, /\.profile-card:has\(\.tech-profile-edit-form\) \{ flex-wrap: wrap; \}/);
 });
+
+// ---- 6: View File
+
+test('View File: the pill is a flex box that centers its label both ways, so the 44 px minimum no longer leaves the label at the top', () => {
+  const css = src('css', 'customer.css');
+  const at = css.indexOf('.confirmation-details-card .cost-link button {');
+  const rule = css.slice(at, css.indexOf('}', at));
+  assert.match(rule, /display: inline-flex;/);
+  assert.match(rule, /align-items: center;/);
+  assert.match(rule, /justify-content: center;/);
+  assert.doesNotMatch(rule, /inline-block/);
+  // the row centers the pill with its label, and the plain links on the invoice and receipt are flex-centered too
+  assert.match(css, /\.summary-row:has\(\.proof-link\) \{ align-items: center; \}/);
+  assert.match(src('css', 'modals', 'receipt_modal.css'), /\.proof-link \{ display: inline-flex; align-items: center; min-height: 44px;/);
+  // every View File goes through the one ProofLink component
+  const link = src('components', 'proof_file.jsx');
+  assert.match(link, /children = 'View File'/);
+});

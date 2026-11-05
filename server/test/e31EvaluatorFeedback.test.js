@@ -73,3 +73,35 @@ test('login: the Forgot password link keeps a visible focus style drawn inside i
   assert.doesNotMatch(rule, /margin: -10px/, 'the old box reached 10 px past the row');
   assert.match(css, /\.ap-link--tap::after \{[^}]*top: -8px;[^}]*bottom: -8px;/, 'the 44 px target is invisible');
 });
+
+// ---- 4 and 5: the Profile
+
+test('profile: an empty address keeps the height of a filled one, in view mode', () => {
+  const css = src('css', 'customer.css');
+  assert.match(css, /\.profile-field div:empty::before \{ content: '\200b'; \}/, 'an empty value still has a line, so the box is as tall as the others');
+  assert.match(css, /\.profile-field div \{\s*padding: 12px 16px;/, 'the same box for every value');
+  // edit mode: the address input is the same bs-input as the other fields
+  const profile = src('pages', 'customer', 'profile.jsx');
+  const inputs = profile.match(/<input[^>]*?className="bs-input"/gs) || [];
+  assert.equal(inputs.length, 5, 'first name, last name, email, phone and address share one input class');
+});
+
+test('profile: Cancel and Save Changes come after the fields, in the same order, right aligned at equal width, full width at 340 px', () => {
+  const customer = src('pages', 'customer', 'profile.jsx');
+  assert.ok(customer.indexOf('id="address"') < customer.indexOf('profile-edit-actions'), 'the buttons follow the last field');
+  assert.ok(customer.indexOf('>\n                  Cancel') < customer.indexOf('Save<span'), 'Cancel first, then Save Changes');
+  assert.match(customer, /aria-label="Save Changes"/);
+  const css = src('css', 'customer.css');
+  assert.match(css, /\.profile-page \.profile-card:has\(\.profile-grid\) \{ flex-direction: column; align-items: stretch; \}/);
+  assert.match(css, /\.profile-edit-actions \{ justify-content: flex-end; \}/);
+  assert.match(css, /\.profile-edit-actions button \{ flex: 0 0 140px; width: 140px; \}/);
+  assert.match(css, /@media \(max-width: 340px\) \{[^@]*\.profile-page \.profile-edit-actions \{ width: 100%; \}[^@]*flex: 1 1 0;/);
+
+  const staff = src('pages', 'staff', 'profile.jsx');
+  assert.ok(staff.indexOf('id="phone"') < staff.indexOf('tech-profile-edit-actions'), 'the staff buttons follow the last field');
+  assert.ok(staff.indexOf('>\n              Cancel') < staff.indexOf("'Save Changes'"), 'Cancel first, then Save Changes');
+  const staffCss = src('css', 'staff.css');
+  assert.match(staffCss, /\.tech-profile-edit-actions \{ flex: 1 1 100%; display: flex; justify-content: flex-end; gap: 12px; \}/);
+  assert.match(staffCss, /\.tech-profile-edit-actions button \{ flex: 0 0 140px; width: 140px; \}/);
+  assert.match(staffCss, /\.profile-card:has\(\.tech-profile-edit-form\) \{ flex-wrap: wrap; \}/);
+});

@@ -692,6 +692,14 @@
   grid-template-columns: 2fr 1.2fr 1.2fr 1fr;
 }
 
+/* Profile edit mode: the card wraps, so Cancel and Save Changes take the full row under the fields, right aligned at equal width */
+.profile-card:has(.tech-profile-edit-form) { flex-wrap: wrap; }
+.tech-profile-edit-actions { flex: 1 1 100%; display: flex; justify-content: flex-end; gap: 12px; }
+.tech-profile-edit-actions button { flex: 0 0 140px; width: 140px; }
+@media (max-width: 340px) {
+  .tech-profile-edit-actions button, .staff-dashboard-shell .tech-profile-edit-actions button { flex: 1 1 0; width: auto; min-width: 0; }
+}
+
 /* Profile Edit Form */
 .tech-profile-edit-form {
   flex: 1;
@@ -1298,7 +1306,7 @@
     box-sizing: border-box; width: 100%; min-width: 0; margin: 0 0 16px; padding: 16px; padding-right: 68px;
     flex-wrap: wrap; gap: 14px;
   }
-  .staff-dashboard-shell .profile-card > div:not(.profile-avatar-lg):not(.staff-profile-x1):not(.tech-profile-edit-form):not(.account-actions) { flex: 1 1 0; min-width: 0; }
+  .staff-dashboard-shell .profile-card > div:not(.profile-avatar-lg):not(.staff-profile-x1):not(.tech-profile-edit-form):not(.tech-profile-edit-actions):not(.account-actions) { flex: 1 1 0; min-width: 0; }
   .staff-dashboard-shell .profile-avatar-lg { width: 80px; height: 80px; font-size: 2.2rem; }
   .staff-dashboard-shell .profile-name { font-size: 1.2rem; overflow-wrap: anywhere; }
   .staff-dashboard-shell .profile-id { overflow-wrap: anywhere; }
@@ -1311,8 +1319,8 @@
   .staff-dashboard-shell .tech-profile-edit-form { max-width: none; width: 100%; min-width: 0; gap: 16px; }
   .staff-dashboard-shell .tech-profile-edit-form .bs-input { width: 100%; min-width: 0; box-sizing: border-box; min-height: 44px; font-size: 16px; }
   .staff-dashboard-shell .profile-photo-upload-btn { min-height: 44px; justify-content: center; box-sizing: border-box; }
-  .staff-dashboard-shell .tech-profile-edit-form .cancel-confirm-actions { flex-direction: row; justify-content: flex-end; gap: 12px; }
-  .staff-dashboard-shell .tech-profile-edit-form .cancel-confirm-actions button { flex: 0 0 140px; min-height: 44px; }
+  .staff-dashboard-shell .tech-profile-edit-actions { width: 100%; }
+  .staff-dashboard-shell .tech-profile-edit-actions button { min-height: 44px; }
   /* Account Settings: Change Password is one navy button, right aligned */
   .staff-dashboard-shell .account-actions { margin: 0; justify-content: flex-end; }
   .staff-dashboard-shell .change-password-btn { min-height: 44px; min-width: 170px; justify-content: center; box-sizing: border-box; }

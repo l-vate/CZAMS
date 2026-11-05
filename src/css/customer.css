@@ -2236,7 +2236,7 @@
   .profile-page .profile-field .bs-input { width: 100%; min-width: 0; box-sizing: border-box; min-height: 44px; font-size: 16px; }
   /* edit mode: Cancel and Save together at the end of the form, on one line, each 44 px tall */
   .profile-page .profile-edit-actions { flex-direction: row; flex-wrap: nowrap; justify-content: flex-end; gap: 12px; margin-top: 8px; }
-  .profile-page .profile-edit-actions button { width: auto; min-height: 44px; padding: 0 20px; white-space: nowrap; }
+  .profile-page .profile-edit-actions button { min-height: 44px; padding: 0; white-space: nowrap; }
   .profile-page .profile-card--account .account-actions { flex-direction: column; }
   .profile-page .delete-account-block a { display: inline-flex; align-items: center; min-height: 44px; }
   .profile-page .profile-card--account .change-password-btn,
@@ -2244,6 +2244,9 @@
 }
 @media (max-width: 340px) {
   .profile-save-long { display: none; }
+  /* 340 px and narrower: the two buttons share the full width */
+  .profile-page .profile-edit-actions { width: 100%; }
+  .profile-page .profile-edit-actions button { flex: 1 1 0; width: auto; min-width: 0; }
 }
 
 /* ============ BILLING CARDS ============
@@ -2384,3 +2387,13 @@
   .billing-card > .billing-card-actions .billing-btn { flex: 0 0 auto; }
   .billing-card > .customer-billings-x5, .billing-card > .customer-billings-x6 { grid-column: 1 / -1; }
 }
+
+
+/* ============ PROFILE (E31) ============
+   An empty value keeps the height of a filled one, so an address that is not set is as tall as the other fields (view mode; the edit boxes
+   already share one input rule). */
+.profile-field div:empty::before { content: 'b'; }
+/* edit mode: the card is a column (title, fields, buttons), the buttons under the fields, right aligned at equal width */
+.profile-page .profile-card:has(.profile-grid) { flex-direction: column; align-items: stretch; }
+.profile-edit-actions { justify-content: flex-end; }
+.profile-edit-actions button { flex: 0 0 140px; width: 140px; }

@@ -199,15 +199,6 @@ function Profile() {
                 {saveError}
               </p>
             )}
-
-            <div className="cancel-confirm-actions">
-              <button type="button" className="bs-back-btn" onClick={handleCancel} disabled={saving}>
-                Cancel
-              </button>
-              <button type="button" className="bs-next-btn" onClick={handleSave} disabled={saving}>
-                {saving ? 'Saving...' : 'Save Changes'}
-              </button>
-            </div>
           </div>
         ) : (
           <div>
@@ -217,6 +208,18 @@ function Profile() {
               <span className="profile-contact-line"><FiMail size={13} /> {profile.email}</span>
               <span className="profile-contact-line"><FiPhone size={13} /> {profile.phone}</span>
             </div>
+          </div>
+        )}
+
+        {/* Cancel and Save Changes: below the fields, across the bottom of the card */}
+        {isEditing && (
+          <div className="tech-profile-edit-actions">
+            <button type="button" className="bs-back-btn" onClick={handleCancel} disabled={saving}>
+              Cancel
+            </button>
+            <button type="button" className="bs-next-btn" onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving...' : 'Save Changes'}
+            </button>
           </div>
         )}
 

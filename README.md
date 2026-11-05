@@ -30,9 +30,21 @@ Chat and the "needs attention" counters refresh by periodic polling from the Rea
 
 ### Technology Stack
 
-* **Frontend:** React 19, React Router 7, React Icons, plain CSS, built with Vite.
-* **Backend:** Node.js (>= 20.9) with Express 5, JWT authentication, bcryptjs, Helmet, CORS, Multer and Sharp for uploads, node-cron for scheduled jobs, Nodemailer for email.
-* **Database:** MongoDB managed with Mongoose.
+| Layer | Technology |
+| --- | --- |
+| Frontend | React 19, React Router 7, React Icons, plain CSS |
+| Frontend tooling | Vite (build), ESLint (lint) |
+| Backend | Node.js (>= 20.9), Express 5 |
+| Authentication | JWT (jsonwebtoken), bcryptjs |
+| Security | Helmet, CORS |
+| File uploads | Multer, Sharp |
+| Scheduled jobs | node-cron |
+| Email | Nodemailer with Brevo SMTP |
+| Backend tooling | node:test (tests), nodemon (dev) |
+| Database | MongoDB (Atlas) with Mongoose |
+| File storage | GridFS in production, local disk in development |
+| Hosting | Vercel (frontend), Render (backend) |
+| Source control & CI | GitHub, dependency audit workflow |
 
 ## 2. File Structure
 

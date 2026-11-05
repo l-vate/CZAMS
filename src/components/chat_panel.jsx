@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FiSend, FiUser, FiMessageCircle, FiTool, FiCopy } from 'react-icons/fi';
+import { FiSend, FiUser, FiMessageCircle, FiTool, FiCopy, FiArrowDown } from 'react-icons/fi';
 import { ApiError } from '../services/apiClient';
 import { listMessages, sendMessage as postMessage } from '../services/chatService';
 import { ROLE } from '../constants/roles';
 import { BRAND_NAME } from '../config/company';
+import { isNearBottom, scrollDecision } from '../utils/chatScroll';
 
 const POLL_INTERVAL_MS = 15000;
 
@@ -65,7 +66,12 @@ function ChatPanel({ conversationId, emptyText, partnerName = 'Admin Support', p
   const [attached, setAttached] = useState(reference);
   // True while the last refresh failed. The next poll tries again and clears it when it works.
   const [connectionProblem, setConnectionProblem] = useState(false);
-  const bottomRef = useRef(null);
+  const listRef = useRef(null);
+  // The reader's place in the list: near the bottom (follow new messages) or scrolled up (leave the list alone).
+  const nearBottomRef = useRef(true);
+  const sentByMeRef = useRef(false);
+  const lastIdRef = useRef(null);
+  const [newBelow, setNewBelow] = useState(false);
   // Quick-question picker (customer chat.jsx) hands off a question to send as
   // the opening message - guarded so it only ever fires once, even though this
   // effect also depends on `loading`/`messages` ticking on the poll interval.
@@ -77,6 +83,8 @@ function ChatPanel({ conversationId, emptyText, partnerName = 'Admin Support', p
   useEffect(() => {
     if (isAdmin && !conversationId) return;
     setLoading(true);
+    nearBottomRef.current = true; // a conversation just opened starts at its newest message
+    lastIdRef.current = null;
     const fetchMessages = () => {
       listMessages(threadId)
         .then((data) => {
@@ -95,8 +103,22 @@ function ChatPanel({ conversationId, emptyText, partnerName = 'Admin Support', p
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
 
+  const scrollToBottom = (behavior = 'smooth') => {
+    const list = listRef.current;
+    if (list) list.scrollTo({ top: list.scrollHeight, behavior });
+    nearBottomRef.current = true;
+    setNewBelow(false);
+  };
+
+  // Scrolls only the list (never the page), and only when the reader is at the bottom or has just sent a message.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const lastId = messages.length ? messages[messages.length - 1]._id : null;
+    const arrived = lastId !== lastIdRef.current;
+    lastIdRef.current = lastId;
+    const action = scrollDecision({ arrived, wasNearBottom: nearBottomRef.current, sentByMe: sentByMeRef.current });
+    sentByMeRef.current = false;
+    if (action === 'bottom') scrollToBottom();
+    else if (action === 'notify') setNewBelow(true);
   }, [messages]);
 
   const sendMessage = async (messageText, bookingRef) => {
@@ -104,6 +126,7 @@ function ChatPanel({ conversationId, emptyText, partnerName = 'Admin Support', p
     setSending(true);
     try {
       const created = await postMessage(threadId, messageText.trim(), bookingRef);
+      sentByMeRef.current = true; // the list follows the message the reader just sent
       setMessages((prev) => [...prev, created]);
       setText('');
       setAttached(null);
@@ -147,7 +170,12 @@ function ChatPanel({ conversationId, emptyText, partnerName = 'Admin Support', p
         </div>
       </div>
 
-      <div className="chat-messages">
+      <div className="chat-messages-wrap">
+      <div
+        className="chat-messages"
+        ref={listRef}
+        onScroll={() => { nearBottomRef.current = isNearBottom(listRef.current); if (nearBottomRef.current) setNewBelow(false); }}
+      >
         {attached && <BookingChatCard booking={attached} onRemove={() => setAttached(null)} />}
         {connectionProblem && <p className="connection-problem" role="status">Connection problem. Trying again...</p>}
         {loading ? (
@@ -178,7 +206,12 @@ function ChatPanel({ conversationId, emptyText, partnerName = 'Admin Support', p
             );
           })
         )}
-        <div ref={bottomRef} />
+      </div>
+      {newBelow && (
+        <button type="button" className="chat-new-messages" onClick={() => scrollToBottom()}>
+          <FiArrowDown aria-hidden="true" /> New messages
+        </button>
+      )}
       </div>
 
       <form className="chat-input-row" onSubmit={handleSend}>

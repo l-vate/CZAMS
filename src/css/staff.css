@@ -695,9 +695,10 @@
 /* Profile edit mode: the card wraps, so Cancel and Save Changes take the full row under the fields, right aligned at equal width */
 .profile-card:has(.tech-profile-edit-form) { flex-wrap: wrap; }
 .tech-profile-edit-actions { flex: 1 1 100%; display: flex; justify-content: flex-end; gap: 12px; }
-.tech-profile-edit-actions button { flex: 0 0 140px; width: 140px; }
+.tech-profile-edit-actions button { flex: 0 1 150px; min-width: 0; white-space: nowrap; box-sizing: border-box; }
 @media (max-width: 340px) {
-  .tech-profile-edit-actions button, .staff-dashboard-shell .tech-profile-edit-actions button { flex: 1 1 0; width: auto; min-width: 0; }
+  .tech-profile-edit-actions, .staff-dashboard-shell .tech-profile-edit-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .tech-profile-edit-actions button, .staff-dashboard-shell .tech-profile-edit-actions button { width: 100%; min-width: 0; }
 }
 
 /* Profile Edit Form */
@@ -1319,7 +1320,7 @@
   .staff-dashboard-shell .tech-profile-edit-form { max-width: none; width: 100%; min-width: 0; gap: 16px; }
   .staff-dashboard-shell .tech-profile-edit-form .bs-input { width: 100%; min-width: 0; box-sizing: border-box; min-height: 44px; font-size: 16px; }
   .staff-dashboard-shell .profile-photo-upload-btn { min-height: 44px; justify-content: center; box-sizing: border-box; }
-  .staff-dashboard-shell .tech-profile-edit-actions { width: 100%; }
+  .staff-dashboard-shell .tech-profile-edit-actions { flex: 0 0 auto; width: 100%; }
   .staff-dashboard-shell .tech-profile-edit-actions button { min-height: 44px; }
   /* Account Settings: Change Password is one navy button, right aligned */
   .staff-dashboard-shell .account-actions { margin: 0; justify-content: flex-end; }

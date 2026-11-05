@@ -2249,8 +2249,8 @@
 @media (max-width: 340px) {
   .profile-save-long { display: none; }
   /* 340 px and narrower: the two buttons share the full width */
-  .profile-page .profile-edit-actions { width: 100%; }
-  .profile-page .profile-edit-actions button { flex: 1 1 0; width: auto; min-width: 0; }
+  .profile-page .profile-edit-actions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .profile-page .profile-edit-actions button { width: 100%; min-width: 0; }
 }
 
 /* ============ BILLING CARDS ============
@@ -2400,4 +2400,4 @@
 /* edit mode: the card is a column (title, fields, buttons), the buttons under the fields, right aligned at equal width */
 .profile-page .profile-card:has(.profile-grid) { flex-direction: column; align-items: stretch; }
 .profile-edit-actions { justify-content: flex-end; }
-.profile-edit-actions button { flex: 0 0 140px; width: 140px; }
+.profile-edit-actions button { flex: 0 1 150px; min-width: 0; white-space: nowrap; box-sizing: border-box; }

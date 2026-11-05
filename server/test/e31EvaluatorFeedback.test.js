@@ -58,6 +58,7 @@ test('password field: the eye button sits inside the border of the field, rounde
   assert.match(rule, /border-radius: 0 8\.5px 8\.5px 0;/, 'the corner of the field (10px) minus its border');
   assert.doesNotMatch(rule, /height: 44px|translateY/, 'no fixed 44 px height that outgrows a 38 px field');
   assert.match(css, /\.ap-card \.ap-toggle:focus-visible \{ outline-offset: -3px;/, 'the focus ring is drawn inside the button');
+  assert.match(rule, /min-height: 0;/, 'the phone rule of 40 px per button does not stretch it');
   assert.match(css, /\.ap-card--wide \.ap-input--password \{ padding-right: 42px; \}/, 'the typed text stops before the eye');
   assert.match(css, /\.ap-card--wide \.ap-toggle::after \{/, 'a 44 px target on a phone without a taller field');
   // every password field uses the one component
@@ -94,15 +95,15 @@ test('profile: Cancel and Save Changes come after the fields, in the same order,
   const css = src('css', 'customer.css');
   assert.match(css, /\.profile-page \.profile-card:has\(\.profile-grid\) \{ flex-direction: column; align-items: stretch; \}/);
   assert.match(css, /\.profile-edit-actions \{ justify-content: flex-end; \}/);
-  assert.match(css, /\.profile-edit-actions button \{ flex: 0 0 140px; width: 140px; \}/);
-  assert.match(css, /@media \(max-width: 340px\) \{[^@]*\.profile-page \.profile-edit-actions \{ width: 100%; \}[^@]*flex: 1 1 0;/);
+  assert.match(css, /\.profile-edit-actions button \{ flex: 0 1 150px; min-width: 0; white-space: nowrap; box-sizing: border-box; \}/);
+  assert.match(css, /@media \(max-width: 340px\) \{[^@]*\.profile-page \.profile-edit-actions \{ display: grid; grid-template-columns: 1fr 1fr; width: 100%; \}/);
 
   const staff = src('pages', 'staff', 'profile.jsx');
   assert.ok(staff.indexOf('id="phone"') < staff.indexOf('tech-profile-edit-actions'), 'the staff buttons follow the last field');
   assert.ok(staff.indexOf('>\n              Cancel') < staff.indexOf("'Save Changes'"), 'Cancel first, then Save Changes');
   const staffCss = src('css', 'staff.css');
   assert.match(staffCss, /\.tech-profile-edit-actions \{ flex: 1 1 100%; display: flex; justify-content: flex-end; gap: 12px; \}/);
-  assert.match(staffCss, /\.tech-profile-edit-actions button \{ flex: 0 0 140px; width: 140px; \}/);
+  assert.match(staffCss, /\.tech-profile-edit-actions button \{ flex: 0 1 150px; min-width: 0; white-space: nowrap; box-sizing: border-box; \}/);
   assert.match(staffCss, /\.profile-card:has\(\.tech-profile-edit-form\) \{ flex-wrap: wrap; \}/);
 });
 

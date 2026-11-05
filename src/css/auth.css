@@ -203,6 +203,7 @@ select.ap-input {
   display: grid;
   place-items: center;
   width: 44px;
+  min-height: 0;                /* the phone stylesheet gives every button 40 px: here the button is exactly the height inside the field */
   padding: 0;
   border: 0;
   border-radius: 0 8.5px 8.5px 0;

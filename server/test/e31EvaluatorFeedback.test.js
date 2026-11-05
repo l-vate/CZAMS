@@ -39,3 +39,37 @@ test('chat scroll: the panel scrolls its own list (not the page), shows New mess
   assert.match(css, /\.chat-messages \{[^}]*min-height: 0;[^}]*overflow-y: auto;/);
   assert.match(css, /\.chat-new-messages \{/);
 });
+
+// ---- 2 and 3: the eye button and the Forgot password link
+
+const ruleOf = (css, selector) => {
+  const at = css.indexOf(`
+${selector} {`);
+  assert.notEqual(at, -1, `${selector} is styled`);
+  return css.slice(at, css.indexOf('}', at));
+};
+
+test('password field: the eye button sits inside the border of the field, rounded to match, in one shared rule', () => {
+  const css = src('css', 'auth.css');
+  const rule = ruleOf(css, '.ap-toggle');
+  assert.match(rule, /top: 1\.5px;/);
+  assert.match(rule, /bottom: 1\.5px;/);
+  assert.match(rule, /right: 1\.5px;/);
+  assert.match(rule, /border-radius: 0 8\.5px 8\.5px 0;/, 'the corner of the field (10px) minus its border');
+  assert.doesNotMatch(rule, /height: 44px|translateY/, 'no fixed 44 px height that outgrows a 38 px field');
+  assert.match(css, /\.ap-card \.ap-toggle:focus-visible \{ outline-offset: -3px;/, 'the focus ring is drawn inside the button');
+  assert.match(css, /\.ap-card--wide \.ap-input--password \{ padding-right: 42px; \}/, 'the typed text stops before the eye');
+  assert.match(css, /\.ap-card--wide \.ap-toggle::after \{/, 'a 44 px target on a phone without a taller field');
+  // every password field uses the one component
+  ['login_page', 'register_page', 'reset_password_page'].forEach((page) => assert.match(src('pages', 'public', `${page}.jsx`), /PasswordField/));
+  assert.match(src('components', 'auth_fields.jsx'), /className="ap-toggle"/);
+});
+
+test('login: the Forgot password link keeps a visible focus style drawn inside its own box, which stays inside the label row', () => {
+  const css = src('css', 'auth.css');
+  assert.match(css, /\.ap-card \.ap-link--tap:focus-visible \{ outline-offset: -3px;/);
+  const rule = ruleOf(css, '.ap-link--tap');
+  assert.match(rule, /min-height: 28px;/);
+  assert.doesNotMatch(rule, /margin: -10px/, 'the old box reached 10 px past the row');
+  assert.match(css, /\.ap-link--tap::after \{[^}]*top: -8px;[^}]*bottom: -8px;/, 'the 44 px target is invisible');
+});

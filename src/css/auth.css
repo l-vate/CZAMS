@@ -142,7 +142,10 @@
 .ap-card--wide .ap-label { font-size: 13px; }
 .ap-card--wide .ap-input { height: 38px; font-size: 14px; padding: 0 12px; border-radius: 9px; }
 .ap-card--wide .ap-input::placeholder { font-size: 13px; }
-.ap-card--wide .ap-toggle { width: 36px; right: 2px; }
+.ap-card--wide .ap-toggle { width: 36px; }
+.ap-card--wide .ap-input--password { padding-right: 42px; }
+/* on a phone the eye keeps a 44 px target without growing the smaller field: the target reaches past the button, the look stays inside the field */
+@media (max-width: 768px) { .ap-card--wide .ap-toggle::after { content: ''; position: absolute; top: -5px; bottom: -5px; left: -4px; right: -4px; } }
 .ap-card--wide .ap-reserve { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
 .ap-card--wide .ap-rules { display: flex; flex-direction: row; flex-wrap: wrap; gap: 2px 14px; font-size: 12px; }
 .ap-card--wide .ap-slot { position: relative; min-height: 0; }
@@ -191,16 +194,18 @@ select.ap-input {
   cursor: pointer;
 }
 .ap-toggle {
+  /* inside the border of the field, top to bottom: the same height as the input minus its 1.5px border, and rounded to match the corner
+     (10px outer radius minus the border), so the hover tint and the focus ring never leave the field. One rule for every password field. */
   position: absolute;
-  top: 50%;
-  right: 4px;
-  transform: translateY(-50%);
+  top: 1.5px;
+  right: 1.5px;
+  bottom: 1.5px;
   display: grid;
   place-items: center;
   width: 44px;
-  height: 44px;
+  padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: 0 8.5px 8.5px 0;
   background: transparent;
   color: var(--ap-ink-soft);
   font-size: 18px;
@@ -214,6 +219,9 @@ select.ap-input {
   outline: 3px solid var(--ap-ink);
   outline-offset: 2px;
 }
+/* the focus ring of the eye button and of the Forgot password link is drawn inside their own box, so it never covers the field or the label row */
+.ap-card .ap-toggle:focus-visible { outline-offset: -3px; background: rgba(11, 37, 69, 0.08); }
+.ap-card .ap-link--tap:focus-visible { outline-offset: -3px; background: rgba(11, 37, 69, 0.08); }
 .ap-input:focus { border-color: var(--ap-ink); box-shadow: 0 0 0 5px rgba(14, 140, 140, 0.22); }
 .ap-page .ap-back:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 
@@ -287,7 +295,10 @@ select.ap-input {
   transition: color 0.2s ease, text-decoration-color 0.2s ease;
 }
 .ap-link:hover { color: var(--ap-hover); }
-.ap-link--tap { display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; margin: -10px -4px; }
+.ap-link--tap { position: relative; display: inline-flex; align-items: center; min-height: 28px; padding: 0 8px; margin: -2px -8px; border-radius: 6px; }
+.ap-link--tap:hover { background: rgba(11, 37, 69, 0.06); }
+/* the 44 px target is the link plus an invisible margin, so the box that shows on hover and focus stays inside the label row */
+.ap-link--tap::after { content: ''; position: absolute; top: -8px; bottom: -8px; left: -4px; right: -4px; }
 .ap-switch { margin: 14px 0 0; text-align: center; font-size: 15px; color: var(--ap-ink-soft); }
 .ap-switch .ap-link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 6px; }
 

@@ -46,10 +46,12 @@ import Notice from '../../components/notice';
 import { useNotice } from '../../hooks/useNotice';
 import { pluralize } from '../../utils/pluralize';
 import { CUSTOMER_UNIT_NOTE } from '../../utils/warrantyText';
-import { AC_BRANDS, OTHER_BRAND, HP_OPTIONS } from '../../constants/unitOptions';
+import { AC_BRANDS, OTHER_BRAND, HP_OPTIONS, HP_NOT_SURE } from '../../constants/unitOptions';
 import { BRAND_NAME } from '../../config/company';
 import { hpLabel } from '../../utils/hpLabel';
 import { formatMoney } from '../../utils/money';
+import { LIMITS } from '../../constants/inputLimits';
+import CharsLeft from '../../components/chars_left';
 // System Configuration Module: payment methods and down payment percentages used
 // to be hardcoded here (DOWN_PAYMENT_OPTIONS / PAYMENT_MODES / getDownPaymentOptions).
 // Both are now admin-managed - see src/utils/paymentSettings.js (usePaymentSettings,
@@ -335,9 +337,9 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
 
               <BelowSelect
                 className="unit-entry-hp"
-                ariaLabel="Horsepower (HP)"
+                ariaLabel="Horsepower (HP) (required)"
                 value={unit.hp || ''}
-                options={[{ value: '', label: 'HP' }, ...HP_OPTIONS.map((hp) => ({ value: hp, label: hpLabel(hp) }))]}
+                options={[{ value: '', label: 'HP *' }, ...HP_OPTIONS.map((hp) => ({ value: hp, label: hpLabel(hp) })), { value: HP_NOT_SURE, label: HP_NOT_SURE }]}
                 onChange={(hp) => updateUnit(index, { hp })}
               />
 
@@ -407,7 +409,7 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
             I confirm this unit was not purchased through {BRAND_NAME}, and
             understand the Unit Warranty does not apply to it.
           </label>
-          <input
+          <input maxLength={LIMITS.waiverName}
             type="text"
             className="bs-input"
             placeholder={`Type your full name to confirm (${accountName})`}
@@ -422,13 +424,14 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
 
       <div className="bs-field-group">
         <label className="bs-label">Problem Description <span className="bs-label-hint">(Optional)</span></label>
-        <textarea
+        <textarea maxLength={LIMITS.problemDescription}
           className="bs-textarea"
           rows={2}
           placeholder="e.g. The aircon is not cooling, makes rattling noise"
           value={form.problemDescription || ''}
           onChange={(e) => setForm({ ...form, problemDescription: e.target.value })}
         />
+<CharsLeft value={form.problemDescription} max={LIMITS.problemDescription} />
       </div>
     </div>
   );
@@ -523,7 +526,7 @@ export function Step3({ form, setForm, technicians }) {
 
       <div className="bs-field-group">
         <label className="bs-label">Address</label>
-        <input
+        <input maxLength={LIMITS.address}
           type="text"
           className="bs-input"
           placeholder="House No., Street, Barangay, City"
@@ -557,7 +560,7 @@ export function Step3({ form, setForm, technicians }) {
 
       <div className="bs-field-group">
         <label className="bs-label">Contact Number</label>
-        <input
+        <input maxLength={LIMITS.phone}
           type="tel"
           className="bs-input"
           placeholder="e.g. 0917 123 4567"
@@ -932,6 +935,7 @@ function BookService() {
       if (units.length === 0) return 'Add at least one unit.';
       if (units.some((u) => !u.type)) return 'Choose the type for every unit.';
       if (units.some((u) => !Number.isInteger(u.quantity) || u.quantity < 1 || u.quantity > MAX_UNIT_QUANTITY)) return `Enter a quantity from 1 to ${MAX_UNIT_QUANTITY} for every unit.`;
+      if (units.some((u) => !String(u.hp || '').trim())) return 'Choose the horsepower (HP) of every unit, or Not sure.'; // required too
       if (units.some((u) => !chosenBrand(u))) return 'Choose the brand of every unit.'; // the brand of every unit is required
       const selectedService = services.find((s) => s.id === form.service);
       const isInstallation = selectedService?.serviceType === SERVICE_TYPE.INSTALLATION;

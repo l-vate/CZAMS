@@ -8,6 +8,7 @@ import { listConversations } from '../../services/chatService';
 import { adminNotificationTarget } from '../../utils/notificationTarget';
 import { useNeedsAttention } from '../../hooks/useNeedsAttention';
 import { needsActionCount } from '../../utils/needsAction';
+import { LIMITS } from '../../constants/inputLimits';
 // Search moved here (topbar), same pattern as the customer portal - pages that
 // need search pass searchValue/onSearchChange/searchPlaceholder in and get the
 // topbar box; pages that don't just omit those props and get nothing.
@@ -78,7 +79,7 @@ function AdminLayout({ title, children, searchValue, onSearchChange, searchPlace
                 </button>
                 <div className="topbar-search" id="topbar-search-box" role="search">
                   <FiSearch aria-hidden="true" />
-                  <input
+                  <input maxLength={LIMITS.searchText}
                     ref={searchInputRef}
                     type="search"
                     placeholder={searchPlaceholder || 'Search...'}

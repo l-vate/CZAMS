@@ -37,6 +37,7 @@ import { ProofLink, ProofImage } from './proof_file';
 import { customerLabel } from '../utils/customerLabel';
 import { hpLabel } from '../utils/hpLabel';
 import { formatMoney } from '../utils/money';
+import { LIMITS } from '../constants/inputLimits';
 
 // Admin only approves (and cancels). A booking becomes In Progress by itself when its
 // time block starts and Completed when the technician submits the service report.
@@ -503,7 +504,7 @@ const [report, setReport] = useState(null);
                                     <span className="sdm-row-label">TECHNICIAN INSTRUCTIONS</span>
                                     {editingInstructions ? (
                                         <>
-                                            <textarea
+                                            <textarea maxLength={LIMITS.problemDescription}
                                                 className="ma-textarea admin-service-details-modal-x2"
                                                 rows={3}
                                                 placeholder="Care requirements, access instructions, client-specific handling..."

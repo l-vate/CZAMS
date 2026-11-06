@@ -10,6 +10,7 @@ import { listUsers, createUser } from '../../services/userService';
 import { ROLE } from '../../constants/roles';
 import BackButton from '../../components/back_button';
 import { POSITION_MAX, POSITION_SUGGESTIONS, COMPANY_NAME_MAX, REPRESENTATIVE_NAME_MAX } from '../../constants/profileFields';
+import { LIMITS } from '../../constants/inputLimits';
 
 /* ── Small Icon Helpers ───────────────────────────────────── */
 function ClockIcon() {
@@ -64,7 +65,7 @@ function RegisterForm({ type, onCancel, onSubmit }) {
           <div className="ma-form-grid">
             <div className="ma-field-group">
               <label className="ma-label">Full Name</label>
-              <input
+              <input maxLength={LIMITS.fullName}
                 type="text"
                 className="ma-input"
                 placeholder="e.g. Juan Dela Cruz"
@@ -75,7 +76,7 @@ function RegisterForm({ type, onCancel, onSubmit }) {
 
             <div className="ma-field-group">
               <label className="ma-label">Email Address</label>
-              <input
+              <input maxLength={LIMITS.email}
                 type="email"
                 className="ma-input"
                 placeholder="e.g. juan.delacruz@email.com"
@@ -86,7 +87,7 @@ function RegisterForm({ type, onCancel, onSubmit }) {
 
             <div className="ma-field-group">
               <label className="ma-label">Phone Number</label>
-              <input
+              <input maxLength={LIMITS.phone}
                 type="tel"
                 className="ma-input"
                 placeholder="e.g. 0917 123 4567"
@@ -162,7 +163,7 @@ function RegisterForm({ type, onCancel, onSubmit }) {
             <label className="ma-label">
               Address <span className="ma-label-hint">(Optional)</span>
             </label>
-            <textarea
+            <textarea maxLength={LIMITS.address}
               className="ma-textarea"
               rows={2}
               placeholder="House No., Street, Barangay, City"

@@ -3,5 +3,6 @@
 export function hpLabel(hp) {
   const text = String(hp ?? '').trim();
   if (!text) return '';
+  if (text.toLowerCase() === 'not sure') return 'Not sure';
   return /\bhp$/i.test(text) ? text : `${text} HP`;
 }

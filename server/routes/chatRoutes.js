@@ -1,6 +1,8 @@
 const { NOTIFICATION_TYPE } = require('../constants/notificationTypes');
 const { ROLE } = require('../constants/roles');
 const express = require('express');
+const { lengthProblem } = require('../utils/inputLimits');
+const { sendProblem } = require('../utils/validation');
 const router = express.Router();
 const { requireObjectId } = require('../utils/idParam');
 requireObjectId(router, 'id');
@@ -72,6 +74,8 @@ router.post('/conversations/mine/messages', auth, async (req, res) => {
     if (!text || !text.trim()) {
       return res.status(400).json({ message: 'Message text is required' });
     }
+    const tooLong = lengthProblem(text, 'chatMessage', 'A message');
+    if (tooLong) return sendProblem(res, tooLong);
 
     let conversation = await Conversation.findOne({ participantId: req.userId });
     if (!conversation) {
@@ -181,6 +185,8 @@ router.post('/conversations/:id/messages', auth, async (req, res) => {
     if (!text || !text.trim()) {
       return res.status(400).json({ message: 'Message text is required' });
     }
+    const tooLong = lengthProblem(text, 'chatMessage', 'A message');
+    if (tooLong) return sendProblem(res, tooLong);
 
     const message = await Message.create({
       conversationId: conversation._id,

@@ -3,4 +3,6 @@ export const AC_BRANDS = ['Carrier', 'Samsung', 'LG', 'Daikin', 'Panasonic', 'Mi
 export const OTHER_BRAND = 'Other';
 
 // Horsepower as it is stored (a short text such as "1.5").
+// The horsepower of a unit the customer cannot read off the unit: stored as this text, shown as "Not sure", never turned into a number.
+export const HP_NOT_SURE = 'Not sure';
 export const HP_OPTIONS = ['0.5', '0.75', '1.0', '1.5', '2.0', '2.5', '3.0', '4.0', '5.0', '6.0', '10.0'];

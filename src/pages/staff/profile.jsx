@@ -13,6 +13,7 @@ import { nameParts, namePartProblem } from '../../utils/personName';
 import { withFallback } from '../../services/apiClient';
 import { uploadProfilePhoto, updateProfile } from '../../services/authService';
 import ChangePasswordModal from '../../components/change_password_modal';
+import { LIMITS } from '../../constants/inputLimits';
 
 
 function buildProfileFromUser(user) {
@@ -172,7 +173,7 @@ function Profile() {
 
             <div className="form-group">
               <label htmlFor="email">Email Address</label>
-              <input
+              <input maxLength={LIMITS.email}
                 type="email"
                 id="email"
                 name="email"
@@ -184,7 +185,7 @@ function Profile() {
 
             <div className="form-group">
               <label htmlFor="phone">Phone Number</label>
-              <input
+              <input maxLength={LIMITS.phone}
                 type="tel"
                 id="phone"
                 name="phone"

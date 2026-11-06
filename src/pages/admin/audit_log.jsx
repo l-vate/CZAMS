@@ -4,6 +4,7 @@ import LoadError from '../../components/load_error';
 import AuditEntry from '../../components/audit_entry';
 import { listAuditLog } from '../../services/auditService';
 import { pastWindow, pastRangeProblem } from '../../utils/dateRules';
+import { LIMITS } from '../../constants/inputLimits';
 
 const RECORD_TYPES = ['', 'Booking', 'User', 'PaymentSettings', 'Promo', 'Service', 'Announcement', 'SuppliedUnit', 'Closure', 'TechnicianOff', 'Report', 'BackJob'];
 const EMPTY = { from: '', to: '', actor: '', action: '', entityType: '', entityId: '' };
@@ -47,14 +48,14 @@ function AuditLog() {
         <label>From <input type="date" className="ma-input" min={pastWindow().min} max={pastWindow().max} value={filters.from} onChange={set('from')} /></label>
         <label>To <input type="date" className="ma-input" min={pastWindow().min} max={pastWindow().max} value={filters.to} onChange={set('to')} /></label>
         {rangeProblem && <p className="date-problem" role="alert">{rangeProblem}</p>}
-        <label>Admin id <input type="text" className="ma-input" value={filters.actor} onChange={set('actor')} placeholder="any" /></label>
-        <label>Action <input type="text" className="ma-input" value={filters.action} onChange={set('action')} placeholder="for example payment.verify" /></label>
+        <label>Admin id <input maxLength={LIMITS.searchText} type="text" className="ma-input" value={filters.actor} onChange={set('actor')} placeholder="any" /></label>
+        <label>Action <input maxLength={LIMITS.searchText} type="text" className="ma-input" value={filters.action} onChange={set('action')} placeholder="for example payment.verify" /></label>
         <label>Record
           <select className="ma-input" value={filters.entityType} onChange={set('entityType')}>
             {RECORD_TYPES.map((t) => <option key={t} value={t}>{t || 'Any'}</option>)}
           </select>
         </label>
-        <label>Record id <input type="text" className="ma-input" value={filters.entityId} onChange={set('entityId')} placeholder="for example CZ-2026-1234" /></label>
+        <label>Record id <input maxLength={LIMITS.searchText} type="text" className="ma-input" value={filters.entityId} onChange={set('entityId')} placeholder="for example CZ-2026-1234" /></label>
         <button type="submit" className="bs-next-btn">Filter</button>
         <button type="button" className="bs-back-btn" onClick={() => { setFilters(EMPTY); setPage(1); setApplied(EMPTY); }}>Clear</button>
       </form>

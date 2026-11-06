@@ -6,6 +6,8 @@ const { PAYMENT_STATUS } = require('../constants/paymentStatus');
 const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const auditSpecs = require('../utils/auditSpecs');
 const express = require('express');
+const { lengthProblem } = require('../utils/inputLimits');
+const { sendProblem: sendLimitProblem } = require('../utils/validation');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const { allowRoles } = require('../middleware/roles');
@@ -47,6 +49,8 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER), async (req, res) => {
   try {
     const { bookingId, issueDescription } = req.body;
 
+    const tooLong = lengthProblem(issueDescription, 'issueDescription', 'The description');
+    if (tooLong) return sendLimitProblem(res, tooLong);
     if (!issueDescription?.trim()) {
       return res.status(400).json({ message: 'Please describe the issue.' });
     }

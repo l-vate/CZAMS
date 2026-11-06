@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { BACK_JOB_STATUS } from '../constants/backJobStatus';
 import { warrantyStatusText, CLEANING_WARRANTY_NOTE } from '../utils/warrantyText';
+import { LIMITS } from '../constants/inputLimits';
+import CharsLeft from './chars_left';
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -96,13 +98,14 @@ function BackJobModal({ booking, existingBackJob, onClose, onSubmit, submitting 
 
         <div className="bs-field-group">
           <label className="bs-label">What happened?</label>
-          <textarea
+          <textarea maxLength={LIMITS.issueDescription}
             className="bs-textarea"
             rows={4}
             placeholder="Describe the issue..."
             value={issueDescription}
             onChange={(e) => setIssueDescription(e.target.value)}
           />
+<CharsLeft value={issueDescription} max={LIMITS.issueDescription} />
         </div>
 
         {error && (

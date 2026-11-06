@@ -48,6 +48,8 @@ import { hpLabel } from '../../utils/hpLabel';
 import { namePartProblem } from '../../utils/personName';
 import { isValidContactNumber } from '../../utils/contact';
 import { formatMoney } from '../../utils/money';
+import { LIMITS } from '../../constants/inputLimits';
+import CharsLeft from '../../components/chars_left';
 // The signed-in customer, read when a page is drawn (not when this file is first loaded: that is before sign in, so it was empty until a reload).
 const readStoredUser = () => {
   try { return JSON.parse(localStorage.getItem('user') || '{}') || {}; } catch { return {}; }
@@ -184,7 +186,7 @@ function RescheduleModal({ booking, onClose, onSubmit, submitting }) {
 
         <div className="bs-field-group">
           <label className="bs-label" htmlFor="reschedule-contact-number">Contact number <span className="bs-label-hint">(optional)</span></label>
-          <input id="reschedule-contact-number" type="tel" inputMode="tel" className="bs-input" autoComplete="tel" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} aria-invalid={Boolean(contactNumberProblem)} />
+          <input maxLength={LIMITS.phone} id="reschedule-contact-number" type="tel" inputMode="tel" className="bs-input" autoComplete="tel" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} aria-invalid={Boolean(contactNumberProblem)} />
           {contactNumberProblem && <p className="date-problem" role="alert">{contactNumberProblem}</p>}
           <p className="cancel-confirm-text">These apply to this booking only. Your profile does not change.</p>
         </div>
@@ -321,13 +323,14 @@ function RefundFlagForm({ bookingId, refund, onFlagged }) {
   return (
     <div className="bs-field-group customer-book-details-x3">
       <label className="bs-label">Tell us what happened</label>
-      <textarea
+      <textarea maxLength={LIMITS.reason}
         className="bs-textarea"
         rows={3}
         placeholder="e.g. It's been marked processed but I haven't received the refund..."
         value={message}
         onChange={(e) => setMessage(e.target.value)}
       />
+<CharsLeft value={message} max={LIMITS.reason} />
       {error && (
         <p className="customer-book-details-x4">{error}</p>
       )}

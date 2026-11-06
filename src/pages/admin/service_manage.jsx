@@ -6,6 +6,7 @@ import { withMessage, withFallback } from '../../services/apiClient';
 import { listServices, createService, updateService, deleteService } from '../../services/serviceCatalogService';
 import { SERVICE_TYPE, SERVICE_TYPE_VALUES } from '../../constants/serviceTypes';
 import { formatMoney } from '../../utils/money';
+import { LIMITS } from '../../constants/inputLimits';
 
 
 const ICON_MAP = {
@@ -283,7 +284,7 @@ function ServiceManage() {
 
               <div className="svc-field">
                 <label>Service Name</label>
-                <input
+                <input maxLength={LIMITS.serviceName}
                   type="text"
                   name="name"
                   value={form.name}
@@ -295,7 +296,7 @@ function ServiceManage() {
 
               <div className="svc-field">
                 <label>Description</label>
-                <input
+                <input maxLength={LIMITS.serviceDescription}
                   type="text"
                   name="description"
                   value={form.description}

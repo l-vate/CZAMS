@@ -28,6 +28,7 @@ import { ROLE } from '../../constants/roles';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
 import { bookingDateProblem } from '../../utils/dateRules';
 import { formatMoney } from '../../utils/money';
+import { LIMITS } from '../../constants/inputLimits';
 
 const TOTAL_STEPS = 6;
 const STEP_LABELS = ['Customer', 'Choose Service', 'Unit Details', 'Location & Schedule', 'Payment', 'Booking Summary'];
@@ -136,7 +137,7 @@ function CustomerStep({ customers, loadingCustomers, selectedCustomer, onSelectC
         <>
           <div className="bs-field-group">
             <label className="bs-label">Search</label>
-            <input
+            <input maxLength={LIMITS.searchText}
               type="text"
               className="bs-input"
               placeholder="Search by name, email, or phone..."
@@ -169,7 +170,7 @@ function CustomerStep({ customers, loadingCustomers, selectedCustomer, onSelectC
         <form onSubmit={handleCreateCustomer}>
           <div className="bs-field-group">
             <label className="bs-label">Full Name</label>
-            <input
+            <input maxLength={LIMITS.fullName}
               type="text"
               className="bs-input"
               placeholder="e.g. Juan Dela Cruz"
@@ -180,7 +181,7 @@ function CustomerStep({ customers, loadingCustomers, selectedCustomer, onSelectC
 
           <div className="bs-field-group">
             <label className="bs-label">Email Address</label>
-            <input
+            <input maxLength={LIMITS.email}
               type="email"
               className="bs-input"
               placeholder="e.g. juan.delacruz@email.com"
@@ -191,7 +192,7 @@ function CustomerStep({ customers, loadingCustomers, selectedCustomer, onSelectC
 
           <div className="bs-field-group">
             <label className="bs-label">Phone Number</label>
-            <input
+            <input maxLength={LIMITS.phone}
               type="tel"
               className="bs-input"
               placeholder="e.g. 0917 123 4567"
@@ -204,7 +205,7 @@ function CustomerStep({ customers, loadingCustomers, selectedCustomer, onSelectC
             <label className="bs-label">
               Address <span className="bs-label-hint">(Optional)</span>
             </label>
-            <input
+            <input maxLength={LIMITS.address}
               type="text"
               className="bs-input"
               placeholder="House No., Street, Barangay, City"
@@ -267,7 +268,7 @@ function WalkInPaymentStep({ form, setForm, services, isReturnCustomer, isCommer
             <label className="bs-label">
               PO Number <span className="bs-label-hint">(Optional)</span>
             </label>
-            <input
+            <input maxLength={LIMITS.poNumber}
               type="text"
               className="bs-input"
               placeholder="e.g. PO-2026-0451"
@@ -498,6 +499,7 @@ function WalkInBooking() {
       const units = form.units || [];
       if (units.length === 0) return false;
       if (units.some((u) => !u.type || !u.quantity || u.quantity < 1)) return false;
+      if (units.some((u) => !String(u.hp || '').trim())) return false; // the horsepower of every unit is required (or Not sure)
       if (units.some((u) => !chosenBrand(u))) return false; // the brand of every unit is required
       const selectedService = services.find((s) => s.id === form.service);
       const isInstallation = selectedService?.serviceType === SERVICE_TYPE.INSTALLATION;

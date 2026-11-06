@@ -7,6 +7,7 @@ import AuthShell from '../../components/auth_shell';
 import { TextField, SelectField, PasswordField, PasswordRules, FormAlert, SubmitButton } from '../../components/auth_fields';
 import { passwordIsAcceptable } from '../../utils/passwordChecks';
 import { namePartProblem } from '../../utils/personName';
+import { LIMITS } from '../../constants/inputLimits';
 
 function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -64,6 +65,7 @@ function RegisterPage() {
         <TextField
           id="firstName"
           name="firstName"
+          maxLength={LIMITS.firstName}
           label="First Name"
           placeholder="Juan"
           autoComplete="given-name"
@@ -74,6 +76,7 @@ function RegisterPage() {
         <TextField
           id="lastName"
           name="lastName"
+          maxLength={LIMITS.lastName}
           label="Last Name"
           placeholder="Dela Cruz"
           autoComplete="family-name"
@@ -85,6 +88,7 @@ function RegisterPage() {
         <TextField
           id="email"
           name="email"
+          maxLength={LIMITS.email}
           type="email"
           label="Email address"
           placeholder="you@example.com"
@@ -99,6 +103,7 @@ function RegisterPage() {
         <TextField
           id="phone"
           name="phone"
+          maxLength={LIMITS.phone}
           type="tel"
           label="Phone number"
           placeholder="e.g. 0917 123 4567"

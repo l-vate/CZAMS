@@ -7,6 +7,7 @@ import { ROLE } from '../constants/roles';
 import { BRAND_NAME } from '../config/company';
 import { isNearBottom, scrollDecision } from '../utils/chatScroll';
 import { formatMoney } from '../utils/money';
+import { LIMITS } from '../constants/inputLimits';
 
 const POLL_INTERVAL_MS = 15000;
 
@@ -216,7 +217,7 @@ function ChatPanel({ conversationId, emptyText, partnerName = 'Admin Support', p
       </div>
 
       <form className="chat-input-row" onSubmit={handleSend}>
-        <input
+        <input maxLength={LIMITS.chatMessage}
           className="chat-input"
           type="text"
           placeholder="Type a message..."

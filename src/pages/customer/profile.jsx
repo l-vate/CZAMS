@@ -13,6 +13,7 @@ import { countActiveBookings, deletionBlockNote } from '../../utils/deletionBloc
 import Notice from '../../components/notice';
 import { useNotice } from '../../hooks/useNotice';
 import { nameParts, namePartProblem } from '../../utils/personName';
+import { LIMITS } from '../../constants/inputLimits';
 /* ── Delete Account Confirm Dialog ─────────────────────── */
 function DeleteAccountDialog({ onKeep, onConfirmDelete, deleting }) {
   return (
@@ -248,7 +249,7 @@ const [user, setUser] = useState(loadUserFromStorage);
               <div className="profile-grid">
                 <div className="profile-field">
                   <label htmlFor="firstName">First Name</label>
-                  <input
+                  <input maxLength={LIMITS.firstName}
                     type="text"
                     id="firstName"
                     name="firstName"
@@ -262,7 +263,7 @@ const [user, setUser] = useState(loadUserFromStorage);
 
                 <div className="profile-field">
                   <label htmlFor="lastName">Last Name</label>
-                  <input
+                  <input maxLength={LIMITS.lastName}
                     type="text"
                     id="lastName"
                     name="lastName"
@@ -276,7 +277,7 @@ const [user, setUser] = useState(loadUserFromStorage);
 
                 <div className="profile-field">
                   <label htmlFor="email">Email Address</label>
-                  <input
+                  <input maxLength={LIMITS.email}
                     type="email"
                     id="email"
                     name="email"
@@ -291,7 +292,7 @@ const [user, setUser] = useState(loadUserFromStorage);
 
                 <div className="profile-field">
                   <label htmlFor="phone">Phone Number</label>
-                  <input
+                  <input maxLength={LIMITS.phone}
                     type="tel"
                     id="phone"
                     name="phone"
@@ -306,7 +307,7 @@ const [user, setUser] = useState(loadUserFromStorage);
 
                 <div className="profile-field full-width">
                   <label htmlFor="address">Address</label>
-                  <input
+                  <input maxLength={LIMITS.address}
                     type="text"
                     id="address"
                     name="address"

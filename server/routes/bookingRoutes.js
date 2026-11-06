@@ -69,6 +69,7 @@ const { downPaymentProblem, balanceProblem, onlinePaymentModeProblem, DOWN_PAYME
 const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/queue');
 const { generateBookingId, createWithUniqueBookingId, BookingIdExhaustedError } = require('../utils/bookingId');
 const { invalid, sendProblem } = require('../utils/validation');
+const { lengthProblem } = require('../utils/inputLimits');
 const { readPaymentSubmission, findSameReference } = require('../utils/paymentReference');
 const { readUnitBrand } = require('../utils/unitBrand');
 const { readMayNeedWorks, describeMayNeedWorks } = require('../utils/mayNeedWorks');
@@ -389,6 +390,10 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
     if (typeof address !== 'string' || !address.trim()) {
       return res.status(400).json({ message: 'Address is required.' });
     }
+    // the longest a new booking's text may be (utils/inputLimits.js); nothing already saved is cut
+    const textTooLong = lengthProblem(address, 'address', 'The address') || lengthProblem(problemDescription, 'problemDescription', 'The problem description')
+      || lengthProblem(contactNumber, 'phone', 'The contact number') || lengthProblem(unitWaiverName, 'waiverName', 'The name');
+    if (textTooLong) return sendProblem(res, textTooLong);
 
     const cleanContactNumber = normalizeContactNumber(contactNumber);
     if (!cleanContactNumber) {

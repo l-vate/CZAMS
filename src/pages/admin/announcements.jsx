@@ -6,6 +6,7 @@ import { listAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnoun
 import { addClosure } from '../../services/closureService';
 import { formatClosureRange, dateRange, MAX_RANGE_DAYS } from '../../utils/closureDates';
 import { closureDateProblem, closureWindow } from '../../utils/dateRules';
+import { LIMITS } from '../../constants/inputLimits';
 
 
 const CATEGORIES = ['Holiday', 'Closure', 'Maintenance', 'General'];
@@ -249,7 +250,7 @@ function AnnouncementManage() {
 
               <div className="ann-field">
                 <label>Title</label>
-                <input
+                <input maxLength={LIMITS.announcementTitle}
                   type="text"
                   name="title"
                   value={form.title}
@@ -261,7 +262,7 @@ function AnnouncementManage() {
 
               <div className="ann-field">
                 <label>Message</label>
-                <textarea
+                <textarea maxLength={LIMITS.announcementMessage}
                   name="message"
                   value={form.message}
                   onChange={handleChange}
@@ -282,7 +283,7 @@ function AnnouncementManage() {
 
               <div className="ann-field">
                 <label>Display Date (optional)</label>
-                <input
+                <input maxLength={LIMITS.announcementDate}
                   type="text"
                   name="displayDate"
                   value={form.displayDate}

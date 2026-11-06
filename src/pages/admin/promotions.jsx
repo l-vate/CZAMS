@@ -122,7 +122,7 @@ function Promotions() {
 
   return (
     <AdminLayout title="Promotions">
-      <h1 className="dashboard-welcome">Promotions</h1>
+      <h1 className="dashboard-welcome page-title-in-topbar">Promotions</h1>
       <p className="bs-card-sub">
         A promo is a discount for chosen services, optionally only when a minimum number of units is booked. A booking that
         qualifies gets the best promo automatically. A promo and a Senior/PWD discount do not stack: the larger one applies.

@@ -269,7 +269,7 @@ function BackJobs() {
       onSearchChange={setSearch}
       searchPlaceholder="Search by name, booking id..."
     >
-      <h1 className="dashboard-welcome">Back Jobs</h1>
+      <h1 className="dashboard-welcome page-title-in-topbar">Back Jobs</h1>
       <div className="backjobs-toolbar">
         <div className="backjobs-filters">
           {FILTERS.map((filter) => (

@@ -963,7 +963,7 @@ function Payments() {
       onSearchChange={setSearch}
       searchPlaceholder="Search by name, booking id..."
     >
-      <h1 className="dashboard-welcome">Payments</h1>
+      <h1 className="dashboard-welcome page-title-in-topbar">Payments</h1>
       <PaymentsPanel
         personFilter={personFilter}
         onClearPersonFilter={() => setPersonFilter(null)}

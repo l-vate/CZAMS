@@ -437,7 +437,7 @@ function ServiceReports() {
       onSearchChange={setSearch}
       searchPlaceholder="Search by booking ID, customer, technician..."
     >
-      <h1 className="dashboard-welcome">Service Reports</h1>
+      <h1 className="dashboard-welcome page-title-in-topbar">Service Reports</h1>
       <div className="reports-toolbar">
         <div className="reports-filters">
           {FILTERS.map((filter) => (

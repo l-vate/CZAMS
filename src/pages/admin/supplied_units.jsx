@@ -79,7 +79,7 @@ function SuppliedUnits() {
 
   return (
     <AdminLayout title="Supplied Units">
-      <h1 className="dashboard-welcome">Supplied Units</h1>
+      <h1 className="dashboard-welcome page-title-in-topbar">Supplied Units</h1>
       <p className="bs-card-sub">
         The units we can supply for an installation. Customers choose from the active ones that fit the unit type and horsepower they picked.
         Changing a unit never changes a booking that already used it.

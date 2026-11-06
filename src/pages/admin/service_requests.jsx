@@ -105,7 +105,7 @@ function ServiceRequests() {
         >
             <div className="page-container">
                 <div className="req-page-head">
-                    <h1 className="dashboard-welcome">Bookings</h1>
+                    <h1 className="dashboard-welcome page-title-in-topbar">Bookings</h1>
                     <button
                         type="button"
                         className="req-new-btn"

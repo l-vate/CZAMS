@@ -311,7 +311,7 @@ function ManageAccounts() {
       searchPlaceholder="Search by name, ID, or email..."
     >
       <div className="page-container">
-        <h1 className="dashboard-welcome">Manage Accounts</h1>
+        <h1 className="dashboard-welcome page-title-in-topbar">Manage Accounts</h1>
         {view === 'register' ? (
           <RegisterForm
             type={registerRole}

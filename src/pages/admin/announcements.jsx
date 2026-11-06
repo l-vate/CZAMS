@@ -187,7 +187,7 @@ function AnnouncementManage() {
 
         {/* Header & Actions */}
         <div className="ann-manage-header">
-          <h1 className="dashboard-welcome">Announcements</h1>
+          <h1 className="dashboard-welcome page-title-in-topbar">Announcements</h1>
           <button className="ann-add-btn" onClick={openAddModal}>
             <FiPlus className="admin-announcements-x1" /> Add Announcement
           </button>

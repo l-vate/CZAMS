@@ -205,7 +205,7 @@ function ServiceManage() {
 
         {/* Header & Actions */}
         <div className="svc-manage-header">
-          <h1 className="dashboard-welcome">Manage Services</h1>
+          <h1 className="dashboard-welcome page-title-in-topbar">Manage Services</h1>
           <button className="svc-add-btn" onClick={openAddModal}>
             <FiPlus className="admin-service-manage-x1" /> Add Service
           </button>

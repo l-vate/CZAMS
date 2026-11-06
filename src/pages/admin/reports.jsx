@@ -86,7 +86,7 @@ meta: {
 
   return (
     <AdminLayout title="Reports">
-      <h1 className="dashboard-welcome report-no-print">Reports</h1>
+      <h1 className="dashboard-welcome page-title-in-topbar report-no-print">Reports</h1>
 
       <div className="report-tabs report-no-print">
         <button type="button" className={`filter-pill ${tab === 'reports' ? 'filter-pill--active' : ''}`} onClick={() => setTab('reports')}>Reports</button>

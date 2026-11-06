@@ -25,6 +25,13 @@ export function normalizeReference(raw, mode) {
   return isGcashMode(mode) ? text.replace(/[\s-]/g, '') : text.trim().toUpperCase();
 }
 
+// What the box keeps while someone types or pastes. A GCash reference is digits only and stops at GCASH_REFERENCE_DIGITS (spaces and dashes
+// from a pasted receipt are dropped); a bank reference is kept as typed, the box's own maxLength stops it.
+export function typedReference(raw, mode) {
+  const text = String(raw ?? '');
+  return isGcashMode(mode) ? text.replace(/\D/g, '').slice(0, GCASH_REFERENCE_DIGITS) : text;
+}
+
 // '' when the text is an acceptable reference, otherwise the message to show.
 export function referenceError(raw, mode) {
   const ref = normalizeReference(raw, mode);

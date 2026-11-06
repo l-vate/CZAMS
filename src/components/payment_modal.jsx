@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { formatPeso } from '../utils/bookingPricing';
-import { needsReference, normalizeReference, referenceError, referenceHint, referencePlaceholder, isGcashMode, REFERENCE_MAX } from '../utils/paymentReference';
+import { needsReference, normalizeReference, referenceError, referenceHint, referencePlaceholder, isGcashMode, typedReference, GCASH_REFERENCE_DIGITS, REFERENCE_MAX } from '../utils/paymentReference';
 import { shrinkPhoto } from '../utils/photoShrink';
 import { formatMoney } from '../utils/money';
 
@@ -157,13 +157,19 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
               id="payment-reference"
               type="text"
               className="bs-input"
-              maxLength={REFERENCE_MAX}
+              maxLength={isGcashMode(selectedModeName) ? GCASH_REFERENCE_DIGITS : REFERENCE_MAX}
               inputMode={isGcashMode(selectedModeName) ? 'numeric' : 'text'}
+              pattern={isGcashMode(selectedModeName) ? '[0-9]*' : undefined}
               autoComplete="off"
               aria-describedby="payment-reference-hint"
               aria-invalid={Boolean(referenceProblem && showReferenceError)}
               value={referenceNumber}
-              onChange={(e) => setReferenceNumber(e.target.value)}
+              onChange={(e) => setReferenceNumber(typedReference(e.target.value, selectedModeName))}
+              onPaste={(e) => {
+                if (!isGcashMode(selectedModeName)) return;
+                e.preventDefault(); // a pasted receipt number may hold spaces or dashes: keep its digits
+                setReferenceNumber(typedReference(e.clipboardData.getData('text'), selectedModeName));
+              }}
               onBlur={() => setReferenceTouched(true)}
               placeholder={referencePlaceholder(selectedModeName)}
             />

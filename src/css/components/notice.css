@@ -56,3 +56,22 @@
   color: #8a4b00;
   font-size: 0.85rem;
 }
+
+/* The one button a message can carry (for example "Open" on a new job message). */
+.notice-toast-action {
+  flex: none;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 8px;
+  background: #fff;
+  color: #0b2545;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.notice-toast-action:hover,
+.notice-toast-action:focus-visible {
+  background: #dbe7f5;
+}

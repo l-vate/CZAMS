@@ -8,10 +8,7 @@ function FilePreview({ file, onRemove, label = 'Selected file' }) {
   const isVideo = Boolean(file?.type?.startsWith('video/'));
 
   useEffect(() => {
-    if (!file || !(isImage || isVideo)) {
-      setUrl('');
-      return undefined;
-    }
+    if (!file || !(isImage || isVideo)) return undefined; // nothing to draw: the old address is never shown for a file that is not a picture or a clip
     const made = URL.createObjectURL(file);
     setUrl(made);
     return () => URL.revokeObjectURL(made);

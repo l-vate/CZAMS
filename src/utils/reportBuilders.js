@@ -19,6 +19,7 @@ import { REFUND_STATUS } from '../constants/refundStatus';
 import { BACK_JOB_STATUS } from '../constants/backJobStatus';
 import { customerLabel } from './customerLabel';
 import { clientGroupOf } from './clientGroup';
+import { formatMoney } from './money.js';
 
 export const REPORT_TYPES = [
   { key: 'requests', label: 'Service Requests Summary' },
@@ -56,7 +57,7 @@ export function formatGeneratedAt(date = new Date()) {
   return `${text} (Asia/Manila)`;
 }
 
-const peso = (n) => `₱${(Math.round(n) || 0).toLocaleString()}`;
+const peso = (n) => formatMoney(n);
 const average = (nums) => (nums.length ? nums.reduce((s, n) => s + n, 0) / nums.length : null);
 const hours = (n) => (n === null ? 'N/A' : `${n.toFixed(1)} hrs`);
 const clientOf = (customer) => clientGroupOf(customer);

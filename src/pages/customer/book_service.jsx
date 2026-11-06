@@ -49,6 +49,7 @@ import { CUSTOMER_UNIT_NOTE } from '../../utils/warrantyText';
 import { AC_BRANDS, OTHER_BRAND, HP_OPTIONS } from '../../constants/unitOptions';
 import { BRAND_NAME } from '../../config/company';
 import { hpLabel } from '../../utils/hpLabel';
+import { formatMoney } from '../../utils/money';
 // System Configuration Module: payment methods and down payment percentages used
 // to be hardcoded here (DOWN_PAYMENT_OPTIONS / PAYMENT_MODES / getDownPaymentOptions).
 // Both are now admin-managed - see src/utils/paymentSettings.js (usePaymentSettings,
@@ -137,7 +138,7 @@ function CleaningTierQuestions({ onResolve, onCancel, initialAnswers, services }
 
       {resolvedTier && (
         <p className="bs-tier-preview">
-          Based on your answers, this will be booked as <strong>{resolvedTier.label}</strong> (₱{resolvedTier.price.toLocaleString()}). Click <strong>Next</strong> below to continue.
+          Based on your answers, this will be booked as <strong>{resolvedTier.label}</strong> ({formatMoney(resolvedTier.price)}). Click <strong>Next</strong> below to continue.
         </p>
       )}
     </div>
@@ -209,7 +210,7 @@ export function Step1({ form, setForm, services }) {
                 </div>
               </div>
               <span className="service-price">
-                {isCleaningEntryPoint ? 'From ' : ''}₱{s.price.toLocaleString()}
+                {isCleaningEntryPoint ? 'From ' : ''}{formatMoney(s.price)}
               </span>
             </button>
           );
@@ -342,7 +343,7 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
 
               {selectedService && unit.type && (
                 <span className="unit-entry-subtotal">
-                  ₱{(getUnitPrice(selectedService, unit.type) * (unit.quantity || 0)).toLocaleString()}
+                  {formatMoney((getUnitPrice(selectedService, unit.type) * (unit.quantity || 0)))}
                 </span>
               )}
 
@@ -708,13 +709,13 @@ const handleSubmitPayment = ({ proof, referenceNumber }) => {
           {lineItems.map((li, i) => (
             <div className="cost-row cost-row-item" key={i}>
               <span>{li.type || '-'} × {li.quantity}</span>
-              <span>₱{li.subtotal.toLocaleString()}.00</span>
+              <span>{formatMoney(li.subtotal)}</span>
             </div>
           ))}
           {equipment.map((line, i) => (
             <div className="cost-row cost-row-item" key={`equipment-${i}`}>
               <span>{line.label} × {line.quantity}</span>
-              <span>₱{line.subtotal.toLocaleString()}.00</span>
+              <span>{formatMoney(line.subtotal)}</span>
             </div>
           ))}
           {(form.units || []).some((u) => u.supplied?.notListed) && (
@@ -723,28 +724,28 @@ const handleSubmitPayment = ({ proof, referenceNumber }) => {
           <div className="cost-divider" />
 
           {discountAmount > 0 && (
-            <div className="cost-row"><span>{discountLabel}</span><span>-₱{discountAmount.toLocaleString()}.00</span></div>
+            <div className="cost-row"><span>{discountLabel}</span><span>-{formatMoney(discountAmount)}</span></div>
           )}
-          <div className="cost-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}.00</span></div>
+          <div className="cost-row"><span>Total Price</span><span>{formatMoney(basePrice)}</span></div>
           {form.discountType && (
             <p className="customer-book-service-x3">
               Senior/PWD discount requested. It is applied once our team approves your ID. A promo and this discount do not stack: you get whichever is larger.
             </p>
           )}
           <div className="cost-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
-          <div className="cost-row"><span>To Pay Now</span><span>₱{toPayNow.toLocaleString()}.00</span></div>
-          <div className="cost-row"><span>Remaining Balance</span><span>₱{remaining.toLocaleString()}.00</span></div>
+          <div className="cost-row"><span>To Pay Now</span><span>{formatMoney(toPayNow)}</span></div>
+          <div className="cost-row"><span>Remaining Balance</span><span>{formatMoney(remaining)}</span></div>
 
           <div className="cost-divider" />
 
           {isInstallationBooking && !isNoDownPayment ? (
             form.clientSuppliedUnit ? (
               <div className="bs-callout" role="note">
-                <strong>Your down payment is due once you book.</strong> After you confirm, send your down payment of ₱{toPayNow.toLocaleString()}.00 from Payment &amp; Billing.
+                <strong>Your down payment is due once you book.</strong> After you confirm, send your down payment of {formatMoney(toPayNow)} from Payment &amp; Billing.
               </div>
             ) : (
               <div className="bs-callout" role="note">
-                <strong>We are confirming the unit.</strong> You will be asked to pay your down payment of ₱{toPayNow.toLocaleString()}.00 once it is confirmed.
+                <strong>We are confirming the unit.</strong> You will be asked to pay your down payment of {formatMoney(toPayNow)} once it is confirmed.
                 We will tell you in the app and by email, and you pay from Payment &amp; Billing.
               </div>
             )
@@ -828,7 +829,7 @@ export function Step5({ form, services, technicians, downPaymentPercentages, dis
           {discountAmount > 0 && (
             <div className="summary-row">
               <span>{discountLabel}</span>
-              <span>-₱{discountAmount.toLocaleString()}.00</span>
+              <span>-{formatMoney(discountAmount)}</span>
             </div>
           )}
           {form.discountType && discountPercent === 0 && (
@@ -840,16 +841,16 @@ export function Step5({ form, services, technicians, downPaymentPercentages, dis
           {equipment.map((line, i) => (
             <div className="summary-row" key={`equipment-${i}`}>
               <span>{line.quantity}× {line.label}</span>
-              <span>₱{line.subtotal.toLocaleString()}.00</span>
+              <span>{formatMoney(line.subtotal)}</span>
             </div>
           ))}
           {(form.units || []).some((u) => u.supplied?.notListed) && (
             <div className="summary-row"><span>Unit asked from the owner</span><span>Price to be confirmed</span></div>
           )}
-          <div className="summary-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}.00</span></div>
+          <div className="summary-row"><span>Total Price</span><span>{formatMoney(basePrice)}</span></div>
           <div className="summary-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
-          <div className="summary-row"><span>To Pay Now</span><span>₱{toPayNow.toLocaleString()}.00</span></div>
-          <div className="summary-row total"><span>Remaining Balance</span><span>₱{remaining.toLocaleString()}.00</span></div>
+          <div className="summary-row"><span>To Pay Now</span><span>{formatMoney(toPayNow)}</span></div>
+          <div className="summary-row total"><span>Remaining Balance</span><span>{formatMoney(remaining)}</span></div>
           <div className="summary-row"><span>Payment Mode</span><span>{form.paymentMode || '-'}</span></div>
           {!isFullPay && (
             <div className="summary-row"><span>2nd Payment Mode</span><span>{form.paymentMode2 || '-'}</span></div>

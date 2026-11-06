@@ -9,6 +9,7 @@
 //   reject   to_verify -> rejected. Needs a reason, which the customer is told.
 //   reverse  verified -> back for checking again. A documented action: needs a reason and is recorded.
 // Every one of them adds a line to booking.paymentEvents: who, when, which payment, amount, outcome, reason.
+const { formatMoney } = require('./money');
 const { PAYMENT_STATUS, PAYMENT_STATUS_VALUES, BALANCE_PAYMENT_STATUS, BALANCE_PAYMENT_STATUS_VALUES } = require('../constants/paymentStatus');
 const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const { invalid } = require('./validation');
@@ -20,7 +21,7 @@ const VERIFIED_DOWN = [PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID]
 // There is no in-person down payment: the customer sends it online (GCash or Bank Transfer) and an admin verifies the proof.
 const IN_PERSON_DOWN_MESSAGE = 'There is no in-person down payment. The customer sends the down payment online from Payment & Billing and you verify the proof. Only the balance can be recorded here.';
 const NONE = (v) => v === undefined || v === null;
-const peso = (n) => `₱${Number(n).toLocaleString('en-US', Number.isInteger(Number(n)) ? {} : { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const peso = (n) => formatMoney(n);
 
 function reasonProblem(reason, what) {
   const text = typeof reason === 'string' ? reason.trim() : '';

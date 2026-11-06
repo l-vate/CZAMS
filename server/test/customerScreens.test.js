@@ -44,8 +44,8 @@ test('the date picker and the server agree on Sundays: both closed, and the clie
 test('the same-day warning uses the same rule as the confirmation, and shows only when it applies', async () => {
   const c = await load('config/cancellation.js');
   assert.ok(c.SAME_DAY_CANCEL_WARNING.includes(c.SAME_DAY_DEDUCTION_CLAUSE));
-  assert.ok(c.sameDayCancelledMessage('₱300').includes(c.SAME_DAY_DEDUCTION_CLAUSE.replace('your down payment', 'your down payment of ₱300')));
-  assert.match(c.sameDayCancelledMessage('₱300'), /down payment of ₱300 before it is refunded\.$/);
+  assert.ok(c.sameDayCancelledMessage('₱300.00').includes(c.SAME_DAY_DEDUCTION_CLAUSE.replace('your down payment', 'your down payment of ₱300.00')));
+  assert.match(c.sameDayCancelledMessage('₱300.00'), /down payment of ₱300.00 before it is refunded\.$/);
   assert.match(c.SAME_DAY_CANCEL_WARNING, /transportation fee may be deducted from your down payment/);
   assert.match(c.SAME_DAY_CANCEL_WARNING, /before the booked date, your down payment is refunded in full/);
   const today = '2026-10-14';

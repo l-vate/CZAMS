@@ -5,6 +5,7 @@ import { UNIT_TYPES } from '../../constants/unitTypes';
 import { withMessage, withFallback } from '../../services/apiClient';
 import { listServices, createService, updateService, deleteService } from '../../services/serviceCatalogService';
 import { SERVICE_TYPE, SERVICE_TYPE_VALUES } from '../../constants/serviceTypes';
+import { formatMoney } from '../../utils/money';
 
 
 const ICON_MAP = {
@@ -251,7 +252,7 @@ function ServiceManage() {
                         </span>
                       </div>
                       <span className="svc-service-price">
-                        ₱{Number(s.price).toLocaleString()}
+                        {formatMoney(Number(s.price))}
                         {s.unitTypePricing?.length > 0 && (
                           <span className="svc-service-price-note">varies by unit type</span>
                         )}

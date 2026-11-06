@@ -47,6 +47,7 @@ import { useNotice } from '../../hooks/useNotice';
 import { hpLabel } from '../../utils/hpLabel';
 import { namePartProblem } from '../../utils/personName';
 import { isValidContactNumber } from '../../utils/contact';
+import { formatMoney } from '../../utils/money';
 // The signed-in customer, read when a page is drawn (not when this file is first loaded: that is before sign in, so it was empty until a reload).
 const readStoredUser = () => {
   try { return JSON.parse(localStorage.getItem('user') || '{}') || {}; } catch { return {}; }
@@ -896,25 +897,25 @@ function BookDetails() {
                   <span>Not approved{booking.discount.rejectionReason ? `: ${booking.discount.rejectionReason}` : ''}</span>
                 </div>
               )}
-              <div className="summary-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}</span></div>
+              <div className="summary-row"><span>Total Price</span><span>{formatMoney(basePrice)}</span></div>
               {booking.isCommercial && booking.taxInclusive && (
-                <div className="summary-row"><span>VAT included (12%)</span><span>₱{(booking.vatAmount ?? vatInside(basePrice)).toLocaleString()}</span></div>
+                <div className="summary-row"><span>VAT included (12%)</span><span>{formatMoney((booking.vatAmount ?? vatInside(basePrice)))}</span></div>
               )}
               {booking.isCommercial && !booking.taxInclusive && (
                 <>
-                  <div className="summary-row"><span>VAT (12%)</span><span>₱{(booking.vatAmount || 0).toLocaleString()}</span></div>
-                  <div className="summary-row"><span>Total incl. VAT</span><span>₱{(basePrice + (booking.vatAmount || 0)).toLocaleString()}</span></div>
+                  <div className="summary-row"><span>VAT (12%)</span><span>{formatMoney((booking.vatAmount || 0))}</span></div>
+                  <div className="summary-row"><span>Total incl. VAT</span><span>{formatMoney((basePrice + (booking.vatAmount || 0)))}</span></div>
                 </>
               )}
               {!booking.isCommercial && booking.taxInclusive && (
-                <div className="summary-row"><span>VAT included in the price (12%)</span><span>₱{vatInside(basePrice).toLocaleString()}</span></div>
+                <div className="summary-row"><span>VAT included in the price (12%)</span><span>{formatMoney(vatInside(basePrice))}</span></div>
               )}
               {booking.isCommercial && booking.paymentTermsDays > 0 && (
                 <div className="summary-row"><span>Payment Terms</span><span>{booking.paymentTermsDays} days after completion</span></div>
               )}
               <div className="summary-row"><span>Down Payment</span><span>{dpPercent === null ? 'Not set' : `${dpPercent}%`}</span></div>
-              <div className="summary-row"><span>{downPaymentOpen ? 'Down Payment Due' : booking.paymentStatus === PAYMENT_STATUS.TO_VERIFY ? 'Down Payment Sent (not yet verified)' : [PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(booking.paymentStatus) ? 'Down Payment Verified' : 'Down Payment'}</span><span>₱{toPayNow.toLocaleString()}</span></div>
-              <div className="summary-row"><span>Remaining Balance</span><span>{balanceSettled ? '₱0 (paid)' : `₱${remaining.toLocaleString()}`}</span></div>
+              <div className="summary-row"><span>{downPaymentOpen ? 'Down Payment Due' : booking.paymentStatus === PAYMENT_STATUS.TO_VERIFY ? 'Down Payment Sent (not yet verified)' : [PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(booking.paymentStatus) ? 'Down Payment Verified' : 'Down Payment'}</span><span>{formatMoney(toPayNow)}</span></div>
+              <div className="summary-row"><span>Remaining Balance</span><span>{balanceSettled ? '₱0.00 (paid)' : `${formatMoney(remaining)}`}</span></div>
               <div className="summary-row"><span>Payment Mode</span><span>{booking.paymentMode || '-'}</span></div>
               {balanceSettled && (inPerson?.method || booking.paymentMode2) && (
                 <div className="summary-row"><span>Balance Payment Mode</span><span>{inPerson?.method || booking.paymentMode2}{inPerson ? ' (received in person)' : ''}</span></div>

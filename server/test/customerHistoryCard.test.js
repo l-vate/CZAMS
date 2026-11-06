@@ -33,11 +33,11 @@ test('pluralize picks the singular for exactly one and the plural otherwise', as
 
 test('formatPeso shows whole amounts plain and other amounts with two decimals', async () => {
   const { formatPeso } = await vite.ssrLoadModule('/src/utils/bookingPricing.js');
-  assert.equal(formatPeso(0), '₱0');
-  assert.equal(formatPeso(1234), '₱1,234');
+  assert.equal(formatPeso(0), '₱0.00');
+  assert.equal(formatPeso(1234), '₱1,234.00');
   assert.equal(formatPeso(1234.5), '₱1,234.50');
   assert.equal(formatPeso(1234567.891), '₱1,234,567.89');
-  assert.equal(formatPeso(-800), '-₱800');
+  assert.equal(formatPeso(-800), '-₱800.00');
 });
 
 const history = (counts, extra = {}) => ({
@@ -68,7 +68,7 @@ test('the card: empty state, one booking, many bookings, and where the links go'
   assert.doesNotMatch(one, /1 bookings/);
   for (const label of ['Total', 'Completed', 'Open', 'Cancelled', 'Total paid']) assert.match(one, new RegExp(`<dt>${label}</dt>`));
   assert.match(one, /<dt>Open<\/dt><dd>1<\/dd>/);
-  assert.match(one, /<dt>Total paid<\/dt><dd>₱0<\/dd>/);
+  assert.match(one, /<dt>Total paid<\/dt><dd>₱0.00<\/dd>/);
   assert.doesNotMatch(one, /You have no booking history yet/);
 
   // many bookings: counts, the open figure adds Pending, Approved and In Progress, money through formatPeso
@@ -80,7 +80,7 @@ test('the card: empty state, one booking, many bookings, and where the links go'
   assert.match(many, /<dt>Completed<\/dt><dd>6<\/dd>/);
   assert.match(many, /<dt>Open<\/dt><dd>4<\/dd>/);
   assert.match(many, /<dt>Cancelled<\/dt><dd>2<\/dd>/);
-  assert.match(many, /<dt>Total paid<\/dt><dd>₱15,234\.50<\/dd>/);
+  assert.match(many, /<dt>Total paid<\/dt><dd>₱15,234.50<\/dd>/);
   assert.deepEqual(linkTargets(many), [], 'the card has no buttons or links under the figures');
   assert.equal(/[\u2013\u2014]/.test(many + one + empty), false, 'no en or em dashes in the card');
 });

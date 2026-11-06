@@ -33,7 +33,7 @@ test('the customer view carries how a balance was received in person, but not wh
 test('the customer booking page shows the balance as paid with its method and cheque number, and the receipt carries the reference', () => {
   const page = src('pages', 'customer', 'book_details.jsx');
   assert.match(page, /const balanceSettled = isFullyPaid \|\| booking\.balancePaid \|\| booking\.balancePaymentStatus === BALANCE_PAYMENT_STATUS\.PAID;/);
-  assert.match(page, /balanceSettled \? '₱0 \(paid\)'/);
+  assert.match(page, /balanceSettled \? '₱0.00 \(paid\)'/);
   assert.match(page, /Balance Payment Mode/);
   assert.match(page, /\(received in person\)/);
   assert.match(page, /Balance Reference or Cheque No\./);
@@ -68,7 +68,7 @@ test('View details lists what happened, who, when, the record and what changed i
   assert.match(d.when, /Manila time/);
   assert.equal(d.record, 'Booking CZ-2026-1');
   assert.deepEqual(d.values, [
-    ['Distance adjustment', '₱350'], ['Mobilization fee', 'None'], ['Confirmed', 'Yes'], ['Blocks', 'Morning, Afternoon'], ['Track', 'down → balance'],
+    ['Distance adjustment', '₱350.00'], ['Mobilization fee', 'None'], ['Confirmed', 'Yes'], ['Blocks', 'Morning, Afternoon'], ['Track', 'down → balance'],
   ]);
   assert.equal(d.action, 'booking.charges');
   const entry = src('components', 'audit_entry.jsx');

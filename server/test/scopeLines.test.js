@@ -244,9 +244,9 @@ test('an edit changes the line and the total; a removal takes it away; both are 
 
   assert.equal(notes.length, 3);
   notes.forEach((n) => { assert.equal(n.type, 'scope_updated'); assert.equal(n.user, 'CUS1'); });
-  assert.match(notes[0].message, /was added to the scope of works\. Your new total is ₱5,000\./);
-  assert.match(notes[1].message, /was changed to .*Your new total is ₱6,500\./);
-  assert.match(notes[2].message, /was removed from the scope of works\. Your new total is ₱2,000\./);
+  assert.match(notes[0].message, /was added to the scope of works\. Your new total is ₱5,000.00\./);
+  assert.match(notes[1].message, /was changed to .*Your new total is ₱6,500.00\./);
+  assert.match(notes[2].message, /was removed from the scope of works\. Your new total is ₱2,000.00\./);
 });
 
 test('a line that does not exist is a 404', async () => {

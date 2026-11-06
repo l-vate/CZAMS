@@ -40,7 +40,7 @@ test('the fee rules on their own: required, 0 is fine, never above the down paym
   assert.equal(r({}).problem.status, 400, 'required');
   assert.equal(r({ dispatchDeduction: -1 }).problem.status, 400, 'not below 0');
   assert.equal(r({ dispatchDeduction: 1001 }).problem.status, 400, 'not above the down payment');
-  assert.match(r({ dispatchDeduction: 1001 }).problem.message, /cannot be more than the ₱1,000 down payment/);
+  assert.match(r({ dispatchDeduction: 1001 }).problem.message, /cannot be more than the ₱1,000.00 down payment/);
   assert.equal(r({ dispatchDeduction: 1000 }).values.finalAmount, 0, 'the whole down payment is the most it can be');
   assert.equal(r({ dispatchDeduction: 0 }).values.finalAmount, 1000);
   assert.equal(r({ dispatchDeduction: 300, dispatchReason: '  Crew was on the way ' }).values.dispatchReason, 'Crew was on the way');

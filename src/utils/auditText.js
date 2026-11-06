@@ -1,3 +1,4 @@
+import { formatMoney } from './money.js';
 // The audit log in plain words. Each line says who did what and when; the technical record (action code, record, raw values) is kept
 // for a "View details" toggle instead of being shown by default.
 
@@ -49,7 +50,7 @@ function labelOf(key) {
 }
 
 const MONEY_KEY = /amount|fee|adjustment|price|total|payment$/i;
-const peso = (n) => '₱' + Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 });
+const peso = (n) => formatMoney(n);
 
 // One value in words: Yes or No, a peso amount for a money field, a list joined with commas, a "before to after" pair, or a short text.
 function valueOf(key, value) {

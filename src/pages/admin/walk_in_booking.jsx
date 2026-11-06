@@ -27,6 +27,7 @@ import { selectableCustomers } from '../../utils/walkInCustomers';
 import { ROLE } from '../../constants/roles';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
 import { bookingDateProblem } from '../../utils/dateRules';
+import { formatMoney } from '../../utils/money';
 
 const TOTAL_STEPS = 6;
 const STEP_LABELS = ['Customer', 'Choose Service', 'Unit Details', 'Location & Schedule', 'Payment', 'Booking Summary'];
@@ -410,19 +411,19 @@ function WalkInPaymentStep({ form, setForm, services, isReturnCustomer, isCommer
       <div className="cost-breakdown-card">
         <h4 className="cost-breakdown-title">Cost Breakdown</h4>
         {discountAmount > 0 && (
-          <div className="cost-row"><span>{discountLabel}</span><span>-₱{discountAmount.toLocaleString()}.00</span></div>
+          <div className="cost-row"><span>{discountLabel}</span><span>-{formatMoney(discountAmount)}</span></div>
         )}
         {equipment.map((line, i) => (
-          <div className="cost-row" key={`equipment-${i}`}><span>{line.quantity}× {line.label}</span><span>₱{line.subtotal.toLocaleString()}.00</span></div>
+          <div className="cost-row" key={`equipment-${i}`}><span>{line.quantity}× {line.label}</span><span>{formatMoney(line.subtotal)}</span></div>
         ))}
         {(form.units || []).some((u) => u.supplied?.notListed) && (
           <div className="cost-row"><span>Unit asked from the owner</span><span>Price to be confirmed</span></div>
         )}
-        <div className="cost-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}.00</span></div>
+        <div className="cost-row"><span>Total Price</span><span>{formatMoney(basePrice)}</span></div>
         {isCommercial && (
           <>
-            <div className="cost-row"><span>VAT (12%)</span><span>₱{vatAmount.toLocaleString()}.00</span></div>
-            <div className="cost-row"><span>Total incl. VAT</span><span>₱{(basePrice + vatAmount).toLocaleString()}.00</span></div>
+            <div className="cost-row"><span>VAT (12%)</span><span>{formatMoney(vatAmount)}</span></div>
+            <div className="cost-row"><span>Total incl. VAT</span><span>{formatMoney((basePrice + vatAmount))}</span></div>
           </>
         )}
         {isBilledOnTerms ? (
@@ -433,8 +434,8 @@ function WalkInPaymentStep({ form, setForm, services, isReturnCustomer, isCommer
         ) : (
           <>
             <div className="cost-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
-            <div className="cost-row"><span>To Pay Now</span><span>₱{toPayNow.toLocaleString()}.00</span></div>
-            <div className="cost-row"><span>Remaining Balance</span><span>₱{remaining.toLocaleString()}.00</span></div>
+            <div className="cost-row"><span>To Pay Now</span><span>{formatMoney(toPayNow)}</span></div>
+            <div className="cost-row"><span>Remaining Balance</span><span>{formatMoney(remaining)}</span></div>
           </>
         )}
       </div>

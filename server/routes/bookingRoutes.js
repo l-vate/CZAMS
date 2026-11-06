@@ -87,6 +87,7 @@ const { readReason, buildHistoryEntry, viewHistory, idsIn } = require('../utils/
 const { resolveClassification } = require('../utils/classification');
 
 const { TIME_BLOCKS } = require('../utils/timeBlocks');
+const { formatMoney } = require('../utils/money');
 
 // Every route that returns a booking includes its computed warranty status (utils/bookingView.js).
 
@@ -1193,7 +1194,7 @@ router.patch('/:bookingId/discount/approve', auth, auditSpecs.discountApprove, a
       booking.discount.reviewedAt = undefined;
       booking.discount.reviewedBy = undefined;
       return res.status(400).json({
-        message: `The customer has already paid ₱${alreadyPaid.toLocaleString()}, which is more than the discounted total of ₱${discountedTotal.toLocaleString()}. The discount cannot be applied. Handle the difference through the refund flow instead.`,
+        message: `The customer has already paid ${formatMoney(alreadyPaid)}, which is more than the discounted total of ${formatMoney(discountedTotal)}. The discount cannot be applied. Handle the difference through the refund flow instead.`,
       });
     }
 
@@ -1211,7 +1212,7 @@ router.patch('/:bookingId/discount/approve', auth, auditSpecs.discountApprove, a
       NOTIFICATION_TYPE.DISCOUNT_APPROVED,
       applied.kind === 'promo'
         ? `Your ${kindName} discount for booking ${booking.bookingId} was approved (${percent}%), but the promo "${booking.promo.name}" already gives you a larger discount, so the promo applies and your total is unchanged.`
-        : `Your ${kindName} discount for booking ${booking.bookingId} was approved: ${percent}% off, a saving of ₱${booking.discount.amount.toLocaleString()}.`,
+        : `Your ${kindName} discount for booking ${booking.bookingId} was approved: ${percent}% off, a saving of ${formatMoney(booking.discount.amount)}.`,
       { booking }
     );
 
@@ -2728,7 +2729,7 @@ router.patch('/:bookingId/refund', auth, auditSpecs.refundProcess, allowRoles(RO
     await sendNotification(
       booking.customer,
       NOTIFICATION_TYPE.REFUND_PROCESSED,
-      `Your refund of ₱${(booking.refund.refundableAmount || 0).toLocaleString()} for booking ${booking.bookingId} has been processed.`,
+      `Your refund of ${formatMoney((booking.refund.refundableAmount || 0))} for booking ${booking.bookingId} has been processed.`,
       { booking }
     );
 
@@ -2764,7 +2765,7 @@ router.patch('/:bookingId/refund/received', auth, allowRoles(ROLE.CUSTOMER), asy
 
     await notifyAdmins(
       NOTIFICATION_TYPE.REFUND_CONFIRMED,
-      `The customer confirmed they received the refund of ₱${(booking.refund.refundableAmount || 0).toLocaleString()} for booking ${booking.bookingId}.`,
+      `The customer confirmed they received the refund of ${formatMoney((booking.refund.refundableAmount || 0))} for booking ${booking.bookingId}.`,
       { booking }
     );
 

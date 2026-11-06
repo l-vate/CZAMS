@@ -3,8 +3,9 @@
 // bookingMoney.js), so the figures can be tested on their own. Uses the same paid and refund rules
 // as the Analytics page and the Cancelled Bookings report (salesFigures.js).
 import { amountPaid, refundedAmount, inRange } from './salesFigures.js';
+import { formatMoney } from './money.js';
 
-const peso = (n) => `₱${(Math.round(n) || 0).toLocaleString()}`;
+const peso = (n) => formatMoney(n);
 
 // What a cancelled booking had been paid when it was cancelled: the refund request records it.
 function paidAtCancellation(b, pricingOf) {

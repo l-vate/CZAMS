@@ -6,7 +6,8 @@ const CHARGES = [
   { key: 'mobilizationFee', name: 'mobilization fee' },
 ];
 
-const peso = (n) => `₱${Number(n).toLocaleString()}`;
+const { formatMoney } = require('./money');
+const peso = (n) => formatMoney(n);
 
 function phrase(name, before, after) {
   if (!before && after) return `a ${name} of ${peso(after)} was added`;

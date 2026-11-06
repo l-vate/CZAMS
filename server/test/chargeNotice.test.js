@@ -12,11 +12,11 @@ const none = { distanceAdjustment: 0, mobilizationFee: 0 };
 
 test('each kind of change is described in its own words', () => {
   const say = (before, after, outsideArea = false) => describeChargeChanges({ bookingId: 'CZ-1', before: { ...none, ...before }, after: { ...none, ...after }, outsideArea });
-  assert.match(say({}, { distanceAdjustment: 300 }), /a distance-based charge of ₱300 was added\./);
-  assert.match(say({ distanceAdjustment: 300 }, { distanceAdjustment: 500 }), /the distance-based charge was increased from ₱300 to ₱500\./);
-  assert.match(say({ distanceAdjustment: 500 }, { distanceAdjustment: 200 }), /the distance-based charge was lowered from ₱500 to ₱200\./);
+  assert.match(say({}, { distanceAdjustment: 300 }), /a distance-based charge of ₱300.00 was added\./);
+  assert.match(say({ distanceAdjustment: 300 }, { distanceAdjustment: 500 }), /the distance-based charge was increased from ₱300.00 to ₱500.00\./);
+  assert.match(say({ distanceAdjustment: 500 }, { distanceAdjustment: 200 }), /the distance-based charge was lowered from ₱500.00 to ₱200.00\./);
   assert.match(say({ distanceAdjustment: 200 }, {}), /the distance-based charge was removed\./);
-  assert.match(say({}, { mobilizationFee: 1500 }), /a mobilization fee of ₱1,500 was added\./);
+  assert.match(say({}, { mobilizationFee: 1500 }), /a mobilization fee of ₱1,500.00 was added\./);
   assert.equal(say({ distanceAdjustment: 300 }, { distanceAdjustment: 300 }), null);
   assert.equal(say({}, {}), null);
 });
@@ -29,7 +29,7 @@ test('it says outside Quezon City only when the address is outside', () => {
 
 test('two charges that changed are one message', () => {
   const text = describeChargeChanges({ bookingId: 'CZ-1', before: { distanceAdjustment: 100, mobilizationFee: 0 }, after: { distanceAdjustment: 0, mobilizationFee: 900 }, outsideArea: false });
-  assert.match(text, /the distance-based charge was removed, and a mobilization fee of ₱900 was added\./);
+  assert.match(text, /the distance-based charge was removed, and a mobilization fee of ₱900.00 was added\./);
 });
 
 test.describe('through the route', () => {
@@ -58,8 +58,8 @@ test.describe('through the route', () => {
     await set({ distanceAdjustment: 200 });
     await set({ distanceAdjustment: 0 });
     assert.equal(messages().length, 4);
-    assert.match(messages()[1], /increased from ₱300 to ₱500/);
-    assert.match(messages()[2], /lowered from ₱500 to ₱200/);
+    assert.match(messages()[1], /increased from ₱300.00 to ₱500.00/);
+    assert.match(messages()[2], /lowered from ₱500.00 to ₱200.00/);
     assert.match(messages()[3], /was removed/);
   });
 
@@ -74,6 +74,6 @@ test.describe('through the route', () => {
     job();
     await set({ distanceAdjustment: 300, mobilizationFee: 900 });
     assert.equal(messages().length, 1);
-    assert.match(messages()[0], /distance-based charge of ₱300 was added, and a mobilization fee of ₱900 was added/);
+    assert.match(messages()[0], /distance-based charge of ₱300.00 was added, and a mobilization fee of ₱900.00 was added/);
   });
 });

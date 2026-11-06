@@ -6,6 +6,7 @@ import { listMessages, sendMessage as postMessage } from '../services/chatServic
 import { ROLE } from '../constants/roles';
 import { BRAND_NAME } from '../config/company';
 import { isNearBottom, scrollDecision } from '../utils/chatScroll';
+import { formatMoney } from '../utils/money';
 
 const POLL_INTERVAL_MS = 15000;
 
@@ -34,7 +35,7 @@ function BookingChatCard({ booking, onRemove, to }) {
           <p className="chat-booking-card-title">{booking.service || 'Service'}</p>
           {(booking.items || booking.total !== undefined) && (
             <p className="chat-booking-card-line">
-              {[booking.items, booking.total !== undefined ? `Total: ₱${Number(booking.total).toLocaleString()}` : ''].filter(Boolean).join(', ')}
+              {[booking.items, booking.total !== undefined ? `Total: ${formatMoney(Number(booking.total))}` : ''].filter(Boolean).join(', ')}
             </p>
           )}
           {booking.status && <p className="chat-booking-card-status">{booking.status}</p>}

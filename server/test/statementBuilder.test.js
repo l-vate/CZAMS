@@ -30,8 +30,8 @@ test('a cancelled booking with a processed refund is not billed and shows what i
   assert.equal(line.total, 0);
   assert.equal(line.paid, 100); // paid 300, 200 sent back
   assert.equal(line.balance, 0);
-  assert.equal(line.status, 'Cancelled, ₱200 refunded');
-  assert.deepEqual(s.rows[0].slice(3, 6), ['-', '₱100', '-']);
+  assert.equal(line.status, 'Cancelled, ₱200.00 refunded');
+  assert.deepEqual(s.rows[0].slice(3, 6), ['-', '₱100.00', '-']);
   assert.equal(s.outstanding, 0);
 });
 
@@ -54,7 +54,7 @@ test('rows are in date order and the totals row matches the shown numbers', asyn
   const { buildStatement } = await load();
   const s = buildStatement('C1', [mk('B2', { date: '2026-09-20', paymentStatus: 'fully_paid' }), mk('B1', { date: '2026-09-05' })], range, pricingOf);
   assert.deepEqual(s.rows.map((r) => r[1]), ['B1', 'B2']);
-  assert.deepEqual(s.totalRow, ['Total', '', '', '₱2,000', '₱1,000', '₱1,000', '']);
+  assert.deepEqual(s.totalRow, ['Total', '', '', '₱2,000.00', '₱1,000.00', '₱1,000.00', '']);
 });
 
 test('an overpaid booking never shows a negative balance', async () => {

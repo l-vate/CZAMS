@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { formatPeso } from '../utils/bookingPricing';
 import { needsReference, normalizeReference, referenceError, referenceHint, referencePlaceholder, isGcashMode, REFERENCE_MAX } from '../utils/paymentReference';
 import { shrinkPhoto } from '../utils/photoShrink';
+import { formatMoney } from '../utils/money';
 
 // `initialProof` and `initialReference` are what the customer entered the last time this window was open, so opening it again keeps them.
 function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], onClose, onSubmit, initialProof = null, initialReference = '' }) {
@@ -92,15 +93,15 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
           {form.discountAmount > 0 && !form.lineItems?.some((li) => li.isDiscount) && (
             <div className="modal-cost-row"><span>{form.discountLabel || 'Discount'}</span><span>{formatPeso(-form.discountAmount)}.00</span></div>
           )}
-          <div className="modal-cost-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}.00</span></div>
+          <div className="modal-cost-row"><span>Total Price</span><span>{formatMoney(basePrice)}</span></div>
           <div className="modal-cost-row"><span>Down Payment</span><span>{dpPercent === null ? 'Not set' : `${dpPercent}%`}</span></div>
 
           {isBalance ? (
-            <div className="modal-cost-row modal-cost-row--highlight"><span>Remaining Balance Due</span><span>₱{amountDue.toLocaleString()}.00</span></div>
+            <div className="modal-cost-row modal-cost-row--highlight"><span>Remaining Balance Due</span><span>{formatMoney(amountDue)}</span></div>
           ) : (
             <>
-              <div className="modal-cost-row modal-cost-row--highlight"><span>Amount to Pay Now</span><span>₱{toPayNow.toLocaleString()}.00</span></div>
-              <div className="modal-cost-row"><span>Balance</span><span>₱{remaining.toLocaleString()}.00</span></div>
+              <div className="modal-cost-row modal-cost-row--highlight"><span>Amount to Pay Now</span><span>{formatMoney(toPayNow)}</span></div>
+              <div className="modal-cost-row"><span>Balance</span><span>{formatMoney(remaining)}</span></div>
             </>
           )}
 

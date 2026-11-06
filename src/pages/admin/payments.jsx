@@ -18,6 +18,7 @@ import { REFUND_STATUS } from '../../constants/refundStatus';
 import { ProofLink, ProofImage } from '../../components/proof_file';
 import { customerLabel } from '../../utils/customerLabel';
 import { paymentReviewState } from '../../utils/paymentReview';
+import { formatMoney } from '../../utils/money';
 
 
 function formatDate(dateStr) {
@@ -460,7 +461,7 @@ function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
         status,
         hasAttachment: Boolean(attachmentUrl),
         attachmentUrl,
-        amount: b.isBackJob ? 'Free' : `₱${grandTotal.toLocaleString()}`,
+        amount: b.isBackJob ? 'Free' : `${formatMoney(grandTotal)}`,
         refund: b.refund && b.refund.status !== REFUND_STATUS.NONE ? b.refund : null,
         raw: b,
       };
@@ -635,7 +636,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
 
   const handleProcess = async () => {
     if (finalAmount !== '' && (isNaN(finalNum) || finalNum < 0 || finalNum > refund.downPaymentAmount)) {
-      setError(`The refund must be between ₱0 and the ₱${refund.downPaymentAmount?.toLocaleString()} the customer paid.`);
+      setError(`The refund must be between ₱0 and the ${formatMoney(refund.downPaymentAmount)} the customer paid.`);
       return;
     }
     if (isAdjusted && (adjustmentReasonText.length < 3 || adjustmentReasonText.length > 300)) {
@@ -643,7 +644,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
       return;
     }
     if (refund.isSameDay && (dispatchDeduction === '' || isNaN(Number(dispatchDeduction)) || Number(dispatchDeduction) < 0 || Number(dispatchDeduction) > refund.downPaymentAmount)) {
-      setError(`Enter the transportation fee, from 0 up to the ₱${refund.downPaymentAmount?.toLocaleString()} down payment.`);
+      setError(`Enter the transportation fee, from 0 up to the ${formatMoney(refund.downPaymentAmount)} down payment.`);
       return;
     }
     if (!proof) {
@@ -757,7 +758,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
 
           <div className="payment-review-cell">
             <span className="confirmation-detail-label">Down Payment</span>
-            <span className="confirmation-detail-value">₱{refund.downPaymentAmount?.toLocaleString()}</span>
+            <span className="confirmation-detail-value">{formatMoney(refund.downPaymentAmount)}</span>
           </div>
 
           <div className="payment-review-cell">
@@ -796,7 +797,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
         {refund.isSameDay && isProcessed && (
           <div className="payment-review-cell admin-payments-x14">
             <span className="confirmation-detail-label">Transportation fee</span>
-            <span className="confirmation-detail-value">₱{refund.dispatchDeduction?.toLocaleString()}{refund.dispatchReason ? ` (${refund.dispatchReason})` : ''}</span>
+            <span className="confirmation-detail-value">{formatMoney(refund.dispatchDeduction)}{refund.dispatchReason ? ` (${refund.dispatchReason})` : ''}</span>
           </div>
         )}
 
@@ -806,7 +807,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
             {isPending ? 'Refundable Amount' : 'Refunded Amount'}
           </span>
           <span className="confirmation-detail-value">
-            ₱{(isPending ? previewRefundable : refund.refundableAmount)?.toLocaleString()}
+            {formatMoney((isPending ? previewRefundable : refund.refundableAmount))}
           </span>
         </div>
         )}
@@ -864,7 +865,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
         {isProcessed && refund.adjustmentReason && (
           <div className="payment-review-cell admin-payments-x14">
             <span className="confirmation-detail-label">
-              Adjusted from ₱{refund.computedAmount?.toLocaleString()} to ₱{refund.finalAmount?.toLocaleString()} on {formatDate(refund.adjustedAt)}
+              Adjusted from {formatMoney(refund.computedAmount)} to {formatMoney(refund.finalAmount)} on {formatDate(refund.adjustedAt)}
             </span>
             <span className="confirmation-detail-value">{refund.adjustmentReason}</span>
           </div>

@@ -11,6 +11,7 @@ import { ROLE } from '../../constants/roles';
 import BackButton from '../../components/back_button';
 import { POSITION_MAX, POSITION_SUGGESTIONS, COMPANY_NAME_MAX, REPRESENTATIVE_NAME_MAX } from '../../constants/profileFields';
 import { LIMITS } from '../../constants/inputLimits';
+import { matchesSearch } from '../../utils/adminSearch';
 
 /* ── Small Icon Helpers ───────────────────────────────────── */
 function ClockIcon() {
@@ -209,17 +210,14 @@ function ManageAccounts() {
 
   // Filter users according to search query and selected filter pill
   const filteredUsers = users.filter((u) => {
-    const matchesSearch =
-      (u.name || '').toLowerCase().includes(search.toLowerCase()) ||
-      (u._id || '').toLowerCase().includes(search.toLowerCase()) ||
-      (u.email || '').toLowerCase().includes(search.toLowerCase());
+    const matchesSearchBox = matchesSearch(search, [u.name, u._id, u.email, u.phone]);
 
     const matchesFilter =
       activeFilter === 'Technicians'
         ? u.role === ROLE.STAFF
         : u.role === ROLE.CUSTOMER;
 
-    return matchesSearch && matchesFilter;
+    return matchesSearchBox && matchesFilter;
   }).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
   const fetchAllUsers = async () => {
@@ -308,7 +306,7 @@ function ManageAccounts() {
       title="Manage Accounts"
       searchValue={search}
       onSearchChange={setSearch}
-      searchPlaceholder="Search by name, ID, or email..."
+      searchPlaceholder="Search name, ID, email or phone..."
     >
       <div className="page-container">
         <h1 className="dashboard-welcome page-title-in-topbar">Manage Accounts</h1>

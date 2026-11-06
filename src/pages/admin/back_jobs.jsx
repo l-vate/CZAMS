@@ -9,6 +9,7 @@ import { BACK_JOB_STATUS } from '../../constants/backJobStatus';
 import { customerLabel } from '../../utils/customerLabel';
 import { warrantyStatusText, CLEANING_WARRANTY_NOTE } from '../../utils/warrantyText';
 import ProofMedia from '../../components/proof_media';
+import { matchesSearch, customerSearchParts } from '../../utils/adminSearch';
 
 // Same badge/left-accent classes as the customer's My Bookings and technician's
 // My Jobs cards (staff.css) - .tech-job-card colors its left border automatically
@@ -232,6 +233,7 @@ function BackJobs() {
         id: bj._id,
         backJobId: bj.backJobId,
         clientName: customerLabel(bj.customer, 'Customer'),
+        searchParts: [...customerSearchParts(bj.customer), bj.backJobId, bj.resultingBookingId, bj.originalBooking?.service?.name],
         originalBookingId: bj.originalBookingId,
         serviceType: bj.originalBooking?.service?.name || 'Service',
         issueDescription: bj.issueDescription,
@@ -249,12 +251,8 @@ function BackJobs() {
   const filteredBackJobs = useMemo(() => {
     return backJobsList.filter((bj) => {
       const matchesFilter = activeFilter === 'all' || bj.status === activeFilter;
-      const query = search.trim().toLowerCase();
-      const matchesSearch =
-        !query ||
-        bj.clientName.toLowerCase().includes(query) ||
-        bj.originalBookingId.toLowerCase().includes(query);
-      return matchesFilter && matchesSearch;
+      // the customer's name, email and phone, the booking numbers (the original and the free visit) and the claim number
+      return matchesFilter && matchesSearch(search, [bj.clientName, bj.originalBookingId, ...bj.searchParts]);
     });
   }, [backJobsList, activeFilter, search]);
 
@@ -267,7 +265,7 @@ function BackJobs() {
       title="Back Jobs"
       searchValue={search}
       onSearchChange={setSearch}
-      searchPlaceholder="Search by name, booking id..."
+      searchPlaceholder="Search name, email, phone or booking no..."
     >
       <h1 className="dashboard-welcome page-title-in-topbar">Back Jobs</h1>
       <div className="backjobs-toolbar">

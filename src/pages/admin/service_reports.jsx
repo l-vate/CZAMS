@@ -13,6 +13,7 @@ import { customerLabel } from '../../utils/customerLabel';
 
 import { clientGroupOf } from '../../utils/clientGroup';
 import { unitSourceLabel } from '../../utils/warrantyText';
+import { matchesSearch, customerSearchParts } from '../../utils/adminSearch';
 // Filter options
 const FILTERS = [
   { key: 'all', label: 'All Reports' },
@@ -407,14 +408,10 @@ function ServiceReports() {
         activeClientType === 'all' ||
         clientGroupOf(report.bookingDetails?.customer) === activeClientType;
 
-      const query = search.trim().toLowerCase();
-      const matchesSearch =
-        !query ||
-        report.bookingId?.toLowerCase().includes(query) ||
-        report.workSummary?.toLowerCase().includes(query) ||
-        report.technician?.name?.toLowerCase().includes(query) ||
-        report.bookingDetails?.customer?.name?.toLowerCase().includes(query) ||
-        report.bookingDetails?.service?.name?.toLowerCase().includes(query);
+      const matchesSearchBox = matchesSearch(search, [
+        report.bookingId, report.workSummary, report.technician?.name, ...customerSearchParts(report.bookingDetails?.customer),
+        report.bookingDetails?.service?.name, report.bookingDetails?.referenceNumber, report.bookingDetails?.balanceReferenceNumber,
+      ]);
 
       const matchesPerson =
         !personFilter ||
@@ -422,7 +419,7 @@ function ServiceReports() {
           ? report.technician?._id === personFilter.id
           : report.bookingDetails?.customer?._id === personFilter.id);
 
-      return matchesFilter && matchesClientType && matchesSearch && matchesPerson;
+      return matchesFilter && matchesClientType && matchesSearchBox && matchesPerson;
     });
   }, [reports, activeFilter, activeClientType, search, personFilter]);
 
@@ -435,7 +432,7 @@ function ServiceReports() {
       title="Service Reports"
       searchValue={search}
       onSearchChange={setSearch}
-      searchPlaceholder="Search by booking ID, customer, technician..."
+      searchPlaceholder="Search booking no., customer, email, phone or technician..."
     >
       <h1 className="dashboard-welcome page-title-in-topbar">Service Reports</h1>
       <div className="reports-toolbar">

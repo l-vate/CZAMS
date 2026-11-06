@@ -20,6 +20,7 @@ import { customerLabel } from '../../utils/customerLabel';
 import { paymentReviewState } from '../../utils/paymentReview';
 import { formatMoney } from '../../utils/money';
 import FilePreview from '../../components/file_preview';
+import { matchesSearch, customerSearchParts } from '../../utils/adminSearch';
 
 
 function formatDate(dateStr) {
@@ -476,15 +477,15 @@ function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
         payment.status === activeFilter ||
         (activeFilter === 'rejected' && payment.status === 'balance_rejected') ||
         (activeFilter === 'refund' && (payment.status === 'refunded' || payment.status === 'cancelled_refund_pending' || payment.status === 'refund_rejected'));
-      const query = search.trim().toLowerCase();
-      const matchesSearch =
-        !query ||
-        payment.clientName.toLowerCase().includes(query) ||
-        payment.bookingId.toLowerCase().includes(query);
+      // the customer's name, email and phone, the booking number, the reference numbers (down payment and balance), the technicians and the service
+      const matchesSearchBox = matchesSearch(search, [
+        payment.clientName, payment.bookingId, ...customerSearchParts(payment.raw?.customer),
+        payment.raw?.referenceNumber, payment.raw?.balanceReferenceNumber, payment.technician, payment.serviceType,
+      ]);
       // Billing History (Manage Accounts, client accounts) - this panel only ever
       // receives a 'customer' person filter, never 'technician'.
       const matchesPerson = !personFilter || payment.raw?.customer?._id === personFilter.id;
-      return matchesFilter && matchesSearch && matchesPerson;
+      return matchesFilter && matchesSearchBox && matchesPerson;
     });
   }, [paymentsList, activeFilter, search, personFilter]);
 
@@ -961,7 +962,7 @@ function Payments() {
       title="Payments"
       searchValue={search}
       onSearchChange={setSearch}
-      searchPlaceholder="Search by name, booking id..."
+      searchPlaceholder="Search name, email, phone, booking no. or reference no..."
     >
       <h1 className="dashboard-welcome page-title-in-topbar">Payments</h1>
       <PaymentsPanel

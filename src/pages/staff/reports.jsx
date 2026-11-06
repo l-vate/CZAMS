@@ -16,6 +16,7 @@ import { ProofLink, ProofImage } from '../../components/proof_file';
 import { BackJobBadge, BackJobInfo } from '../../components/back_job_info';
 import { LIMITS } from '../../constants/inputLimits';
 import CharsLeft from '../../components/chars_left';
+import FilePreview from '../../components/file_preview';
 
 
 // Today's date as YYYY-MM-DD in Philippine time, the same day the server compares against.
@@ -410,7 +411,8 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
             <p className="staff-reports-x11">
               With a photo attached, the signature and name above are no longer required.
             </p>
-            <input id="signed-form-photo" type="file" accept="image/jpeg,image/png" onChange={handlePhoto} />
+            <input id="signed-form-photo" type="file" accept="image/jpeg,image/png" onClick={(e) => { e.target.value = ''; }} onChange={handlePhoto} />
+            <FilePreview file={photo} label="Signed paper form" onRemove={() => setPhoto(null)} />
             {preparing && <p className="sdm-muted" role="status">Preparing photo...</p>}
           </div>
 

@@ -38,6 +38,7 @@ import { customerLabel } from '../utils/customerLabel';
 import { hpLabel } from '../utils/hpLabel';
 import { formatMoney } from '../utils/money';
 import { LIMITS } from '../constants/inputLimits';
+import ProofMedia from './proof_media';
 
 // Admin only approves (and cancels). A booking becomes In Progress by itself when its
 // time block starts and Completed when the technician submits the service report.
@@ -485,6 +486,7 @@ const [report, setReport] = useState(null);
                                 <div>
                                     <span className="sdm-row-label">PROBLEM DESCRIPTION</span>
                                     <p className="sdm-row-value">{booking.problemDescription || '-'}</p>
+                                    <ProofMedia path={booking.problemMedia} />
                                 </div>
                             </div>
 

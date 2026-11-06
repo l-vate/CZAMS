@@ -20,6 +20,7 @@ import { BOOKING_STATUS, BOOKING_STATUS_VALUES } from '../../constants/bookingSt
 import { BackJobBadge, BackJobInfo } from '../../components/back_job_info';
 import ServiceReportViewer from '../../components/service_report_viewer';
 import { LIMITS } from '../../constants/inputLimits';
+import ProofMedia from '../../components/proof_media';
 
 
 const statusClass = {
@@ -105,6 +106,7 @@ function JobDetailsModal({ job, onClose }) {
           <div>
             <p className="confirmation-detail-label">Problem Description</p>
             <p className="confirmation-detail-value">{job.problemDescription || '-'}</p>
+            <ProofMedia path={job.problemMedia} />
           </div>
         </div>
 
@@ -308,6 +310,7 @@ function toViewJob(booking) {
     contactName: booking.contactName || '',
     unitType: getUnitsSummary(booking, { withBrand: true }),
     problemDescription: booking.problemDescription,
+    problemMedia: booking.problemMedia,
     technicianInstructions: booking.technicianInstructions,
     disruption: booking.disruption,
     noShow: booking.noShow,

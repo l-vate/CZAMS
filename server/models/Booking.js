@@ -127,6 +127,9 @@ const bookingSchema = new mongoose.Schema({
     // Legacy: kept for existing data
     brandModel: String,
     problemDescription: String,
+    // An optional picture or short clip from the customer: of the problem, or (for an installation) of where the unit will go. A stored
+    // path (/uploads/proofs/...); shown to the admin, the customer who made the booking and the technicians on the job, nobody else.
+    problemMedia: String,
     // Admin-authored, pre-service - care requirements, access instructions,
     // client-specific handling. Separate from problemDescription (the customer's
     // own account of the issue) - this is admin briefing the technician.

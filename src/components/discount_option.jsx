@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { shrinkPhoto } from '../utils/photoShrink';
 import { ID_PHOTO_CONSENT_TEXT } from '../constants/discountConsent';
+import FilePreview from './file_preview';
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB, same rule as every other upload
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
@@ -84,9 +85,11 @@ function DiscountOption({ form, setForm, idRequired, appliesNow, percent, option
               type="file"
               accept="image/jpeg,image/png,image/webp,.pdf"
               className="discount-option-x2"
+              onClick={(e) => { e.target.value = ''; }}
               onChange={handleFile}
             />
           </label>
+          <FilePreview file={form.discountIdFileObj} label="ID photo" onRemove={() => setForm((f) => ({ ...f, discountIdFileObj: null }))} />
           {preparing && <p className="sdm-muted" role="status">Preparing photo...</p>}
           {fileError && <p className="discount-option-x3">{fileError}</p>}
           {idRequired && !form.discountIdFileObj && !fileError && (

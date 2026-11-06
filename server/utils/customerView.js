@@ -29,7 +29,7 @@ const TECHNICIANS_VISIBLE_STATUSES = ['Approved', 'In Progress', 'Completed'];
 // Top-level Booking fields a customer may receive, passed through as they are (they hold nothing internal).
 const PASS_THROUGH = [
   '_id', 'bookingId', 'status', 'createdAt', 'updatedAt', 'date', 'time', 'address', 'contactNumber', 'contactName','problemDescription',
-  'unitTypes', 'brandModel', 'clientSuppliedUnit', 'unitSource', 'unitWaiver', 'unitPurchaseProof', 'cleaningTierAnswers',
+  'unitTypes', 'brandModel', 'problemMedia', 'clientSuppliedUnit', 'unitSource', 'unitWaiver', 'unitPurchaseProof', 'cleaningTierAnswers',
   'requestedTechnician',
   'downPaymentPercent', 'downPaymentPaidAmount', 'pricingVersion', 'unitConfirmedAt', 'paymentMode', 'paymentMode2', 'paymentStatus', 'balancePaid',
   'balancePaymentStatus', 'proofFile', 'balanceProofFile', 'referenceNumber', 'balanceReferenceNumber',
@@ -143,7 +143,7 @@ function toCustomerView(booking) {
 function toCustomerBackJob(backJob) {
   const j = backJob && typeof backJob.toObject === 'function' ? backJob.toObject() : (backJob || {});
   const out = pick(j, [
-    '_id', 'backJobId', 'originalBookingId', 'issueDescription', 'warrantyCheck', 'status', 'resultingBookingId', 'reportedAt', 'createdAt', 'updatedAt',
+    '_id', 'backJobId', 'originalBookingId', 'issueDescription', 'proofMedia', 'warrantyCheck', 'status', 'resultingBookingId', 'reportedAt', 'createdAt', 'updatedAt',
   ]);
   if (j.resultingBooking && typeof j.resultingBooking === 'object') out.resultingBooking = toCustomerView(j.resultingBooking);
   else if (j.resultingBooking !== undefined) out.resultingBooking = j.resultingBooking;

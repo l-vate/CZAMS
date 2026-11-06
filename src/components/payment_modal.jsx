@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { formatPeso } from '../utils/bookingPricing';
 import { needsReference, normalizeReference, referenceError, referenceHint, referencePlaceholder, isGcashMode, typedReference, GCASH_REFERENCE_DIGITS, REFERENCE_MAX } from '../utils/paymentReference';
 import { shrinkPhoto } from '../utils/photoShrink';
+import FilePreview from './file_preview';
 import { formatMoney } from '../utils/money';
 
 // `initialProof` and `initialReference` are what the customer entered the last time this window was open, so opening it again keeps them.
@@ -131,10 +132,12 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
               type="file"
               accept="image/jpeg,image/png"
               className="payment-modal-x1"
+              onClick={(e) => { e.target.value = ''; }}
               onChange={handleProofChange}
               onBlur={() => setProofTouched(true)}
             />
           </label>
+          <FilePreview file={proof} label="Proof of payment" onRemove={() => { setProof(null); setProofTouched(true); }} />
           {preparing && <p className="sdm-muted" role="status">Preparing photo...</p>}
           {fileError && (
             <p className="payment-modal-x2">

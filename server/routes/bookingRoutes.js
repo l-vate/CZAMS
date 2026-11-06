@@ -70,6 +70,7 @@ const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/que
 const { generateBookingId, createWithUniqueBookingId, BookingIdExhaustedError } = require('../utils/bookingId');
 const { invalid, sendProblem } = require('../utils/validation');
 const { lengthProblem, limits } = require('../utils/inputLimits');
+const { mediaUploader, mediaFieldRules, MEDIA_FIELD } = require('../utils/mediaUpload');
 const { readPaymentSubmission, findSameReference } = require('../utils/paymentReference');
 const { readUnitBrand } = require('../utils/unitBrand');
 const { readMayNeedWorks, describeMayNeedWorks } = require('../utils/mayNeedWorks');
@@ -354,7 +355,7 @@ router.get('/technicians/:id/feedback', auth, async (req, res) => {
 router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (req, res, next) => {
   req.generatedBookingId = generateBookingId();
   next();
-}, upload.fields([{ name: 'proof', maxCount: 1 }, { name: 'discountId', maxCount: 1 }]), customerProofImagesOnly, async (req, res) => {
+}, mediaUploader.fields([{ name: 'proof', maxCount: 1 }, { name: 'discountId', maxCount: 1 }, { name: MEDIA_FIELD, maxCount: 1 }]), mediaFieldRules, customerProofImagesOnly, async (req, res) => {
   try {
     // A refused request must not leave its uploaded file behind.
     res.on('finish', () => { if (res.statusCode >= 400) discardUploads(req); });
@@ -579,6 +580,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
       return res.status(400).json({ message: 'An installation has to be confirmed by our team first. You can send the down payment once it is confirmed.' });
     }
     const proofFile = req.files?.proof?.[0] ? `/uploads/proofs/${req.files.proof[0].filename}` : undefined;
+    const problemMedia = req.files?.[MEDIA_FIELD]?.[0] ? `/uploads/proofs/${req.files[MEDIA_FIELD][0].filename}` : undefined;
 
     // A customer who submits a payment now (proof or reference given) must give both for GCash and
     // Bank Transfer. With neither, the booking is made unpaid and paid later from Billing. An admin
@@ -651,13 +653,13 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
         await assertUnderPendingLimit(Booking, bookingCustomerId);
         await assertSlotOpen(date, time);
       }
-      await storeUploads(req, { kind: (file) => (file.fieldname === 'discountId' ? KINDS.ID_PHOTO : KINDS.PROOF), bookingId: req.generatedBookingId });
+      await storeUploads(req, { kind: (file) => (file.fieldname === 'discountId' ? KINDS.ID_PHOTO : file.fieldname === MEDIA_FIELD ? KINDS.PROBLEM_MEDIA : KINDS.PROOF), bookingId: req.generatedBookingId });
       const queueRank = await nextQueueRank(); // last in line: first come, first served
       return createWithUniqueBookingId((bookingId) => Booking.create({
         bookingId,
         queueRank,
         customer: bookingCustomerId,
-        service, units, problemDescription,
+        service, units, problemDescription, problemMedia,
         priceSnapshot: buildPriceSnapshot(serviceDoc, units),
         date, time, requestedTechnician: technician || undefined, address: address.trim(), contactNumber: cleanContactNumber,
         downPaymentPercent, paymentMode, paymentMode2,

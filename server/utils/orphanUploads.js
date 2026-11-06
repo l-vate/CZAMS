@@ -3,7 +3,7 @@
 const { PROOF_PREFIX, safeProofName } = require('./fileAccess');
 
 // The stored path fields, as paths into a booking or report document. Every place a /uploads/proofs/ path is kept.
-const BOOKING_FILE_FIELDS = ['proofFile', 'balanceProofFile', 'discount.idFile', 'refund.proofFile', 'unitPurchaseProof'];
+const BOOKING_FILE_FIELDS = ['proofFile', 'balanceProofFile', 'discount.idFile', 'refund.proofFile', 'unitPurchaseProof', 'problemMedia'];
 const REPORT_FILE_FIELDS = ['signedFormPhoto'];
 const PROFILE_PREFIX = '/uploads/profile-images/';
 

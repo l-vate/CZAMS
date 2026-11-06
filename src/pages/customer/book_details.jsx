@@ -50,6 +50,7 @@ import { isValidContactNumber } from '../../utils/contact';
 import { formatMoney } from '../../utils/money';
 import { LIMITS } from '../../constants/inputLimits';
 import CharsLeft from '../../components/chars_left';
+import ProofMedia from '../../components/proof_media';
 // The signed-in customer, read when a page is drawn (not when this file is first loaded: that is before sign in, so it was empty until a reload).
 const readStoredUser = () => {
   try { return JSON.parse(localStorage.getItem('user') || '{}') || {}; } catch { return {}; }
@@ -624,10 +625,10 @@ function BookDetails() {
     }
   };
 
-  const handleBackJobSubmit = async ({ issueDescription }) => {
+  const handleBackJobSubmit = async ({ issueDescription, media }) => {
     setSubmittingBackJob(true);
     try {
-      const data = await reportBackJob({ bookingId: booking.bookingId, issueDescription });
+      const data = await reportBackJob({ bookingId: booking.bookingId, issueDescription, media });
       setBackJob(data);
     } catch (err) {
       showNotice(err instanceof ApiError ? err.message || 'Failed to submit report' : 'Could not connect to server.');
@@ -876,6 +877,7 @@ function BookDetails() {
                 <div>
                   <p className="confirmation-detail-label">Problem Description</p>
                   <p className="confirmation-detail-value">{booking.problemDescription || '-'}</p>
+                  <ProofMedia path={booking.problemMedia} alt="Photo you sent with your booking" />
                 </div>
               </div>
             </div>

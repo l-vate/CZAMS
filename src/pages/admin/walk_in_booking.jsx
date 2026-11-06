@@ -29,6 +29,7 @@ import { SERVICE_TYPE } from '../../constants/serviceTypes';
 import { bookingDateProblem } from '../../utils/dateRules';
 import { formatMoney } from '../../utils/money';
 import { LIMITS } from '../../constants/inputLimits';
+import FilePreview from '../../components/file_preview';
 
 const TOTAL_STEPS = 6;
 const STEP_LABELS = ['Customer', 'Choose Service', 'Unit Details', 'Location & Schedule', 'Payment', 'Booking Summary'];
@@ -384,8 +385,9 @@ function WalkInPaymentStep({ form, setForm, services, isReturnCustomer, isCommer
                   file input here, visually inconsistent with the rest of the app. */}
               <label className="modal-file-btn">
                 {form.proofFile || '[Choose a file]'}
-                <input type="file" accept="image/jpeg,image/png,image/webp,.pdf" className="admin-walk-in-booking-x4" onChange={handleProofChange} />
+                <input type="file" accept="image/jpeg,image/png,image/webp,.pdf" className="admin-walk-in-booking-x4" onClick={(e) => { e.target.value = ''; }} onChange={handleProofChange} />
               </label>
+              <FilePreview file={form.proofFileObj} label="Proof of payment" onRemove={() => setForm({ ...form, proofFileObj: null, proofFile: null })} />
             </div>
 
             <div className="bs-field-group">
@@ -532,6 +534,7 @@ function WalkInBooking() {
       formData.append('service', form.service);
       formData.append('units', JSON.stringify(unitsForSubmit(form.units, form.clientSuppliedUnit)));
       formData.append('problemDescription', form.problemDescription || '');
+      if (form.problemMediaFile) formData.append('problemMedia', form.problemMediaFile);
       formData.append('date', form.date);
       formData.append('time', form.time);
       formData.append('technician', form.technician || '');

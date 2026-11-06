@@ -22,6 +22,7 @@ const KINDS = Object.freeze({
   REFUND_PROOF: 'refund_proof',
   PURCHASE_PROOF: 'purchase_proof',
   SIGNED_FORM: 'signed_form',
+  PROBLEM_MEDIA: 'problem_media', // a picture or clip of the problem, or of where the unit will go
   PROFILE_IMAGE: 'profile_image',
   SIGNATURE: 'signature',
   LEGACY: 'legacy', // a file that was already on disk before the store, whose use could not be worked out

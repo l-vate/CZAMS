@@ -3,6 +3,8 @@ import { BACK_JOB_STATUS } from '../constants/backJobStatus';
 import { warrantyStatusText, CLEANING_WARRANTY_NOTE } from '../utils/warrantyText';
 import { LIMITS } from '../constants/inputLimits';
 import CharsLeft from './chars_left';
+import MediaPicker from './media_picker';
+import ProofMedia from './proof_media';
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -23,6 +25,7 @@ function BackJobModal({ booking, existingBackJob, onClose, onSubmit, submitting 
   ) : null;
   const [issueDescription, setIssueDescription] = useState('');
   const [error, setError] = useState('');
+  const [media, setMedia] = useState(null);
 
   const handleSubmit = () => {
     if (!issueDescription.trim()) {
@@ -30,7 +33,7 @@ function BackJobModal({ booking, existingBackJob, onClose, onSubmit, submitting 
       return;
     }
     setError('');
-    onSubmit({ issueDescription: issueDescription.trim() });
+    onSubmit({ issueDescription: issueDescription.trim(), media });
   };
 
   if (existingBackJob) {
@@ -46,6 +49,7 @@ function BackJobModal({ booking, existingBackJob, onClose, onSubmit, submitting 
           </div>
 
           <p className="modal-instruction">{existingBackJob.issueDescription}</p>
+          <ProofMedia path={existingBackJob.proofMedia} alt="Photo you sent with your report" />
           {warrantyLine}
 
           <div className="bs-field-group">
@@ -107,6 +111,8 @@ function BackJobModal({ booking, existingBackJob, onClose, onSubmit, submitting 
           />
 <CharsLeft value={issueDescription} max={LIMITS.issueDescription} />
         </div>
+
+        <MediaPicker id="back-job-media" file={media} onChange={setMedia} label="Photo or video of the issue" hint="A short clip (up to 15 MB) or a photo helps us see what happened." />
 
         {error && (
           <p className="back-job-modal-x1">

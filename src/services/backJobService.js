@@ -16,8 +16,13 @@ export async function getBackJobForBooking(bookingId) {
   }
 }
 
-export function reportBackJob({ bookingId, issueDescription }) {
-  return request('/api/backjobs', { method: 'POST', body: { bookingId, issueDescription } });
+// `media` is the optional photo or video (a File).
+export function reportBackJob({ bookingId, issueDescription, media }) {
+  const body = new FormData();
+  body.append('bookingId', bookingId);
+  body.append('issueDescription', issueDescription);
+  if (media) body.append('problemMedia', media);
+  return request('/api/backjobs', { method: 'POST', body });
 }
 
 // Admin: mark a back job report as reviewed.

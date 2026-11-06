@@ -19,6 +19,7 @@ import { ProofLink, ProofImage } from '../../components/proof_file';
 import { customerLabel } from '../../utils/customerLabel';
 import { paymentReviewState } from '../../utils/paymentReview';
 import { formatMoney } from '../../utils/money';
+import FilePreview from '../../components/file_preview';
 
 
 function formatDate(dateStr) {
@@ -851,9 +852,11 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
                 type="file"
                 accept="image/jpeg,image/png,image/webp,.pdf"
                 className="admin-payments-x16"
+                onClick={(e) => { e.target.value = ''; }}
                 onChange={(e) => setProof(e.target.files[0] || null)}
               />
             </label>
+            <FilePreview file={proof} label="Refund proof" onRemove={() => setProof(null)} />
             {!proof && (
               <p className="admin-payments-x17">
                 Required before this refund can be marked processed.

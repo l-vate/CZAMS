@@ -32,7 +32,8 @@ test('each bad registration field gets its own message', () => {
   assert.match(msg({ firstName: '' }), /First name is required/);
   assert.match(msg({ firstName: '   ' }), /First name is required/);
   assert.match(msg({ lastName: undefined }), /Last name is required/);
-  assert.match(msg({ firstName: 'x'.repeat(51) }), /50 characters/);
+  assert.match(msg({ firstName: 'x'.repeat(21) }), /First name must be 20 characters/);
+  assert.match(msg({ lastName: 'x'.repeat(51) }), /50 characters/);
   assert.match(msg({ email: '' }), /Email is required/);
   ['not-an-email', 'a@b', 'a b@c.com', '@x.com'].forEach((email) => assert.match(msg({ email }), /valid email/, email));
   assert.match(msg({ phone: '' }), /contact number is required/);

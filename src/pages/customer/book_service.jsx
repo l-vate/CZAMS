@@ -52,6 +52,7 @@ import { hpLabel } from '../../utils/hpLabel';
 import { formatMoney } from '../../utils/money';
 import { LIMITS } from '../../constants/inputLimits';
 import CharsLeft from '../../components/chars_left';
+import MediaPicker from '../../components/media_picker';
 // System Configuration Module: payment methods and down payment percentages used
 // to be hardcoded here (DOWN_PAYMENT_OPTIONS / PAYMENT_MODES / getDownPaymentOptions).
 // Both are now admin-managed - see src/utils/paymentSettings.js (usePaymentSettings,
@@ -432,6 +433,14 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
           )}
         </div>
       )}
+
+      <MediaPicker
+        id="problem-media"
+        file={form.problemMediaFile || null}
+        onChange={(file) => setForm({ ...form, problemMediaFile: file })}
+        label={isInstallation ? 'Photo of where the aircon will go' : 'Photo or video of the problem'}
+        hint={isInstallation ? 'Show us the wall or spot where you want the unit installed.' : 'A photo or a short clip (up to 15 MB) helps the technician prepare.'}
+      />
 
       <div className="bs-field-group">
         <label className="bs-label">Problem Description <span className="bs-label-hint">(Optional)</span></label>
@@ -997,6 +1006,7 @@ function BookService() {
       // (there's a proof file too) and units are now structured objects, not flat strings.
       formData.append('units', JSON.stringify(unitsForSubmit(form.units, form.clientSuppliedUnit)));
       formData.append('problemDescription', form.problemDescription || '');
+      if (form.problemMediaFile) formData.append('problemMedia', form.problemMediaFile);
       formData.append('date', form.date);
       formData.append('time', form.time);
       formData.append('technician', form.technician || '');

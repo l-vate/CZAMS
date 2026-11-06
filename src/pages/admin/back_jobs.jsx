@@ -8,6 +8,7 @@ import { listBackJobs, markBackJobReviewed } from '../../services/backJobService
 import { BACK_JOB_STATUS } from '../../constants/backJobStatus';
 import { customerLabel } from '../../utils/customerLabel';
 import { warrantyStatusText, CLEANING_WARRANTY_NOTE } from '../../utils/warrantyText';
+import ProofMedia from '../../components/proof_media';
 
 // Same badge/left-accent classes as the customer's My Bookings and technician's
 // My Jobs cards (staff.css) - .tech-job-card colors its left border automatically
@@ -116,6 +117,7 @@ function BackJobDetailModal({ backJob, onClose, onSuccess }) {
         <div className="payment-review-cell admin-back-jobs-x3">
           <span className="confirmation-detail-label">Issue Described</span>
           <p className="confirmation-detail-value admin-back-jobs-x4">{backJob.issueDescription}</p>
+          <ProofMedia path={backJob.proofMedia} alt="Photo from the customer" />
         </div>
 
         {backJob.warranty?.applicable && (

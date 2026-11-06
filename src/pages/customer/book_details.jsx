@@ -822,7 +822,7 @@ function BookDetails() {
               ) : (
                 lineItems.filter((li) => !li.isCharge).map((li, i) => (
                   <p className="confirmation-detail-line" key={i}>
-                    Unit: {li.quantity}× {li.type}{li.brandModel ? ` - ${li.brandModel}` : ''}{li.hp ? ` - ${hpLabel(li.hp)}` : ''}
+                    Unit: {li.quantity}× {li.type}{li.brandModel ? ` - ${li.brandModel}` : ''}{li.hp ? ` - ${hpLabel(li.hp)}` : ''}{li.modelNumber ? ` - Model ${li.modelNumber}` : ''}
                     {unitChangeOf(li) && (
                       <span className="unit-change-note">
                         <span>Requested: {unitChangeOf(li).requested} (not available)</span>

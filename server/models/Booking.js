@@ -117,6 +117,8 @@ const bookingSchema = new mongoose.Schema({
       brandModel: String,
       // The unit's horsepower as the customer wrote it, for example "1.5" or "2" (optional, at most 10 characters).
       hp: String,
+      // The model number printed on the unit, if the customer knew it (optional, at most 30 characters). Shown to the admin and the technicians.
+      modelNumber: { type: String, maxlength: 30 },
       // The Cooling Zone unit chosen for this entry (Installation with a company unit only). Its price is added to the booking's total.
       supplied: { type: suppliedUnitSchema },
     }],

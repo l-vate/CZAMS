@@ -445,6 +445,7 @@ const [report, setReport] = useState(null);
                                     Unit: {li.quantity}× {li.type}
                                     {li.brandModel ? ` · ${li.brandModel}` : ''}
                                     {li.hp ? ` · ${hpLabel(li.hp)}` : ''}
+                                    {li.modelNumber ? ` · Model ${li.modelNumber}` : ''}
                                     {li.supplied?.source === 'requested' ? ` · ${li.supplied.status === 'Declined' ? 'request declined' : 'needs owner confirmation'}` : ''}
                                     {unitChangeOf(li) && (
                                         <span className="unit-change-note">

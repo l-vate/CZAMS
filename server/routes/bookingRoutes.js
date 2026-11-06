@@ -69,7 +69,7 @@ const { downPaymentProblem, balanceProblem, onlinePaymentModeProblem, DOWN_PAYME
 const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/queue');
 const { generateBookingId, createWithUniqueBookingId, BookingIdExhaustedError } = require('../utils/bookingId');
 const { invalid, sendProblem } = require('../utils/validation');
-const { lengthProblem } = require('../utils/inputLimits');
+const { lengthProblem, limits } = require('../utils/inputLimits');
 const { readPaymentSubmission, findSameReference } = require('../utils/paymentReference');
 const { readUnitBrand } = require('../utils/unitBrand');
 const { readMayNeedWorks, describeMayNeedWorks } = require('../utils/mayNeedWorks');
@@ -433,8 +433,11 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
       if (read.problem) return sendProblem(res, read.problem);
       brands.push(read.brand);
     }
+    const modelTooLong = units.find((u) => typeof u.modelNumber === 'string' && u.modelNumber.trim().length > limits.modelNumber);
+    if (modelTooLong) return res.status(400).json({ message: `The model number must be ${limits.modelNumber} characters or fewer.` });
     units = units.map((u, i) => ({
       type: u.type,
+      modelNumber: typeof u.modelNumber === 'string' && u.modelNumber.trim() ? u.modelNumber.trim() : undefined,
       quantity: Number(u.quantity),
       brand: brands[i],
       brandModel: (typeof u.brandModel === 'string' && u.brandModel.trim().toLowerCase() !== 'other' && u.brandModel.trim()) || brands[i],

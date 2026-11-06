@@ -494,6 +494,8 @@
 /* the capacity ("0.75 HP", "10.0 HP") is never cut short: the box is as wide as its longest label */
 .unit-entry-hp .below-select-box { min-width: 120px; text-overflow: clip; }
 .unit-entry-qty { text-align: center; padding-left: 8px; padding-right: 8px; }
+/* the optional model number sits on its own line under the unit */
+.unit-entry-model { grid-column: 1 / -1; order: 5; }
 
 .unit-entry-subtotal {
   font-weight: 700;
@@ -543,12 +545,13 @@
 @media (max-width: 620px) {
   .unit-entry-row {
     grid-template-columns: 1fr 1fr;
-    grid-template-areas: "type type" "qty hp" "brand brand" "subtotal remove";
+    grid-template-areas: "type type" "qty hp" "brand brand" "model model" "subtotal remove";
   }
   .unit-entry-type { grid-area: type; }
   .unit-entry-qty { grid-area: qty; }
   .unit-entry-brand { grid-area: brand; }
   .unit-entry-hp { grid-area: hp; }
+  .unit-entry-model { grid-area: model; order: 0; }
   .unit-entry-subtotal { grid-area: subtotal; }
   .unit-entry-remove { grid-area: remove; justify-self: end; }
 }

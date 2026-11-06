@@ -223,7 +223,7 @@ export function Step1({ form, setForm, services }) {
 }
 
 /* ── Step 2: Unit Details ─────────────────────────────────── */
-const EMPTY_UNIT_ENTRY = { type: '', quantity: 1, brandModel: '', hp: '' };
+const EMPTY_UNIT_ENTRY = { type: '', quantity: 1, brandModel: '', hp: '', modelNumber: '' };
 
 function getAccountName() {
   const storedUser = localStorage.getItem('user');
@@ -341,6 +341,17 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
                 value={unit.hp || ''}
                 options={[{ value: '', label: 'HP *' }, ...HP_OPTIONS.map((hp) => ({ value: hp, label: hpLabel(hp) })), { value: HP_NOT_SURE, label: HP_NOT_SURE }]}
                 onChange={(hp) => updateUnit(index, { hp })}
+              />
+
+              <input
+                type="text"
+                className="bs-input unit-entry-model"
+                placeholder="Model number (optional)"
+                aria-label="Model number (optional)"
+                maxLength={LIMITS.modelNumber}
+                autoComplete="off"
+                value={unit.modelNumber || ''}
+                onChange={(e) => updateUnit(index, { modelNumber: e.target.value })}
               />
 
               {selectedService && unit.type && (
@@ -813,7 +824,7 @@ export function Step5({ form, services, technicians, downPaymentPercentages, dis
           {lineItems.map((li, i) => (
             <div className="summary-row" key={i}>
               <span>Unit {i + 1}</span>
-              <span>{li.quantity}× {li.type || '-'}{li.brandModel ? ` - ${li.brandModel}` : ''}{li.hp ? ` - ${hpLabel(li.hp)}` : ''}</span>
+              <span>{li.quantity}× {li.type || '-'}{li.brandModel ? ` - ${li.brandModel}` : ''}{li.hp ? ` - ${hpLabel(li.hp)}` : ''}{li.modelNumber ? ` - Model ${li.modelNumber}` : ''}</span>
             </div>
           ))}
           <div className="summary-row"><span>Date &amp; Time</span><span>{form.date ? `${form.date}, ${form.time || ''}` : '-'}</span></div>

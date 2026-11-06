@@ -120,7 +120,7 @@ function toCustomerView(booking) {
   // manual price do not. The reason a request was declined stays, because the customer is told it.
   if (Array.isArray(b.units)) {
     out.units = b.units.map((u) => {
-      const entry = pick(u, ['_id', 'type', 'quantity', 'brandModel', 'hp']);
+      const entry = pick(u, ['_id', 'type', 'quantity', 'brandModel', 'hp', 'modelNumber']);
       if (u.supplied) {
         entry.supplied = pick(u.supplied, ['source', 'status', 'brand', 'model', 'type', 'hp', 'inverter', 'price', 'declineReason']);
         if (u.supplied.request) entry.supplied.request = pick(u.supplied.request, ['brand', 'type', 'hp', 'notes']);

@@ -216,6 +216,6 @@ export function getUnitsSummary(booking, { withBrand = false } = {}) {
   const { lineItems } = getBookingLineItems(booking);
   return lineItems
     .filter((li) => !li.isCharge)
-    .map((li) => `${li.quantity}× ${li.type}${withBrand && li.brandModel ? ` (${li.brandModel})` : ''}`)
+    .map((li) => `${li.quantity}× ${li.type}${withBrand && (li.brandModel || li.modelNumber) ? ` (${[li.brandModel, li.modelNumber ? `Model ${li.modelNumber}` : ''].filter(Boolean).join(', ')})` : ''}`)
     .join(', ');
 }

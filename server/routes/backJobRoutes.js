@@ -100,7 +100,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER), async (req, res) => {
           queueRank,
           customer: originalBooking.customer,
           service: originalBooking.service._id,
-          units: (originalBooking.units || []).map(({ type, quantity, brandModel, hp }) => ({ type, quantity, brandModel, hp })),
+          units: (originalBooking.units || []).map(({ type, quantity, brandModel, hp, modelNumber }) => ({ type, quantity, brandModel, hp, modelNumber })),
           unitTypes: originalBooking.unitTypes,
           brandModel: originalBooking.brandModel,
           problemDescription: issueDescription.trim(),

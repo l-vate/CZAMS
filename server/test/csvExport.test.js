@@ -28,9 +28,9 @@ test('text that starts like a formula gets a single quote prefix', async () => {
 
 test('the file has a BOM, the header, every row and the totals row', async () => {
   const { buildCsv } = await load();
-  const csv = buildCsv({ columns: ['Name', 'Amount'], rows: [['A, B', '₱1,200'], ['=1+1', 3]], totalRow: ['Total', 'x'] });
+  const csv = buildCsv({ columns: ['Name', 'Amount'], rows: [['A, B', '₱1,200.00'], ['=1+1', 3]], totalRow: ['Total', 'x'] });
   assert.equal(csv.charCodeAt(0), 0xFEFF);
-  assert.deepEqual(csv.slice(1).split('\r\n'), ['Name,Amount', '"A, B","₱1,200"', "'=1+1,3", 'Total,x', '']);
+  assert.deepEqual(csv.slice(1).split('\r\n'), ['Name,Amount', '"A, B","₱1,200.00"', "'=1+1,3", 'Total,x', '']);
 });
 
 test('the file name carries the report, the period and the date basis', async () => {

@@ -19,6 +19,9 @@ const validDate = (s) => DATE_PATTERN.test(String(s)) && !Number.isNaN(Date.pars
 // Returns null when fine, otherwise { status, message }. Used by create and update.
 async function validate(body) {
   if (!body.name || !String(body.name).trim()) return invalid('A promo name is required.');
+  const { lengthProblem } = require('../utils/inputLimits');
+  const tooLong = lengthProblem(String(body.name), 'promoName', 'The promo name') || lengthProblem(typeof body.description === 'string' ? body.description : '', 'promoDescription', 'The description');
+  if (tooLong) return tooLong;
   if (!['percent', 'fixed'].includes(body.discountType)) return invalid('Choose a percent or a fixed amount discount.');
   const value = Number(body.discountValue);
   if (!Number.isFinite(value)) return invalid('Enter the discount value.');

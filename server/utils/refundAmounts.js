@@ -1,11 +1,12 @@
 // What an admin is allowed to refund. Pure, so every rule can be tested without a database.
 const { invalid } = require('./validation');
+const { formatMoney } = require('./money');
 
 const REASON_MIN = 3;
 const REASON_MAX = 300;
 const FEE_REASON_MAX = 200;
 
-const peso = (n) => `₱${Number(n).toLocaleString()}`;
+const peso = (n) => formatMoney(n);
 
 // `amountPaid` is the down payment the customer actually paid. For a cancellation on or after the booked date the
 // dispatch deduction is the computed adjustment; for any other cancellation the computed amount is

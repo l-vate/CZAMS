@@ -26,6 +26,10 @@ const FILE_TYPES = Object.freeze({
   'image/jpeg': { ext: '.jpg', label: 'JPG', matches: (b) => b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
   'image/png': { ext: '.png', label: 'PNG', matches: (b) => b.length >= 8 && b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) },
   'image/webp': { ext: '.webp', label: 'WEBP', matches: (b) => b.length >= 12 && b.subarray(0, 4).toString('latin1') === 'RIFF' && b.subarray(8, 12).toString('latin1') === 'WEBP' },
+  // a short video clip: an MP4 or a phone's MOV both start with an 'ftyp' box, a WEBM with the EBML header
+  'video/mp4': { ext: '.mp4', label: 'MP4', matches: (b) => b.length >= 12 && b.subarray(4, 8).toString('latin1') === 'ftyp' },
+  'video/quicktime': { ext: '.mov', label: 'MOV', matches: (b) => b.length >= 12 && b.subarray(4, 8).toString('latin1') === 'ftyp' },
+  'video/webm': { ext: '.webm', label: 'WEBM', matches: (b) => b.length >= 4 && b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3 },
   'application/pdf': { ext: '.pdf', label: 'PDF', matches: (b) => b.length >= 5 && b.subarray(0, 5).toString('latin1') === '%PDF-' },
 });
 
@@ -33,6 +37,11 @@ const FILE_TYPES = Object.freeze({
 const IMAGE_TYPES = Object.freeze(['image/jpeg', 'image/png', 'image/webp']);
 const PHOTO_TYPES = Object.freeze(['image/jpeg', 'image/png']); // the signed paper form photo
 const PROOF_TYPES = Object.freeze([...IMAGE_TYPES, 'application/pdf']); // payment, ID, refund and purchase proofs
+const VIDEO_TYPES = Object.freeze(['video/mp4', 'video/quicktime', 'video/webm']); // a short clip of a problem
+const MEDIA_TYPES = Object.freeze([...IMAGE_TYPES, ...VIDEO_TYPES]); // a picture or a clip of a problem, or of where a unit will go
+// A clip is limited harder than a picture because the database holds it as it came (it is not shrunk): about 15 seconds at 480p to 720p.
+const VIDEO_MAX_BYTES = 15 * MB;
+const isVideoType = (mimetype) => VIDEO_TYPES.includes(mimetype);
 
 const extensionFor = (mimetype) => FILE_TYPES[mimetype]?.ext;
 
@@ -110,9 +119,9 @@ function verifyUploads(allowedTypes) {
       // a picture is decoded, shrunk and stripped of its metadata; a picture the library cannot read is refused. If the image library could
       // not be loaded on this host (imageProcessing "off" in /api/health), the picture is kept as it came, and each upload says so in the log.
       const processing = imageProcessingStatus() === 'on';
-      if (!processing && files.some((f) => f.mimetype !== 'application/pdf')) console.warn(OFF_WARNING);
+      if (!processing && files.some((f) => f.mimetype !== 'application/pdf' && !isVideoType(f.mimetype))) console.warn(OFF_WARNING);
       for (const file of files) {
-        if (file.mimetype === 'application/pdf' || !processing) continue;
+        if (file.mimetype === 'application/pdf' || isVideoType(file.mimetype) || !processing) continue;
         const cleaned = await cleanImage(file.buffer);
         file.buffer = cleaned.buffer;
         file.size = cleaned.buffer.length;
@@ -163,6 +172,6 @@ function createUploader({ allowedTypes, maxBytes = MAX_UPLOAD_BYTES }) {
 const UPLOADS_ROOT = path.join(__dirname, '..', 'uploads');
 
 module.exports = {
-  FILE_TYPES, MAX_UPLOAD_BYTES, IMAGE_TYPES, PHOTO_TYPES, PROOF_TYPES, UPLOADS_ROOT,
+  FILE_TYPES, MAX_UPLOAD_BYTES, IMAGE_TYPES, PHOTO_TYPES, PROOF_TYPES, VIDEO_TYPES, MEDIA_TYPES, VIDEO_MAX_BYTES, isVideoType, UPLOADS_ROOT,
   extensionFor, bytesMatch, verifyUploads, storeUploads, discardUploads, createUploader, describeTypes,
 };

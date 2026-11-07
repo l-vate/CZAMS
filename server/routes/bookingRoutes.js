@@ -69,6 +69,8 @@ const { downPaymentProblem, balanceProblem, onlinePaymentModeProblem, DOWN_PAYME
 const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/queue');
 const { generateBookingId, createWithUniqueBookingId, BookingIdExhaustedError } = require('../utils/bookingId');
 const { invalid, sendProblem } = require('../utils/validation');
+const { lengthProblem, limits } = require('../utils/inputLimits');
+const { mediaUploader, mediaFieldRules, MEDIA_FIELD } = require('../utils/mediaUpload');
 const { readPaymentSubmission, findSameReference } = require('../utils/paymentReference');
 const { readUnitBrand } = require('../utils/unitBrand');
 const { readMayNeedWorks, describeMayNeedWorks } = require('../utils/mayNeedWorks');
@@ -87,6 +89,7 @@ const { readReason, buildHistoryEntry, viewHistory, idsIn } = require('../utils/
 const { resolveClassification } = require('../utils/classification');
 
 const { TIME_BLOCKS } = require('../utils/timeBlocks');
+const { formatMoney } = require('../utils/money');
 
 // Every route that returns a booking includes its computed warranty status (utils/bookingView.js).
 
@@ -352,7 +355,7 @@ router.get('/technicians/:id/feedback', auth, async (req, res) => {
 router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (req, res, next) => {
   req.generatedBookingId = generateBookingId();
   next();
-}, upload.fields([{ name: 'proof', maxCount: 1 }, { name: 'discountId', maxCount: 1 }]), customerProofImagesOnly, async (req, res) => {
+}, mediaUploader.fields([{ name: 'proof', maxCount: 1 }, { name: 'discountId', maxCount: 1 }, { name: MEDIA_FIELD, maxCount: 1 }]), mediaFieldRules, customerProofImagesOnly, async (req, res) => {
   try {
     // A refused request must not leave its uploaded file behind.
     res.on('finish', () => { if (res.statusCode >= 400) discardUploads(req); });
@@ -388,6 +391,10 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
     if (typeof address !== 'string' || !address.trim()) {
       return res.status(400).json({ message: 'Address is required.' });
     }
+    // the longest a new booking's text may be (utils/inputLimits.js); nothing already saved is cut
+    const textTooLong = lengthProblem(address, 'address', 'The address') || lengthProblem(problemDescription, 'problemDescription', 'The problem description')
+      || lengthProblem(contactNumber, 'phone', 'The contact number') || lengthProblem(unitWaiverName, 'waiverName', 'The name');
+    if (textTooLong) return sendProblem(res, textTooLong);
 
     const cleanContactNumber = normalizeContactNumber(contactNumber);
     if (!cleanContactNumber) {
@@ -427,8 +434,11 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
       if (read.problem) return sendProblem(res, read.problem);
       brands.push(read.brand);
     }
+    const modelTooLong = units.find((u) => typeof u.modelNumber === 'string' && u.modelNumber.trim().length > limits.modelNumber);
+    if (modelTooLong) return res.status(400).json({ message: `The model number must be ${limits.modelNumber} characters or fewer.` });
     units = units.map((u, i) => ({
       type: u.type,
+      modelNumber: typeof u.modelNumber === 'string' && u.modelNumber.trim() ? u.modelNumber.trim() : undefined,
       quantity: Number(u.quantity),
       brand: brands[i],
       brandModel: (typeof u.brandModel === 'string' && u.brandModel.trim().toLowerCase() !== 'other' && u.brandModel.trim()) || brands[i],
@@ -570,6 +580,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
       return res.status(400).json({ message: 'An installation has to be confirmed by our team first. You can send the down payment once it is confirmed.' });
     }
     const proofFile = req.files?.proof?.[0] ? `/uploads/proofs/${req.files.proof[0].filename}` : undefined;
+    const problemMedia = req.files?.[MEDIA_FIELD]?.[0] ? `/uploads/proofs/${req.files[MEDIA_FIELD][0].filename}` : undefined;
 
     // A customer who submits a payment now (proof or reference given) must give both for GCash and
     // Bank Transfer. With neither, the booking is made unpaid and paid later from Billing. An admin
@@ -642,13 +653,13 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
         await assertUnderPendingLimit(Booking, bookingCustomerId);
         await assertSlotOpen(date, time);
       }
-      await storeUploads(req, { kind: (file) => (file.fieldname === 'discountId' ? KINDS.ID_PHOTO : KINDS.PROOF), bookingId: req.generatedBookingId });
+      await storeUploads(req, { kind: (file) => (file.fieldname === 'discountId' ? KINDS.ID_PHOTO : file.fieldname === MEDIA_FIELD ? KINDS.PROBLEM_MEDIA : KINDS.PROOF), bookingId: req.generatedBookingId });
       const queueRank = await nextQueueRank(); // last in line: first come, first served
       return createWithUniqueBookingId((bookingId) => Booking.create({
         bookingId,
         queueRank,
         customer: bookingCustomerId,
-        service, units, problemDescription,
+        service, units, problemDescription, problemMedia,
         priceSnapshot: buildPriceSnapshot(serviceDoc, units),
         date, time, requestedTechnician: technician || undefined, address: address.trim(), contactNumber: cleanContactNumber,
         downPaymentPercent, paymentMode, paymentMode2,
@@ -1193,7 +1204,7 @@ router.patch('/:bookingId/discount/approve', auth, auditSpecs.discountApprove, a
       booking.discount.reviewedAt = undefined;
       booking.discount.reviewedBy = undefined;
       return res.status(400).json({
-        message: `The customer has already paid ₱${alreadyPaid.toLocaleString()}, which is more than the discounted total of ₱${discountedTotal.toLocaleString()}. The discount cannot be applied. Handle the difference through the refund flow instead.`,
+        message: `The customer has already paid ${formatMoney(alreadyPaid)}, which is more than the discounted total of ${formatMoney(discountedTotal)}. The discount cannot be applied. Handle the difference through the refund flow instead.`,
       });
     }
 
@@ -1211,7 +1222,7 @@ router.patch('/:bookingId/discount/approve', auth, auditSpecs.discountApprove, a
       NOTIFICATION_TYPE.DISCOUNT_APPROVED,
       applied.kind === 'promo'
         ? `Your ${kindName} discount for booking ${booking.bookingId} was approved (${percent}%), but the promo "${booking.promo.name}" already gives you a larger discount, so the promo applies and your total is unchanged.`
-        : `Your ${kindName} discount for booking ${booking.bookingId} was approved: ${percent}% off, a saving of ₱${booking.discount.amount.toLocaleString()}.`,
+        : `Your ${kindName} discount for booking ${booking.bookingId} was approved: ${percent}% off, a saving of ${formatMoney(booking.discount.amount)}.`,
       { booking }
     );
 
@@ -2728,7 +2739,7 @@ router.patch('/:bookingId/refund', auth, auditSpecs.refundProcess, allowRoles(RO
     await sendNotification(
       booking.customer,
       NOTIFICATION_TYPE.REFUND_PROCESSED,
-      `Your refund of ₱${(booking.refund.refundableAmount || 0).toLocaleString()} for booking ${booking.bookingId} has been processed.`,
+      `Your refund of ${formatMoney((booking.refund.refundableAmount || 0))} for booking ${booking.bookingId} has been processed.`,
       { booking }
     );
 
@@ -2764,7 +2775,7 @@ router.patch('/:bookingId/refund/received', auth, allowRoles(ROLE.CUSTOMER), asy
 
     await notifyAdmins(
       NOTIFICATION_TYPE.REFUND_CONFIRMED,
-      `The customer confirmed they received the refund of ₱${(booking.refund.refundableAmount || 0).toLocaleString()} for booking ${booking.bookingId}.`,
+      `The customer confirmed they received the refund of ${formatMoney((booking.refund.refundableAmount || 0))} for booking ${booking.bookingId}.`,
       { booking }
     );
 

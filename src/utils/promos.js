@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { orFallback } from '../services/apiClient';
 import { listPublicPromos } from '../services/promotionService';
+import { formatMoney } from './money.js';
 
 // Today's date in Philippine time as YYYY-MM-DD (what promo start and end dates are compared against).
 export function manilaToday() {
@@ -39,7 +40,7 @@ export function pickBestPromo(promos, order, today) {
 
 // "10% off" or "₱500 off"
 export function describeDiscount(promo) {
-  return promo.discountType === 'percent' ? `${promo.discountValue}% off` : `₱${Number(promo.discountValue).toLocaleString()} off`;
+  return promo.discountType === 'percent' ? `${promo.discountValue}% off` : `${formatMoney(Number(promo.discountValue))} off`;
 }
 
 // The promos in force today, from the public endpoint (no login needed).

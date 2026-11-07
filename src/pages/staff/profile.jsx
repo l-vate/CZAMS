@@ -13,6 +13,7 @@ import { nameParts, namePartProblem } from '../../utils/personName';
 import { withFallback } from '../../services/apiClient';
 import { uploadProfilePhoto, updateProfile } from '../../services/authService';
 import ChangePasswordModal from '../../components/change_password_modal';
+import { LIMITS } from '../../constants/inputLimits';
 
 
 function buildProfileFromUser(user) {
@@ -172,7 +173,7 @@ function Profile() {
 
             <div className="form-group">
               <label htmlFor="email">Email Address</label>
-              <input
+              <input maxLength={LIMITS.email}
                 type="email"
                 id="email"
                 name="email"
@@ -184,7 +185,7 @@ function Profile() {
 
             <div className="form-group">
               <label htmlFor="phone">Phone Number</label>
-              <input
+              <input maxLength={LIMITS.phone}
                 type="tel"
                 id="phone"
                 name="phone"
@@ -199,15 +200,6 @@ function Profile() {
                 {saveError}
               </p>
             )}
-
-            <div className="cancel-confirm-actions">
-              <button type="button" className="bs-back-btn" onClick={handleCancel} disabled={saving}>
-                Cancel
-              </button>
-              <button type="button" className="bs-next-btn" onClick={handleSave} disabled={saving}>
-                {saving ? 'Saving...' : 'Save Changes'}
-              </button>
-            </div>
           </div>
         ) : (
           <div>
@@ -217,6 +209,18 @@ function Profile() {
               <span className="profile-contact-line"><FiMail size={13} /> {profile.email}</span>
               <span className="profile-contact-line"><FiPhone size={13} /> {profile.phone}</span>
             </div>
+          </div>
+        )}
+
+        {/* Cancel and Save Changes: below the fields, across the bottom of the card */}
+        {isEditing && (
+          <div className="tech-profile-edit-actions">
+            <button type="button" className="bs-back-btn" onClick={handleCancel} disabled={saving}>
+              Cancel
+            </button>
+            <button type="button" className="bs-next-btn" onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving...' : 'Save Changes'}
+            </button>
           </div>
         )}
 

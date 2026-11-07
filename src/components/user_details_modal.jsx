@@ -5,6 +5,7 @@ import { updateUser, updateClassification } from '../services/userService';
 import { ROLE } from '../constants/roles';
 import CustomerHistory from './customer_history';
 import { POSITION_MAX, POSITION_SUGGESTIONS, COMPANY_NAME_MAX, REPRESENTATIVE_NAME_MAX } from '../constants/profileFields';
+import { LIMITS } from '../constants/inputLimits';
 
 function Icon({ name }) {
   const common = {
@@ -191,7 +192,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
                 <div>
                   <span className="sdm-row-label">FULL NAME</span>
                   {isEditing ? (
-                    <input
+                    <input maxLength={LIMITS.fullName}
                       type="text"
                       className="ma-input"
                       value={formData.name}
@@ -208,7 +209,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
                 <div>
                   <span className="sdm-row-label">EMAIL ADDRESS</span>
                   {isEditing ? (
-                    <input
+                    <input maxLength={LIMITS.email}
                       type="email"
                       className="ma-input"
                       value={formData.email}
@@ -225,7 +226,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
                 <div>
                   <span className="sdm-row-label">PHONE NUMBER</span>
                   {isEditing ? (
-                    <input
+                    <input maxLength={LIMITS.phone}
                       type="text"
                       className="ma-input"
                       value={formData.phone}
@@ -242,7 +243,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
                 <div>
                   <span className="sdm-row-label">ADDRESS</span>
                   {isEditing ? (
-                    <textarea
+                    <textarea maxLength={LIMITS.address}
                       className="ma-textarea"
                       rows={2}
                       value={formData.address}

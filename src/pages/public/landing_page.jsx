@@ -28,6 +28,7 @@ import { UnitTypesSection, WhySection } from '../../components/landing/units_and
 import { HowSection, FaqSection, CtaBand } from '../../components/landing/how_faq_cta';
 import LandingFooter from '../../components/landing/landing_footer';
 import SectionHeading from '../../components/landing/section_heading';
+import { formatMoney } from '../../utils/money';
 
 const NAV_SEARCH_RESULTS_LIMIT = 8;
 
@@ -190,7 +191,7 @@ function NavSearch({ navigate, services }) {
                               )}
                             </div>
                             <span className="nav-search-service-base-price">
-                              From ₱{Number(s.price).toLocaleString()}
+                              From {formatMoney(Number(s.price))}
                             </span>
                           </div>
                           {s.description && (
@@ -208,7 +209,7 @@ function NavSearch({ navigate, services }) {
                                 />
                                 <span className="nav-search-unit-label">{type}</span>
                                 <span className="nav-search-unit-price">
-                                  ₱{Number(getUnitPrice(s, type)).toLocaleString()}
+                                  {formatMoney(Number(getUnitPrice(s, type)))}
                                 </span>
                               </div>
                             ))}

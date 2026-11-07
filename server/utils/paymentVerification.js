@@ -9,6 +9,7 @@
 //   reject   to_verify -> rejected. Needs a reason, which the customer is told.
 //   reverse  verified -> back for checking again. A documented action: needs a reason and is recorded.
 // Every one of them adds a line to booking.paymentEvents: who, when, which payment, amount, outcome, reason.
+const { formatMoney } = require('./money');
 const { PAYMENT_STATUS, PAYMENT_STATUS_VALUES, BALANCE_PAYMENT_STATUS, BALANCE_PAYMENT_STATUS_VALUES } = require('../constants/paymentStatus');
 const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const { invalid } = require('./validation');
@@ -20,7 +21,7 @@ const VERIFIED_DOWN = [PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID]
 // There is no in-person down payment: the customer sends it online (GCash or Bank Transfer) and an admin verifies the proof.
 const IN_PERSON_DOWN_MESSAGE = 'There is no in-person down payment. The customer sends the down payment online from Payment & Billing and you verify the proof. Only the balance can be recorded here.';
 const NONE = (v) => v === undefined || v === null;
-const peso = (n) => `₱${Number(n).toLocaleString('en-US', Number.isInteger(Number(n)) ? {} : { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const peso = (n) => formatMoney(n);
 
 function reasonProblem(reason, what) {
   const text = typeof reason === 'string' ? reason.trim() : '';
@@ -32,6 +33,18 @@ function reasonProblem(reason, what) {
 const downPaymentAmount = (booking) => (typeof booking.downPaymentPaidAmount === 'number'
   ? booking.downPaymentPaidAmount
   : getPaymentBreakdown(booking).downPayment);
+
+// Who verified a payment and when, from the record (paymentEvents), worded for the admin. Used when a second approval of the same payment
+// arrives (a stale screen, a second tab, two admins): the answer says what already happened, and nothing is written.
+function verifiedBy(booking, track) {
+  const events = Array.isArray(booking.paymentEvents) ? booking.paymentEvents : [];
+  const found = [...events].reverse().find((e) => e.track === track && (e.status === 'verified' || e.status === 'recorded'));
+  if (!found) return '';
+  const when = found.at ? new Date(found.at).toLocaleString('en-US', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' }) : '';
+  return ` by ${found.by?.name || 'an admin'}${when ? ` on ${when}` : ''}`;
+}
+const alreadyVerified = (booking, track) => invalid(
+  `This ${track === 'balance' ? 'balance' : 'down'} payment was already verified${verifiedBy(booking, track)}. Nothing was changed.`, 400);
 
 // Reads the payment part of an admin-update request. Returns { problem } or { plan } where plan is null (no payment change)
 // or { track, action, expect, set, unset, event }.
@@ -53,6 +66,8 @@ function planPaymentChange(booking, { paymentStatus, balancePaymentStatus, balan
     if (typeof paymentStatus !== 'string' || !PAYMENT_STATUS_VALUES.includes(paymentStatus)) {
       return { problem: invalid(`Payment status must be one of: ${PAYMENT_STATUS_VALUES.join(', ')}.`) };
     }
+    // approving a payment that is already verified: refused with who verified it and when, so a second tab or a second admin changes nothing
+    if (VERIFIED_DOWN.includes(booking.paymentStatus) && VERIFIED_DOWN.includes(paymentStatus)) return { problem: alreadyVerified(booking, 'down') };
     if (booking.paymentStatus !== PAYMENT_STATUS.TO_VERIFY) {
       return { problem: invalid(paymentStatus === booking.paymentStatus
         ? 'That payment already has this status.'
@@ -83,6 +98,9 @@ function planPaymentChange(booking, { paymentStatus, balancePaymentStatus, balan
   // the balance track
   if (typeof balancePaymentStatus !== 'string' || !BALANCE_PAYMENT_STATUS_VALUES.includes(balancePaymentStatus)) {
     return { problem: invalid(`Balance status must be one of: ${BALANCE_PAYMENT_STATUS_VALUES.join(', ')}.`) };
+  }
+  if (booking.balancePaymentStatus === BALANCE_PAYMENT_STATUS.PAID && balancePaymentStatus === BALANCE_PAYMENT_STATUS.PAID) {
+    return { problem: alreadyVerified(booking, 'balance') };
   }
   if (booking.balancePaymentStatus !== BALANCE_PAYMENT_STATUS.TO_VERIFY) {
     return { problem: invalid('Only a balance payment that is waiting to be verified can be verified or rejected. To undo a verification use Reverse.') };

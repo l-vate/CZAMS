@@ -7,7 +7,7 @@ import PaymentSettingsPanel from '../../components/payment_settings_panel';
 function ManagePaymentSettings() {
   return (
     <AdminLayout title="Manage Payment Settings">
-      <h1 className="dashboard-welcome">Manage Payment Settings</h1>
+      <h1 className="dashboard-welcome page-title-in-topbar">Manage Payment Settings</h1>
       <PaymentSettingsPanel />
     </AdminLayout>
   );

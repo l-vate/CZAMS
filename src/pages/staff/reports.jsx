@@ -14,6 +14,9 @@ import { BOOKING_STATUS } from '../../constants/bookingStatus';
 import { addMonthsKey, BOOKING_MAX_MONTHS } from '../../utils/dateRules';
 import { ProofLink, ProofImage } from '../../components/proof_file';
 import { BackJobBadge, BackJobInfo } from '../../components/back_job_info';
+import { LIMITS } from '../../constants/inputLimits';
+import CharsLeft from '../../components/chars_left';
+import FilePreview from '../../components/file_preview';
 
 
 // Today's date as YYYY-MM-DD in Philippine time, the same day the server compares against.
@@ -197,7 +200,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
             <label htmlFor="workSummary" className="tech-stat-label">
               Work Summary <span className="staff-reports-x3">*</span>
             </label>
-            <textarea
+            <textarea maxLength={LIMITS.reportText}
               id="workSummary"
               name="workSummary"
               className="tech-search-input staff-reports-x4"
@@ -205,6 +208,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
               value={form.workSummary}
               onChange={handleChange}
             />
+<CharsLeft value={form.workSummary} max={LIMITS.reportText} />
           </div>
 
           {/* Labor Hours & Resolution: both required */}
@@ -251,7 +255,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
             <label htmlFor="partsUsed" className="tech-stat-label">
               Parts Used <span className="staff-reports-x6">(Optional)</span>
             </label>
-            <input
+            <input maxLength={LIMITS.reportText}
               type="text"
               id="partsUsed"
               name="partsUsed"
@@ -316,7 +320,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
             <label htmlFor="recommendations" className="tech-stat-label">
               Recommendations <span className="staff-reports-x6">(Optional)</span>
             </label>
-            <textarea
+            <textarea maxLength={LIMITS.reportText}
               id="recommendations"
               name="recommendations"
               className="tech-search-input staff-reports-x10"
@@ -325,6 +329,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
               onChange={handleChange}
               disabled={form.recommendationsNone}
             />
+<CharsLeft value={form.recommendations} max={LIMITS.reportText} />
             <label className="staff-reports-x9" htmlFor="recommendationsNone">
               <input type="checkbox" id="recommendationsNone" name="recommendationsNone" checked={form.recommendationsNone} onChange={handleChange} /> None, nothing to recommend
             </label>
@@ -335,7 +340,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
             <label htmlFor="notes" className="tech-stat-label">
               Additional Notes <span className="staff-reports-x6">(Optional)</span>
             </label>
-            <textarea
+            <textarea maxLength={LIMITS.reportText}
               id="notes"
               name="notes"
               className="tech-search-input staff-reports-x10"
@@ -343,6 +348,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
               value={form.notes}
               onChange={handleChange}
             />
+<CharsLeft value={form.notes} max={LIMITS.reportText} />
           </div>
 
           {/* Pre-existing Issue Checkbox */}
@@ -366,7 +372,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
               <label htmlFor="preExistingIssueDescription" className="tech-stat-label">
                 Describe what you found <span className="staff-reports-x3">*</span>
               </label>
-              <textarea
+              <textarea maxLength={LIMITS.reportShortText}
                 id="preExistingIssueDescription"
                 name="preExistingIssueDescription"
                 className="tech-search-input staff-reports-x10"
@@ -385,7 +391,7 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
             <p className="staff-reports-x11">
               Have the client review this report and sign below before submitting.
             </p>
-            <input
+            <input maxLength={LIMITS.signedName}
               type="text"
               name="clientConsentSignedName"
               className="tech-search-input staff-reports-x12"
@@ -405,7 +411,8 @@ function SubmitReportModal({ reportItem, onClose, onSubmit, submitting, serverEr
             <p className="staff-reports-x11">
               With a photo attached, the signature and name above are no longer required.
             </p>
-            <input id="signed-form-photo" type="file" accept="image/jpeg,image/png" onChange={handlePhoto} />
+            <input id="signed-form-photo" type="file" accept="image/jpeg,image/png" onClick={(e) => { e.target.value = ''; }} onChange={handlePhoto} />
+            <FilePreview file={photo} label="Signed paper form" onRemove={() => setPhoto(null)} />
             {preparing && <p className="sdm-muted" role="status">Preparing photo...</p>}
           </div>
 

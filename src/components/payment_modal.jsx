@@ -1,8 +1,10 @@
 import { useState } from 'react';
 
 import { formatPeso } from '../utils/bookingPricing';
-import { needsReference, normalizeReference, referenceError, referenceHint, referencePlaceholder, isGcashMode, REFERENCE_MAX } from '../utils/paymentReference';
+import { needsReference, normalizeReference, referenceError, referenceHint, referencePlaceholder, isGcashMode, typedReference, GCASH_REFERENCE_DIGITS, REFERENCE_MAX } from '../utils/paymentReference';
 import { shrinkPhoto } from '../utils/photoShrink';
+import FilePreview from './file_preview';
+import { formatMoney } from '../utils/money';
 
 // `initialProof` and `initialReference` are what the customer entered the last time this window was open, so opening it again keeps them.
 function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], onClose, onSubmit, initialProof = null, initialReference = '' }) {
@@ -92,15 +94,15 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
           {form.discountAmount > 0 && !form.lineItems?.some((li) => li.isDiscount) && (
             <div className="modal-cost-row"><span>{form.discountLabel || 'Discount'}</span><span>{formatPeso(-form.discountAmount)}.00</span></div>
           )}
-          <div className="modal-cost-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}.00</span></div>
+          <div className="modal-cost-row"><span>Total Price</span><span>{formatMoney(basePrice)}</span></div>
           <div className="modal-cost-row"><span>Down Payment</span><span>{dpPercent === null ? 'Not set' : `${dpPercent}%`}</span></div>
 
           {isBalance ? (
-            <div className="modal-cost-row modal-cost-row--highlight"><span>Remaining Balance Due</span><span>₱{amountDue.toLocaleString()}.00</span></div>
+            <div className="modal-cost-row modal-cost-row--highlight"><span>Remaining Balance Due</span><span>{formatMoney(amountDue)}</span></div>
           ) : (
             <>
-              <div className="modal-cost-row modal-cost-row--highlight"><span>Amount to Pay Now</span><span>₱{toPayNow.toLocaleString()}.00</span></div>
-              <div className="modal-cost-row"><span>Balance</span><span>₱{remaining.toLocaleString()}.00</span></div>
+              <div className="modal-cost-row modal-cost-row--highlight"><span>Amount to Pay Now</span><span>{formatMoney(toPayNow)}</span></div>
+              <div className="modal-cost-row"><span>Balance</span><span>{formatMoney(remaining)}</span></div>
             </>
           )}
 
@@ -130,10 +132,12 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
               type="file"
               accept="image/jpeg,image/png"
               className="payment-modal-x1"
+              onClick={(e) => { e.target.value = ''; }}
               onChange={handleProofChange}
               onBlur={() => setProofTouched(true)}
             />
           </label>
+          <FilePreview file={proof} label="Proof of payment" onRemove={() => { setProof(null); setProofTouched(true); }} />
           {preparing && <p className="sdm-muted" role="status">Preparing photo...</p>}
           {fileError && (
             <p className="payment-modal-x2">
@@ -156,13 +160,19 @@ function PaymentModal({ form, paymentType = 'downpayment', paymentMethods = [], 
               id="payment-reference"
               type="text"
               className="bs-input"
-              maxLength={REFERENCE_MAX}
+              maxLength={isGcashMode(selectedModeName) ? GCASH_REFERENCE_DIGITS : REFERENCE_MAX}
               inputMode={isGcashMode(selectedModeName) ? 'numeric' : 'text'}
+              pattern={isGcashMode(selectedModeName) ? '[0-9]*' : undefined}
               autoComplete="off"
               aria-describedby="payment-reference-hint"
               aria-invalid={Boolean(referenceProblem && showReferenceError)}
               value={referenceNumber}
-              onChange={(e) => setReferenceNumber(e.target.value)}
+              onChange={(e) => setReferenceNumber(typedReference(e.target.value, selectedModeName))}
+              onPaste={(e) => {
+                if (!isGcashMode(selectedModeName)) return;
+                e.preventDefault(); // a pasted receipt number may hold spaces or dashes: keep its digits
+                setReferenceNumber(typedReference(e.clipboardData.getData('text'), selectedModeName));
+              }}
               onBlur={() => setReferenceTouched(true)}
               placeholder={referencePlaceholder(selectedModeName)}
             />

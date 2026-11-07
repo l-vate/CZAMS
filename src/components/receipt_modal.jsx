@@ -6,6 +6,7 @@ import { ProofLink } from './proof_file';
 import { BRAND_NAME, COMPANY_PHONE } from '../config/company';
 import { formatDays, formatMonths, siteLines, vatInside } from '../utils/quotationTerms';
 import { hpLabel } from '../utils/hpLabel';
+import { formatMoney } from '../utils/money';
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -159,14 +160,14 @@ function ReceiptModal({ form, booking, billTo, onClose }) {
                     <tr key={i}>
                       <td className="receipt-col-desc">{form.service || '-'} - {li.type || '-'}{li.brandModel ? ` (${li.brandModel})` : ''}{li.hp ? ` ${hpLabel(li.hp)}` : ''}</td>
                       <td className="receipt-col-qty">{li.quantity}</td>
-                      <td className="receipt-col-price">₱{li.subtotal.toLocaleString()}</td>
+                      <td className="receipt-col-price">{formatMoney(li.subtotal)}</td>
                     </tr>
                   ))
                 ) : (
                   <tr>
                     <td className="receipt-col-desc">{form.service || '-'}</td>
                     <td className="receipt-col-qty">1</td>
-                    <td className="receipt-col-price">₱{basePrice.toLocaleString()}</td>
+                    <td className="receipt-col-price">{formatMoney(basePrice)}</td>
                   </tr>
                 )}
               </tbody>
@@ -179,11 +180,11 @@ function ReceiptModal({ form, booking, billTo, onClose }) {
               <>
                 <div className="receipt-info-row">
                   <span>Subtotal before discount</span>
-                  <span>₱{(basePrice + discountAmount).toLocaleString()}</span>
+                  <span>{formatMoney((basePrice + discountAmount))}</span>
                 </div>
                 <div className="receipt-info-row">
-                  <span>{form.discountLabel || 'Discount'} (-₱{discountAmount.toLocaleString()})</span>
-                  <span>-₱{discountAmount.toLocaleString()}</span>
+                  <span>{form.discountLabel || 'Discount'} (-{formatMoney(discountAmount)})</span>
+                  <span>-{formatMoney(discountAmount)}</span>
                 </div>
               </>
             )}
@@ -192,38 +193,38 @@ function ReceiptModal({ form, booking, billTo, onClose }) {
               <>
                 <div className="receipt-info-row">
                   <span>Total (VAT included)</span>
-                  <span>₱{basePrice.toLocaleString()}</span>
+                  <span>{formatMoney(basePrice)}</span>
                 </div>
                 <div className="receipt-info-row">
                   <span>VAT included (12%)</span>
-                  <span>₱{(vatAmount || vatInside(basePrice)).toLocaleString()}</span>
+                  <span>{formatMoney((vatAmount || vatInside(basePrice)))}</span>
                 </div>
               </>
             ) : isCommercial ? (
               <>
                 <div className="receipt-info-row">
                   <span>Subtotal</span>
-                  <span>₱{basePrice.toLocaleString()}</span>
+                  <span>{formatMoney(basePrice)}</span>
                 </div>
                 <div className="receipt-info-row">
                   <span>VAT (12%)</span>
-                  <span>₱{vatAmount.toLocaleString()}</span>
+                  <span>{formatMoney(vatAmount)}</span>
                 </div>
                 <div className="receipt-info-row">
                   <span>Total incl. VAT</span>
-                  <span>₱{(basePrice + vatAmount).toLocaleString()}</span>
+                  <span>{formatMoney((basePrice + vatAmount))}</span>
                 </div>
               </>
             ) : (
               <>
                 <div className="receipt-info-row">
                   <span>Total</span>
-                  <span>₱{basePrice.toLocaleString()}</span>
+                  <span>{formatMoney(basePrice)}</span>
                 </div>
                 {taxInclusive && (
                   <div className="receipt-info-row">
                     <span>VAT included in the price (12%)</span>
-                    <span>₱{vatInside(basePrice).toLocaleString()}</span>
+                    <span>{formatMoney(vatInside(basePrice))}</span>
                   </div>
                 )}
               </>
@@ -231,12 +232,12 @@ function ReceiptModal({ form, booking, billTo, onClose }) {
 
             <div className="receipt-info-row">
               <span>Down payment{dpPercent === null ? '' : ` (${dpPercent}%)`}</span>
-              <span>₱{toPayNow.toLocaleString()}</span>
+              <span>{formatMoney(toPayNow)}</span>
             </div>
 
             <div className="receipt-info-row">
               <span>Balance due</span>
-              <span>₱{balanceDue.toLocaleString()}</span>
+              <span>{formatMoney(balanceDue)}</span>
             </div>
 
             {isBilledOnTerms && (
@@ -273,7 +274,7 @@ function ReceiptModal({ form, booking, billTo, onClose }) {
               <>
                 <div className="receipt-info-row">
                   <span>Balance Amount Paid</span>
-                  <span>₱{remaining.toLocaleString()}</span>
+                  <span>{formatMoney(remaining)}</span>
                 </div>
                 <div className="receipt-info-row">
                   <span>Balance Payment Method</span>

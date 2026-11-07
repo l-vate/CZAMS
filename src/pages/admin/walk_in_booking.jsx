@@ -27,6 +27,9 @@ import { selectableCustomers } from '../../utils/walkInCustomers';
 import { ROLE } from '../../constants/roles';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
 import { bookingDateProblem } from '../../utils/dateRules';
+import { formatMoney } from '../../utils/money';
+import { LIMITS } from '../../constants/inputLimits';
+import FilePreview from '../../components/file_preview';
 
 const TOTAL_STEPS = 6;
 const STEP_LABELS = ['Customer', 'Choose Service', 'Unit Details', 'Location & Schedule', 'Payment', 'Booking Summary'];
@@ -135,7 +138,7 @@ function CustomerStep({ customers, loadingCustomers, selectedCustomer, onSelectC
         <>
           <div className="bs-field-group">
             <label className="bs-label">Search</label>
-            <input
+            <input maxLength={LIMITS.searchText}
               type="text"
               className="bs-input"
               placeholder="Search by name, email, or phone..."
@@ -168,7 +171,7 @@ function CustomerStep({ customers, loadingCustomers, selectedCustomer, onSelectC
         <form onSubmit={handleCreateCustomer}>
           <div className="bs-field-group">
             <label className="bs-label">Full Name</label>
-            <input
+            <input maxLength={LIMITS.fullName}
               type="text"
               className="bs-input"
               placeholder="e.g. Juan Dela Cruz"
@@ -179,7 +182,7 @@ function CustomerStep({ customers, loadingCustomers, selectedCustomer, onSelectC
 
           <div className="bs-field-group">
             <label className="bs-label">Email Address</label>
-            <input
+            <input maxLength={LIMITS.email}
               type="email"
               className="bs-input"
               placeholder="e.g. juan.delacruz@email.com"
@@ -190,7 +193,7 @@ function CustomerStep({ customers, loadingCustomers, selectedCustomer, onSelectC
 
           <div className="bs-field-group">
             <label className="bs-label">Phone Number</label>
-            <input
+            <input maxLength={LIMITS.phone}
               type="tel"
               className="bs-input"
               placeholder="e.g. 0917 123 4567"
@@ -203,7 +206,7 @@ function CustomerStep({ customers, loadingCustomers, selectedCustomer, onSelectC
             <label className="bs-label">
               Address <span className="bs-label-hint">(Optional)</span>
             </label>
-            <input
+            <input maxLength={LIMITS.address}
               type="text"
               className="bs-input"
               placeholder="House No., Street, Barangay, City"
@@ -266,7 +269,7 @@ function WalkInPaymentStep({ form, setForm, services, isReturnCustomer, isCommer
             <label className="bs-label">
               PO Number <span className="bs-label-hint">(Optional)</span>
             </label>
-            <input
+            <input maxLength={LIMITS.poNumber}
               type="text"
               className="bs-input"
               placeholder="e.g. PO-2026-0451"
@@ -382,8 +385,9 @@ function WalkInPaymentStep({ form, setForm, services, isReturnCustomer, isCommer
                   file input here, visually inconsistent with the rest of the app. */}
               <label className="modal-file-btn">
                 {form.proofFile || '[Choose a file]'}
-                <input type="file" accept="image/jpeg,image/png,image/webp,.pdf" className="admin-walk-in-booking-x4" onChange={handleProofChange} />
+                <input type="file" accept="image/jpeg,image/png,image/webp,.pdf" className="admin-walk-in-booking-x4" onClick={(e) => { e.target.value = ''; }} onChange={handleProofChange} />
               </label>
+              <FilePreview file={form.proofFileObj} label="Proof of payment" onRemove={() => setForm({ ...form, proofFileObj: null, proofFile: null })} />
             </div>
 
             <div className="bs-field-group">
@@ -410,19 +414,19 @@ function WalkInPaymentStep({ form, setForm, services, isReturnCustomer, isCommer
       <div className="cost-breakdown-card">
         <h4 className="cost-breakdown-title">Cost Breakdown</h4>
         {discountAmount > 0 && (
-          <div className="cost-row"><span>{discountLabel}</span><span>-₱{discountAmount.toLocaleString()}.00</span></div>
+          <div className="cost-row"><span>{discountLabel}</span><span>-{formatMoney(discountAmount)}</span></div>
         )}
         {equipment.map((line, i) => (
-          <div className="cost-row" key={`equipment-${i}`}><span>{line.quantity}× {line.label}</span><span>₱{line.subtotal.toLocaleString()}.00</span></div>
+          <div className="cost-row" key={`equipment-${i}`}><span>{line.quantity}× {line.label}</span><span>{formatMoney(line.subtotal)}</span></div>
         ))}
         {(form.units || []).some((u) => u.supplied?.notListed) && (
           <div className="cost-row"><span>Unit asked from the owner</span><span>Price to be confirmed</span></div>
         )}
-        <div className="cost-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}.00</span></div>
+        <div className="cost-row"><span>Total Price</span><span>{formatMoney(basePrice)}</span></div>
         {isCommercial && (
           <>
-            <div className="cost-row"><span>VAT (12%)</span><span>₱{vatAmount.toLocaleString()}.00</span></div>
-            <div className="cost-row"><span>Total incl. VAT</span><span>₱{(basePrice + vatAmount).toLocaleString()}.00</span></div>
+            <div className="cost-row"><span>VAT (12%)</span><span>{formatMoney(vatAmount)}</span></div>
+            <div className="cost-row"><span>Total incl. VAT</span><span>{formatMoney((basePrice + vatAmount))}</span></div>
           </>
         )}
         {isBilledOnTerms ? (
@@ -433,8 +437,8 @@ function WalkInPaymentStep({ form, setForm, services, isReturnCustomer, isCommer
         ) : (
           <>
             <div className="cost-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
-            <div className="cost-row"><span>To Pay Now</span><span>₱{toPayNow.toLocaleString()}.00</span></div>
-            <div className="cost-row"><span>Remaining Balance</span><span>₱{remaining.toLocaleString()}.00</span></div>
+            <div className="cost-row"><span>To Pay Now</span><span>{formatMoney(toPayNow)}</span></div>
+            <div className="cost-row"><span>Remaining Balance</span><span>{formatMoney(remaining)}</span></div>
           </>
         )}
       </div>
@@ -497,6 +501,7 @@ function WalkInBooking() {
       const units = form.units || [];
       if (units.length === 0) return false;
       if (units.some((u) => !u.type || !u.quantity || u.quantity < 1)) return false;
+      if (units.some((u) => !String(u.hp || '').trim())) return false; // the horsepower of every unit is required (or Not sure)
       if (units.some((u) => !chosenBrand(u))) return false; // the brand of every unit is required
       const selectedService = services.find((s) => s.id === form.service);
       const isInstallation = selectedService?.serviceType === SERVICE_TYPE.INSTALLATION;
@@ -529,6 +534,7 @@ function WalkInBooking() {
       formData.append('service', form.service);
       formData.append('units', JSON.stringify(unitsForSubmit(form.units, form.clientSuppliedUnit)));
       formData.append('problemDescription', form.problemDescription || '');
+      if (form.problemMediaFile) formData.append('problemMedia', form.problemMediaFile);
       formData.append('date', form.date);
       formData.append('time', form.time);
       formData.append('technician', form.technician || '');

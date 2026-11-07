@@ -19,6 +19,8 @@ import { JOB_SORT, JOB_SORT_OPTIONS, sortJobs } from '../../utils/jobSort';
 import { BOOKING_STATUS, BOOKING_STATUS_VALUES } from '../../constants/bookingStatus';
 import { BackJobBadge, BackJobInfo } from '../../components/back_job_info';
 import ServiceReportViewer from '../../components/service_report_viewer';
+import { LIMITS } from '../../constants/inputLimits';
+import ProofMedia from '../../components/proof_media';
 
 
 const statusClass = {
@@ -104,6 +106,7 @@ function JobDetailsModal({ job, onClose }) {
           <div>
             <p className="confirmation-detail-label">Problem Description</p>
             <p className="confirmation-detail-value">{job.problemDescription || '-'}</p>
+            <ProofMedia path={job.problemMedia} />
           </div>
         </div>
 
@@ -257,7 +260,7 @@ function DisruptionExtensionModal({ kind, job, onClose, onSubmit, submitting, se
             )}
             <div className="bs-field-group">
               <label className="bs-label">Details</label>
-              <textarea
+              <textarea maxLength={LIMITS.reason}
                 className="bs-textarea"
                 rows={4}
                 placeholder={copy.placeholder}
@@ -307,6 +310,7 @@ function toViewJob(booking) {
     contactName: booking.contactName || '',
     unitType: getUnitsSummary(booking, { withBrand: true }),
     problemDescription: booking.problemDescription,
+    problemMedia: booking.problemMedia,
     technicianInstructions: booking.technicianInstructions,
     disruption: booking.disruption,
     noShow: booking.noShow,
@@ -476,7 +480,7 @@ function MyJobs() {
 
         <div className="tech-search-wrapper">
           <FiSearch className="tech-search-icon" />
-          <input
+          <input maxLength={LIMITS.searchText}
             className="tech-search-input"
             type="text"
             placeholder="Search by service, booking ID, customer, or address..."

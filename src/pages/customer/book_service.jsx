@@ -46,9 +46,13 @@ import Notice from '../../components/notice';
 import { useNotice } from '../../hooks/useNotice';
 import { pluralize } from '../../utils/pluralize';
 import { CUSTOMER_UNIT_NOTE } from '../../utils/warrantyText';
-import { AC_BRANDS, OTHER_BRAND, HP_OPTIONS } from '../../constants/unitOptions';
+import { AC_BRANDS, OTHER_BRAND, HP_OPTIONS, HP_NOT_SURE } from '../../constants/unitOptions';
 import { BRAND_NAME } from '../../config/company';
 import { hpLabel } from '../../utils/hpLabel';
+import { formatMoney } from '../../utils/money';
+import { LIMITS } from '../../constants/inputLimits';
+import CharsLeft from '../../components/chars_left';
+import MediaPicker from '../../components/media_picker';
 // System Configuration Module: payment methods and down payment percentages used
 // to be hardcoded here (DOWN_PAYMENT_OPTIONS / PAYMENT_MODES / getDownPaymentOptions).
 // Both are now admin-managed - see src/utils/paymentSettings.js (usePaymentSettings,
@@ -137,7 +141,7 @@ function CleaningTierQuestions({ onResolve, onCancel, initialAnswers, services }
 
       {resolvedTier && (
         <p className="bs-tier-preview">
-          Based on your answers, this will be booked as <strong>{resolvedTier.label}</strong> (₱{resolvedTier.price.toLocaleString()}). Click <strong>Next</strong> below to continue.
+          Based on your answers, this will be booked as <strong>{resolvedTier.label}</strong> ({formatMoney(resolvedTier.price)}). Click <strong>Next</strong> below to continue.
         </p>
       )}
     </div>
@@ -209,7 +213,7 @@ export function Step1({ form, setForm, services }) {
                 </div>
               </div>
               <span className="service-price">
-                {isCleaningEntryPoint ? 'From ' : ''}₱{s.price.toLocaleString()}
+                {isCleaningEntryPoint ? 'From ' : ''}{formatMoney(s.price)}
               </span>
             </button>
           );
@@ -220,7 +224,7 @@ export function Step1({ form, setForm, services }) {
 }
 
 /* ── Step 2: Unit Details ─────────────────────────────────── */
-const EMPTY_UNIT_ENTRY = { type: '', quantity: 1, brandModel: '', hp: '' };
+const EMPTY_UNIT_ENTRY = { type: '', quantity: 1, brandModel: '', hp: '', modelNumber: '' };
 
 function getAccountName() {
   const storedUser = localStorage.getItem('user');
@@ -334,15 +338,26 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
 
               <BelowSelect
                 className="unit-entry-hp"
-                ariaLabel="Horsepower (HP)"
+                ariaLabel="Horsepower (HP) (required)"
                 value={unit.hp || ''}
-                options={[{ value: '', label: 'HP' }, ...HP_OPTIONS.map((hp) => ({ value: hp, label: hpLabel(hp) }))]}
+                options={[{ value: '', label: 'HP *' }, ...HP_OPTIONS.map((hp) => ({ value: hp, label: hpLabel(hp) })), { value: HP_NOT_SURE, label: HP_NOT_SURE }]}
                 onChange={(hp) => updateUnit(index, { hp })}
+              />
+
+              <input
+                type="text"
+                className="bs-input unit-entry-model"
+                placeholder="Model number (optional)"
+                aria-label="Model number (optional)"
+                maxLength={LIMITS.modelNumber}
+                autoComplete="off"
+                value={unit.modelNumber || ''}
+                onChange={(e) => updateUnit(index, { modelNumber: e.target.value })}
               />
 
               {selectedService && unit.type && (
                 <span className="unit-entry-subtotal">
-                  ₱{(getUnitPrice(selectedService, unit.type) * (unit.quantity || 0)).toLocaleString()}
+                  {formatMoney((getUnitPrice(selectedService, unit.type) * (unit.quantity || 0)))}
                 </span>
               )}
 
@@ -406,7 +421,7 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
             I confirm this unit was not purchased through {BRAND_NAME}, and
             understand the Unit Warranty does not apply to it.
           </label>
-          <input
+          <input maxLength={LIMITS.waiverName}
             type="text"
             className="bs-input"
             placeholder={`Type your full name to confirm (${accountName})`}
@@ -419,15 +434,24 @@ export function Step2({ form, setForm, services = [], accountName = getAccountNa
         </div>
       )}
 
+      <MediaPicker
+        id="problem-media"
+        file={form.problemMediaFile || null}
+        onChange={(file) => setForm({ ...form, problemMediaFile: file })}
+        label={isInstallation ? 'Photo of where the aircon will go' : 'Photo or video of the problem'}
+        hint={isInstallation ? 'Show us the wall or spot where you want the unit installed.' : 'A photo or a short clip (up to 15 MB) helps the technician prepare.'}
+      />
+
       <div className="bs-field-group">
         <label className="bs-label">Problem Description <span className="bs-label-hint">(Optional)</span></label>
-        <textarea
+        <textarea maxLength={LIMITS.problemDescription}
           className="bs-textarea"
           rows={2}
           placeholder="e.g. The aircon is not cooling, makes rattling noise"
           value={form.problemDescription || ''}
           onChange={(e) => setForm({ ...form, problemDescription: e.target.value })}
         />
+<CharsLeft value={form.problemDescription} max={LIMITS.problemDescription} />
       </div>
     </div>
   );
@@ -522,7 +546,7 @@ export function Step3({ form, setForm, technicians }) {
 
       <div className="bs-field-group">
         <label className="bs-label">Address</label>
-        <input
+        <input maxLength={LIMITS.address}
           type="text"
           className="bs-input"
           placeholder="House No., Street, Barangay, City"
@@ -556,7 +580,7 @@ export function Step3({ form, setForm, technicians }) {
 
       <div className="bs-field-group">
         <label className="bs-label">Contact Number</label>
-        <input
+        <input maxLength={LIMITS.phone}
           type="tel"
           className="bs-input"
           placeholder="e.g. 0917 123 4567"
@@ -708,13 +732,13 @@ const handleSubmitPayment = ({ proof, referenceNumber }) => {
           {lineItems.map((li, i) => (
             <div className="cost-row cost-row-item" key={i}>
               <span>{li.type || '-'} × {li.quantity}</span>
-              <span>₱{li.subtotal.toLocaleString()}.00</span>
+              <span>{formatMoney(li.subtotal)}</span>
             </div>
           ))}
           {equipment.map((line, i) => (
             <div className="cost-row cost-row-item" key={`equipment-${i}`}>
               <span>{line.label} × {line.quantity}</span>
-              <span>₱{line.subtotal.toLocaleString()}.00</span>
+              <span>{formatMoney(line.subtotal)}</span>
             </div>
           ))}
           {(form.units || []).some((u) => u.supplied?.notListed) && (
@@ -723,28 +747,28 @@ const handleSubmitPayment = ({ proof, referenceNumber }) => {
           <div className="cost-divider" />
 
           {discountAmount > 0 && (
-            <div className="cost-row"><span>{discountLabel}</span><span>-₱{discountAmount.toLocaleString()}.00</span></div>
+            <div className="cost-row"><span>{discountLabel}</span><span>-{formatMoney(discountAmount)}</span></div>
           )}
-          <div className="cost-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}.00</span></div>
+          <div className="cost-row"><span>Total Price</span><span>{formatMoney(basePrice)}</span></div>
           {form.discountType && (
             <p className="customer-book-service-x3">
               Senior/PWD discount requested. It is applied once our team approves your ID. A promo and this discount do not stack: you get whichever is larger.
             </p>
           )}
           <div className="cost-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
-          <div className="cost-row"><span>To Pay Now</span><span>₱{toPayNow.toLocaleString()}.00</span></div>
-          <div className="cost-row"><span>Remaining Balance</span><span>₱{remaining.toLocaleString()}.00</span></div>
+          <div className="cost-row"><span>To Pay Now</span><span>{formatMoney(toPayNow)}</span></div>
+          <div className="cost-row"><span>Remaining Balance</span><span>{formatMoney(remaining)}</span></div>
 
           <div className="cost-divider" />
 
           {isInstallationBooking && !isNoDownPayment ? (
             form.clientSuppliedUnit ? (
               <div className="bs-callout" role="note">
-                <strong>Your down payment is due once you book.</strong> After you confirm, send your down payment of ₱{toPayNow.toLocaleString()}.00 from Payment &amp; Billing.
+                <strong>Your down payment is due once you book.</strong> After you confirm, send your down payment of {formatMoney(toPayNow)} from Payment &amp; Billing.
               </div>
             ) : (
               <div className="bs-callout" role="note">
-                <strong>We are confirming the unit.</strong> You will be asked to pay your down payment of ₱{toPayNow.toLocaleString()}.00 once it is confirmed.
+                <strong>We are confirming the unit.</strong> You will be asked to pay your down payment of {formatMoney(toPayNow)} once it is confirmed.
                 We will tell you in the app and by email, and you pay from Payment &amp; Billing.
               </div>
             )
@@ -809,7 +833,7 @@ export function Step5({ form, services, technicians, downPaymentPercentages, dis
           {lineItems.map((li, i) => (
             <div className="summary-row" key={i}>
               <span>Unit {i + 1}</span>
-              <span>{li.quantity}× {li.type || '-'}{li.brandModel ? ` - ${li.brandModel}` : ''}{li.hp ? ` - ${hpLabel(li.hp)}` : ''}</span>
+              <span>{li.quantity}× {li.type || '-'}{li.brandModel ? ` - ${li.brandModel}` : ''}{li.hp ? ` - ${hpLabel(li.hp)}` : ''}{li.modelNumber ? ` - Model ${li.modelNumber}` : ''}</span>
             </div>
           ))}
           <div className="summary-row"><span>Date &amp; Time</span><span>{form.date ? `${form.date}, ${form.time || ''}` : '-'}</span></div>
@@ -828,7 +852,7 @@ export function Step5({ form, services, technicians, downPaymentPercentages, dis
           {discountAmount > 0 && (
             <div className="summary-row">
               <span>{discountLabel}</span>
-              <span>-₱{discountAmount.toLocaleString()}.00</span>
+              <span>-{formatMoney(discountAmount)}</span>
             </div>
           )}
           {form.discountType && discountPercent === 0 && (
@@ -840,16 +864,16 @@ export function Step5({ form, services, technicians, downPaymentPercentages, dis
           {equipment.map((line, i) => (
             <div className="summary-row" key={`equipment-${i}`}>
               <span>{line.quantity}× {line.label}</span>
-              <span>₱{line.subtotal.toLocaleString()}.00</span>
+              <span>{formatMoney(line.subtotal)}</span>
             </div>
           ))}
           {(form.units || []).some((u) => u.supplied?.notListed) && (
             <div className="summary-row"><span>Unit asked from the owner</span><span>Price to be confirmed</span></div>
           )}
-          <div className="summary-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}.00</span></div>
+          <div className="summary-row"><span>Total Price</span><span>{formatMoney(basePrice)}</span></div>
           <div className="summary-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
-          <div className="summary-row"><span>To Pay Now</span><span>₱{toPayNow.toLocaleString()}.00</span></div>
-          <div className="summary-row total"><span>Remaining Balance</span><span>₱{remaining.toLocaleString()}.00</span></div>
+          <div className="summary-row"><span>To Pay Now</span><span>{formatMoney(toPayNow)}</span></div>
+          <div className="summary-row total"><span>Remaining Balance</span><span>{formatMoney(remaining)}</span></div>
           <div className="summary-row"><span>Payment Mode</span><span>{form.paymentMode || '-'}</span></div>
           {!isFullPay && (
             <div className="summary-row"><span>2nd Payment Mode</span><span>{form.paymentMode2 || '-'}</span></div>
@@ -931,6 +955,7 @@ function BookService() {
       if (units.length === 0) return 'Add at least one unit.';
       if (units.some((u) => !u.type)) return 'Choose the type for every unit.';
       if (units.some((u) => !Number.isInteger(u.quantity) || u.quantity < 1 || u.quantity > MAX_UNIT_QUANTITY)) return `Enter a quantity from 1 to ${MAX_UNIT_QUANTITY} for every unit.`;
+      if (units.some((u) => !String(u.hp || '').trim())) return 'Choose the horsepower (HP) of every unit, or Not sure.'; // required too
       if (units.some((u) => !chosenBrand(u))) return 'Choose the brand of every unit.'; // the brand of every unit is required
       const selectedService = services.find((s) => s.id === form.service);
       const isInstallation = selectedService?.serviceType === SERVICE_TYPE.INSTALLATION;
@@ -981,6 +1006,7 @@ function BookService() {
       // (there's a proof file too) and units are now structured objects, not flat strings.
       formData.append('units', JSON.stringify(unitsForSubmit(form.units, form.clientSuppliedUnit)));
       formData.append('problemDescription', form.problemDescription || '');
+      if (form.problemMediaFile) formData.append('problemMedia', form.problemMediaFile);
       formData.append('date', form.date);
       formData.append('time', form.time);
       formData.append('technician', form.technician || '');

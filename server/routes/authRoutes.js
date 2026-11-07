@@ -209,13 +209,13 @@ router.put('/profile', auth, async (req, res) => {
     const { firstName, lastName, email, phone, address } = req.body;
 
     // A name and a real email are required, a phone number must be valid when given; "undefined undefined" can never be saved.
-    const inputProblem = validateProfileUpdate({ firstName, lastName, email, phone });
-    if (inputProblem) return sendProblem(res, inputProblem);
-
     const user = await User.findById(req.userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
+    // the stored first name is passed so a name saved before the limit existed is not refused for its length
+    const inputProblem = validateProfileUpdate({ firstName, lastName, email, phone, currentFirstName: user.firstName });
+    if (inputProblem) return sendProblem(res, inputProblem);
 
     const newEmail = normalizeEmail(email);
     if (newEmail !== String(user.email).toLowerCase()) {

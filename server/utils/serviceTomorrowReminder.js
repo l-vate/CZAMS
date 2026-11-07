@@ -4,6 +4,7 @@
 // on a booking is `serviceReminderSentFor`, the date it reminded about, which is also what keeps it to one reminder per booked date: the claim
 // is a conditional update, so two runs at once (or two server instances) cannot send twice. A reschedule is a new date, so it is reminded
 // again for that date. `now` is a parameter so the rules are tested with a fixed clock; the log line says counts only.
+const { formatMoney } = require('./money');
 const Booking = require('../models/Booking');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
@@ -37,7 +38,7 @@ function longDate(dateKey) {
   return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 }
 
-const peso = (amount) => `₱${Number(amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const peso = (amount) => formatMoney(amount);
 
 // The sentence for the customer. No amount unless something is already due.
 function customerMessage(booking, technicianNames) {

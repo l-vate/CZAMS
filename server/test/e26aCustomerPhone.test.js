@@ -288,14 +288,14 @@ test('A8: the Status row uses the same labels as Billing for every payment state
     assert.doesNotMatch(html, /50% Paid/);
   }
   const waiting = await renderReceipt({ form: bill({ paymentStatus: 'to_verify' }), booking: bill({ paymentStatus: 'to_verify' }) });
-  assert.match(waiting, /₱1,750/, 'the amounts are the same as before');
+  assert.match(waiting, /₱1,750.00/, 'the amounts are the same as before');
   assert.match(waiting, /Invoice/, 'still an invoice, not a receipt');
 });
 
 test('A8: the table has description, quantity and price columns with their own classes, and a short heading for phones', async () => {
   const html = await renderReceipt({ form: bill({ paymentStatus: 'Unpaid' }), booking: bill({ paymentStatus: 'Unpaid' }) });
   assert.match(html, /<th class="receipt-col-desc"><span class="receipt-th-long">Description of Service<\/span><span class="receipt-th-short">Description<\/span><\/th><th class="receipt-col-qty">Quantity<\/th><th class="receipt-col-price">Price<\/th>/);
-  assert.match(html, /<td class="receipt-col-qty">1<\/td><td class="receipt-col-price">₱3,500<\/td>/);
+  assert.match(html, /<td class="receipt-col-qty">1<\/td><td class="receipt-col-price">₱3,500.00<\/td>/);
   const css = src('css', 'modals', 'receipt_modal.css');
   assert.match(css, /@media screen and \(max-width: 768px\) \{/, 'screen only, so printing is not touched');
   assert.match(css, /\.receipt-th-short \{ display: none; \}/, 'the long heading everywhere else');

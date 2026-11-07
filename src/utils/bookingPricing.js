@@ -1,4 +1,5 @@
 import { computeAmount } from './promos';
+import { formatMoney } from './money.js';
 
 // Shared unit-pricing helpers for customer, admin, and staff views. Server-side mirror: server/utils/pricing.js - keep in sync.
 //
@@ -12,11 +13,9 @@ import scopeConstants from '../../server/constants/scopeLines.json';
 
 const SERVICE_KINDS = scopeConstants.serviceKinds;
 
-// "₱1,234", or "-₱800" for a negative amount (a discount line). Two decimals only when the amount is not a whole number: "₱1,234.50".
+// "₱1,234.00", or "-₱800.00" for a negative amount (a discount line): always two decimals (utils/money.js).
 export function formatPeso(amount) {
-  const n = Number(amount) || 0;
-  const fraction = Number.isInteger(n) ? {} : { minimumFractionDigits: 2, maximumFractionDigits: 2 };
-  return `${n < 0 ? '-' : ''}₱${Math.abs(n).toLocaleString('en-US', fraction)}`;
+  return formatMoney(amount);
 }
 
 // The price for one unit of `unitType` under `service` - its unitTypePricing override if the
@@ -217,6 +216,6 @@ export function getUnitsSummary(booking, { withBrand = false } = {}) {
   const { lineItems } = getBookingLineItems(booking);
   return lineItems
     .filter((li) => !li.isCharge)
-    .map((li) => `${li.quantity}× ${li.type}${withBrand && li.brandModel ? ` (${li.brandModel})` : ''}`)
+    .map((li) => `${li.quantity}× ${li.type}${withBrand && (li.brandModel || li.modelNumber) ? ` (${[li.brandModel, li.modelNumber ? `Model ${li.modelNumber}` : ''].filter(Boolean).join(', ')})` : ''}`)
     .join(', ');
 }

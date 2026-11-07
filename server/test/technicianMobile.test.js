@@ -66,8 +66,8 @@ test('Profile: edit mode is one column with Cancel and Save right aligned at equ
   assert.match(phone, /\.profile-card:has\(\.tech-profile-edit-form\) \{ flex-direction: column/);
   assert.match(phone, /\.tech-profile-edit-form \{ max-width: none; width: 100%/);
   assert.match(phone, /\.tech-profile-edit-form \.bs-input \{[^}]*min-height: 44px; font-size: 16px/);
-  assert.match(phone, /\.cancel-confirm-actions \{ flex-direction: row; justify-content: flex-end/);
-  assert.match(phone, /\.cancel-confirm-actions button \{ flex: 0 0 140px; min-height: 44px/);
+  assert.match(phone, /\.tech-profile-edit-actions \{ flex: 0 0 auto; width: 100%; \}/);
+  assert.match(phone, /\.tech-profile-edit-actions button \{ min-height: 44px; \}/);
   assert.match(phone, /\.account-actions \{ margin: 0; justify-content: flex-end/);
   assert.match(phone, /\.change-password-btn \{ min-height: 44px; min-width: 170px/);
   assert.match(src('css', 'staff.css'), /@media \(max-width: 340px\) \{\s*\.staff-dashboard-shell \.change-password-btn \{ width: 100%/);

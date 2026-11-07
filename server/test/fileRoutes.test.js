@@ -10,6 +10,7 @@ process.env.JWT_SECRET = 'test-secret-not-a-real-one';
 const User = require('../models/User');
 const Booking = require('../models/Booking');
 const Report = require('../models/Report');
+const BackJob = require('../models/BackJob');
 const { authCache } = require('../utils/authCache');
 const { createFileRouter } = require('../routes/fileRoutes');
 const { mountUploads } = require('../config/uploadsStatic');
@@ -63,6 +64,7 @@ test.before(async () => {
     }
     return query(filter.bookingId && filter.bookingId.$in.includes('B1') ? [booking] : []);
   };
+  BackJob.find = () => query([]); // no back job claim carries a picture here
   Report.find = (filter) => query(filter.signedFormPhoto === reportRow.signedFormPhoto ? [reportRow] : []);
 
   const app = express();

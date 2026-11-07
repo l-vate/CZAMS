@@ -7,6 +7,7 @@
 // and the narrow-screen stacking, and an email that loses it still reads). The logo is attached to the message inline (cid:czams-logo) instead
 // of being linked, so it shows without a hosted address; the header is light with the logo as it is (a transparent PNG, no box); in dark mode the logo gets a
 // soft rounded white card so its navy lettering never disappears. A navy and coral bar sits under the header, then the status accent. Every email also has a plain text twin. Pure functions: nothing here reads the database or the environment.
+const { formatMoney } = require('./money');
 const { contentOf } = require('./emailContent');
 const company = require('./companyInfo');
 const { getPaymentBreakdown } = require('./pricing');
@@ -79,7 +80,7 @@ function addressArea(address) {
   return parts.length > 2 ? parts.slice(-2).join(', ') : parts.join(', ');
 }
 
-const peso = (n) => `₱${Number(n).toLocaleString('en-US', { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}`;
+const peso = (n) => formatMoney(n);
 const MONEY_TYPES = new Set([T.PAYMENT_DUE, T.PAYMENT_SUBMITTED, T.PAYMENT_VERIFIED, T.PAYMENT_REJECTED, T.CHARGE_UPDATED, T.SCOPE_UPDATED, T.QUOTATION_UPDATED, T.UNIT_REQUEST_RESOLVED, T.DISCOUNT_APPROVED, T.BOOKING_COMPLETED]);
 const REFUND_TYPES = new Set([T.REFUND_REQUESTED, T.REFUND_PROCESSED, T.REFUND_CONFIRMED, T.REFUND_FLAGGED]);
 

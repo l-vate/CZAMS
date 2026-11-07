@@ -4,6 +4,7 @@
 const { invalid } = require('./validation');
 const { validateRegistrationPassword } = require('./passwordRules');
 const { normalizeContactNumber } = require('./contactNumber');
+const { limits } = require('./inputLimits');
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const NAME_MAX = 50;
@@ -26,11 +27,14 @@ function findUserByEmail(User, email, exceptId) {
   return User.findOne(filter);
 }
 
-function nameProblem(firstName, lastName) {
+// `keepFirstName` is the first name already stored: the first name limit is for a new or a changed first name, so a longer name saved
+// earlier is not refused when the person edits something else.
+function nameProblem(firstName, lastName, keepFirstName) {
   const first = text(firstName);
   const last = text(lastName);
   if (!first) return invalid('First name is required.');
   if (!last) return invalid('Last name is required.');
+  if (first.length > limits.firstName && first !== text(keepFirstName)) return invalid(`First name must be ${limits.firstName} characters or fewer.`);
   if (first.length > NAME_MAX || last.length > NAME_MAX) return invalid(`Each name must be ${NAME_MAX} characters or fewer.`);
   if (!NAME_PATTERN.test(first)) return invalid('First name can only have letters, spaces, hyphens, apostrophes and periods.');
   if (!NAME_PATTERN.test(last)) return invalid('Last name can only have letters, spaces, hyphens, apostrophes and periods.');
@@ -58,8 +62,8 @@ function validateRegistration({ firstName, lastName, email, phone, password }) {
 }
 
 // null when an edited profile is acceptable. A blank phone or address keeps what is saved.
-function validateProfileUpdate({ firstName, lastName, email, phone }) {
-  return nameProblem(firstName, lastName) || emailProblem(email) || phoneProblem(phone, { required: false });
+function validateProfileUpdate({ firstName, lastName, email, phone, currentFirstName }) {
+  return nameProblem(firstName, lastName, currentFirstName) || emailProblem(email) || phoneProblem(phone, { required: false });
 }
 
 module.exports = { normalizeEmail, findUserByEmail, validateRegistration, validateProfileUpdate, EMAIL_PATTERN, NAME_MAX, NAME_PATTERN };

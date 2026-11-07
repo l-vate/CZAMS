@@ -5,6 +5,7 @@ import Sidebar from '../../components/sidebars/customer_sidebar';
 import NotificationBell from '../../components/notification_bell';
 
 import { customerNotificationTarget } from '../../utils/notificationTarget';
+import { LIMITS } from '../../constants/inputLimits';
 // Search moved here (topbar) rather than duplicated per-page - My Bookings and
 // Payment & Billing pass searchValue/onSearchChange/searchPlaceholder to opt
 // into showing it; every other page just omits those props and gets nothing.
@@ -61,7 +62,7 @@ function CustomerLayout({ title, children, searchValue, onSearchChange, searchPl
                 </button>
                 <div className="topbar-search" id="topbar-search-box" role="search">
                   <FiSearch aria-hidden="true" />
-                  <input
+                  <input maxLength={LIMITS.searchText}
                     ref={searchInputRef}
                     type="search"
                     placeholder={searchPlaceholder || 'Search...'}

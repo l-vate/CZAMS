@@ -29,7 +29,7 @@ const TECHNICIANS_VISIBLE_STATUSES = ['Approved', 'In Progress', 'Completed'];
 // Top-level Booking fields a customer may receive, passed through as they are (they hold nothing internal).
 const PASS_THROUGH = [
   '_id', 'bookingId', 'status', 'createdAt', 'updatedAt', 'date', 'time', 'address', 'contactNumber', 'contactName','problemDescription',
-  'unitTypes', 'brandModel', 'clientSuppliedUnit', 'unitSource', 'unitWaiver', 'unitPurchaseProof', 'cleaningTierAnswers',
+  'unitTypes', 'brandModel', 'problemMedia', 'clientSuppliedUnit', 'unitSource', 'unitWaiver', 'unitPurchaseProof', 'cleaningTierAnswers',
   'requestedTechnician',
   'downPaymentPercent', 'downPaymentPaidAmount', 'pricingVersion', 'unitConfirmedAt', 'paymentMode', 'paymentMode2', 'paymentStatus', 'balancePaid',
   'balancePaymentStatus', 'proofFile', 'balanceProofFile', 'referenceNumber', 'balanceReferenceNumber',
@@ -120,7 +120,7 @@ function toCustomerView(booking) {
   // manual price do not. The reason a request was declined stays, because the customer is told it.
   if (Array.isArray(b.units)) {
     out.units = b.units.map((u) => {
-      const entry = pick(u, ['_id', 'type', 'quantity', 'brandModel', 'hp']);
+      const entry = pick(u, ['_id', 'type', 'quantity', 'brandModel', 'hp', 'modelNumber']);
       if (u.supplied) {
         entry.supplied = pick(u.supplied, ['source', 'status', 'brand', 'model', 'type', 'hp', 'inverter', 'price', 'declineReason']);
         if (u.supplied.request) entry.supplied.request = pick(u.supplied.request, ['brand', 'type', 'hp', 'notes']);
@@ -143,7 +143,7 @@ function toCustomerView(booking) {
 function toCustomerBackJob(backJob) {
   const j = backJob && typeof backJob.toObject === 'function' ? backJob.toObject() : (backJob || {});
   const out = pick(j, [
-    '_id', 'backJobId', 'originalBookingId', 'issueDescription', 'warrantyCheck', 'status', 'resultingBookingId', 'reportedAt', 'createdAt', 'updatedAt',
+    '_id', 'backJobId', 'originalBookingId', 'issueDescription', 'proofMedia', 'warrantyCheck', 'status', 'resultingBookingId', 'reportedAt', 'createdAt', 'updatedAt',
   ]);
   if (j.resultingBooking && typeof j.resultingBooking === 'object') out.resultingBooking = toCustomerView(j.resultingBooking);
   else if (j.resultingBooking !== undefined) out.resultingBooking = j.resultingBooking;

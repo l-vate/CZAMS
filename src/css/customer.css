@@ -494,6 +494,8 @@
 /* the capacity ("0.75 HP", "10.0 HP") is never cut short: the box is as wide as its longest label */
 .unit-entry-hp .below-select-box { min-width: 120px; text-overflow: clip; }
 .unit-entry-qty { text-align: center; padding-left: 8px; padding-right: 8px; }
+/* the optional model number sits on its own line under the unit */
+.unit-entry-model { grid-column: 1 / -1; order: 5; }
 
 .unit-entry-subtotal {
   font-weight: 700;
@@ -543,12 +545,13 @@
 @media (max-width: 620px) {
   .unit-entry-row {
     grid-template-columns: 1fr 1fr;
-    grid-template-areas: "type type" "qty hp" "brand brand" "subtotal remove";
+    grid-template-areas: "type type" "qty hp" "brand brand" "model model" "subtotal remove";
   }
   .unit-entry-type { grid-area: type; }
   .unit-entry-qty { grid-area: qty; }
   .unit-entry-brand { grid-area: brand; }
   .unit-entry-hp { grid-area: hp; }
+  .unit-entry-model { grid-area: model; order: 0; }
   .unit-entry-subtotal { grid-area: subtotal; }
   .unit-entry-remove { grid-area: remove; justify-self: end; }
 }
@@ -2027,7 +2030,11 @@
 /* the figures that matter most */
 .confirmation-details-card .cost-link a,
 .confirmation-details-card .cost-link button {
-  display: inline-block;
+  /* flex: the link is at least 44 px tall (receipt_modal.css), and a label in a plain inline box sat at the top of that height */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
   padding: 3px 12px;
   border: 1px solid #bcd3ea;
   border-radius: 999px;
@@ -2236,7 +2243,7 @@
   .profile-page .profile-field .bs-input { width: 100%; min-width: 0; box-sizing: border-box; min-height: 44px; font-size: 16px; }
   /* edit mode: Cancel and Save together at the end of the form, on one line, each 44 px tall */
   .profile-page .profile-edit-actions { flex-direction: row; flex-wrap: nowrap; justify-content: flex-end; gap: 12px; margin-top: 8px; }
-  .profile-page .profile-edit-actions button { width: auto; min-height: 44px; padding: 0 20px; white-space: nowrap; }
+  .profile-page .profile-edit-actions button { min-height: 44px; padding: 0; white-space: nowrap; }
   .profile-page .profile-card--account .account-actions { flex-direction: column; }
   .profile-page .delete-account-block a { display: inline-flex; align-items: center; min-height: 44px; }
   .profile-page .profile-card--account .change-password-btn,
@@ -2244,6 +2251,9 @@
 }
 @media (max-width: 340px) {
   .profile-save-long { display: none; }
+  /* 340 px and narrower: the two buttons share the full width */
+  .profile-page .profile-edit-actions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .profile-page .profile-edit-actions button { width: 100%; min-width: 0; }
 }
 
 /* ============ BILLING CARDS ============
@@ -2384,3 +2394,30 @@
   .billing-card > .billing-card-actions .billing-btn { flex: 0 0 auto; }
   .billing-card > .customer-billings-x5, .billing-card > .customer-billings-x6 { grid-column: 1 / -1; }
 }
+
+
+/* ============ PROFILE (E31) ============
+   An empty value keeps the height of a filled one, so an address that is not set is as tall as the other fields (view mode; the edit boxes
+   already share one input rule). */
+.profile-field div:empty::before { content: 'b'; }
+/* edit mode: the card is a column (title, fields, buttons), the buttons under the fields, right aligned at equal width */
+.profile-page .profile-card:has(.profile-grid) { flex-direction: column; align-items: stretch; }
+.profile-edit-actions { justify-content: flex-end; }
+.profile-edit-actions button { flex: 0 1 150px; min-width: 0; white-space: nowrap; box-sizing: border-box; }
+
+/* The small "N characters left" under a long notes box (components/chars_left.jsx). */
+.chars-left { display: block; margin-top: 4px; font-size: 12px; color: var(--ink-soft); text-align: right; }
+.chars-left--low { color: var(--danger, #b3261e); }
+
+/* A picked file shown before it is sent, with a Remove button (components/file_preview.jsx). */
+.file-preview { display: flex; align-items: center; gap: 12px; margin-top: 8px; padding: 8px; border: 1px solid var(--mist); border-radius: 10px; background: var(--frost); min-width: 0; }
+.file-preview-thumb { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; flex: 0 0 auto; background: #fff; }
+.file-preview-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--ink-soft); }
+.file-preview-remove { flex: 0 0 auto; min-height: 36px; padding: 6px 14px; border: 1.5px solid var(--navy); border-radius: 8px; background: #fff; color: var(--navy); font-weight: 600; cursor: pointer; }
+.file-preview-remove:hover { background: var(--navy); color: #fff; }
+@media (max-width: 768px) { .file-preview-remove { min-height: 44px; } }
+
+/* The photo or video a customer sent with a booking or a back job (components/proof_media.jsx, media_picker.jsx). */
+.media-picker-input { display: none; }
+.proof-media { margin-top: 6px; max-width: 100%; }
+.proof-media-image, .proof-media-video { display: block; max-width: 100%; max-height: 260px; border-radius: 10px; border: 1px solid var(--mist); background: #fff; }

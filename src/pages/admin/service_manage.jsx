@@ -5,6 +5,8 @@ import { UNIT_TYPES } from '../../constants/unitTypes';
 import { withMessage, withFallback } from '../../services/apiClient';
 import { listServices, createService, updateService, deleteService } from '../../services/serviceCatalogService';
 import { SERVICE_TYPE, SERVICE_TYPE_VALUES } from '../../constants/serviceTypes';
+import { formatMoney } from '../../utils/money';
+import { LIMITS } from '../../constants/inputLimits';
 
 
 const ICON_MAP = {
@@ -203,7 +205,7 @@ function ServiceManage() {
 
         {/* Header & Actions */}
         <div className="svc-manage-header">
-          <h1 className="dashboard-welcome">Manage Services</h1>
+          <h1 className="dashboard-welcome page-title-in-topbar">Manage Services</h1>
           <button className="svc-add-btn" onClick={openAddModal}>
             <FiPlus className="admin-service-manage-x1" /> Add Service
           </button>
@@ -251,7 +253,7 @@ function ServiceManage() {
                         </span>
                       </div>
                       <span className="svc-service-price">
-                        ₱{Number(s.price).toLocaleString()}
+                        {formatMoney(Number(s.price))}
                         {s.unitTypePricing?.length > 0 && (
                           <span className="svc-service-price-note">varies by unit type</span>
                         )}
@@ -282,7 +284,7 @@ function ServiceManage() {
 
               <div className="svc-field">
                 <label>Service Name</label>
-                <input
+                <input maxLength={LIMITS.serviceName}
                   type="text"
                   name="name"
                   value={form.name}
@@ -294,7 +296,7 @@ function ServiceManage() {
 
               <div className="svc-field">
                 <label>Description</label>
-                <input
+                <input maxLength={LIMITS.serviceDescription}
                   type="text"
                   name="description"
                   value={form.description}

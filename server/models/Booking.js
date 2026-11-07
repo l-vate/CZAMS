@@ -117,6 +117,8 @@ const bookingSchema = new mongoose.Schema({
       brandModel: String,
       // The unit's horsepower as the customer wrote it, for example "1.5" or "2" (optional, at most 10 characters).
       hp: String,
+      // The model number printed on the unit, if the customer knew it (optional, at most 30 characters). Shown to the admin and the technicians.
+      modelNumber: { type: String, maxlength: 30 },
       // The Cooling Zone unit chosen for this entry (Installation with a company unit only). Its price is added to the booking's total.
       supplied: { type: suppliedUnitSchema },
     }],
@@ -125,6 +127,9 @@ const bookingSchema = new mongoose.Schema({
     // Legacy: kept for existing data
     brandModel: String,
     problemDescription: String,
+    // An optional picture or short clip from the customer: of the problem, or (for an installation) of where the unit will go. A stored
+    // path (/uploads/proofs/...); shown to the admin, the customer who made the booking and the technicians on the job, nobody else.
+    problemMedia: String,
     // Admin-authored, pre-service - care requirements, access instructions,
     // client-specific handling. Separate from problemDescription (the customer's
     // own account of the issue) - this is admin briefing the technician.

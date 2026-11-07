@@ -5,6 +5,7 @@ import { attempt } from '../services/apiClient';
 import { updatePaymentSettings } from '../services/paymentSettingsService';
 import PaymentSettingsUnavailable from './payment_settings_unavailable';
 import { BRAND_NAME } from '../config/company';
+import { LIMITS } from '../constants/inputLimits';
 
 
 // Admin editor for the System Configuration Module's payment settings - payment
@@ -155,7 +156,7 @@ function PaymentSettingsPanel() {
         {methods.map((method, mIndex) => (
           <div className="pset-method-card" key={mIndex}>
             <div className="pset-method-header">
-              <input
+              <input maxLength={LIMITS.paymentMethodName}
                 type="text"
                 className="pset-input pset-method-name"
                 placeholder="Method name (e.g. GCash)"
@@ -175,7 +176,7 @@ function PaymentSettingsPanel() {
 
             {method.accountDetails.map((detail, dIndex) => (
               <div className="pset-detail-row" key={dIndex}>
-                <input
+                <input maxLength={LIMITS.paymentDetailLabel}
                   type="text"
                   className="pset-input"
                   placeholder="Label (e.g. Account Name)"
@@ -183,7 +184,7 @@ function PaymentSettingsPanel() {
                   value={detail.label}
                   onChange={(e) => updateDetail(mIndex, dIndex, 'label', e.target.value)}
                 />
-                <input
+                <input maxLength={LIMITS.paymentDetailValue}
                   type="text"
                   className="pset-input"
                   placeholder={`Value (e.g. ${BRAND_NAME})`}

@@ -49,18 +49,18 @@ test('the money in plain words: the amount and what happens next, for every case
   assert.equal(NO_DOWN_PAYMENT_TEXT, "No down payment was on file for this booking, so there's nothing to refund.");
   assert.equal(refundText(cancelled({ paymentStatus: 'to_verify' })), PROOF_WAITING_TEXT, 'a proof still being checked is not "no down payment on file"');
   const early = refundText(cancelled({ refund: refund({ refundableAmount: 1000, dispatchDeduction: 0 }) }));
-  assert.match(early, /down payment of ₱1,000 will be refunded in full/);
+  assert.match(early, /down payment of ₱1,000.00 will be refunded in full/);
   assert.match(early, /Our team will review it and send the refund, and you will be told here and in the app/);
   const lateNoFee = refundText(cancelled({ refund: refund({ isSameDay: true }) }));
-  assert.match(lateNoFee, /transportation fee may be deducted from your down payment of ₱1,000/);
+  assert.match(lateNoFee, /transportation fee may be deducted from your down payment of ₱1,000.00/);
   assert.match(lateNoFee, /will decide the fee and then send the refund/);
   const lateFee = refundText(cancelled({ refund: refund({ isSameDay: true, dispatchDeduction: 350, dispatchReason: 'Fuel and the crew trip', refundableAmount: 650 }) }));
-  assert.match(lateFee, /Your refund is ₱650: your down payment of ₱1,000 minus a transportation fee of ₱350 \(Fuel and the crew trip\)/);
+  assert.match(lateFee, /Your refund is ₱650.00: your down payment of ₱1,000.00 minus a transportation fee of ₱350.00 \(Fuel and the crew trip\)/);
   const owner = refundText(cancelled({ ownerCancelled: true, refund: refund({ ownerInitiated: true, refundableAmount: 1000, dispatchDeduction: 0 }) }));
-  assert.match(owner, /whole down payment of ₱1,000 will be refunded, with no transportation fee/);
+  assert.match(owner, /whole down payment of ₱1,000.00 will be refunded, with no transportation fee/);
   const sent = refundText(cancelled({ refund: refund({ status: 'Processed', isSameDay: true, dispatchDeduction: 350, dispatchReason: 'Fuel', refundableAmount: 650 }) }));
-  assert.match(sent, /Your refund of ₱650 has been sent/);
-  assert.match(sent, /transportation fee of ₱350 was deducted from your down payment of ₱1,000 \(Fuel\)/);
+  assert.match(sent, /Your refund of ₱650.00 has been sent/);
+  assert.match(sent, /transportation fee of ₱350.00 was deducted from your down payment of ₱1,000.00 \(Fuel\)/);
   for (const text of [early, lateNoFee, lateFee, owner, sent]) assert.equal(/\u2014|\u2013/.test(text), false, 'no long dashes');
 });
 
@@ -76,9 +76,9 @@ test('the figures: a late cancel shows the fee and its reason; an owner cancel s
   const { refundFigures } = await vite.ssrLoadModule('/src/utils/cancelledSummary.js');
   assert.deepEqual(refundFigures(cancelled()), []);
   const late = refundFigures(cancelled({ refund: refund({ isSameDay: true, dispatchDeduction: 350, dispatchReason: 'Fuel', refundableAmount: 650 }) }));
-  assert.deepEqual(late, [['Down payment', '₱1,000'], ['Transportation fee', '₱350'], ['Reason for the fee', 'Fuel'], ['Refund amount', '₱650'], ['Refund status', 'Being processed']]);
+  assert.deepEqual(late, [['Down payment', '₱1,000.00'], ['Transportation fee', '₱350.00'], ['Reason for the fee', 'Fuel'], ['Refund amount', '₱650.00'], ['Refund status', 'Being processed']]);
   const owner = refundFigures(cancelled({ ownerCancelled: true, refund: refund({ ownerInitiated: true, refundableAmount: 1000, dispatchDeduction: 0 }) }));
-  assert.deepEqual(owner, [['Down payment', '₱1,000'], ['Transportation fee', 'None (the owner cancelled)'], ['Refund amount', '₱1,000'], ['Refund status', 'Being processed']]);
+  assert.deepEqual(owner, [['Down payment', '₱1,000.00'], ['Transportation fee', 'None (the owner cancelled)'], ['Refund amount', '₱1,000.00'], ['Refund status', 'Being processed']]);
 });
 
 const renderComponent = async (name, props) => {
@@ -95,7 +95,7 @@ test('the confirmation screen has a third button, "View booking details", with t
   assert.match(html, /cancelled-view-btn/);
   assert.match(html, /No down payment was on file for this booking, so there&#x27;s nothing to refund\./);
   const withMoney = await renderComponent('BookingCancelled', { booking: cancelled({ refund: refund({ refundableAmount: 1000 }) }), bookingId: 'CZ-2026-0001', refund: refund({ refundableAmount: 1000 }), onBookAgain() {}, onBackToDashboard() {}, onViewDetails() {} });
-  assert.match(withMoney, /down payment of ₱1,000 will be refunded in full/);
+  assert.match(withMoney, /down payment of ₱1,000.00 will be refunded in full/);
   assert.doesNotMatch(withMoney, /nothing to refund/);
 });
 
@@ -107,7 +107,7 @@ test('the cancellation record names who, when, why and the money', async () => {
   assert.match(html, /owner cancelled this booking because we could not supply or serve it/);
   assert.match(html, /Cancelled on on 2026-11-10/);
   assert.match(html, /Reason:<\/strong> We do not carry that brand/);
-  assert.match(html, /whole down payment of ₱1,000 will be refunded, with no transportation fee/);
+  assert.match(html, /whole down payment of ₱1,000.00 will be refunded, with no transportation fee/);
   assert.match(html, /None \(the owner cancelled\)/);
 });
 

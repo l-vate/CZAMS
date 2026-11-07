@@ -76,9 +76,9 @@ test('the details table has only the fields that apply, area only (never the str
   assert.equal(approved.find((r) => r[0] === 'Date and time')[1], 'Thu, Nov 12, 2026, Morning');
   assert.equal(approved.find((r) => r[0] === 'Area')[1], 'Quezon City, Metro Manila');
   const paid = detailRows({ type: 'payment_verified', bookingId: 'CZ-2026-0001', booking: booking() });
-  assert.equal(paid.find((r) => r[0] === 'Total')[1], '₱5,000');
+  assert.equal(paid.find((r) => r[0] === 'Total')[1], '₱5,000.00');
   const refund = detailRows({ type: 'refund_processed', bookingId: 'CZ-2026-0001', booking: booking() });
-  assert.equal(refund.find((r) => r[0] === 'Refund')[1], '₱1,500');
+  assert.equal(refund.find((r) => r[0] === 'Refund')[1], '₱1,500.00');
   assert.equal(approved.some((r) => r[0] === 'Total' || r[0] === 'Refund'), false);
   const html = render('booking_approved').html;
   assert.equal(html.includes('12 Sample Street'), false, 'no street address');

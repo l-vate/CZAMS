@@ -24,6 +24,10 @@ const backJobSchema = new mongoose.Schema({
         trim: true
     },
 
+    // An optional picture or short clip of the issue (a stored path). Seen by the admin and the customer who filed it; the free visit's
+    // technicians see it through the visit booking (problemMedia).
+    proofMedia: String,
+
     // Snapshot of the Warranty Tracking Module's getWarrantyStatus() check at the
     // moment the claim was filed, so the free-vs-not-covered decision stays
     // auditable even if the underlying booking/warranty data changes later.

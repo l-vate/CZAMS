@@ -17,7 +17,7 @@ const pick = (source, keys) => {
 
 const person = (p) => (p && typeof p === 'object' ? { _id: idOf(p), name: p.name } : p ? { _id: idOf(p) } : null);
 
-const unitList = (units) => (units || []).map((u) => pick(u, ['type', 'quantity', 'brandModel', 'hp']));
+const unitList = (units) => (units || []).map((u) => pick(u, ['type', 'quantity', 'brandModel', 'hp', 'modelNumber']));
 
 // `booking` is a plain object (toObject()) with service, customer and assignments populated.
 // `extra` carries values computed for this technician, such as { myRole }.
@@ -34,6 +34,7 @@ function toTechnicianView(booking, extra = {}) {
     contactNumber: b.contactNumber,
     contactName: b.contactName,
     problemDescription: b.problemDescription,
+    problemMedia: b.problemMedia,
     technicianInstructions: b.technicianInstructions,
     site: b.site ? pick(b.site, ['building', 'floorRoom', 'attention']) : undefined,
 

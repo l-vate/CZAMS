@@ -280,8 +280,8 @@ test('the customer is told in the app when a request is settled, and it is audit
   await call('PATCH', `/${bid()}/units/0/resolve`, 'ADM1', { catalogId: item._id }, asAdmin);
   const note = state.notes.find((n) => n.type === 'unit_request_resolved');
   assert.equal(note.user, 'CUS1');
-  assert.match(note.message, /₱31,000 each/);
-  assert.match(note.message, /The total for your booking is now ₱36,000/);
+  assert.match(note.message, /₱31,000.00 each/);
+  assert.match(note.message, /The total for your booking is now ₱36,000.00/);
   assert.deepEqual(auditActions(), ['unit_request.resolve']);
   assert.equal(state.audits[0].meta.how, 'catalog');
 });

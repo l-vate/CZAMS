@@ -241,3 +241,8 @@
 /* the amount the customer has to send now stands out from the other lines of the cost breakdown */
 .modal-cost-row--highlight { margin: 6px 0; padding: 10px 12px; border: 1px solid #bcd3ea; border-left: 4px solid var(--navy-soft); border-radius: 10px; background: #eef5ff; color: var(--navy); font-weight: 700; }
 .modal-cost-row--highlight span:last-child { font-size: 1.0625rem; }
+
+/* the payment review window once a payment is verified or rejected: the outcome, who decided it and when, instead of Approve and Reject */
+.payment-review-outcome { margin: 12px 0 4px; padding: 10px 14px; border: 1px solid var(--mist, #d5e0ea); border-left: 5px solid var(--navy, #0b2545); border-radius: 10px; background: var(--frost, #f3f8fc); color: var(--navy, #0b2545); font-size: 14px; font-weight: 600; }
+.payment-review-outcome p { margin: 0; }
+.payment-review-outcome p + p { margin-top: 4px; }

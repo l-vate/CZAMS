@@ -66,7 +66,7 @@ test('confirming the unit makes the down payment due and tells the customer in t
   assert.deepEqual(noteTypes().filter((t) => t === 'payment_due'), ['payment_due']);
   const note = state.notes.find((n) => n.type === 'payment_due');
   assert.match(note.message, /your unit is confirmed/);
-  assert.match(note.message, /down payment of ₱2,500/, '50% of the 5000 service; the unit price is not in it');
+  assert.match(note.message, /down payment of ₱2,500.00/, '50% of the 5000 service; the unit price is not in it');
   assert.ok(EMAIL_NOTIFICATION_TYPES.has('payment_due'), 'payment_due is emailed');
   const seen = await mine();
   assert.equal(seen.paymentDue.kind, 'down');

@@ -36,6 +36,9 @@ import { SERVICE_TYPE } from '../constants/serviceTypes';
 import { ProofLink, ProofImage } from './proof_file';
 import { customerLabel } from '../utils/customerLabel';
 import { hpLabel } from '../utils/hpLabel';
+import { formatMoney } from '../utils/money';
+import { LIMITS } from '../constants/inputLimits';
+import ProofMedia from './proof_media';
 
 // Admin only approves (and cancels). A booking becomes In Progress by itself when its
 // time block starts and Completed when the technician submits the service report.
@@ -443,6 +446,7 @@ const [report, setReport] = useState(null);
                                     Unit: {li.quantity}× {li.type}
                                     {li.brandModel ? ` · ${li.brandModel}` : ''}
                                     {li.hp ? ` · ${hpLabel(li.hp)}` : ''}
+                                    {li.modelNumber ? ` · Model ${li.modelNumber}` : ''}
                                     {li.supplied?.source === 'requested' ? ` · ${li.supplied.status === 'Declined' ? 'request declined' : 'needs owner confirmation'}` : ''}
                                     {unitChangeOf(li) && (
                                         <span className="unit-change-note">
@@ -482,6 +486,7 @@ const [report, setReport] = useState(null);
                                 <div>
                                     <span className="sdm-row-label">PROBLEM DESCRIPTION</span>
                                     <p className="sdm-row-value">{booking.problemDescription || '-'}</p>
+                                    <ProofMedia path={booking.problemMedia} />
                                 </div>
                             </div>
 
@@ -502,7 +507,7 @@ const [report, setReport] = useState(null);
                                     <span className="sdm-row-label">TECHNICIAN INSTRUCTIONS</span>
                                     {editingInstructions ? (
                                         <>
-                                            <textarea
+                                            <textarea maxLength={LIMITS.problemDescription}
                                                 className="ma-textarea admin-service-details-modal-x2"
                                                 rows={3}
                                                 placeholder="Care requirements, access instructions, client-specific handling..."
@@ -712,8 +717,8 @@ const [report, setReport] = useState(null);
 
                                     {paymentBreakdown.overpaid > 0 && (
                                         <div className="sdm-notice">
-                                            Overpayment: the customer already paid ₱{paymentBreakdown.downPayment.toLocaleString()}, which is
-                                            ₱{paymentBreakdown.overpaid.toLocaleString()} more than the discounted total. The balance is shown as ₱0
+                                            Overpayment: the customer already paid {formatMoney(paymentBreakdown.downPayment)}, which is
+                                            {formatMoney(paymentBreakdown.overpaid)} more than the discounted total. The balance is shown as ₱0
                                             and nothing was refunded automatically. Settle the difference with the customer.
                                         </div>
                                     )}
@@ -778,7 +783,7 @@ const [report, setReport] = useState(null);
                                         ))}
                                         <div className="sdm-list-row">
                                             <span><strong>Total Price</strong></span>
-                                            <span className="sdm-list-value"><strong>₱{basePrice.toLocaleString()}</strong></span>
+                                            <span className="sdm-list-value"><strong>{formatMoney(basePrice)}</strong></span>
                                         </div>
                                     </>
                                 )}
@@ -819,7 +824,7 @@ const [report, setReport] = useState(null);
                                                 <div className="sdm-list-row admin-service-details-modal-x19">
                                                     <span className="admin-service-details-modal-x20">Mobilization Fee</span>
                                                     <span className="sdm-list-value admin-service-details-modal-x21">
-                                                        ₱{(booking.mobilizationFee || 0).toLocaleString()}
+                                                        {formatMoney((booking.mobilizationFee || 0))}
                                                         <small className="sdm-muted"> Entered before the Scope of works had a mobilization fee.</small>
                                                     </span>
                                                 </div>
@@ -831,7 +836,7 @@ const [report, setReport] = useState(null);
                                                 <div className="sdm-list-row admin-service-details-modal-x19">
                                                     <span className="admin-service-details-modal-x20">Mobilization Fee</span>
                                                     <span className="sdm-list-value admin-service-details-modal-x21">
-                                                        ₱{legacyDistanceAmount(booking).toLocaleString()}
+                                                        {formatMoney(legacyDistanceAmount(booking))}
                                                         <small className="sdm-muted"> Entered before the Scope of works had a mobilization fee.</small>
                                                     </span>
                                                 </div>
@@ -843,7 +848,7 @@ const [report, setReport] = useState(null);
                                     <>
                                         <div className="sdm-list-row">
                                             <span>{booking.taxInclusive ? 'VAT included (12%)' : 'VAT (12%)'}</span>
-                                            <span className="sdm-list-value">₱{(booking.vatAmount || 0).toLocaleString()}</span>
+                                            <span className="sdm-list-value">{formatMoney((booking.vatAmount || 0))}</span>
                                         </div>
                                         {booking.poNumber && (
                                             <div className="sdm-list-row">
@@ -867,13 +872,13 @@ const [report, setReport] = useState(null);
                                     <span>Down Payment</span>
                                     <span className="sdm-list-value">
                                         {booking.downPaymentPercent ?? 'N/A'}%
-                                        {!booking.isBackJob && booking.downPaymentPercent != null && ` (₱${downPaymentAmount.toLocaleString()})`}
+                                        {!booking.isBackJob && booking.downPaymentPercent != null && ` (${formatMoney(downPaymentAmount)})`}
                                     </span>
                                 </div>
                                 {!booking.isBackJob && booking.downPaymentPercent != null && (
                                     <div className="sdm-list-row">
                                         <span>Remaining Balance</span>
-                                        <span className="sdm-list-value">₱{paymentBreakdown.balance.toLocaleString()}</span>
+                                        <span className="sdm-list-value">{formatMoney(paymentBreakdown.balance)}</span>
                                     </div>
                                 )}
                                 <div className="sdm-list-row">

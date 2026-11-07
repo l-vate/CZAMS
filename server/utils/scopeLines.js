@@ -5,6 +5,7 @@
 // How the lines count (utils/pricing.js): dismantling, installation, excess pipe and other are SERVICE lines, so the Senior/PWD
 // discount applies to them; a distance line is a CHARGE and never is. Lines never touch the down payment: it works off the units alone, so
 // a down payment already requested or paid never moves and only the remaining balance does.
+const { formatMoney } = require('./money');
 const { invalid } = require('./validation');
 const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } = require('../constants/paymentStatus');
@@ -17,7 +18,7 @@ const EDITABLE_STATUSES = [BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED, BOOK
 const REASON_MIN = 3;
 
 const roundMoney = (n) => Math.round(n * 100) / 100;
-const peso = (n) => `₱${Number(n).toLocaleString('en-US', Number.isInteger(Number(n)) ? {} : { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const peso = (n) => formatMoney(n);
 
 // What an admin may send for one line. `existing` is the line being edited (its values fill what is not sent), absent for a new line.
 // Returns { problem, values }: problem is null or { status, message }; values are { kind, description, quantity, unitLabel, unitRate, amount }.

@@ -6,6 +6,12 @@ const { PAYMENT_STATUS } = require('../constants/paymentStatus');
 const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const auditSpecs = require('../utils/auditSpecs');
 const express = require('express');
+const { mediaUploader, mediaFieldRules, MEDIA_FIELD } = require('../utils/mediaUpload');
+const { discardUploads, storeUploads } = require('../utils/uploadSafety');
+const { KINDS } = require('../storage/fileStore');
+const { uploadLimiter } = require('../middleware/rateLimit');
+const { lengthProblem } = require('../utils/inputLimits');
+const { sendProblem: sendLimitProblem } = require('../utils/validation');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const { allowRoles } = require('../middleware/roles');
@@ -43,10 +49,14 @@ const isDuplicateClaim = (err) => err && err.code === 11000 && (!err.keyPattern 
 
 // Customer: report a back job (leak right after cleaning, AC not cooling soon
 // after installation) on one of their own completed bookings.
-router.post('/', auth, allowRoles(ROLE.CUSTOMER), async (req, res) => {
+router.post('/', auth, allowRoles(ROLE.CUSTOMER), uploadLimiter, mediaUploader.fields([{ name: MEDIA_FIELD, maxCount: 1 }]), mediaFieldRules, async (req, res) => {
   try {
+    // a refused request must not leave its picture or clip behind
+    res.on('finish', () => { if (res.statusCode >= 400) discardUploads(req); });
     const { bookingId, issueDescription } = req.body;
 
+    const tooLong = lengthProblem(issueDescription, 'issueDescription', 'The description');
+    if (tooLong) return sendLimitProblem(res, tooLong);
     if (!issueDescription?.trim()) {
       return res.status(400).json({ message: 'Please describe the issue.' });
     }
@@ -82,6 +92,10 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER), async (req, res) => {
     const warranty = getWarrantyStatus(originalBooking);
     const withinWarranty = !!warranty.applicable && !!warranty.workmanship?.active;
 
+    // The optional picture or clip is stored only now that the claim is certain to be made (removed again if it cannot be saved).
+    await storeUploads(req, { kind: KINDS.PROBLEM_MEDIA });
+    const proofMedia = req.files?.[MEDIA_FIELD]?.[0] ? `/uploads/proofs/${req.files[MEDIA_FIELD][0].filename}` : undefined;
+
     // The free repair visit (when covered) and the back job record share the back job ID. If the
     // ID turns out to be taken, the visit made for it is removed and both are made again with a new one.
     const { backJob, resultingBooking } = await createWithUniqueBackJobId(async (backJobId) => {
@@ -96,10 +110,11 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER), async (req, res) => {
           queueRank,
           customer: originalBooking.customer,
           service: originalBooking.service._id,
-          units: (originalBooking.units || []).map(({ type, quantity, brandModel, hp }) => ({ type, quantity, brandModel, hp })),
+          units: (originalBooking.units || []).map(({ type, quantity, brandModel, hp, modelNumber }) => ({ type, quantity, brandModel, hp, modelNumber })),
           unitTypes: originalBooking.unitTypes,
           brandModel: originalBooking.brandModel,
           problemDescription: issueDescription.trim(),
+          problemMedia: proofMedia,
           date: scheduledDate,
           time: originalBooking.time || TIME_BLOCK.MORNING,
           address: originalBooking.address,
@@ -119,6 +134,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER), async (req, res) => {
           originalBooking: originalBooking._id,
           customer: req.userId,
           issueDescription: issueDescription.trim(),
+          proofMedia,
           warrantyCheck: {
             withinWarranty,
             coverageType: warranty.type || null,

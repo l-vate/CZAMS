@@ -4,6 +4,9 @@ import { FiMenu, FiX } from 'react-icons/fi';
 import Sidebar from '../../components/sidebars/staff_sidebar';
 import NotificationBell from '../../components/notification_bell';
 import { technicianNotificationTarget } from '../../utils/notificationTarget';
+import Notice from '../../components/notice';
+import { useNotificationToasts } from '../../hooks/useNotificationToasts';
+import { markNotificationRead } from '../../services/notificationService';
 
 function StaffLayout({ title, children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -15,8 +18,16 @@ function StaffLayout({ title, children }) {
     if (target) navigate(target);
   };
 
+  // a new job, or a change to a job, that arrives while the app is open: a message at the top with a button to open it
+  const { toast, dismiss } = useNotificationToasts();
+  const openToast = () => {
+    markNotificationRead(toast._id).catch(() => {});
+    handleNotificationClick(toast);
+  };
+
   return (
     <div className={`dashboard-shell staff-dashboard-shell${sidebarOpen ? ' sidebar-open' : ''}`}>
+      <Notice message={toast ? toast.message : ''} onClose={dismiss} action={toast ? { label: 'Open', onClick: openToast } : undefined} />
       <Sidebar onNavigate={() => setSidebarOpen(false)} />
 
       <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />

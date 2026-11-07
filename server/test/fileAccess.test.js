@@ -57,10 +57,10 @@ test('another customer may open none of them', () => {
   assert.equal(decideAccess({ role: 'customer', userId: 'CUS2', references: [] }), false);
 });
 
-test('a technician on the job (lead or helper) may open only the signed form photo', () => {
+test('a technician on the job (lead or helper) may open only the signed form photo and the problem photo or video', () => {
   ['T1', 'T2'].forEach((tech) => {
     KINDS.forEach((k) => {
-      const want = k === FILE_KIND.SIGNED_FORM;
+      const want = k === FILE_KIND.SIGNED_FORM || k === FILE_KIND.PROBLEM_MEDIA;
       assert.equal(decideAccess({ role: 'staff', userId: tech, references: refFor(k) }), want, `${tech} ${k}`);
     });
   });

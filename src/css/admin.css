@@ -3152,3 +3152,24 @@
   .req-card-bottom { display: block; }
   .req-card-link { display: flex; width: 100%; box-sizing: border-box; }
 }
+
+/* The page title is already in the top bar on a wide screen, so the same words as a heading under it are not shown there (still read out by a
+   screen reader). On a phone (up to 768 px) the heading stays exactly as it was. Used on the admin pages whose heading is the top bar title. */
+@media (min-width: 769px) {
+  .page-title-in-topbar {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+@media (min-width: 769px) {
+  /* a button that sat opposite the title stays at the right edge */
+  .page-title-in-topbar + button,
+  .page-title-in-topbar + .admin-service-details-btn { margin-left: auto; }
+}

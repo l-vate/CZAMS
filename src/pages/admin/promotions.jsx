@@ -6,6 +6,7 @@ import { listAllServices } from '../../services/serviceCatalogService';
 import { manilaToday, describeDiscount } from '../../utils/promos';
 import { EARLIEST_DATE } from '../../utils/dateRules';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
+import { LIMITS } from '../../constants/inputLimits';
 
 // default window: today for 30 days
 function defaultEnd() {
@@ -121,7 +122,7 @@ function Promotions() {
 
   return (
     <AdminLayout title="Promotions">
-      <h1 className="dashboard-welcome">Promotions</h1>
+      <h1 className="dashboard-welcome page-title-in-topbar">Promotions</h1>
       <p className="bs-card-sub">
         A promo is a discount for chosen services, optionally only when a minimum number of units is booked. A booking that
         qualifies gets the best promo automatically. A promo and a Senior/PWD discount do not stack: the larger one applies.
@@ -133,7 +134,7 @@ function Promotions() {
         <div className="bs-two-col">
           <div className="bs-field-group">
             <label className="bs-label" htmlFor="promo-name">Name</label>
-            <input id="promo-name" className="bs-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Clean 3 or more" />
+            <input maxLength={LIMITS.promoName} id="promo-name" className="bs-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Clean 3 or more" />
           </div>
           <div className="bs-field-group">
             <label className="bs-label" htmlFor="promo-min">Minimum units</label>
@@ -143,7 +144,7 @@ function Promotions() {
 
         <div className="bs-field-group">
           <label className="bs-label" htmlFor="promo-desc">Description <span className="bs-label-hint">(Optional, shown on the website)</span></label>
-          <input id="promo-desc" className="bs-input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <input maxLength={LIMITS.promoDescription} id="promo-desc" className="bs-input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
         </div>
 
         <div className="bs-two-col">

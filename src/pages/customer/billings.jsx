@@ -263,7 +263,7 @@ paymentStatus: b.paymentStatus,
                     <strong>{bill.service}</strong>
                     <small>{bill.id} · {bill.due.kind === 'balance' ? 'Remaining balance' : 'Down payment'}</small>
                   </div>
-                  <span className="billing-due-amount">₱{(bill.due.kind === 'balance' ? bill.remaining : bill.toPayNow).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="billing-due-amount">{peso2(bill.due.kind === 'balance' ? bill.remaining : bill.toPayNow)}</span>
                   <button
                     type="button"
                     className="bs-next-btn customer-billings-x9"

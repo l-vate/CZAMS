@@ -8,6 +8,7 @@ const auth = require('../middleware/auth');
 const Booking = require('../models/Booking');
 const User = require('../models/User');
 const Report = require('../models/Report');
+const BackJob = require('../models/BackJob');
 const { getMemberIds } = require('../utils/assignments');
 const { getStore } = require('../storage/fileStore');
 const { sendStored } = require('../utils/sendStored');
@@ -27,7 +28,7 @@ function createFileRouter({ store } = {}) {
   // 'allow' or 'deny' (always a 404). An ID photo is allowed for the admin role only.
   const decide = async (role, userId, name) => {
     if (role === 'admin') return 'allow';
-    const references = await findReferences(storedPathFor(name), { Booking, Report, getMemberIds });
+    const references = await findReferences(storedPathFor(name), { Booking, Report, BackJob, getMemberIds });
     if (isIdPhoto(references)) return 'deny';
     return decideAccess({ role, userId, references }) ? 'allow' : 'deny';
   };
@@ -70,7 +71,7 @@ function createFileRouter({ store } = {}) {
         verdict = await decide(req.userRole, req.userId, name);
       } else if (req.query.sig && verifyLinkParts({ name, u: req.query.u, exp: req.query.exp, sig: req.query.sig })) {
         // A signed link is tied to the person it was made for. For an ID photo that person must still be an active admin.
-        const references = await findReferences(storedPathFor(name), { Booking, Report, getMemberIds });
+        const references = await findReferences(storedPathFor(name), { Booking, Report, BackJob, getMemberIds });
         if (isIdPhoto(references)) {
           const who = await User.findById(req.query.u).select('role isActive');
           verdict = who && who.role === 'admin' && who.isActive !== false ? 'allow' : 'deny';

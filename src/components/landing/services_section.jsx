@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { formatMoney } from '../../utils/money';
 import { SERVICES, SHOWCASE, SHOW_PUBLIC_PRICES } from '../../config/landingContent';
 import PhotoSlot from './photo_slot';
 import SectionHeading from './section_heading';
@@ -26,7 +27,7 @@ function ServicesSection({ services }) {
               <div className="lp-service-body">
                 <div className="lp-service-head">
                   <h3>{item.title}</h3>
-                  {price !== null && <span className="lp-service-price">PHP {price.toLocaleString()}</span>}
+                  {price !== null && <span className="lp-service-price">{formatMoney(price)}</span>}
                 </div>
                 <p>{item.text}</p>
                 <Link className="lp-service-book" to="/login">{SERVICES.linkLabel}</Link>

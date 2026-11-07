@@ -1,4 +1,5 @@
 // What a bill card on the customer Billing page shows, as pure helpers (no app imports, so they are tested on their own).
+import { formatMoney } from './money.js';
 import { customerPaymentStatus } from './customerPayment.js';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -28,4 +29,4 @@ export function formatCreatedDate(value) {
 }
 
 // "₱3,500.00": always two decimals
-export const peso2 = (amount) => `₱${(Number(amount) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+export const peso2 = (amount) => formatMoney(amount);

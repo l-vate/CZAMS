@@ -17,6 +17,10 @@ import { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } from '../../constants/paymentS
 import { REFUND_STATUS } from '../../constants/refundStatus';
 import { ProofLink, ProofImage } from '../../components/proof_file';
 import { customerLabel } from '../../utils/customerLabel';
+import { paymentReviewState } from '../../utils/paymentReview';
+import { formatMoney } from '../../utils/money';
+import FilePreview from '../../components/file_preview';
+import { matchesSearch, customerSearchParts } from '../../utils/adminSearch';
 
 
 function formatDate(dateStr) {
@@ -108,6 +112,9 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
 
   if (!payment) return null;
 
+  // Approve and Reject are for a proof that is waiting; a verified (or rejected) payment shows who decided it and when instead.
+  const { awaiting, notes: outcomeNotes } = paymentReviewState(payment.raw);
+
   const isPdf = payment.attachmentUrl?.toLowerCase().endsWith('.pdf');
 
   const handleUpdatePaymentStatus = async (status) => {
@@ -134,11 +141,12 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
 
       await adminUpdateBooking(payment.bookingId, payload).catch(withFallback('Failed to update payment status.'));
 
-      onSuccess?.();
-      onClose();
+      setReason('');
+      onSuccess?.(); // the window stays open and, once the list is fresh, shows the outcome with who decided it and when
     } catch (err) {
       console.error('Error updating payment status:', err);
       setError(err.message || 'Network error while processing request.');
+      onSuccess?.(); // the payment may have been changed by someone else: show where it stands now
     } finally {
       setSubmitting(false);
     }
@@ -234,6 +242,8 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
         </div>
 
 
+        {awaiting ? (
+          <>
           <div className="payment-review-reason">
             <label htmlFor="payment-reject-reason" className="sdm-row-label">REASON (needed to reject)</label>
             <textarea
@@ -275,7 +285,20 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
           >
             {submitting ? 'Processing...' : 'Approve'}
           </button>
-        </div>
+          </div>
+          </>
+        ) : (
+          <>
+            <div className="payment-review-outcome" role="status">
+              {outcomeNotes.length > 0
+                ? outcomeNotes.map((n) => <p key={n.key}>{n.text}</p>)
+                : <p>Nothing is waiting to be checked on this payment.</p>}
+            </div>
+            <div className="cancel-confirm-actions admin-payments-x13">
+              <button type="button" className="bs-back-btn" onClick={onClose}>Close</button>
+            </div>
+          </>
+        )}
 
       </div>
     </div>
@@ -440,7 +463,7 @@ function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
         status,
         hasAttachment: Boolean(attachmentUrl),
         attachmentUrl,
-        amount: b.isBackJob ? 'Free' : `₱${grandTotal.toLocaleString()}`,
+        amount: b.isBackJob ? 'Free' : `${formatMoney(grandTotal)}`,
         refund: b.refund && b.refund.status !== REFUND_STATUS.NONE ? b.refund : null,
         raw: b,
       };
@@ -454,15 +477,15 @@ function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
         payment.status === activeFilter ||
         (activeFilter === 'rejected' && payment.status === 'balance_rejected') ||
         (activeFilter === 'refund' && (payment.status === 'refunded' || payment.status === 'cancelled_refund_pending' || payment.status === 'refund_rejected'));
-      const query = search.trim().toLowerCase();
-      const matchesSearch =
-        !query ||
-        payment.clientName.toLowerCase().includes(query) ||
-        payment.bookingId.toLowerCase().includes(query);
+      // the customer's name, email and phone, the booking number, the reference numbers (down payment and balance), the technicians and the service
+      const matchesSearchBox = matchesSearch(search, [
+        payment.clientName, payment.bookingId, ...customerSearchParts(payment.raw?.customer),
+        payment.raw?.referenceNumber, payment.raw?.balanceReferenceNumber, payment.technician, payment.serviceType,
+      ]);
       // Billing History (Manage Accounts, client accounts) - this panel only ever
       // receives a 'customer' person filter, never 'technician'.
       const matchesPerson = !personFilter || payment.raw?.customer?._id === personFilter.id;
-      return matchesFilter && matchesSearch && matchesPerson;
+      return matchesFilter && matchesSearchBox && matchesPerson;
     });
   }, [paymentsList, activeFilter, search, personFilter]);
 
@@ -539,7 +562,7 @@ function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
 
       {selectedPayment && (
         <ReviewRequestModal
-          payment={selectedPayment}
+          payment={paymentsList.find((p) => p.id === selectedPayment.id) || selectedPayment}
           onClose={() => setSelectedPayment(null)}
           onSuccess={fetchBookings}
         />
@@ -615,7 +638,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
 
   const handleProcess = async () => {
     if (finalAmount !== '' && (isNaN(finalNum) || finalNum < 0 || finalNum > refund.downPaymentAmount)) {
-      setError(`The refund must be between ₱0 and the ₱${refund.downPaymentAmount?.toLocaleString()} the customer paid.`);
+      setError(`The refund must be between ₱0 and the ${formatMoney(refund.downPaymentAmount)} the customer paid.`);
       return;
     }
     if (isAdjusted && (adjustmentReasonText.length < 3 || adjustmentReasonText.length > 300)) {
@@ -623,7 +646,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
       return;
     }
     if (refund.isSameDay && (dispatchDeduction === '' || isNaN(Number(dispatchDeduction)) || Number(dispatchDeduction) < 0 || Number(dispatchDeduction) > refund.downPaymentAmount)) {
-      setError(`Enter the transportation fee, from 0 up to the ₱${refund.downPaymentAmount?.toLocaleString()} down payment.`);
+      setError(`Enter the transportation fee, from 0 up to the ${formatMoney(refund.downPaymentAmount)} down payment.`);
       return;
     }
     if (!proof) {
@@ -737,7 +760,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
 
           <div className="payment-review-cell">
             <span className="confirmation-detail-label">Down Payment</span>
-            <span className="confirmation-detail-value">₱{refund.downPaymentAmount?.toLocaleString()}</span>
+            <span className="confirmation-detail-value">{formatMoney(refund.downPaymentAmount)}</span>
           </div>
 
           <div className="payment-review-cell">
@@ -776,7 +799,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
         {refund.isSameDay && isProcessed && (
           <div className="payment-review-cell admin-payments-x14">
             <span className="confirmation-detail-label">Transportation fee</span>
-            <span className="confirmation-detail-value">₱{refund.dispatchDeduction?.toLocaleString()}{refund.dispatchReason ? ` (${refund.dispatchReason})` : ''}</span>
+            <span className="confirmation-detail-value">{formatMoney(refund.dispatchDeduction)}{refund.dispatchReason ? ` (${refund.dispatchReason})` : ''}</span>
           </div>
         )}
 
@@ -786,7 +809,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
             {isPending ? 'Refundable Amount' : 'Refunded Amount'}
           </span>
           <span className="confirmation-detail-value">
-            ₱{(isPending ? previewRefundable : refund.refundableAmount)?.toLocaleString()}
+            {formatMoney((isPending ? previewRefundable : refund.refundableAmount))}
           </span>
         </div>
         )}
@@ -830,9 +853,11 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
                 type="file"
                 accept="image/jpeg,image/png,image/webp,.pdf"
                 className="admin-payments-x16"
+                onClick={(e) => { e.target.value = ''; }}
                 onChange={(e) => setProof(e.target.files[0] || null)}
               />
             </label>
+            <FilePreview file={proof} label="Refund proof" onRemove={() => setProof(null)} />
             {!proof && (
               <p className="admin-payments-x17">
                 Required before this refund can be marked processed.
@@ -844,7 +869,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
         {isProcessed && refund.adjustmentReason && (
           <div className="payment-review-cell admin-payments-x14">
             <span className="confirmation-detail-label">
-              Adjusted from ₱{refund.computedAmount?.toLocaleString()} to ₱{refund.finalAmount?.toLocaleString()} on {formatDate(refund.adjustedAt)}
+              Adjusted from {formatMoney(refund.computedAmount)} to {formatMoney(refund.finalAmount)} on {formatDate(refund.adjustedAt)}
             </span>
             <span className="confirmation-detail-value">{refund.adjustmentReason}</span>
           </div>
@@ -937,9 +962,9 @@ function Payments() {
       title="Payments"
       searchValue={search}
       onSearchChange={setSearch}
-      searchPlaceholder="Search by name, booking id..."
+      searchPlaceholder="Search name, email, phone, booking no. or reference no..."
     >
-      <h1 className="dashboard-welcome">Payments</h1>
+      <h1 className="dashboard-welcome page-title-in-topbar">Payments</h1>
       <PaymentsPanel
         personFilter={personFilter}
         onClearPersonFilter={() => setPersonFilter(null)}

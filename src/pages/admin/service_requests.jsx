@@ -13,6 +13,7 @@ import { BOOKING_STATUS_VALUES } from '../../constants/bookingStatus';
 import { manilaTodayKey } from '../../utils/manilaTime';
 import { addDaysKey } from '../../utils/needsAttention';
 import { bookedForText, createdText, techniciansSummary, statusCounts } from '../../utils/bookingCardText';
+import { matchesSearch, customerSearchParts } from '../../utils/adminSearch';
 
 function ServiceRequests() {
     const navigate = useNavigate();
@@ -69,15 +70,11 @@ function ServiceRequests() {
             return req.customer?._id === personFilter.id;
         })
         .filter((req) => {
-            const term = searchQuery.trim().toLowerCase();
-            if (!term) return true;
-            const haystack = [
-                req.bookingId,
-                req.service?.name,
-                customerLabel(req.customer, ''),
-                getMemberNames(req, ''),
-            ].filter(Boolean).join(' ').toLowerCase();
-            return haystack.includes(term);
+            // the booking number, the service, the customer's name, email and phone, the reference numbers and the technicians
+            return matchesSearch(searchQuery, [
+                req.bookingId, req.service?.name, customerLabel(req.customer, ''), ...customerSearchParts(req.customer),
+                req.referenceNumber, req.balanceReferenceNumber, getMemberNames(req, ''),
+            ]);
         });
 
     const fetchRequests = async () => {
@@ -101,11 +98,11 @@ function ServiceRequests() {
             title="Bookings"
             searchValue={searchQuery}
             onSearchChange={setSearchQuery}
-            searchPlaceholder="Search by booking ID, service, customer, or technician..."
+            searchPlaceholder="Search booking no., customer, email, phone, reference no. or technician..."
         >
             <div className="page-container">
                 <div className="req-page-head">
-                    <h1 className="dashboard-welcome">Bookings</h1>
+                    <h1 className="dashboard-welcome page-title-in-topbar">Bookings</h1>
                     <button
                         type="button"
                         className="req-new-btn"

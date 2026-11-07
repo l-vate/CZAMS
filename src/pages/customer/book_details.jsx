@@ -47,6 +47,10 @@ import { useNotice } from '../../hooks/useNotice';
 import { hpLabel } from '../../utils/hpLabel';
 import { namePartProblem } from '../../utils/personName';
 import { isValidContactNumber } from '../../utils/contact';
+import { formatMoney } from '../../utils/money';
+import { LIMITS } from '../../constants/inputLimits';
+import CharsLeft from '../../components/chars_left';
+import ProofMedia from '../../components/proof_media';
 // The signed-in customer, read when a page is drawn (not when this file is first loaded: that is before sign in, so it was empty until a reload).
 const readStoredUser = () => {
   try { return JSON.parse(localStorage.getItem('user') || '{}') || {}; } catch { return {}; }
@@ -183,7 +187,7 @@ function RescheduleModal({ booking, onClose, onSubmit, submitting }) {
 
         <div className="bs-field-group">
           <label className="bs-label" htmlFor="reschedule-contact-number">Contact number <span className="bs-label-hint">(optional)</span></label>
-          <input id="reschedule-contact-number" type="tel" inputMode="tel" className="bs-input" autoComplete="tel" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} aria-invalid={Boolean(contactNumberProblem)} />
+          <input maxLength={LIMITS.phone} id="reschedule-contact-number" type="tel" inputMode="tel" className="bs-input" autoComplete="tel" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} aria-invalid={Boolean(contactNumberProblem)} />
           {contactNumberProblem && <p className="date-problem" role="alert">{contactNumberProblem}</p>}
           <p className="cancel-confirm-text">These apply to this booking only. Your profile does not change.</p>
         </div>
@@ -320,13 +324,14 @@ function RefundFlagForm({ bookingId, refund, onFlagged }) {
   return (
     <div className="bs-field-group customer-book-details-x3">
       <label className="bs-label">Tell us what happened</label>
-      <textarea
+      <textarea maxLength={LIMITS.reason}
         className="bs-textarea"
         rows={3}
         placeholder="e.g. It's been marked processed but I haven't received the refund..."
         value={message}
         onChange={(e) => setMessage(e.target.value)}
       />
+<CharsLeft value={message} max={LIMITS.reason} />
       {error && (
         <p className="customer-book-details-x4">{error}</p>
       )}
@@ -620,10 +625,10 @@ function BookDetails() {
     }
   };
 
-  const handleBackJobSubmit = async ({ issueDescription }) => {
+  const handleBackJobSubmit = async ({ issueDescription, media }) => {
     setSubmittingBackJob(true);
     try {
-      const data = await reportBackJob({ bookingId: booking.bookingId, issueDescription });
+      const data = await reportBackJob({ bookingId: booking.bookingId, issueDescription, media });
       setBackJob(data);
     } catch (err) {
       showNotice(err instanceof ApiError ? err.message || 'Failed to submit report' : 'Could not connect to server.');
@@ -818,7 +823,7 @@ function BookDetails() {
               ) : (
                 lineItems.filter((li) => !li.isCharge).map((li, i) => (
                   <p className="confirmation-detail-line" key={i}>
-                    Unit: {li.quantity}× {li.type}{li.brandModel ? ` - ${li.brandModel}` : ''}{li.hp ? ` - ${hpLabel(li.hp)}` : ''}
+                    Unit: {li.quantity}× {li.type}{li.brandModel ? ` - ${li.brandModel}` : ''}{li.hp ? ` - ${hpLabel(li.hp)}` : ''}{li.modelNumber ? ` - Model ${li.modelNumber}` : ''}
                     {unitChangeOf(li) && (
                       <span className="unit-change-note">
                         <span>Requested: {unitChangeOf(li).requested} (not available)</span>
@@ -872,6 +877,7 @@ function BookDetails() {
                 <div>
                   <p className="confirmation-detail-label">Problem Description</p>
                   <p className="confirmation-detail-value">{booking.problemDescription || '-'}</p>
+                  <ProofMedia path={booking.problemMedia} alt="Photo you sent with your booking" />
                 </div>
               </div>
             </div>
@@ -896,25 +902,25 @@ function BookDetails() {
                   <span>Not approved{booking.discount.rejectionReason ? `: ${booking.discount.rejectionReason}` : ''}</span>
                 </div>
               )}
-              <div className="summary-row"><span>Total Price</span><span>₱{basePrice.toLocaleString()}</span></div>
+              <div className="summary-row"><span>Total Price</span><span>{formatMoney(basePrice)}</span></div>
               {booking.isCommercial && booking.taxInclusive && (
-                <div className="summary-row"><span>VAT included (12%)</span><span>₱{(booking.vatAmount ?? vatInside(basePrice)).toLocaleString()}</span></div>
+                <div className="summary-row"><span>VAT included (12%)</span><span>{formatMoney((booking.vatAmount ?? vatInside(basePrice)))}</span></div>
               )}
               {booking.isCommercial && !booking.taxInclusive && (
                 <>
-                  <div className="summary-row"><span>VAT (12%)</span><span>₱{(booking.vatAmount || 0).toLocaleString()}</span></div>
-                  <div className="summary-row"><span>Total incl. VAT</span><span>₱{(basePrice + (booking.vatAmount || 0)).toLocaleString()}</span></div>
+                  <div className="summary-row"><span>VAT (12%)</span><span>{formatMoney((booking.vatAmount || 0))}</span></div>
+                  <div className="summary-row"><span>Total incl. VAT</span><span>{formatMoney((basePrice + (booking.vatAmount || 0)))}</span></div>
                 </>
               )}
               {!booking.isCommercial && booking.taxInclusive && (
-                <div className="summary-row"><span>VAT included in the price (12%)</span><span>₱{vatInside(basePrice).toLocaleString()}</span></div>
+                <div className="summary-row"><span>VAT included in the price (12%)</span><span>{formatMoney(vatInside(basePrice))}</span></div>
               )}
               {booking.isCommercial && booking.paymentTermsDays > 0 && (
                 <div className="summary-row"><span>Payment Terms</span><span>{booking.paymentTermsDays} days after completion</span></div>
               )}
               <div className="summary-row"><span>Down Payment</span><span>{dpPercent === null ? 'Not set' : `${dpPercent}%`}</span></div>
-              <div className="summary-row"><span>{downPaymentOpen ? 'Down Payment Due' : booking.paymentStatus === PAYMENT_STATUS.TO_VERIFY ? 'Down Payment Sent (not yet verified)' : [PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(booking.paymentStatus) ? 'Down Payment Verified' : 'Down Payment'}</span><span>₱{toPayNow.toLocaleString()}</span></div>
-              <div className="summary-row"><span>Remaining Balance</span><span>{balanceSettled ? '₱0 (paid)' : `₱${remaining.toLocaleString()}`}</span></div>
+              <div className="summary-row"><span>{downPaymentOpen ? 'Down Payment Due' : booking.paymentStatus === PAYMENT_STATUS.TO_VERIFY ? 'Down Payment Sent (not yet verified)' : [PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(booking.paymentStatus) ? 'Down Payment Verified' : 'Down Payment'}</span><span>{formatMoney(toPayNow)}</span></div>
+              <div className="summary-row"><span>Remaining Balance</span><span>{balanceSettled ? '₱0.00 (paid)' : `${formatMoney(remaining)}`}</span></div>
               <div className="summary-row"><span>Payment Mode</span><span>{booking.paymentMode || '-'}</span></div>
               {balanceSettled && (inPerson?.method || booking.paymentMode2) && (
                 <div className="summary-row"><span>Balance Payment Mode</span><span>{inPerson?.method || booking.paymentMode2}{inPerson ? ' (received in person)' : ''}</span></div>

@@ -17,6 +17,7 @@ const FILE_KIND = Object.freeze({
   REFUND: 'refund_proof',
   PURCHASE: 'purchase_proof',
   SIGNED_FORM: 'signed_form',
+  PROBLEM_MEDIA: 'problem_media', // the customer's picture or clip of the problem, or of where the unit will go
 });
 
 // A file name from a web address, or null if it is anything but a plain file name. Rejects path
@@ -41,6 +42,9 @@ const INLINE_TYPES = Object.freeze({
   '.png': 'image/png',
   '.webp': 'image/webp',
   '.pdf': 'application/pdf',
+  '.mp4': 'video/mp4',
+  '.mov': 'video/quicktime',
+  '.webm': 'video/webm',
 });
 
 function servingRulesFor(name) {
@@ -65,7 +69,8 @@ function decideAccess({ role, userId, references }) {
   if (role === 'admin') return true;
   const refs = Array.isArray(references) ? references : [];
   if (role === 'customer') return refs.some((r) => r.customer === userId && r.kind !== FILE_KIND.ID_PHOTO);
-  if (role === 'staff') return refs.some((r) => r.kind === FILE_KIND.SIGNED_FORM && (r.memberIds || []).includes(userId));
+  // a technician opens the signed form of a job they are on, and the customer's problem picture or clip of a job they are on
+  if (role === 'staff') return refs.some((r) => (r.kind === FILE_KIND.SIGNED_FORM || r.kind === FILE_KIND.PROBLEM_MEDIA) && (r.memberIds || []).includes(userId));
   return false;
 }
 
@@ -74,7 +79,7 @@ const isIdPhoto = (references) => (Array.isArray(references) ? references : []).
 
 // Every booking that references this stored path, with the kind of reference.
 // `Booking` and `Report` are the Mongoose models, passed in so tests can substitute them.
-async function findReferences(storedPath, { Booking, Report, getMemberIds }) {
+async function findReferences(storedPath, { Booking, Report, BackJob, getMemberIds }) {
   const bookings = await Booking.find({
     $or: [
       { proofFile: storedPath },
@@ -82,8 +87,9 @@ async function findReferences(storedPath, { Booking, Report, getMemberIds }) {
       { 'discount.idFile': storedPath },
       { 'refund.proofFile': storedPath },
       { unitPurchaseProof: storedPath },
+      { problemMedia: storedPath },
     ],
-  }).select('bookingId customer technician assignments proofFile balanceProofFile discount refund unitPurchaseProof');
+  }).select('bookingId customer technician assignments proofFile balanceProofFile discount refund unitPurchaseProof problemMedia');
 
   const references = [];
   bookings.forEach((b) => {
@@ -93,7 +99,14 @@ async function findReferences(storedPath, { Booking, Report, getMemberIds }) {
     if (b.discount && b.discount.idFile === storedPath) references.push({ ...base, kind: FILE_KIND.ID_PHOTO });
     if (b.refund && b.refund.proofFile === storedPath) references.push({ ...base, kind: FILE_KIND.REFUND });
     if (b.unitPurchaseProof === storedPath) references.push({ ...base, kind: FILE_KIND.PURCHASE });
+    if (b.problemMedia === storedPath) references.push({ ...base, kind: FILE_KIND.PROBLEM_MEDIA });
   });
+
+  // the picture or clip sent with a back job claim belongs to the customer who filed it
+  if (BackJob) {
+    const claims = await BackJob.find({ proofMedia: storedPath }).select('customer');
+    claims.forEach((c) => references.push({ kind: FILE_KIND.PROBLEM_MEDIA, customer: String(c.customer), memberIds: [] }));
+  }
 
   const reports = await Report.find({ signedFormPhoto: storedPath }).select('bookingId');
   if (reports.length > 0) {

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiBell, FiCalendar, FiCheckCircle, FiXCircle, FiCreditCard, FiMessageCircle, FiRefreshCw, FiChevronRight } from 'react-icons/fi';
+import { NOTIFICATIONS_CHANGED } from '../hooks/useNotificationToasts';
 import { listNotifications, markNotificationRead, markAllNotificationsRead } from '../services/notificationService';
 
 
@@ -58,6 +59,13 @@ function NotificationBell({ onNotificationClick, viewAllRoute, actionCount = 0, 
 
   useEffect(() => {
     fetchNotifications();
+  }, []);
+
+  // a new notification was just announced by a message at the top (hooks/useNotificationToasts.js): the badge catches up
+  useEffect(() => {
+    const refresh = () => fetchNotifications();
+    window.addEventListener(NOTIFICATIONS_CHANGED, refresh);
+    return () => window.removeEventListener(NOTIFICATIONS_CHANGED, refresh);
   }, []);
 
   useEffect(() => {

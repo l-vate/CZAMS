@@ -16,7 +16,8 @@ import { customerLabel } from '../../utils/customerLabel';
 import { clientGroupOf } from '../../utils/clientGroup';
 import { dayKeyOf } from '../../utils/manilaTime';
 import { pastWindow, pastRangeProblem } from '../../utils/dateRules';
-const peso = (n) => `₱${(Math.round(n) || 0).toLocaleString()}`;
+import { formatMoney } from '../../utils/money';
+const peso = (n) => formatMoney(n);
 
 
 const CLIENT_TYPE_FILTERS = [

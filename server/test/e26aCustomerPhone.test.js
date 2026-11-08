@@ -108,9 +108,11 @@ test('A3: the desktop layout is untouched, the staff profile keeps its own rules
   assert.match(outside, /\.profile-grid \{\s*display: grid;\s*grid-template-columns: repeat\(2, 1fr\)/);
   assert.match(src('css', 'staff.css'), /\.profile-card \{[^}]*padding: 32px/, 'the shared base card rule is unchanged');
   const page = src('pages', 'customer', 'profile.jsx');
-  for (const [id, attrs] of [['firstName', 'autoComplete="given-name"'], ['lastName', 'autoComplete="family-name"'], ['email', 'autoComplete="email"\\s*inputMode="email"'], ['phone', 'autoComplete="tel"\\s*inputMode="tel"'], ['address', 'autoComplete="street-address"']]) {
+  for (const [id, attrs] of [['firstName', 'autoComplete="given-name"'], ['lastName', 'autoComplete="family-name"'], ['email', 'autoComplete="email"\\s*inputMode="email"'], ['phone', 'autoComplete="tel"\\s*inputMode="tel"']]) {
     assert.match(page, new RegExp(`id="${id}"\\s*name="${id}"\\s*${attrs}\\s*onFocus=\\{revealField\\}`), id);
   }
+  // E33: the address is a set of boxes (components/address_fields.jsx); the profile hands it the same scroll into view on focus
+  assert.match(page, /<AddressFields[^>]*onFocus={revealField}/s, 'the address boxes scroll into view too');
   assert.match(page, /scrollIntoView\(\{ block: 'center', behavior: 'smooth' \}\)/, 'the focused field scrolls into view');
 });
 

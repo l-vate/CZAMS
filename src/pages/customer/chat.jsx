@@ -30,7 +30,7 @@ function buildQuickQuestions(paymentMethods) {
     },
     {
       question: 'Do you service my area?',
-      answer: `CZA's confirmed service areas are: ${SERVICE_AREA_DISPLAY_NAMES.join(', ')}. Addresses outside Quezon City may incur a distance-based transportation charge. If your address isn't in this list, you can still book - it'll just be flagged for admin review.`,
+      answer: `CZA's service areas are: ${SERVICE_AREA_DISPLAY_NAMES.join(' and ')}. Addresses outside Quezon City may incur a distance or transportation fee, which our team decides. If your city isn't in this list, choose Other: you can still book, and the booking is flagged for our team to review.`,
     },
     {
       question: "What's included in a cleaning service?",

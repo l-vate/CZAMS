@@ -28,7 +28,7 @@ const TECHNICIANS_VISIBLE_STATUSES = ['Approved', 'In Progress', 'Completed'];
 
 // Top-level Booking fields a customer may receive, passed through as they are (they hold nothing internal).
 const PASS_THROUGH = [
-  '_id', 'bookingId', 'status', 'createdAt', 'updatedAt', 'date', 'time', 'address', 'contactNumber', 'contactName','problemDescription',
+  '_id', 'bookingId', 'status', 'createdAt', 'updatedAt', 'date', 'time', 'address', 'addressParts', 'contactNumber', 'contactName','problemDescription',
   'unitTypes', 'brandModel', 'problemMedia', 'clientSuppliedUnit', 'unitSource', 'unitWaiver', 'unitPurchaseProof', 'cleaningTierAnswers',
   'requestedTechnician',
   'downPaymentPercent', 'downPaymentPaidAmount', 'pricingVersion', 'unitConfirmedAt', 'paymentMode', 'paymentMode2', 'paymentStatus', 'balancePaid',

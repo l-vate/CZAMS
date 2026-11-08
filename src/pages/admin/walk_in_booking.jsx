@@ -29,6 +29,8 @@ import { SERVICE_TYPE } from '../../constants/serviceTypes';
 import { bookingDateProblem } from '../../utils/dateRules';
 import { formatMoney } from '../../utils/money';
 import { LIMITS } from '../../constants/inputLimits';
+import { addressPartsProblem } from '../../utils/addressParts';
+import { EMPTY_ADDRESS_PARTS } from '../../constants/addressOptions';
 import FilePreview from '../../components/file_preview';
 
 const TOTAL_STEPS = 6;
@@ -467,6 +469,7 @@ function WalkInBooking() {
     time: '',
     technician: '',
     address: '',
+    addressParts: { ...EMPTY_ADDRESS_PARTS },
     contactNumber: '',
     discountType: '',
     discountIdFileObj: null,
@@ -514,7 +517,7 @@ function WalkInBooking() {
       return true;
     }
     if (step === 4) {
-      if (!form.date || !form.time || !form.address || !isValidContactNumber(form.contactNumber)) return false;
+      if (!form.date || !form.time || addressPartsProblem(form.addressParts) || !isValidContactNumber(form.contactNumber)) return false;
       // the same rule as the server (utils/dateRules.js): at least 3 days ahead and no more than 5 months ahead, Manila time
       return !bookingDateProblem(form.date);
     }
@@ -538,7 +541,7 @@ function WalkInBooking() {
       formData.append('date', form.date);
       formData.append('time', form.time);
       formData.append('technician', form.technician || '');
-      formData.append('address', form.address);
+      formData.append('addressParts', JSON.stringify(form.addressParts));
       formData.append('contactNumber', form.contactNumber || '');
       if (form.siteBuilding) formData.append('siteBuilding', form.siteBuilding);
       if (form.siteFloorRoom) formData.append('siteFloorRoom', form.siteFloorRoom);

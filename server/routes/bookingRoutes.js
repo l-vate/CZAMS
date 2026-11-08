@@ -70,6 +70,7 @@ const { nextQueueRank, reorder: reorderQueue, getQueue } = require('../utils/que
 const { generateBookingId, createWithUniqueBookingId, BookingIdExhaustedError } = require('../utils/bookingId');
 const { invalid, sendProblem } = require('../utils/validation');
 const { lengthProblem, limits } = require('../utils/inputLimits');
+const { cleanParts, buildAddress, addressPartsProblem, readParts } = require('../utils/addressParts');
 const { mediaUploader, mediaFieldRules, MEDIA_FIELD } = require('../utils/mediaUpload');
 const { readPaymentSubmission, findSameReference } = require('../utils/paymentReference');
 const { readUnitBrand } = require('../utils/unitBrand');
@@ -362,7 +363,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
 
     const {
       service, units: unitsRaw, problemDescription,
-      date, time, technician, address,
+      date, time, technician,
       downPaymentPercent, paymentMode, paymentMode2, referenceNumber,
       customer, clientSuppliedUnit, unitWaiverAcknowledged, unitWaiverName, contactNumber,
       lastCleanedOver6MonthsAgo, isActivelyLeaking,
@@ -388,11 +389,14 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
       return res.status(400).json({ message: 'Time must be Morning or Afternoon.' });
     }
 
-    if (typeof address !== 'string' || !address.trim()) {
-      return res.status(400).json({ message: 'Address is required.' });
-    }
+    // The address comes as its parts (utils/addressParts.js); the line every other screen reads is built here, never taken from the request.
+    const sentParts = readParts(req.body.addressParts);
+    const addressProblem = sentParts ? addressPartsProblem(sentParts) : 'Address is required: send the house or block and lot, street, barangay, city, province and ZIP code.';
+    if (addressProblem) return res.status(400).json({ message: addressProblem });
+    const addressParts = cleanParts(sentParts);
+    const address = buildAddress(addressParts);
     // the longest a new booking's text may be (utils/inputLimits.js); nothing already saved is cut
-    const textTooLong = lengthProblem(address, 'address', 'The address') || lengthProblem(problemDescription, 'problemDescription', 'The problem description')
+    const textTooLong = lengthProblem(problemDescription, 'problemDescription', 'The problem description')
       || lengthProblem(contactNumber, 'phone', 'The contact number') || lengthProblem(unitWaiverName, 'waiverName', 'The name');
     if (textTooLong) return sendProblem(res, textTooLong);
 
@@ -633,7 +637,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
     // goes through the normal check like any other.
     const paymentStatus = proofFile ? PAYMENT_STATUS.TO_VERIFY : PAYMENT_STATUS.UNPAID;
 
-    const withinServiceArea = isWithinServiceArea(address);
+    const withinServiceArea = isWithinServiceArea(address, addressParts);
 
     // Guard against stale cleaning-tier answers riding along onto a booking for
     // a different (or no longer Cleaning) service - the client also resets these
@@ -661,7 +665,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
         customer: bookingCustomerId,
         service, units, problemDescription, problemMedia,
         priceSnapshot: buildPriceSnapshot(serviceDoc, units),
-        date, time, requestedTechnician: technician || undefined, address: address.trim(), contactNumber: cleanContactNumber,
+        date, time, requestedTechnician: technician || undefined, address, addressParts, contactNumber: cleanContactNumber,
         downPaymentPercent, paymentMode, paymentMode2,
         paymentStatus, proofFile, referenceNumber: paymentSubmission.reference,
   clientSuppliedUnit: isClientSuppliedUnit,
@@ -2484,7 +2488,7 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
         bookingId: booking.bookingId,
         before: chargesBefore,
         after: { distanceAdjustment: booking.distanceAdjustment || 0, mobilizationFee: booking.mobilizationFee || 0 },
-        outsideArea: !isWithinServiceArea(booking.address),
+        outsideArea: !isWithinServiceArea(booking.address, booking.addressParts),
       });
       if (message) await sendNotification(booking.customer, NOTIFICATION_TYPE.CHARGE_UPDATED, message, { booking });
     }

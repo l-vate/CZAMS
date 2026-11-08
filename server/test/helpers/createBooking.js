@@ -271,7 +271,8 @@ function goodDate(daysAhead = 7) {
 async function post(fields = {}, as = 'CUS1', { role = 'customer' } = {}) {
   const token = jwt.sign({ id: as, role }, process.env.JWT_SECRET, { expiresIn: '5m' });
   const body = {
-    service: 'S-CLEAN', units: [{ type: 'Split Type', quantity: 1, brandModel: 'Carrier' }], date: goodDate(), time: 'Morning', address: 'Quezon City',
+    service: 'S-CLEAN', units: [{ type: 'Split Type', quantity: 1, brandModel: 'Carrier' }], date: goodDate(), time: 'Morning',
+    addressParts: { houseLot: 'Blk 1 Lot 2', street: 'Mabini St.', barangay: 'Holy Spirit', city: 'Quezon City', province: 'Metro Manila', zip: '1127' },
     contactNumber: '09171234567', downPaymentPercent: 50, paymentMode: 'GCash', lastCleanedOver6MonthsAgo: false, isActivelyLeaking: false, ...fields,
   };
   // Every unit needs a brand (E17-2). A test that is not about the brand does not repeat it on each unit: one without any brand gets a
@@ -283,7 +284,7 @@ async function post(fields = {}, as = 'CUS1', { role = 'customer' } = {}) {
   const form = new FormData();
   Object.entries(body).forEach(([k, v]) => {
     if (v === undefined) return;
-    form.append(k, k === 'units' && typeof v !== 'string' ? JSON.stringify(v) : String(v));
+    form.append(k, (k === 'units' || k === 'addressParts') && typeof v !== 'string' ? JSON.stringify(v) : String(v));
   });
   const res = await fetch(`${base}/api/bookings`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
   return { status: res.status, body: await res.json().catch(() => ({})) };

@@ -27,7 +27,8 @@ const send = async (method, route, fields, parts, as = 'CUS1', role = 'customer'
 };
 
 const bookingFields = (over = {}) => ({
-  service: 'S-CLEAN', units: JSON.stringify([{ type: 'Split Type', quantity: 1, brand: 'Carrier' }]), date: goodDate(7), time: 'Morning', address: 'Quezon City',
+  service: 'S-CLEAN', units: JSON.stringify([{ type: 'Split Type', quantity: 1, brand: 'Carrier' }]), date: goodDate(7), time: 'Morning',
+  addressParts: JSON.stringify({ houseLot: 'Blk 1 Lot 2', street: 'Mabini St.', barangay: 'Holy Spirit', city: 'Quezon City', province: 'Metro Manila', zip: '1127' }),
   contactNumber: '09171234567', downPaymentPercent: '50', paymentMode: 'GCash', referenceNumber: '1234567890123',
   lastCleanedOver6MonthsAgo: 'false', isActivelyLeaking: 'false', ...over,
 });

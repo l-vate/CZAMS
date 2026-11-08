@@ -24,6 +24,9 @@ import { bookingWindow, bookingDateProblem } from '../../utils/dateRules';
 import { isValidContactNumber, getAccountPhone } from '../../utils/contact';
 import { usePaymentSettings, getDownPaymentOptions, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
 import { isWithinQuezonCity } from '../../utils/serviceArea';
+import AddressFields from '../../components/address_fields';
+import { buildAddress, addressPartsProblem } from '../../utils/addressParts';
+import { EMPTY_ADDRESS_PARTS } from '../../constants/addressOptions';
 import {
   FiCheck,
   FiSunrise,
@@ -485,8 +488,9 @@ export function Step3({ form, setForm, technicians }) {
   // Distance-based transportation charge notice - soft, informational only, not
   // a block on submission. QC is CZA's home base; anything outside it may incur
   // an additional distance charge (replaces the old confirmed-service-area warning).
-  const addressEntered = (form.address || '').trim().length > 0;
-  const withinQuezonCity = !addressEntered || isWithinQuezonCity(form.address);
+  // the distance notice waits for a city, so it does not show while the first boxes are still being filled
+  const addressEntered = (form.addressParts?.city || '').trim().length > 0;
+  const withinQuezonCity = !addressEntered || isWithinQuezonCity(form.address, form.addressParts);
 
    return (
     <div className="bs-card">
@@ -546,16 +550,14 @@ export function Step3({ form, setForm, technicians }) {
 
       <div className="bs-field-group">
         <label className="bs-label">Address</label>
-        <input maxLength={LIMITS.address}
-          type="text"
-          className="bs-input"
-          placeholder="House No., Street, Barangay, City"
-          value={form.address || ''}
-          onChange={(e) => setForm({ ...form, address: e.target.value })}
+        <AddressFields
+          idPrefix="book"
+          value={form.addressParts}
+          onChange={(parts) => setForm({ ...form, addressParts: parts, address: buildAddress(parts) })}
         />
         {addressEntered && !withinQuezonCity && (
           <p className="bs-area-warning">
-            A distance-based charge may apply for addresses outside Quezon City due to transportation.
+            This address is outside Quezon City, so our team may add a transportation or distance fee. The amount is decided when your booking is reviewed.
           </p>
         )}
       </div>
@@ -925,6 +927,7 @@ function BookService() {
     time: '',
     technician: '',
     address: '',
+    addressParts: { ...EMPTY_ADDRESS_PARTS },
     contactNumber: getAccountPhone(),
     discountType: '',
     discountIdFileObj: null,
@@ -973,7 +976,7 @@ function BookService() {
       const missing = [];
       if (!form.date) missing.push('a date');
       if (!form.time) missing.push('a time');
-      if (!form.address) missing.push('your address');
+      if (addressPartsProblem(form.addressParts)) missing.push('your complete address (all boxes except Subdivision or Building, and a 4 digit ZIP code)');
       if (!isValidContactNumber(form.contactNumber)) missing.push('a valid contact number');
       if (missing.length > 0) return `Add ${missing.join(', ')} to continue.`;
       // the same sentences the server sends: not in the past, at least 3 days ahead, no more than 5 months ahead
@@ -1010,7 +1013,7 @@ function BookService() {
       formData.append('date', form.date);
       formData.append('time', form.time);
       formData.append('technician', form.technician || '');
-      formData.append('address', form.address);
+      formData.append('addressParts', JSON.stringify(form.addressParts));
       formData.append('contactNumber', form.contactNumber || '');
       if (worksToSend(form.mayNeedWorks)) formData.append('mayNeedWorks', JSON.stringify(worksToSend(form.mayNeedWorks)));
       if (form.siteBuilding) formData.append('siteBuilding', form.siteBuilding);

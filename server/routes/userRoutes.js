@@ -264,7 +264,11 @@ router.put('/:id', auth, auditSpecs.userUpdate, async (req, res) => {
     if (name !== undefined) update.name = name.trim();
     if (email !== undefined) update.email = email.trim().toLowerCase();
     if (phone !== undefined) update.phone = phone.trim();
-    if (address !== undefined) update.address = address.trim();
+    if (address !== undefined) {
+      update.address = address.trim();
+      // a line typed by an admin no longer matches the saved parts, so the parts are dropped (the line stays the truth)
+      if (update.address !== (target.address || '')) update.$unset = { addressParts: 1 };
+    }
     if (role !== undefined) update.role = role;
     if (isActive !== undefined) update.isActive = isActive;
     if (clientType !== undefined && finalRole === ROLE.CUSTOMER) update.clientType = clientType;

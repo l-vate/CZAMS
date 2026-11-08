@@ -84,12 +84,14 @@ test('profile: an empty address keeps the height of a filled one, in view mode',
   // edit mode: the address input is the same bs-input as the other fields
   const profile = src('pages', 'customer', 'profile.jsx');
   const inputs = profile.match(/<input[^>]*?className="bs-input"/gs) || [];
-  assert.equal(inputs.length, 5, 'first name, last name, email, phone and address share one input class');
+  assert.equal(inputs.length, 4, 'first name, last name, email and phone share one input class');
+  // E33: the address boxes (address_fields.jsx) use the same bs-input class
+  assert.match(src('components', 'address_fields.jsx'), /className="bs-input"/);
 });
 
 test('profile: Cancel and Save Changes come after the fields, in the same order, right aligned at equal width, full width at 340 px', () => {
   const customer = src('pages', 'customer', 'profile.jsx');
-  assert.ok(customer.indexOf('id="address"') < customer.indexOf('profile-edit-actions'), 'the buttons follow the last field');
+  assert.ok(customer.indexOf('<AddressFields') < customer.indexOf('profile-edit-actions'), 'the buttons follow the last field');
   assert.ok(customer.indexOf('>\n                  Cancel') < customer.indexOf('Save<span'), 'Cancel first, then Save Changes');
   assert.match(customer, /aria-label="Save Changes"/);
   const css = src('css', 'customer.css');

@@ -38,7 +38,7 @@ test('no old distance row and no Edit for it on a new booking, even outside Quez
   assert.doesNotMatch(html, /Distance Based Charge/);
   assert.doesNotMatch(html, /Mobilization Fee<\/span>/, 'no charge row for something nobody entered');
   assert.doesNotMatch(html, /Admin Pricing Adjustments/);
-  assert.match(html, /mobilization fee in the Scope of works/, 'the notice points to the one place for it');
+  assert.match(html, /mobilization or distance fee in the Scope of works/, 'the notice points to the one place for it');
 });
 
 test('an older booking with a value in the old field shows it read-only, with no Edit', async () => {

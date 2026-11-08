@@ -75,7 +75,7 @@ export function sessionEndMessage(status, message, hadToken) {
 
 // The fields of the saved user that the server can change behind the browser's back. Anything else the saved
 // user holds is kept as it is.
-const FRESH_FIELDS = ['name', 'firstName', 'lastName', 'email', 'role', 'phone', 'address', 'profileImage', 'clientType', 'position', 'companyName', 'representativeName', 'createdAt'];
+const FRESH_FIELDS = ['name', 'firstName', 'lastName', 'email', 'role', 'phone', 'address', 'addressParts', 'profileImage', 'clientType', 'position', 'companyName', 'representativeName', 'createdAt'];
 
 // The saved user updated from a fresh /api/users/me answer, and what to do about it:
 //   { user, roleChanged, redirectTo }  (redirectTo is the new role's home when the role changed, otherwise null)

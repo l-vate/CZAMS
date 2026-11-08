@@ -12,6 +12,8 @@ const userSchema = new mongoose.Schema({
   role: { type: String, enum: ROLE_VALUES, default: ROLE.CUSTOMER },
   phone: String,
   address: String,
+  // The address as separate parts (utils/addressParts.js); address above is the line built from them. An account without parts keeps its old line.
+  addressParts: { type: new mongoose.Schema({ houseLot: String, street: String, subdivision: String, barangay: String, city: String, province: String, zip: String }, { _id: false }), default: undefined },
   profileImage: String,
   isActive: { type: Boolean, default: true },
   // When the password was last changed. A token issued before this is refused (middleware/auth.js), so

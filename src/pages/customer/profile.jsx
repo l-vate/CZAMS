@@ -14,6 +14,9 @@ import Notice from '../../components/notice';
 import { useNotice } from '../../hooks/useNotice';
 import { nameParts, namePartProblem } from '../../utils/personName';
 import { LIMITS } from '../../constants/inputLimits';
+import AddressFields from '../../components/address_fields';
+import { buildAddress, addressPartsProblem, isBlankParts } from '../../utils/addressParts';
+import { EMPTY_ADDRESS_PARTS, partsForForm } from '../../constants/addressOptions';
 /* ── Delete Account Confirm Dialog ─────────────────────── */
 function DeleteAccountDialog({ onKeep, onConfirmDelete, deleting }) {
   return (
@@ -53,7 +56,7 @@ function Profile() {
   function loadUserFromStorage() {
   const stored = localStorage.getItem('user');
   if (!stored) {
-    return { firstName: '', lastName: '', email: '', phone: '', address: '', memberSince: '', photo: null };
+    return { firstName: '', lastName: '', email: '', phone: '', address: '', addressParts: { ...EMPTY_ADDRESS_PARTS }, memberSince: '', photo: null };
   }
   const parsed = JSON.parse(stored);
   const { firstName, lastName } = nameParts(parsed);
@@ -64,6 +67,7 @@ function Profile() {
     email: parsed.email || '',
     phone: parsed.phone || '',
     address: parsed.address || '',
+    addressParts: partsForForm(parsed.addressParts),
     memberSince: parsed.createdAt
       ? new Date(parsed.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
       : '',
@@ -129,6 +133,12 @@ const [user, setUser] = useState(loadUserFromStorage);
     showNotice(nameError);
     return;
   }
+  // a started address must be complete (the same rule as the server); all boxes empty keeps the saved address
+  const addressError = isBlankParts(editForm.addressParts) ? '' : addressPartsProblem(editForm.addressParts);
+  if (addressError) {
+    showNotice(addressError);
+    return;
+  }
   try {
     const data = await updateProfile({
       firstName: editForm.firstName,
@@ -136,6 +146,7 @@ const [user, setUser] = useState(loadUserFromStorage);
       email: editForm.email,
       phone: editForm.phone,
       address: editForm.address,
+      addressParts: editForm.addressParts,
     });
 
     localStorage.setItem('user', JSON.stringify(data.user));
@@ -145,6 +156,7 @@ const [user, setUser] = useState(loadUserFromStorage);
       email: data.user.email || '',
       phone: data.user.phone || '',
       address: data.user.address || '',
+      addressParts: partsForForm(data.user.addressParts),
       memberSince: data.user.createdAt
         ? new Date(data.user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
         : '',
@@ -306,16 +318,15 @@ const [user, setUser] = useState(loadUserFromStorage);
                 </div>
 
                 <div className="profile-field full-width">
-                  <label htmlFor="address">Address</label>
-                  <input maxLength={LIMITS.address}
-                    type="text"
-                    id="address"
-                    name="address"
-                    autoComplete="street-address"
+                  <label>Address</label>
+                  {editForm.address && isBlankParts(editForm.addressParts) && (
+                    <p className="address-saved-note">Saved address: {editForm.address}. Fill in the boxes below to replace it, or leave them empty to keep it.</p>
+                  )}
+                  <AddressFields
+                    idPrefix="profile"
+                    value={editForm.addressParts}
                     onFocus={revealField}
-                    className="bs-input"
-                    value={editForm.address}
-                    onChange={handleEditChange}
+                    onChange={(parts) => setEditForm({ ...editForm, addressParts: parts, address: isBlankParts(parts) ? user.address : buildAddress(parts) })}
                   />
                 </div>
               </div>

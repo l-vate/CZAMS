@@ -172,6 +172,9 @@ const bookingSchema = new mongoose.Schema({
     // nobody and blocks nobody. Auto-assign uses it as a tie-breaker.
     requestedTechnician: { type: String, ref: 'User' },
     address: { type: String, required: true },
+    // The same address as separate parts (utils/addressParts.js); address above is the line built from them. Bookings made before the
+    // parts existed have none and keep showing their old line.
+    addressParts: { type: new mongoose.Schema({ houseLot: String, street: String, subdivision: String, barangay: String, city: String, province: String, zip: String }, { _id: false }), default: undefined },
     // Who the technician should call. Required when a booking is created (see the
     // create route) but deliberately not `required` in the schema: bookings made
     // before this field existed have none and must stay saveable; readers fall back

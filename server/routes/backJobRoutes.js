@@ -118,6 +118,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER), uploadLimiter, mediaUploader.f
           date: scheduledDate,
           time: originalBooking.time || TIME_BLOCK.MORNING,
           address: originalBooking.address,
+          addressParts: originalBooking.addressParts || undefined,
           contactNumber: originalBooking.contactNumber,
           downPaymentPercent: 0,
           paymentStatus: PAYMENT_STATUS.UNPAID,

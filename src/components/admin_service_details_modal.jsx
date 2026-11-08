@@ -379,18 +379,18 @@ const [report, setReport] = useState(null);
                         </div>
                     )}
 
-                    {/* One notice for an address outside Quezon City or outside the confirmed service areas: both mean the same thing for the
-                        owner (check whether a mobilization fee belongs in the Scope of works). */}
+                    {/* One notice for an address outside Quezon City (E33c: the service areas are Quezon City and Manila; anything else is flagged). The admin
+                        decides whether a mobilization or distance fee belongs in the Scope of works. */}
                     {(() => {
                         const noDistanceYet = !booking.distanceAdjustment && !booking.mobilizationFee;
-                        const outsideToPrice = !booking.isBackJob && booking.status === BOOKING_STATUS.PENDING && !isWithinQuezonCity(booking.address) && noDistanceYet;
+                        const outsideToPrice = !booking.isBackJob && booking.status === BOOKING_STATUS.PENDING && !isWithinQuezonCity(booking.address, booking.addressParts) && noDistanceYet;
                         // a cancelled booking is already decided, so the review flag is no longer shown
                         const flagged = booking.status !== BOOKING_STATUS.CANCELLED && booking.serviceAreaCheck && !booking.serviceAreaCheck.withinArea;
                         if (outsideToPrice) {
-                            return <div className="sdm-notice">⚠ This address is outside Quezon City or CZA's confirmed service areas. Add a mobilization fee in the Scope of works before approving, if one applies.</div>;
+                            return <div className="sdm-notice">⚠ {flagged ? "This address is outside CZA's service areas (Quezon City and Manila)." : 'This address is outside Quezon City.'} Add a mobilization or distance fee in the Scope of works before approving, if one applies.</div>;
                         }
                         if (flagged) {
-                            return <div className="sdm-notice">⚠ This address didn't match any of CZA's confirmed service areas at booking time - flagged for review.</div>;
+                            return <div className="sdm-notice">⚠ This address is outside CZA's service areas (Quezon City and Manila), so it was flagged for review at booking time. You decide whether to add a fee.</div>;
                         }
                         return null;
                     })()}

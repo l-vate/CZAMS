@@ -21,6 +21,7 @@ const { findDeletionBlockers } = require('../utils/deletionBlockers');
 const { normalizeEmail, findUserByEmail, validateRegistration, validateProfileUpdate } = require('../utils/accountInput');
 const { sendProblem } = require('../utils/validation');
 const { sendRouteError } = require('../utils/routeErrors');
+const { cleanParts, buildAddress, addressPartsProblem, isBlankParts, readParts } = require('../utils/addressParts');
 const { describeError } = require('../utils/safeLog');
 const { generateUserId, createWithUniqueUserId, UserIdExhaustedError, isDuplicateOn } = require('../utils/uniqueUserId');
 
@@ -84,6 +85,7 @@ router.post('/register', registerLimiter, async (req, res) => {
     role: user.role,
     phone: user.phone,
     address: user.address,
+        addressParts: user.addressParts,
     profileImage: user.profileImage,
     clientType: user.clientType,
     createdAt: user.createdAt,
@@ -131,6 +133,7 @@ router.post('/login', loginLimiter, async (req, res) => {
     role: user.role,
     phone: user.phone,
     address: user.address,
+        addressParts: user.addressParts,
     profileImage: user.profileImage,
     createdAt: user.createdAt,
   },
@@ -230,7 +233,18 @@ router.put('/profile', auth, async (req, res) => {
     user.firstName = firstName.trim();
     user.lastName = lastName.trim();
     if (typeof phone === 'string' && phone.trim()) user.phone = phone.trim();
-    if (typeof address === 'string' && address.trim()) user.address = address.trim();
+    // The address comes as parts. All blank keeps what is saved; some filled must be complete (ZIP of 4 digits). A plain line (an older
+    // screen) is saved as typed and the old parts are dropped, because they would no longer match it.
+    const sentParts = readParts(req.body.addressParts);
+    if (sentParts && !isBlankParts(sentParts)) {
+      const partsProblem = addressPartsProblem(sentParts);
+      if (partsProblem) return res.status(400).json({ message: partsProblem });
+      user.addressParts = cleanParts(sentParts);
+      user.address = buildAddress(user.addressParts);
+    } else if (!sentParts && typeof address === 'string' && address.trim() && address.trim() !== (user.address || '')) {
+      user.address = address.trim();
+      user.addressParts = undefined;
+    }
 
     await user.save();
 
@@ -244,6 +258,7 @@ router.put('/profile', auth, async (req, res) => {
         role: user.role,
         phone: user.phone,
         address: user.address,
+        addressParts: user.addressParts,
         profileImage: user.profileImage,
         createdAt: user.createdAt,
       },
@@ -282,6 +297,7 @@ router.post('/profile/photo', auth, uploadLimiter, upload.single('photo'), async
         role: user.role,
         phone: user.phone,
         address: user.address,
+        addressParts: user.addressParts,
         profileImage: user.profileImage,
         createdAt: user.createdAt,
       },

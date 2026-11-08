@@ -1,7 +1,6 @@
 // What a customer is told about a cancelled booking: who cancelled it, when, why (when the owner did), and exactly what happens to the down
 // payment, in words that state the amount and the next step. Used by the confirmation screen right after cancelling and by the read-only
 // details view, so both say the same thing. Plain functions, no framework, so the tests load this file on its own.
-import { sameDayCancelledMessage } from '../config/cancellation';
 import { formatPeso } from './bookingPricing';
 
 export const NO_DOWN_PAYMENT_TEXT = "No down payment was on file for this booking, so there's nothing to refund.";
@@ -40,11 +39,18 @@ export function refundText(booking) {
   if (refund.ownerInitiated) {
     return `Your whole down payment of ${paid} will be refunded, with no transportation fee. Our team will send it, and you will be told here and in the app when it is sent.`;
   }
+  // E34: a part of the down payment is kept only when the office cancelled because the customer was not available or the crew was already on the way
+  if (refund.deductionDecided) {
+    return fee > 0
+      ? `Your refund is ${formatPeso(refund.refundableAmount ?? 0)}: your down payment of ${paid} minus ${formatPeso(fee)} kept because of the reason above${refund.dispatchReason ? ` (${refund.dispatchReason})` : ''}. Our team will send it, and you will be told here and in the app when it is sent.`
+      : `Nothing was kept: your whole down payment of ${paid} will be refunded. Our team will send it, and you will be told here and in the app when it is sent.`;
+  }
+  // refunds opened before E34 on or after the booked date keep their old wording
   if (refund.isSameDay) {
     if (Number.isFinite(refund.refundableAmount)) {
       return `Your refund is ${formatPeso(refund.refundableAmount)}: your down payment of ${paid} minus a transportation fee of ${formatPeso(fee)}${refund.dispatchReason ? ` (${refund.dispatchReason})` : ''}. Our team will send it, and you will be told here and in the app when it is sent.`;
     }
-    return `${sameDayCancelledMessage(paid)} Our team will decide the fee and then send the refund, and you will be told here and in the app.`;
+    return `Since this was cancelled on or after the booked date, a transportation fee may be deducted from your down payment of ${paid} before it is refunded. Our team will decide the fee and then send the refund, and you will be told here and in the app.`;
   }
   return `Your down payment of ${paid} will be refunded in full. Our team will review it and send the refund, and you will be told here and in the app when it is sent.`;
 }
@@ -55,9 +61,9 @@ export function refundFigures(booking) {
   if (!refund || refund.status === 'None') return [];
   const rows = [['Down payment', formatPeso(refund.downPaymentAmount || 0)]];
   const fee = Number(refund.dispatchDeduction) || 0;
-  if (refund.isSameDay && (fee > 0 || Number.isFinite(refund.refundableAmount))) {
-    rows.push(['Transportation fee', formatPeso(fee)]);
-    if (refund.dispatchReason) rows.push(['Reason for the fee', refund.dispatchReason]);
+  if ((refund.isSameDay || refund.deductionDecided) && (fee > 0 || Number.isFinite(refund.refundableAmount))) {
+    rows.push([refund.deductionDecided ? 'Kept from the down payment' : 'Transportation fee', formatPeso(fee)]);
+    if (refund.dispatchReason) rows.push([refund.deductionDecided ? 'Reason' : 'Reason for the fee', refund.dispatchReason]);
   }
   if (refund.ownerInitiated) rows.push(['Transportation fee', refund.expired ? 'None (the booking expired)' : 'None (the owner cancelled)']);
   if (Number.isFinite(refund.refundableAmount)) rows.push(['Refund amount', formatPeso(refund.refundableAmount)]);

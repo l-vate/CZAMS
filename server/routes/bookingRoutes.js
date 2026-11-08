@@ -55,6 +55,7 @@ const { withLocks, LockBusyError } = require('../utils/slotLock');
 const { duplicateKey, findActiveDuplicate, DuplicateBookingError } = require('../utils/duplicateBooking');
 const { PendingLimitError, SlotTakenError, slotKey, pendingLimitKey, assertUnderPendingLimit, assertSlotOpen } = require('../utils/pendingHold');
 const { manilaToday } = require('../utils/manilaDate');
+const { CANCEL_KIND_LABEL, CANCEL_KIND_VALUES } = require('../constants/cancelKinds');
 const { bookingDateProblem, adminRescheduleDateProblem } = require('../utils/dateRules');
 const { readFeedback } = require('../utils/feedbackInput');
 const { normalizeContactNumber } = require('../utils/contactNumber');
@@ -217,6 +218,37 @@ function readAdminCancelReason(ownerInitiated, cancelReason) {
   return readCancelNote(cancelReason);
 }
 
+// What an admin's cancellation does to the booking before its refund is opened (E34). Only the office can cancel a booking that is In Progress, and then only
+// for one of the two reasons that may keep part of the down payment (the customer was not available, the technicians were already on the way) or because we
+// cannot supply or serve (a full refund). A deduction is only for an Approved or In Progress booking, never with the owner reason. Returns null when the
+// cancellation may go ahead (the booking now carries its reason, and its deduction when there is one), or the problem to send back.
+function applyAdminCancel(booking, { ownerInitiated, cancelReason, cancelKind, deductionAmount }) {
+  const hasKind = cancelKind !== undefined && cancelKind !== null && cancelKind !== '';
+  if (hasKind) {
+    if (ownerInitiated === true) return invalid('A cancellation because we cannot supply or serve always refunds the whole down payment, so it takes no deduction.');
+    if (![BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status)) {
+      return invalid('Part of the down payment can only be kept when the booking is Approved or In Progress (the crew was on the way). A Pending booking is refunded in full.');
+    }
+    const fee = readCancelDeduction(cancelKind, deductionAmount, booking);
+    if (fee.problem) return fee.problem;
+    booking.cancelKind = fee.kind;
+    booking.cancelDeduction = fee.amount;
+    booking.cancelReason = CANCEL_KIND_LABEL[fee.kind];
+    return null;
+  }
+  const typed = typeof deductionAmount === 'number' || typeof deductionAmount === 'string' ? String(deductionAmount).trim() : '';
+  if (typed !== '' && Number(typed) !== 0) return invalid('A deduction needs a reason: the customer was not available, or the technicians were already on the way.');
+  if (booking.status === BOOKING_STATUS.IN_PROGRESS && ownerInitiated !== true) {
+    return invalid('A booking that is In Progress can only be cancelled because the customer was not available, the technicians were already on the way, or we cannot supply or serve. A customer cannot cancel it.');
+  }
+  // The owner cancelling because it cannot supply the unit or cannot serve: a reason is required, and the refund is full with no fee.
+  const given = readAdminCancelReason(ownerInitiated, cancelReason);
+  if (given.problem) return given.problem;
+  if (given.ownerCancelled) booking.ownerCancelled = true;
+  if (given.reason) booking.cancelReason = given.reason;
+  return null;
+}
+
 // Returns 'opened' when a refund request was opened, or 'none' when no down payment is on file. A customer who cancels can ask for a refund even
 // while their down payment proof is still waiting to be verified: the request is opened and marked paymentUnverified. It is not paid out until
 // the proof is verified, and the owner rejects it when the payment never came through.
@@ -233,28 +265,49 @@ function openRefundIfEligible(booking) {
   const downPaymentAmount = typeof booking.downPaymentPaidAmount === 'number'
     ? booking.downPaymentPaidAmount
     : computeDownPaymentAmount(booking);
-  // Decided on the server, from the Manila calendar day the booking was cancelled on (not the day an admin gets round to verifying
-  // the proof). On or after the booked date a transportation fee applies (the stored flag is still called isSameDay, and it is true for
-  // the booked day and for every day after it: a late cancellation or a no-show). Any earlier day is a full refund. Both dates are YYYY-MM-DD
-  // Manila days, so comparing the text compares the days.
-  // An owner-initiated cancellation (the owner cannot supply or cannot serve) is never late: the whole down payment goes back, no fee, on any date.
-  const cancelledOn = booking.cancelledAt ? manilaTodayKey(new Date(booking.cancelledAt)) : todayDateString();
+  // E34: a cancellation always refunds the whole down payment. The one exception is a deduction an admin decided when cancelling because the customer
+  // was not available at the address or the technicians were already on the way (booking.cancelKind and booking.cancelDeduction, set by the admin route
+  // after it checked the amount). No date rule applies any more. A deduction can never be more than the down payment, so the refund is never negative.
+  const deduction = typeof booking.cancelKind === 'string' && booking.cancelKind
+    ? Math.min(Math.max(Number(booking.cancelDeduction) || 0, 0), downPaymentAmount)
+    : 0;
+  const decided = typeof booking.cancelKind === 'string' && booking.cancelKind !== '';
   const ownerInitiated = booking.ownerCancelled === true;
-  const isSameDay = !ownerInitiated && cancelledOn >= booking.date;
 
   booking.refund = {
     status: 'Pending',
-    isSameDay,
+    isSameDay: false,
     ...(ownerInitiated ? { ownerInitiated: true, reason: booking.cancelReason } : {}),
     downPaymentAmount,
     ...(unverified ? { paymentUnverified: true } : {}),
-    // On or after the booked date: the transportation fee isn't known until admin
-    // reviews it, so the refundable amount stays unset until then.
-    dispatchDeduction: isSameDay ? undefined : 0,
-    refundableAmount: isSameDay ? undefined : downPaymentAmount,
+    dispatchDeduction: deduction,
+    ...(decided ? { deductionDecided: true, dispatchReason: CANCEL_KIND_LABEL[booking.cancelKind] } : {}),
+    refundableAmount: Math.max(downPaymentAmount - deduction, 0),
     requestedAt: new Date(),
   };
   return 'opened';
+}
+
+// The most an admin may keep from a cancelled booking's down payment: the down payment itself when one is on file or waiting to be checked, else 0.
+function cancelDeductionLimit(booking) {
+  const sent = booking.downPaymentPercent > 0
+    && [PAYMENT_STATUS.TO_VERIFY, PAYMENT_STATUS.PARTIALLY_PAID, PAYMENT_STATUS.FULLY_PAID].includes(booking.paymentStatus);
+  if (!sent) return 0;
+  return typeof booking.downPaymentPaidAmount === 'number' ? booking.downPaymentPaidAmount : computeDownPaymentAmount(booking);
+}
+
+// What an admin's cancel for a fee carries: { problem } or { kind, amount }. The kind is one of the two reasons, the amount is a number from 0 up to the
+// down payment (never negative, never more than was paid), in pesos and centavos.
+function readCancelDeduction(kind, rawAmount, booking) {
+  if (!CANCEL_KIND_VALUES.includes(kind)) return { problem: invalid('Choose why the booking is cancelled: the customer was not available, or the technicians were already on the way.') };
+  // only a number or the text of one: an array, an object or anything else is not an amount
+  const text = typeof rawAmount === 'number' || typeof rawAmount === 'string' ? String(rawAmount).trim() : '';
+  const amount = Number(text);
+  if (text === '' || !Number.isFinite(amount)) return { problem: invalid('Enter the amount to deduct from the down payment (0 if nothing is deducted).') };
+  if (amount < 0) return { problem: invalid('The deduction cannot be negative.') };
+  const limit = cancelDeductionLimit(booking);
+  if (amount > limit) return { problem: invalid(`The deduction cannot be more than the ${formatMoney(limit)} down payment.`) };
+  return { kind, amount: Math.round(amount * 100) / 100 };
 }
 
 // ============================================
@@ -880,10 +933,8 @@ router.get('/:bookingId', auth, async (req, res) => {
   }
 });
 
-// Cancel a booking. If a down payment was actually on file, this also opens a
-// refund request (Cancellation, Rescheduling, and Refund Module) - same-day
-// cancellations get flagged so the dispatch/transportation cost can be deducted
-// before an admin processes it; pre-service cancellations refund in full.
+// Cancel a booking (a customer's own, Pending or Approved only). If a down payment was actually on file, this also opens a refund request
+// (Cancellation, Rescheduling, and Refund Module) for the whole down payment: no date rule and no fee apply to a customer's cancellation.
 router.patch('/:bookingId/cancel', auth, auditSpecs.customerCancel, allowRoles(ROLE.CUSTOMER), async (req, res) => {
   try {
     const booking = await Booking.findOne({
@@ -893,21 +944,19 @@ router.patch('/:bookingId/cancel', auth, auditSpecs.customerCancel, allowRoles(R
 
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
-    // A booking the day start job started by itself (nobody is known to be on site) can still be cancelled until the job is done, under the
-    // usual rule: before the booked date a full refund, on or after it a fee. One that started any other way, and one with a no show report
-    // waiting for the owner, cannot be cancelled online.
-    const autoStarted = booking.status === BOOKING_STATUS.IN_PROGRESS && booking.startedBySystem === true && booking.reportSubmitted !== true;
+    // E34: a customer can cancel a Pending or Approved booking only. Once it is In Progress (started by the system or by the crew) only the office can
+    // cancel it, and whatever is kept from the down payment is decided there.
     if (booking.noShow && booking.noShow.status === NO_SHOW_STATUS.REPORTED) {
       return res.status(400).json({ message: 'Your no show report is being reviewed by the owner, so this booking cannot be cancelled online right now.' });
     }
-    if (booking.status === BOOKING_STATUS.IN_PROGRESS && !autoStarted) {
+    if (booking.status === BOOKING_STATUS.IN_PROGRESS) {
       return res.status(400).json({ message: 'This booking is already in progress and can no longer be cancelled online. Please contact us directly.' });
     }
-    if (![BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status)) {
+    if (![BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED].includes(booking.status)) {
       return res.status(400).json({ message: 'This booking can no longer be cancelled.' });
     }
 
-    const refundOutcome = openRefundIfEligible(booking);
+    openRefundIfEligible(booking);
 
     const statusBeforeCancel = booking.status;
     booking.status = BOOKING_STATUS.CANCELLED;
@@ -922,7 +971,7 @@ router.patch('/:bookingId/cancel', auth, auditSpecs.customerCancel, allowRoles(R
     await sendNotification(
       booking.customer,
       NOTIFICATION_TYPE.BOOKING_CANCELLED,
-      `You cancelled booking ${booking.bookingId}.${booking.refund?.status === REFUND_STATUS.PENDING ? ' A refund request for your down payment has been opened and is being reviewed.' : ''}`,
+      `You cancelled booking ${booking.bookingId}.${booking.refund?.status === REFUND_STATUS.PENDING ? ` A refund request for your full down payment of ${formatMoney(booking.refund.downPaymentAmount || 0)} has been opened and is being reviewed.` : ''}`,
       { booking }
     ).catch((err) => console.error('Could not confirm the cancellation to the customer:', err.message));
 
@@ -931,7 +980,7 @@ router.patch('/:bookingId/cancel', auth, auditSpecs.customerCancel, allowRoles(R
     if (booking.refund?.status === REFUND_STATUS.PENDING) {
       await notifyAdmins(
         NOTIFICATION_TYPE.REFUND_REQUESTED,
-        `Booking ${booking.bookingId} was cancelled by the customer and a refund request is waiting for review${booking.refund.isSameDay ? ' (cancelled on or after the booked date, transportation fee needed)' : ''}.${booking.refund.paymentUnverified ? ' Its down payment has not been verified yet: check whether the payment came through, then process the refund or reject it.' : ''}`,
+        `Booking ${booking.bookingId} was cancelled by the customer and a full refund request is waiting for review.${booking.refund.paymentUnverified ? ' Its down payment has not been verified yet: check whether the payment came through, then process the refund or reject it.' : ''}`,
         { booking }
       );
     } else {
@@ -2193,7 +2242,7 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
 
     const {
       technician, status, paymentStatus, balancePaymentStatus, balancePaid, technicianInstructions,
-      distanceAdjustment, mobilizationFee, unitSource, ownerInitiated, cancelReason,
+      distanceAdjustment, mobilizationFee, unitSource, ownerInitiated, cancelReason, cancelKind, deductionAmount,
     } = req.body;
     const allowedStatuses = BOOKING_STATUS_VALUES;
 
@@ -2338,11 +2387,8 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
       if (![BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status)) {
         return res.status(400).json({ message: 'This booking can no longer be cancelled.' });
       }
-      // The owner cancelling because it cannot supply the unit or cannot serve: a reason is required, and the refund is full with no fee.
-      const given = readAdminCancelReason(ownerInitiated, cancelReason);
-      if (given.problem) return sendProblem(res, given.problem);
-      if (given.ownerCancelled) booking.ownerCancelled = true;
-      if (given.reason) booking.cancelReason = given.reason;
+      const cancelProblem = applyAdminCancel(booking, { ownerInitiated, cancelReason, cancelKind, deductionAmount });
+      if (cancelProblem) return sendProblem(res, cancelProblem);
       adminCancelOutcome = openRefundIfEligible(booking);
     }
 
@@ -2407,7 +2453,7 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
     if (refundReadyAfterCheck && booking.refund?.status === REFUND_STATUS.PENDING) {
       await notifyAdmins(
         NOTIFICATION_TYPE.REFUND_REQUESTED,
-        `Booking ${booking.bookingId}: the down payment was verified after the booking was cancelled, so its refund request is ready for review${booking.refund.isSameDay ? ' (cancelled on or after the booked date, transportation fee needed)' : ''}.`,
+        `Booking ${booking.bookingId}: the down payment was verified after the booking was cancelled, so its refund request is ready for review.`,
         { booking }
       );
     }
@@ -2441,21 +2487,20 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
       );
     }
     if (status === BOOKING_STATUS.CANCELLED) {
-      const refundNote = booking.refund?.status === REFUND_STATUS.PENDING
-        ? ' A refund request for your down payment has been opened and is being reviewed.'
-        : '';
       await sendNotification(
         booking.customer,
         NOTIFICATION_TYPE.BOOKING_CANCELLED,
-        booking.ownerCancelled
+        booking.cancelKind
+          ? `Your booking ${booking.bookingId} was cancelled by our team: ${CANCEL_KIND_LABEL[booking.cancelKind]}.${booking.refund?.status === REFUND_STATUS.PENDING ? (booking.refund.dispatchDeduction > 0 ? ` ${formatMoney(booking.refund.dispatchDeduction)} was deducted from your down payment of ${formatMoney(booking.refund.downPaymentAmount || 0)}, so your refund is ${formatMoney(booking.refund.refundableAmount || 0)}. It is being reviewed.` : ' Nothing was deducted: your whole down payment will be refunded. It is being reviewed.') : ''}`
+        : booking.ownerCancelled
           ? `Your booking ${booking.bookingId} was cancelled by our team because we cannot supply or serve it: ${booking.cancelReason}.${booking.refund?.status === REFUND_STATUS.PENDING ? ' Your whole down payment will be refunded, with no transportation fee.' : ''}`
-          : `Your booking ${booking.bookingId} was cancelled by our team.${refundNote}`,
+          : `Your booking ${booking.bookingId} was cancelled by our team.${booking.refund?.status === REFUND_STATUS.PENDING ? ' Your whole down payment will be refunded and the request is being reviewed.' : ''}`,
         { booking }
       );
       if (booking.refund?.status === REFUND_STATUS.PENDING) {
         await notifyAdmins(
           NOTIFICATION_TYPE.REFUND_REQUESTED,
-          `Booking ${booking.bookingId} was cancelled and a refund request is waiting for review${booking.refund.isSameDay ? ' (cancelled on or after the booked date, transportation fee needed)' : ''}.`,
+          `Booking ${booking.bookingId} was cancelled and a refund request is waiting for review${booking.refund.deductionDecided ? ` (${formatMoney(booking.refund.dispatchDeduction || 0)} kept from the down payment: ${booking.refund.dispatchReason})` : ''}.`,
           { booking }
         );
       }
@@ -2712,6 +2757,7 @@ router.patch('/:bookingId/refund', auth, auditSpecs.refundProcess, allowRoles(RO
     const amounts = resolveRefundAmounts({
       amountPaid: booking.refund.downPaymentAmount,
       isSameDay: booking.refund.isSameDay,
+      fixedDeduction: booking.refund.deductionDecided ? booking.refund.dispatchDeduction : undefined,
       dispatchDeduction: req.body.dispatchDeduction,
       dispatchReason: req.body.dispatchReason,
       finalAmount: req.body.finalAmount,

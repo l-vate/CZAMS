@@ -24,7 +24,7 @@ const { nextBusinessDay } = require('../../utils/businessDays');
   out.createTwoAhead = (await harness.post({ date: addDays(today, 2) })).status;
   out.createThreeAhead = (await harness.post({ date: nextBusinessDay(addDays(today, 3), new Set(), { inclusive: true }) })).status;
 
-  // same-day cancellation: a booking dated today in Manila is same-day, one dated tomorrow is not
+  // cancellation (E34: a full refund whatever the date, so both come back as not same-day)
   const cancelWith = async (date) => {
     harness.state.bookings.length = 0;
     const made = await harness.post({ date: addDays(today, 5) });

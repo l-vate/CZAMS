@@ -67,13 +67,13 @@ test('verifying the proof afterwards lets the refund request go ahead and tells 
   assert.equal(b.paymentEvents[0].status, 'verified');
 });
 
-test('a same-day cancellation is a same-day refund, ready once the proof is verified', async () => {
+test('a cancellation on the booked date is still a full refund, ready once the proof is verified (E34: no date rule)', async () => {
   const b = booking({ date: manilaTodayKey() });
   await customerCancel();
-  assert.equal(b.refund.isSameDay, true);
+  assert.equal(b.refund.isSameDay, false);
   await admin({ paymentStatus: 'partially_paid' });
-  assert.equal(b.refund.isSameDay, true);
-  assert.equal(b.refund.refundableAmount, undefined, 'the deduction is entered when the refund is processed');
+  assert.equal(b.refund.isSameDay, false);
+  assert.equal(b.refund.refundableAmount, b.refund.downPaymentAmount, 'the whole down payment, no deduction to enter');
 });
 
 test('rejecting the proof afterwards rejects the refund request, the booking stops waiting, and the customer is not asked for a new proof', async () => {

@@ -40,37 +40,27 @@ test('the date picker and the server agree on Sundays: both closed, and the clie
   assert.equal(client.sundayProblem('not a date'), null);
 });
 
-// ---- same-day cancellation wording
-test('the same-day warning uses the same rule as the confirmation, and shows only when it applies', async () => {
+// ---- cancellation wording (E34: a full refund on any date, and no cancelling once the booking is In Progress)
+test('the cancellation texts say the same thing: a full refund, no date rule, no cancelling once the service has started', async () => {
   const c = await load('config/cancellation.js');
-  assert.ok(c.SAME_DAY_CANCEL_WARNING.includes(c.SAME_DAY_DEDUCTION_CLAUSE));
-  assert.ok(c.sameDayCancelledMessage('₱300.00').includes(c.SAME_DAY_DEDUCTION_CLAUSE.replace('your down payment', 'your down payment of ₱300.00')));
-  assert.match(c.sameDayCancelledMessage('₱300.00'), /down payment of ₱300.00 before it is refunded\.$/);
-  assert.match(c.SAME_DAY_CANCEL_WARNING, /transportation fee may be deducted from your down payment/);
-  assert.match(c.SAME_DAY_CANCEL_WARNING, /before the booked date, your down payment is refunded in full/);
-  const today = '2026-10-14';
-  assert.equal(c.showsSameDayWarning({ date: today, paymentStatus: 'partially_paid' }, today), true);
-  assert.equal(c.showsSameDayWarning({ date: today, paymentStatus: 'to_verify' }, today), true);
-  assert.equal(c.showsSameDayWarning({ date: today, paymentStatus: 'Unpaid' }, today), false, 'nothing paid, nothing to deduct from');
-  assert.equal(c.showsSameDayWarning({ date: '2026-10-20', paymentStatus: 'partially_paid' }, today), false, 'the booked date is still ahead');
-  assert.equal(c.showsSameDayWarning({ date: '2026-10-10', paymentStatus: 'partially_paid' }, today), true, 'the booked date has passed: the fee still applies');
-  assert.match(c.SAME_DAY_CANCEL_WARNING, /on or after the booked date/);
-  assert.equal(c.showsSameDayWarning(null, today), false);
+  assert.match(c.CANCEL_POLICY_NOTE, /Pending or Approved/);
+  assert.match(c.CANCEL_POLICY_NOTE, /refunded in full/);
+  assert.match(c.CANCEL_POLICY_NOTE, /In Progress it can no longer be cancelled online/);
+  assert.doesNotMatch(c.CANCEL_POLICY_NOTE, /transportation fee|booked date/);
+  assert.match(c.STARTED_CANCEL_NOTE, /can no longer be cancelled online/);
+  for (const name of Object.keys(c)) assert.doesNotMatch(String(c[name]), /transportation fee|on or after the booked date/, name);
 });
 
-// ---- the cancel dialog says only the rule that applies (E25)
-test('the cancel dialog gives the one refund rule that applies to the booking, never both', async () => {
+test('the cancel dialog says the whole down payment is refunded when one was sent, whatever the date, and nothing to refund when none was', async () => {
   const c = await load('config/cancellation.js');
-  const today = '2026-10-14';
-  const before = c.cancelRuleNote({ date: '2026-10-20', paymentStatus: 'partially_paid' }, today);
-  assert.equal(before, c.FULL_REFUND_NOTE);
-  assert.doesNotMatch(before, /transportation/);
-  const onTheDay = c.cancelRuleNote({ date: today, paymentStatus: 'partially_paid' }, today);
-  assert.equal(onTheDay, c.TRANSPORT_FEE_NOTE);
-  assert.doesNotMatch(onTheDay, /refunded in full/);
-  assert.equal(c.cancelRuleNote({ date: '2026-10-10', paymentStatus: 'to_verify' }, today), c.TRANSPORT_FEE_NOTE, 'a past date: the fee rule');
-  assert.equal(c.cancelRuleNote({ date: today, paymentStatus: 'Unpaid' }, today), c.NOTHING_TO_REFUND_NOTE, 'nothing paid, nothing to refund or deduct');
-  assert.equal(c.cancelRuleNote({ date: '2026-10-20', paymentStatus: 'Unpaid' }, today), c.NOTHING_TO_REFUND_NOTE);
+  for (const paymentStatus of ['partially_paid', 'fully_paid', 'to_verify']) {
+    assert.equal(c.cancelRuleNote({ date: '2026-10-20', paymentStatus }), c.FULL_REFUND_NOTE, paymentStatus);
+    assert.equal(c.cancelRuleNote({ date: '2026-10-10', paymentStatus }), c.FULL_REFUND_NOTE, `${paymentStatus}: a past date is the same`);
+  }
+  assert.match(c.FULL_REFUND_NOTE, /refunded in full/);
+  assert.doesNotMatch(c.FULL_REFUND_NOTE, /transportation/);
+  assert.equal(c.cancelRuleNote({ date: '2026-10-20', paymentStatus: 'Unpaid' }), c.NOTHING_TO_REFUND_NOTE);
+  assert.equal(c.cancelRuleNote(null), c.NOTHING_TO_REFUND_NOTE);
 });
 
 // ---- heading

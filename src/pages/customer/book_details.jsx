@@ -9,10 +9,9 @@ import { getBookingLineItems, getPaymentBreakdown, formatPeso } from '../../util
 import QuotationTerms from '../../components/quotation_terms';
 import { vatInside } from '../../utils/quotationTerms';
 import { getMemberNames } from '../../utils/assignments';
-import { manilaTodayKey } from '../../utils/manilaTime';
 import { bookingWindow, bookingDateProblem } from '../../utils/dateRules';
 import { bookingHeading } from '../../utils/bookingHeading';
-import { cancelRuleNote } from '../../config/cancellation';
+import { cancelRuleNote, STARTED_CANCEL_NOTE } from '../../config/cancellation';
 import { usePaymentSettings, getDefaultDownPaymentPercent } from '../../utils/paymentSettings';
 import PaymentModal from '../../components/payment_modal';
 import { unitChangeOf } from '../../utils/suppliedUnitChoice';
@@ -580,10 +579,9 @@ function BookDetails() {
   const techName = getMemberNames(booking, 'To be assigned');
 
   const rescheduleStatus = booking.rescheduleRequest?.status || 'None';
-  // A booking the system started on its service day can still be cancelled until the job is done (the usual fee rule applies on the booked
-  // date); one with a no show report waiting for the owner cannot be cancelled online.
+  // E34: only a Pending or Approved booking can be cancelled by the customer. In Progress (started by the system or by the crew) cannot, and a
+  // booking with a no show report waiting for the owner cannot either.
   const noShowWaiting = booking.noShow?.status === 'Reported';
-  const cancellableWhileStarted = booking.status === BOOKING_STATUS.IN_PROGRESS && booking.startedBySystem === true && !booking.reportSubmitted && !noShowWaiting;
 
   const handleConfirmCancel = async () => {
     setCancelling(true);
@@ -713,7 +711,7 @@ function BookDetails() {
         <CancelConfirmDialog
           onKeep={() => setShowCancel(false)}
           onConfirmCancel={handleConfirmCancel}
-          ruleNote={cancelRuleNote(booking, manilaTodayKey())}
+          ruleNote={cancelRuleNote(booking)}
         />
       )}
 
@@ -1066,11 +1064,11 @@ function BookDetails() {
             )}
 
             {booking.status !== BOOKING_STATUS.CANCELLED && booking.status !== BOOKING_STATUS.COMPLETED && (<>
-                {booking.status === BOOKING_STATUS.IN_PROGRESS && !cancellableWhileStarted ? (
+                {booking.status === BOOKING_STATUS.IN_PROGRESS || noShowWaiting ? (
                   <p className="cancelled-message customer-book-details-x11">
                     {noShowWaiting
                       ? 'Your no show report is being reviewed by the owner, so this booking cannot be cancelled online right now.'
-                      : 'The service has already started, so it can no longer be cancelled online. Please contact us directly.'}
+                      : STARTED_CANCEL_NOTE}
                   </p>
                 ) : (
                   <button className="cancel-booking-btn" onClick={() => setShowCancel(true)} disabled={cancelling}>

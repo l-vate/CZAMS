@@ -628,9 +628,12 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
   const paymentUnverified = isPending && Boolean(refund.paymentUnverified);
   const isFlagged = Boolean(refund.customerFlag?.flagged && !refund.customerFlag?.resolved);
   const deductionNum = Number(dispatchDeduction) || 0;
+  // a deduction decided when the booking was cancelled (E34) is already part of the figure; a refund flagged before E34 still takes its fee here
   const previewRefundable = refund.isSameDay
     ? Math.max(refund.downPaymentAmount - deductionNum, 0)
-    : refund.downPaymentAmount;
+    : refund.deductionDecided
+      ? Math.max(refund.downPaymentAmount - (refund.dispatchDeduction || 0), 0)
+      : refund.downPaymentAmount;
   // The admin may refund less than the computed amount, never more than the customer paid.
   const finalNum = finalAmount === '' ? previewRefundable : Number(finalAmount);
   const isAdjusted = finalAmount !== '' && finalNum !== previewRefundable;
@@ -755,7 +758,7 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
 
           <div className="payment-review-cell">
             <span className="confirmation-detail-label">Cancellation Type</span>
-            <span className="confirmation-detail-value">{refund.isSameDay ? 'On or after the booked date' : 'Before the booked date'}</span>
+            <span className="confirmation-detail-value">{refund.deductionDecided ? (refund.dispatchReason || 'Cancelled by the office') : refund.isSameDay ? 'On or after the booked date' : refund.ownerInitiated ? 'Cancelled by the owner' : 'Full refund'}</span>
           </div>
 
           <div className="payment-review-cell">
@@ -793,6 +796,13 @@ function RefundReviewModal({ refund, onClose, onSuccess }) {
               value={dispatchReason}
               onChange={(e) => setDispatchReason(e.target.value)}
             />
+          </div>
+        )}
+
+        {refund.deductionDecided && (
+          <div className="payment-review-cell admin-payments-x14">
+            <span className="confirmation-detail-label">Kept from the down payment</span>
+            <span className="confirmation-detail-value">{formatMoney(refund.dispatchDeduction || 0)}{refund.dispatchReason ? ` (${refund.dispatchReason})` : ''}</span>
           </div>
         )}
 

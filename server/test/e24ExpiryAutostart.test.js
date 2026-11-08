@@ -374,18 +374,16 @@ test('the job expires first and starts second in one run, counts only', async ()
   assert.equal(result.start.started, 1);
 });
 
-test('after the auto-start the customer can still cancel on the booked date, under the existing fee rule', async (t) => {
+test('after the auto-start the customer can no longer cancel (E34): only the office can, with a deduction decided there', async (t) => {
   t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-11-11T04:00:00Z') });
   const b = make('CZ-1', { status: 'Approved', date: TODAY, paymentStatus: 'partially_paid', downPaymentPaidAmount: 1000 });
   await startApprovedBookings({ now: new Date() });
   assert.equal(b.status, 'In Progress');
   const res = await call('PATCH', '/CZ-1/cancel', 'CUS1');
-  assert.equal(res.status, 200, JSON.stringify(res.body));
-  assert.equal(b.status, 'Cancelled');
-  assert.equal(b.cancelledBy, 'customer');
-  assert.equal(b.refund.status, 'Pending');
-  assert.equal(b.refund.isSameDay, true, 'on the booked date a transportation fee applies, entered by the admin');
-  assert.equal(b.refund.refundableAmount, undefined, 'the fee is entered when the refund is processed');
+  assert.equal(res.status, 400, JSON.stringify(res.body));
+  assert.match(res.body.message, /already in progress/);
+  assert.equal(b.status, 'In Progress');
+  assert.equal(b.refund.status, 'None', 'nothing was opened');
 });
 
 test('a booking that started any other way, or whose job is done, still cannot be cancelled online', async (t) => {
@@ -405,7 +403,7 @@ test('an admin can still cancel an In Progress booking, and the technician job l
   await startApprovedBookings({ now: NOW });
   const { TECHNICIAN_BOOKING_FILTER } = require('../utils/technicianVisibility');
   assert.ok(TECHNICIAN_BOOKING_FILTER, 'the technician job filter exists');
-  const res = await call('PATCH', '/CZ-1/admin-update', 'ADM1', { status: 'Cancelled', cancelReason: 'Customer called' }, { role: 'admin' });
+  const res = await call('PATCH', '/CZ-1/admin-update', 'ADM1', { status: 'Cancelled', cancelKind: 'technicians_on_the_way', deductionAmount: 0 }, { role: 'admin' });
   assert.equal(res.status, 200, JSON.stringify(res.body));
   assert.equal(b.status, 'Cancelled');
 });

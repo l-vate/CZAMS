@@ -57,14 +57,14 @@ test('Other sends the plain cancel with the text as the reason (not ownerInitiat
 
 // ---- the dialog ----------------------------------------------------------------------------------------------------------------------
 
-test('the dialog is a modal dialog with a required Reason for cancelling and the three choices', async () => {
+test('the dialog is a modal dialog with a required Reason for cancelling and its choices', async () => {
   const html = await dialog({});
   assert.match(html, /role="dialog" aria-modal="true" aria-labelledby="cbd-title"/);
   assert.match(html, /<h3 id="cbd-title" class="cbd-title">Cancel booking CZ-2026-1001\?<\/h3>/);
   assert.match(html, /<legend class="cbd-legend">Reason for cancelling <span aria-hidden="true">\(required\)<\/span><\/legend>/);
-  assert.deepEqual([...html.matchAll(/<span>([^<]+)<\/span><\/label>/g)].map((m) => m[1]), ['Customer request', 'We cannot supply or serve', 'Other']);
-  assert.equal((html.match(/type="radio" required="" name="cancel-reason"/g) || []).length, 3);
-  assert.equal((html.match(/ required=""/g) || []).length, 3, 'each reason is marked required');
+  assert.deepEqual([...html.matchAll(/<span>([^<]+)<\/span><\/label>/g)].map((m) => m[1]), ['Customer request', 'Customer not available at the address', 'Technicians already on the way', 'We cannot supply or serve', 'Other']);
+  assert.equal((html.match(/type="radio" required="" name="cancel-reason"/g) || []).length, 5);
+  assert.equal((html.match(/ required=""/g) || []).length, 5, 'each reason is marked required');
   assert.match(html, />Back<\/button>/);
   assert.match(html, />Cancel Booking<\/button>/);
 });
@@ -83,6 +83,39 @@ test('it can be confirmed once the choice is complete', async () => {
   assert.equal(confirmDisabled(await dialog({ initialChoice: 'other', initialText: 'The customer moved away' })), false);
 });
 
+test('the reasons depend on the status (E34): a Pending booking has no deduction, an In Progress one cannot be a customer request', async () => {
+  const labels = async (status) => [...(await dialog({ status })).matchAll(/<span>([^<]+)<\/span><\/label>/g)].map((m) => m[1]);
+  assert.deepEqual(await labels('Pending'), ['Customer request', 'We cannot supply or serve', 'Other']);
+  assert.deepEqual(await labels('Approved'), ['Customer request', 'Customer not available at the address', 'Technicians already on the way', 'We cannot supply or serve', 'Other']);
+  assert.deepEqual(await labels('In Progress'), ['Customer not available at the address', 'Technicians already on the way', 'We cannot supply or serve']);
+});
+
+test('the two deduction reasons ask for an amount, show what is refunded, and need an amount from 0 up to the down payment', async () => {
+  for (const choice of ['customer_unavailable', 'technicians_on_the_way']) {
+    assert.deepEqual(util.cancelRequest(choice, '', '300', 1000), { body: { status: 'Cancelled', cancelKind: choice, deductionAmount: 300 } });
+    assert.deepEqual(util.cancelRequest(choice, '', '0', 1000), { body: { status: 'Cancelled', cancelKind: choice, deductionAmount: 0 } });
+    assert.deepEqual(util.cancelRequest(choice, '', '1000', 1000), { body: { status: 'Cancelled', cancelKind: choice, deductionAmount: 1000 } });
+    for (const bad of ['', '  ', 'abc', undefined]) assert.match(util.cancelRequest(choice, '', bad, 1000).problem, /Enter the amount/, String(bad));
+    assert.match(util.cancelRequest(choice, '', '-1', 1000).problem, /cannot be negative/);
+    assert.match(util.cancelRequest(choice, '', '1000.01', 1000).problem, /more than the down payment/);
+    assert.match(util.cancelRequest(choice, '', '1', 0).problem, /more than the down payment/, 'nothing was paid, so nothing can be kept');
+  }
+  assert.equal(util.refundAfter(1000, '350'), 650);
+  assert.equal(util.refundAfter(1000, '1000'), 0);
+  assert.equal(util.refundAfter(1000, '1001'), null);
+  assert.equal(util.refundAfter(1000, ''), null);
+  const html = await dialog({ initialChoice: 'technicians_on_the_way', status: 'In Progress', downPayment: 1000 });
+  assert.match(html, /Amount to keep from the down payment/);
+  assert.match(html, /Down payment: ₱1,000\.00\. Enter 0 up to the down payment\./);
+  assert.equal(confirmDisabled(html), true, 'no amount typed yet');
+});
+
+test('the keys of the two deduction reasons are the server\'s', () => {
+  const kinds = require('../constants/cancelKinds');
+  assert.deepEqual(util.CANCEL_CHOICES.filter((c) => c.deduction).map((c) => c.key).sort(), [...kinds.CANCEL_KIND_VALUES].sort());
+  util.CANCEL_CHOICES.filter((c) => c.deduction).forEach((c) => assert.equal(c.label, kinds.CANCEL_KIND_LABEL[c.key]));
+});
+
 test('only the choices that need words show a text box, and Customer request shows none', async () => {
   assert.doesNotMatch(await dialog({}), /cbd-input/);
   assert.doesNotMatch(await dialog({ initialChoice: 'customer' }), /cbd-input/);
@@ -92,10 +125,11 @@ test('only the choices that need words show a text box, and Customer request sho
   assert.match(await dialog({ initialChoice: 'other' }), /Reason \(required\)/);
 });
 
-test('We cannot supply or serve says in plain words that the customer gets the whole verified down payment back, no fee, on any date', async () => {
+test('We cannot supply or serve, Customer request and Other say in plain words that the customer gets the whole verified down payment back', async () => {
   const owner = await dialog({ initialChoice: 'owner' });
-  assert.match(owner, /The customer receives a full refund of the verified down payment, with no transportation fee, on any date\./);
-  for (const choice of ['customer', 'other', null]) assert.doesNotMatch(await dialog({ initialChoice: choice }), /full refund of the verified down payment/, String(choice));
+  assert.match(owner, /The customer receives a full refund of the verified down payment, with no deduction\./);
+  for (const choice of ['customer', 'other']) assert.match(await dialog({ initialChoice: choice }), /The customer receives a full refund of the verified down payment\./, choice);
+  assert.doesNotMatch(await dialog({ initialChoice: null }), /full refund of the verified down payment/);
 });
 
 test('a server error is shown inside the dialog, and while saving the buttons are off', async () => {
@@ -130,7 +164,7 @@ test('Cancel Booking keeps its visibility rules and its confirmation, now the di
   assert.match(code, /const canCancel = !\[BOOKING_STATUS\.COMPLETED, BOOKING_STATUS\.CANCELLED\]\.includes\(booking\.status\)/);
   assert.match(code, /\{canCancel && \(\s*<button className="sdm-btn sdm-btn-danger" onClick=\{handleCancel\} disabled=\{saving\}>\s*Cancel Booking/);
   assert.doesNotMatch(code, /window\.confirm\('Cancel this booking/);
-  assert.match(code, /<CancelBookingDialog bookingId=\{booking\.bookingId\} saving=\{saving\} error=\{error\} onConfirm=\{confirmCancel\}/);
+  assert.match(code, /<CancelBookingDialog bookingId=\{booking\.bookingId\} status=\{booking\.status\} downPayment=\{cancelDeductionLimit\} saving=\{saving\} error=\{error\} onConfirm=\{confirmCancel\}/);
   assert.match(code, /if \(await patchBooking\(body\)\) setCancelOpen\(false\)/, 'it closes only when the cancel worked');
   assert.doesNotMatch(code, /Cancel: we cannot supply or serve/);
 });

@@ -61,12 +61,13 @@ test('every optional photo slot is hidden or replaced when no image is set, neve
   assert.match(slot, /onError=/);
 });
 
-test('the FAQ cancellation answer is the customer cancel note from config/cancellation.js: on or after the booked date', () => {
+test('the FAQ cancellation answer is the customer cancel note from config/cancellation.js: a full refund, and no cancelling once In Progress (E34)', () => {
   assert.match(content, /import \{ CANCEL_POLICY_NOTE \} from '\.\/cancellation';/);
   assert.match(content, /a: CANCEL_POLICY_NOTE,/);
   assert.doesNotMatch(copy, /on the booked date/);
   const note = read('src', 'config', 'cancellation.js');
-  assert.match(note, /Cancelling on or after the booked date may result in a transportation fee/);
+  assert.match(note, /refunded in full/);
+  assert.doesNotMatch(note, /Cancelling on or after the booked date may result in a transportation fee/);
 });
 
 test('How It Works step 1 says a preferred technician is subject to availability', () => {

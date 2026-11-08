@@ -232,7 +232,7 @@ test('A6: Cancel booking is the last action in the page order, with the same con
   const order = ['Reschedule', 'NoShowCustomerCard', 'DiscountRequestForm', 'FEEDBACK_ACTION_LABEL', 'View Service Report', 'Report an Issue', 'Cancel booking'].map((t) => group.indexOf(t));
   assert.ok(order.every((n) => n >= 0), 'every action is still there');
   assert.deepEqual([...order].sort((a, b) => a - b), order, 'Cancel booking comes last, so it is last for the keyboard too');
-  assert.match(group, /BOOKING_STATUS\.IN_PROGRESS && !cancellableWhileStarted \?/, 'the started-service note is unchanged');
+  assert.match(group, /BOOKING_STATUS\.IN_PROGRESS \|\| noShowWaiting \? \(/, 'E34: the started-service note replaces the button for every In Progress booking');
   assert.match(group, /onClick=\{\(\) => setShowCancel\(true\)\} disabled=\{cancelling\}/);
   assert.match(group, /\[BOOKING_STATUS\.PENDING, BOOKING_STATUS\.APPROVED\]\.includes\(booking\.status\)\s*&& !booking\.isCommercial/, 'the discount request keeps its conditions');
 });

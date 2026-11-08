@@ -637,7 +637,7 @@ router.post('/', auth, allowRoles(ROLE.CUSTOMER, ROLE.ADMIN), uploadLimiter, (re
     // goes through the normal check like any other.
     const paymentStatus = proofFile ? PAYMENT_STATUS.TO_VERIFY : PAYMENT_STATUS.UNPAID;
 
-    const withinServiceArea = isWithinServiceArea(address);
+    const withinServiceArea = isWithinServiceArea(address, addressParts);
 
     // Guard against stale cleaning-tier answers riding along onto a booking for
     // a different (or no longer Cleaning) service - the client also resets these
@@ -2488,7 +2488,7 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
         bookingId: booking.bookingId,
         before: chargesBefore,
         after: { distanceAdjustment: booking.distanceAdjustment || 0, mobilizationFee: booking.mobilizationFee || 0 },
-        outsideArea: !isWithinServiceArea(booking.address),
+        outsideArea: !isWithinServiceArea(booking.address, booking.addressParts),
       });
       if (message) await sendNotification(booking.customer, NOTIFICATION_TYPE.CHARGE_UPDATED, message, { booking });
     }

@@ -379,7 +379,7 @@ const [report, setReport] = useState(null);
                         owner (check whether a mobilization fee belongs in the Scope of works). */}
                     {(() => {
                         const noDistanceYet = !booking.distanceAdjustment && !booking.mobilizationFee;
-                        const outsideToPrice = !booking.isBackJob && booking.status === BOOKING_STATUS.PENDING && !isWithinQuezonCity(booking.address) && noDistanceYet;
+                        const outsideToPrice = !booking.isBackJob && booking.status === BOOKING_STATUS.PENDING && !isWithinQuezonCity(booking.address, booking.addressParts) && noDistanceYet;
                         // a cancelled booking is already decided, so the review flag is no longer shown
                         const flagged = booking.status !== BOOKING_STATUS.CANCELLED && booking.serviceAreaCheck && !booking.serviceAreaCheck.withinArea;
                         if (outsideToPrice) {

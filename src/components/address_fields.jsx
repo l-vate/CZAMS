@@ -23,8 +23,10 @@ function AddressFields({ value, onChange, idPrefix = 'addr', onFocus }) {
     }
     setOtherChosen(false);
     const known = SERVICE_CITIES.find((c) => c.name === name);
-    // the province is only suggested, and only while it is empty
-    onChange({ ...parts, city: name, province: parts.province || (known ? known.province : '') });
+    // the province is only suggested: it follows the city while it is empty or still the one suggested for the previous city, and never replaces one the customer typed
+    const previous = SERVICE_CITIES.find((c) => c.name === parts.city);
+    const untouched = !parts.province || (previous && parts.province === previous.province);
+    onChange({ ...parts, city: name, province: untouched ? (known ? known.province : '') : parts.province });
   };
 
   const line = buildAddress(parts);

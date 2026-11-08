@@ -15,9 +15,24 @@ const SERVICE_AREA_KEYWORDS = [
   'carmona',
 ];
 
-function isWithinServiceArea(address) {
-  const normalized = (address || '').toLowerCase();
+// The text the check reads. A booking with structured parts (E33) is checked on its City part only: the line now ends with the province, and a
+// province such as "Metro Manila" would otherwise let any address pass on the word "manila". A city typed under Other goes through the same keywords.
+// A booking without parts (older data) is checked on its whole line, as before. src/utils/serviceArea.js does the same for the Quezon City notice.
+function textToCheck(address, parts) {
+  const city = parts && typeof parts === 'object' && typeof parts.city === 'string' ? parts.city.trim() : '';
+  return (city || address || '').toLowerCase();
+}
+
+function isWithinServiceArea(address, parts) {
+  const normalized = textToCheck(address, parts);
   return SERVICE_AREA_KEYWORDS.some((keyword) => normalized.includes(keyword));
 }
 
-module.exports = { SERVICE_AREA_KEYWORDS, isWithinServiceArea };
+const QUEZON_CITY_KEYWORDS = ['quezon city', 'qc'];
+
+function isWithinQuezonCity(address, parts) {
+  const normalized = textToCheck(address, parts);
+  return QUEZON_CITY_KEYWORDS.some((keyword) => normalized.includes(keyword));
+}
+
+module.exports = { SERVICE_AREA_KEYWORDS, isWithinServiceArea, isWithinQuezonCity };

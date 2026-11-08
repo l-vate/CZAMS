@@ -490,7 +490,7 @@ export function Step3({ form, setForm, technicians }) {
   // an additional distance charge (replaces the old confirmed-service-area warning).
   // the distance notice waits for a city, so it does not show while the first boxes are still being filled
   const addressEntered = (form.addressParts?.city || '').trim().length > 0;
-  const withinQuezonCity = !addressEntered || isWithinQuezonCity(form.address);
+  const withinQuezonCity = !addressEntered || isWithinQuezonCity(form.address, form.addressParts);
 
    return (
     <div className="bs-card">

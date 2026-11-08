@@ -11,7 +11,9 @@ export const SERVICE_AREA_DISPLAY_NAMES = [
 // transportation charge.
 const QUEZON_CITY_KEYWORDS = ['quezon city', 'qc'];
 
-export function isWithinQuezonCity(address) {
-  const normalized = (address || '').toLowerCase();
+// With structured parts (E33) only the City part is read; without them (older data) the whole line, as before. server/utils/serviceArea.js has the same rule.
+export function isWithinQuezonCity(address, parts) {
+  const city = parts && typeof parts === 'object' && typeof parts.city === 'string' ? parts.city.trim() : '';
+  const normalized = (city || address || '').toLowerCase();
   return QUEZON_CITY_KEYWORDS.some((keyword) => normalized.includes(keyword));
 }

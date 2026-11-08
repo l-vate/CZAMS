@@ -15,23 +15,36 @@ const SERVICE_AREA_KEYWORDS = [
   'carmona',
 ];
 
-// The text the check reads. A booking with structured parts (E33) is checked on its City part only: the line now ends with the province, and a
-// province such as "Metro Manila" would otherwise let any address pass on the word "manila". A city typed under Other goes through the same keywords.
-// A booking without parts (older data) is checked on its whole line, as before. src/utils/serviceArea.js does the same for the Quezon City notice.
-function textToCheck(address, parts) {
-  const city = parts && typeof parts === 'object' && typeof parts.city === 'string' ? parts.city.trim() : '';
-  return (city || address || '').toLowerCase();
+// E33c: the service area is Quezon City and Manila only. A booking with structured parts (E33) is in area only when its City part is Quezon City
+// ("QC" and "Quezon" too) or Manila ("City of Manila" too), in any case and spacing; the Province is never read, so "Metro Manila" cannot let another city
+// pass. Anything else is flagged for the admin, who decides whether to add a fee: the check never refuses a booking. A booking without parts (older data)
+// is checked on its whole line against the keyword list above, exactly as before. src/utils/serviceArea.js has the same rule for the screens, and a test
+// keeps the two equal.
+const QUEZON_CITY_NAMES = new Set(['quezoncity', 'quezon', 'qc']);
+const MANILA_NAMES = new Set(['manila', 'cityofmanila', 'manilacity']);
+
+// The city as one run of letters and digits: case, spaces and punctuation ("Q.C.", "City of  Manila") do not matter.
+const compactName = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+// The City part of structured parts, or '' when there are none (an older record).
+function cityOf(parts) {
+  return parts && typeof parts === 'object' && typeof parts.city === 'string' ? parts.city.trim() : '';
 }
 
 function isWithinServiceArea(address, parts) {
-  const normalized = textToCheck(address, parts);
+  const city = cityOf(parts);
+  if (city) return QUEZON_CITY_NAMES.has(compactName(city)) || MANILA_NAMES.has(compactName(city));
+  const normalized = String(address || '').toLowerCase();
   return SERVICE_AREA_KEYWORDS.some((keyword) => normalized.includes(keyword));
 }
 
+// Quezon City is the home base: a booking anywhere else may get a distance or transportation fee (the admin decides). The same rule, on the city.
 const QUEZON_CITY_KEYWORDS = ['quezon city', 'qc'];
 
 function isWithinQuezonCity(address, parts) {
-  const normalized = textToCheck(address, parts);
+  const city = cityOf(parts);
+  if (city) return QUEZON_CITY_NAMES.has(compactName(city));
+  const normalized = String(address || '').toLowerCase();
   return QUEZON_CITY_KEYWORDS.some((keyword) => normalized.includes(keyword));
 }
 

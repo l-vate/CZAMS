@@ -123,11 +123,12 @@ test('a built line over 300 characters is refused even when every part is within
   assert.ok(server.addressPartsProblem(roomy) === null || /300/.test(server.addressPartsProblem(roomy)));
 });
 
-// ---- the service area check runs on the built line
-test('the service area check reads the built line, as it read the old line', () => {
+// ---- the service area check (E33c: with parts it reads the city only, see e33ServiceArea.test.js; a line alone is read as before)
+test('the service area check reads the built line when no parts are given, as it read the old line, and the city when they are', () => {
   assert.equal(isWithinServiceArea(server.buildAddress(GOOD)), true);
-  assert.equal(isWithinServiceArea(server.buildAddress({ ...GOOD, city: 'Pasig City' })), true);
-  assert.equal(isWithinServiceArea(server.buildAddress({ ...GOOD, city: 'Carmona', province: 'Cavite' })), true);
+  assert.equal(isWithinServiceArea(server.buildAddress({ ...GOOD, city: 'Pasig City' })), true, 'a line alone: the old keywords');
+  assert.equal(isWithinServiceArea(server.buildAddress({ ...GOOD, city: 'Pasig City' }), { ...GOOD, city: 'Pasig City' }), false, 'with parts: Quezon City and Manila only');
+  assert.equal(isWithinServiceArea(server.buildAddress(GOOD), GOOD), true);
   assert.equal(isWithinServiceArea(server.buildAddress({ ...GOOD, city: 'Baguio City', province: 'Benguet', zip: '2600' })), false);
 });
 

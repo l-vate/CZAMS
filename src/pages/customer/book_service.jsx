@@ -557,7 +557,7 @@ export function Step3({ form, setForm, technicians }) {
         />
         {addressEntered && !withinQuezonCity && (
           <p className="bs-area-warning">
-            A distance-based charge may apply for addresses outside Quezon City due to transportation.
+            This address is outside Quezon City, so our team may add a transportation or distance fee. The amount is decided when your booking is reviewed.
           </p>
         )}
       </div>

@@ -4,7 +4,7 @@ import { SERVICE_CITIES, SERVICE_CITY_NAMES, OTHER_CITY, partsForForm } from '..
 import { buildAddress, addressPartsProblem } from '../utils/addressParts';
 
 // The address as separate boxes: House or Block and Lot, Street, Subdivision or Building (optional), Barangay, City or Municipality
-// (a list of the service areas plus Other), Province and a 4 digit ZIP code. A one line preview shows the address the way every other
+// (Quezon City, Manila or Other), Province and a 4 digit ZIP code. A one line preview shows the address the way every other
 // screen will show it (utils/addressParts.js builds it, the same code as the server). `value` is the parts, `onChange` gets the new parts.
 function AddressFields({ value, onChange, idPrefix = 'addr', onFocus }) {
   const parts = partsForForm(value);

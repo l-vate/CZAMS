@@ -1,91 +1,108 @@
-// Run with: npm test (inside server/). E33 follow-up: a booking with structured address parts is checked against the service area on its City part only,
-// so a province such as "Metro Manila" cannot let a city outside the areas pass. A booking without parts (older data) is checked on its line, as before.
-// The check only flags a booking for the admin; it never refuses one. The client and server copies of the Quezon City test agree.
+// Run with: npm test (inside server/). E33c: the service area is Quezon City and Manila only. A booking with structured address parts is in area only when its
+// City part is one of them; the Province is never read. Anything else is flagged for the admin, who decides whether to add a fee, and the booking is never
+// refused. A booking without parts (older data) is checked on its line, as before. The client and server copies agree.
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const path = require('node:path');
-const { pathToFileURL } = require('node:url');
 const server = require('../utils/serviceArea');
 const { buildAddress } = require('../utils/addressParts');
 const harness = require('./helpers/createBooking');
 
 const root = path.join(__dirname, '..', '..');
-const loadClient = () => import(pathToFileURL(path.join(root, 'src', 'utils', 'serviceArea.js')).href);
+const loadClient = () => import(`data:text/javascript;base64,${Buffer.from(fs.readFileSync(path.join(root, 'src', 'utils', 'serviceArea.js'), 'utf8')).toString('base64')}`);
 
 const parts = (city, province = 'Metro Manila') => ({ houseLot: 'Blk 5 Lot 12', street: 'Mabini St.', barangay: 'Holy Spirit', city, province, zip: '1127' });
 const within = (p) => server.isWithinServiceArea(buildAddress(p), p);
 
-test('every listed city passes', () => {
-  const listed = [['Quezon City', 'Metro Manila'], ['Pasig City', 'Metro Manila'], ['Manila', 'Metro Manila'], ['Muntinlupa (Alabang)', 'Metro Manila'], ['Carmona', 'Cavite'], ['General Mariano Alvarez', 'Cavite']];
-  listed.forEach(([city, province]) => assert.equal(within(parts(city, province)), true, city));
-});
-
-test('Other with Makati and province Metro Manila is flagged, as a Makati address without the province was before the parts', () => {
-  const p = parts('Makati', 'Metro Manila');
-  assert.equal(within(p), false, 'the province no longer lets it pass on the word "manila"');
-  assert.equal(server.isWithinServiceArea('Blk 5 Lot 12, Mabini St., Brgy. Holy Spirit, Makati'), false, 'the old line check gave the same answer');
-  assert.equal(within(parts('Baguio City', 'Benguet')), false);
-});
-
-test('Other with a listed city name typed in passes, in any case and with spaces', () => {
-  for (const city of ['Pasig', 'pasig city', '  QUEZON CITY ', 'Manila', 'Carmona', 'Alabang', 'General Mariano Alvarez', 'GMA']) {
-    assert.equal(within(parts(city, 'Anything')), true, city);
+test('Quezon City and Manila pass, and so do QC, Quezon and City of Manila in any case and spacing', () => {
+  for (const city of ['Quezon City', 'quezon city', '  QUEZON   CITY ', 'QC', 'Q.C.', 'qc', 'Quezon', 'Manila', 'MANILA', 'City of Manila', 'city  of   manila', 'Manila City']) {
+    assert.equal(within(parts(city)), true, city);
   }
 });
 
-test('only the city is read: a listed word in the street, subdivision or province does not make the booking in area', () => {
-  const p = { ...parts('Makati', 'Manila'), street: 'Pasig Blvd.', subdivision: 'Quezon City Heights' };
+test('every other place is flagged, and the Province is never read', () => {
+  for (const city of ['Makati', 'Pasig City', 'Pasig', 'Muntinlupa (Alabang)', 'Alabang', 'Carmona', 'General Mariano Alvarez', 'GMA', 'Dasmariñas', 'Imus', 'Baguio City', 'Metro Manila', 'Quezon Avenue', 'Manila Bay Village']) {
+    assert.equal(within(parts(city, 'Metro Manila')), false, city);
+  }
+  assert.equal(within(parts('Makati', 'Manila')), false, 'a province that says Manila does not help');
+  assert.equal(within(parts('Quezon City', 'Benguet')), true, 'and a strange province does not hurt');
+  assert.equal(within(parts('Makati', 'Quezon City')), false);
+});
+
+test('only the city is read: a listed word in the street, subdivision or barangay does not make the booking in area', () => {
+  const p = { ...parts('Makati'), street: 'Manila Blvd.', subdivision: 'Quezon City Heights', barangay: 'Quezon' };
   assert.equal(within(p), false);
   assert.equal(server.isWithinQuezonCity(buildAddress(p), p), false);
 });
 
 test('an older booking with only a line is checked on the line, exactly as before', () => {
-  for (const line of ['12 Old Street, Brgy. Pinyahan, Quezon City', 'Makati', 'Somewhere, Metro Manila', 'Imus, Cavite', 'Alabang', '', undefined]) {
-    const before = SERVICE_AREA_WORDS.some((w) => String(line || '').toLowerCase().includes(w));
-    assert.equal(server.isWithinServiceArea(line), before, String(line));
-    assert.equal(server.isWithinServiceArea(line, undefined), before, `${line} with undefined parts`);
-    assert.equal(server.isWithinServiceArea(line, null), before, `${line} with null parts`);
-    assert.equal(server.isWithinServiceArea(line, {}), before, `${line} with empty parts`);
-    assert.equal(server.isWithinServiceArea(line, { city: '   ' }), before, `${line} with a blank city`);
+  const words = ['quezon city', 'qc', 'pasig', 'manila', 'cavite', 'alabang', 'general mariano alvarez', 'gma', 'carmona'];
+  assert.deepEqual(server.SERVICE_AREA_KEYWORDS, words, 'the line keywords are unchanged');
+  for (const line of ['12 Old Street, Brgy. Pinyahan, Quezon City', 'Makati', 'Somewhere, Metro Manila', 'Imus, Cavite', 'Alabang', '3 Old St, Pasig', '', undefined]) {
+    const before = words.some((w) => String(line || '').toLowerCase().includes(w));
+    for (const noParts of [undefined, null, {}, { city: '   ' }, 'text']) {
+      assert.equal(server.isWithinServiceArea(line, noParts), before, `${line} with ${JSON.stringify(noParts)}`);
+    }
   }
 });
-const SERVICE_AREA_WORDS = ['quezon city', 'qc', 'pasig', 'manila', 'cavite', 'alabang', 'general mariano alvarez', 'gma', 'carmona'];
 
 test('the Quezon City notice is decided by the city when there are parts, and by the line when there are none', () => {
   assert.equal(server.isWithinQuezonCity(buildAddress(parts('Quezon City')), parts('Quezon City')), true);
-  assert.equal(server.isWithinQuezonCity(buildAddress(parts('Pasig City')), parts('Pasig City')), false);
-  assert.equal(server.isWithinQuezonCity(buildAddress(parts('qc', 'Metro Manila')), parts('qc', 'Metro Manila')), true, 'Other typed as QC');
+  assert.equal(server.isWithinQuezonCity('x', parts('QC')), true);
+  assert.equal(server.isWithinQuezonCity('x', parts('Quezon')), true);
+  assert.equal(server.isWithinQuezonCity('x', parts('Manila')), false, 'Manila is in area but is not the home base');
+  assert.equal(server.isWithinQuezonCity('x', parts('Pasig City')), false);
   assert.equal(server.isWithinQuezonCity('3 Old St, Quezon City'), true);
   assert.equal(server.isWithinQuezonCity('3 Old St, Pasig'), false);
 });
 
-test('the client and server copies of the Quezon City test agree on lines and on parts', async () => {
+test('the client and server copies agree on the area, the notice and the keyword list', async () => {
   const client = await loadClient();
-  const samples = [
-    [undefined, undefined], ['', null], ['3 Old St, Quezon City', undefined], ['3 Old St, Pasig', {}], ['QC', { city: '  ' }],
-    [buildAddress(parts('Quezon City')), parts('Quezon City')], [buildAddress(parts('Pasig City')), parts('Pasig City')],
-    [buildAddress(parts('Makati')), parts('Makati')], [buildAddress(parts('qc')), parts('qc')], ['Quezon City, x', parts('Makati')],
-  ];
-  samples.forEach(([line, p]) => assert.equal(client.isWithinQuezonCity(line, p), server.isWithinQuezonCity(line, p), JSON.stringify([line, p])));
+  assert.deepEqual(client.SERVICE_AREA_KEYWORDS, server.SERVICE_AREA_KEYWORDS);
+  const cities = ['Quezon City', 'qc', 'Quezon', 'Manila', 'City of Manila', 'Makati', 'Pasig City', 'Muntinlupa (Alabang)', 'Carmona', 'General Mariano Alvarez', 'Dasmariñas', 'Other', '', '  '];
+  const samples = [[undefined, undefined], ['', null], ['3 Old St, Quezon City', undefined], ['3 Old St, Pasig', {}], ['QC', { city: '  ' }], ['Imus, Cavite', undefined]];
+  cities.forEach((city) => samples.push([buildAddress(parts(city)), parts(city)], ['Quezon City, x', parts(city)]));
+  samples.forEach(([line, p]) => {
+    assert.equal(client.isWithinServiceArea(line, p), server.isWithinServiceArea(line, p), `area ${JSON.stringify([line, p])}`);
+    assert.equal(client.isWithinQuezonCity(line, p), server.isWithinQuezonCity(line, p), `notice ${JSON.stringify([line, p])}`);
+  });
 });
 
-test('a booking is still accepted either way: an in area city is not flagged, Makati is flagged for the admin', async () => {
+test('the City dropdown offers Quezon City, Manila and Other, every listed city is in area, and a province is suggested for each', () => {
+  const src = fs.readFileSync(path.join(root, 'src', 'constants', 'addressOptions.js'), 'utf8');
+  const names = [...src.matchAll(/\{ name: '([^']+)', province: '([^']+)' \}/g)].map((m) => [m[1], m[2]]);
+  assert.deepEqual(names, [['Quezon City', 'Metro Manila'], ['Manila', 'Metro Manila']]);
+  names.forEach(([city]) => assert.equal(within(parts(city)), true, city));
+  assert.match(src, /OTHER_CITY = 'Other'/);
+  assert.doesNotMatch(src, /Pasig|Muntinlupa|Carmona|General Mariano/);
+});
+
+test('the texts that list the service area match: the chat answer and the admin and booking form notices', () => {
+  const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8');
+  const client = read('src', 'utils', 'serviceArea.js');
+  assert.match(client, /SERVICE_AREA_DISPLAY_NAMES = \['Quezon City', 'Manila'\]/);
+  const chat = read('src', 'pages', 'customer', 'chat.jsx');
+  assert.match(chat, /choose Other/);
+  assert.doesNotMatch(chat, /distance-based transportation charge/);
+  assert.match(read('src', 'pages', 'customer', 'book_service.jsx'), /outside Quezon City, so our team may add a transportation or distance fee/);
+  assert.match(read('src', 'components', 'admin_service_details_modal.jsx'), /outside CZA's service areas \(Quezon City and Manila\)/);
+});
+
+const reset = () => harness.reset({
+  users: [{ _id: 'CUS1', role: 'customer', isActive: true, clientType: 'Residential', name: 'Customer One' }],
+  services: [{ _id: 'S-CLEAN', name: 'Cleaning', serviceType: 'Cleaning', price: 800, isActive: true }],
+});
+
+test('a booking is never refused: Quezon City and Manila are not flagged, Makati, Pasig and Dasmariñas are flagged for the admin', async () => {
   await harness.install();
-  harness.reset({
-    users: [{ _id: 'CUS1', role: 'customer', isActive: true, clientType: 'Residential', name: 'Customer One' }],
-    services: [{ _id: 'S-CLEAN', name: 'Cleaning', serviceType: 'Cleaning', price: 800, isActive: true }],
-  });
   try {
-    const ok = await harness.post({ addressParts: parts('Pasig City') });
-    assert.equal(ok.status, 201, JSON.stringify(ok.body));
-    assert.equal(harness.state.bookings[0].serviceAreaCheck.withinArea, true);
-    harness.reset({
-      users: [{ _id: 'CUS1', role: 'customer', isActive: true, clientType: 'Residential', name: 'Customer One' }],
-      services: [{ _id: 'S-CLEAN', name: 'Cleaning', serviceType: 'Cleaning', price: 800, isActive: true }],
-    });
-    const flagged = await harness.post({ addressParts: parts('Makati', 'Metro Manila') });
-    assert.equal(flagged.status, 201, JSON.stringify(flagged.body));
-    assert.equal(harness.state.bookings[0].serviceAreaCheck.withinArea, false);
+    for (const [city, expected] of [['Quezon City', true], ['Manila', true], ['Makati', false], ['Pasig City', false], ['Dasmariñas', false]]) {
+      reset();
+      const res = await harness.post({ addressParts: parts(city) });
+      assert.equal(res.status, 201, `${city}: ${JSON.stringify(res.body)}`);
+      assert.equal(harness.state.bookings[0].serviceAreaCheck.withinArea, expected, city);
+    }
   } finally {
     harness.close();
   }

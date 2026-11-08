@@ -24,7 +24,7 @@ test('a customer reads their own booking, with the address and contact number th
   const own = await call('GET', `/${bookingId}`, 'CUS1');
   assert.equal(own.status, 200);
   assert.equal(own.body.bookingId, bookingId);
-  assert.equal(own.body.address, 'Quezon City');
+  assert.equal(own.body.address, 'Blk 1 Lot 2, Mabini St., Brgy. Holy Spirit, Quezon City, Metro Manila 1127');
   assert.equal(own.body.contactNumber, '09171234567');
 });
 

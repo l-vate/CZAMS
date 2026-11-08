@@ -179,10 +179,10 @@ test('a booking with a missing address is a 400 that says so, and every other fa
     services: [{ _id: 'S-CLEAN', name: 'Cleaning', serviceType: 'Cleaning', price: 800, isActive: true }],
   });
   try {
-    for (const address of [undefined, '', '   ']) {
-      const res = await harness.post({ address });
-      assert.equal(res.status, 400, String(address));
-      assert.equal(res.body.message, 'Address is required.');
+    for (const addressParts of [undefined, '', '   ']) {
+      const res = await harness.post({ addressParts });
+      assert.equal(res.status, 400, String(addressParts));
+      assert.match(res.body.message, /^Address is required/);
     }
     const badPhone = await harness.post({ contactNumber: 'abc' });
     assert.equal(badPhone.status, 400);

@@ -159,7 +159,8 @@ async function create(fields, { as = 'CUS1', withId = true, role = 'customer' } 
   const token = jwt.sign({ id: as, role }, process.env.JWT_SECRET, { expiresIn: '5m' });
   const form = new FormData();
   const body = {
-    service: 'S-CLEAN', units: JSON.stringify([{ type: 'Split Type', quantity: 1, brand: 'Carrier' }]), date: goodDate(9), time: 'Morning', address: 'Quezon City',
+    service: 'S-CLEAN', units: JSON.stringify([{ type: 'Split Type', quantity: 1, brand: 'Carrier' }]), date: goodDate(9), time: 'Morning',
+    addressParts: JSON.stringify({ houseLot: 'Blk 1 Lot 2', street: 'Mabini St.', barangay: 'Holy Spirit', city: 'Quezon City', province: 'Metro Manila', zip: '1127' }),
     contactNumber: '09171234567', downPaymentPercent: '50', paymentMode: 'GCash', lastCleanedOver6MonthsAgo: 'false', isActivelyLeaking: 'false', ...fields,
   };
   Object.entries(body).forEach(([k, v]) => { if (v !== undefined) form.append(k, v); });

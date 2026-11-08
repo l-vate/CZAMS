@@ -2421,3 +2421,22 @@
 .media-picker-input { display: none; }
 .proof-media { margin-top: 6px; max-width: 100%; }
 .proof-media-image, .proof-media-video { display: block; max-width: 100%; max-height: 260px; border-radius: 10px; border: 1px solid var(--mist); background: #fff; }
+
+/* Address as separate boxes (components/address_fields.jsx): two columns on a wide screen, one on a phone, and a one line preview of the
+   address as every other screen will show it. */
+.address-fields { display: flex; flex-direction: column; gap: 10px; }
+.address-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--bs-gap-inputs, 12px); }
+.address-grid .address-field { margin-bottom: 0; min-width: 0; }
+.address-grid .address-field select.bs-input { width: 100%; box-sizing: border-box; }
+.address-preview { margin: 0; padding: 10px 12px; border: 1px dashed var(--border, #d0d5dd); border-radius: 8px; font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
+.address-preview-label { display: block; font-size: 12px; font-weight: 600; opacity: 0.7; margin-bottom: 2px; }
+.address-problem { margin: 0; color: var(--danger, #b42318); font-size: 13px; }
+.address-saved-note { margin: 0 0 8px; font-size: 13px; opacity: 0.8; overflow-wrap: anywhere; }
+@media (max-width: 768px) {
+  .address-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Inside the profile, the address boxes are not value boxes: the rule that frames every div of a profile field (view mode) is switched off for them. */
+.profile-field div.address-fields,
+.profile-field .address-fields div { padding: 0; background: none; border: 0; border-radius: 0; font-size: inherit; font-weight: inherit; color: inherit; }
+.profile-field .address-fields div:empty::before { content: none; }

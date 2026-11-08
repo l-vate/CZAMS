@@ -131,6 +131,10 @@ const [report, setReport] = useState(null);
     const canRecordBalance = booking.status !== 'Cancelled' && downSettled && paymentBreakdown.balance > 0 && !booking.balancePaid
         && !['paid', 'to_verify'].includes(booking.balancePaymentStatus);
     const downPaymentAmount = paymentBreakdown.downPayment;
+    // the most an admin may keep from the down payment when cancelling (server: cancelDeductionLimit): what was paid, and 0 when nothing was sent
+    const cancelDeductionLimit = booking.downPaymentPercent > 0 && ['to_verify', 'partially_paid', 'fully_paid'].includes(booking.paymentStatus)
+        ? (typeof booking.downPaymentPaidAmount === 'number' ? booking.downPaymentPaidAmount : downPaymentAmount)
+        : 0;
     const discountIdIsPdf = /\.pdf$/i.test(booking.discount?.idFile || '');
 
     // Reports live in the separate Report collection, not the deprecated embedded
@@ -1276,7 +1280,7 @@ const [report, setReport] = useState(null);
             </div>
         </div>
         {cancelOpen && (
-            <CancelBookingDialog bookingId={booking.bookingId} saving={saving} error={error} onConfirm={confirmCancel} onClose={() => setCancelOpen(false)} />
+            <CancelBookingDialog bookingId={booking.bookingId} status={booking.status} downPayment={cancelDeductionLimit} saving={saving} error={error} onConfirm={confirmCancel} onClose={() => setCancelOpen(false)} />
         )}
         {showReceipt && (
             <ReceiptModal

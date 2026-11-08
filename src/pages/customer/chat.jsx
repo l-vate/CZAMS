@@ -38,7 +38,7 @@ function buildQuickQuestions(paymentMethods) {
     },
     {
       question: 'How do I cancel a booking?',
-      answer: 'You can cancel before the service starts (not once it is In Progress). Open the booking from "My Bookings" and use the "Cancel" option there. If you had a verified down payment, a refund request opens automatically. Cancel before the booked date and your down payment is refunded in full; cancelling on or after the booked date may result in a transportation fee deducted from it.',
+      answer: 'You can cancel a Pending or Approved booking before the service starts: open it from "My Bookings" and use "Cancel booking". If you had a verified down payment, a refund request opens automatically and your down payment is refunded in full, whatever the date. Once the booking is In Progress it can no longer be cancelled online, so please contact us.',
     },
   ];
 }

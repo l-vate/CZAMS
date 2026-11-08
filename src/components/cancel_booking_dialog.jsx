@@ -1,18 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
-import { CANCEL_CHOICES, OWNER_REFUND_NOTE, REASON_MAX, cancelRequest, needsText } from '../utils/cancelBooking';
+import { OWNER_REFUND_NOTE, FULL_REFUND_CHOICE_NOTE, REASON_MAX, cancelRequest, choicesFor, needsAmount, needsText, refundAfter } from '../utils/cancelBooking';
+import { formatMoney } from '../utils/money';
 
 // The confirmation step of "Cancel Booking": say why, then confirm. The reason is required. "We cannot supply or serve" is the owner cancelling
-// (the customer gets the whole verified down payment back, no transportation fee, on any date); the other reasons use the normal refund rule.
+// (the customer gets the whole verified down payment back, no deduction); "Customer not available" and "Technicians already on the way" are the only
+// reasons that keep part of the down payment: the admin types the amount. Every other reason is a full refund. `status` limits the reasons (a booking that
+// is In Progress cannot be cancelled as a customer request) and `downPayment` is the most that can be kept.
 // Escape and Back close it, Tab stays inside it, and focus goes back to where it was.
 // onConfirm(body) is given the request for adminUpdateBooking; the caller closes the dialog when it worked.
-export function CancelBookingDialog({ bookingId, saving = false, error = '', onConfirm, onClose, initialChoice = null, initialText = '' }) {
+export function CancelBookingDialog({ bookingId, status = 'Approved', downPayment = 0, saving = false, error = '', onConfirm, onClose, initialChoice = null, initialText = '' }) {
   const [choice, setChoice] = useState(initialChoice);
   const [text, setText] = useState(initialText);
+  const [amount, setAmount] = useState('');
   const [touched, setTouched] = useState(false);
   const dialogRef = useRef(null);
   const firstRef = useRef(null);
   const textRef = useRef(null);
-  const request = cancelRequest(choice, text);
+  const request = cancelRequest(choice, text, amount, downPayment);
+  const choices = choicesFor(status);
+  const refund = needsAmount(choice) ? refundAfter(downPayment, amount) : null;
 
   // focus the first reason when it opens and give focus back to the Cancel Booking button when it closes
   useEffect(() => {
@@ -25,7 +31,7 @@ export function CancelBookingDialog({ bookingId, saving = false, error = '', onC
     setChoice(key);
     setTouched(false);
     // the text box for that choice gets the cursor
-    if (needsText(key)) requestAnimationFrame(() => textRef.current?.focus());
+    if (needsText(key) || needsAmount(key)) requestAnimationFrame(() => textRef.current?.focus());
   };
 
   const handleKeyDown = (event) => {
@@ -66,7 +72,7 @@ export function CancelBookingDialog({ bookingId, saving = false, error = '', onC
 
         <fieldset className="cbd-reasons">
           <legend className="cbd-legend">Reason for cancelling <span aria-hidden="true">(required)</span></legend>
-          {CANCEL_CHOICES.map((option, index) => (
+          {choices.map((option, index) => (
             <label key={option.key} className={`cbd-choice${choice === option.key ? ' cbd-choice--on' : ''}`}>
               <input
                 ref={index === 0 ? firstRef : undefined}
@@ -100,10 +106,36 @@ export function CancelBookingDialog({ bookingId, saving = false, error = '', onC
           </label>
         )}
 
+        {needsAmount(choice) && (
+          <label className="cbd-text">
+            <span className="cbd-text-label">Amount to keep from the down payment (₱)</span>
+            <input
+              ref={textRef}
+              className="cbd-input"
+              type="number"
+              inputMode="decimal"
+              min="0"
+              max={downPayment}
+              step="0.01"
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              onBlur={() => setTouched(true)}
+              aria-invalid={touched && Boolean(request.problem)}
+              aria-describedby="cbd-amount-note"
+              placeholder="0.00"
+            />
+          </label>
+        )}
+        {needsAmount(choice) && (
+          <p id="cbd-amount-note" className="cbd-refund-note">
+            Down payment: {formatMoney(downPayment)}. {refund === null ? 'Enter 0 up to the down payment.' : `The customer is refunded ${formatMoney(refund)}.`}
+          </p>
+        )}
         {choice === 'owner' && <p className="cbd-refund-note">{OWNER_REFUND_NOTE}</p>}
+        {(choice === 'customer' || choice === 'other') && <p className="cbd-refund-note">{FULL_REFUND_CHOICE_NOTE}</p>}
         {/* the space for the message is always there while a text box is, so it appearing on blur never moves the choices (a click on another choice
             would otherwise miss: the dialog is centered and grows) */}
-        {needsText(choice) && <p id="cbd-problem" className="cbd-problem cbd-problem--slot" aria-live="polite">{touched && request.problem ? request.problem : ''}</p>}
+        {(needsText(choice) || needsAmount(choice)) && <p id="cbd-problem" className="cbd-problem cbd-problem--slot" aria-live="polite">{touched && request.problem ? request.problem : ''}</p>}
         {error && <p className="cbd-problem" role="alert">{error}</p>}
 
         <div className="cbd-actions">

@@ -1,6 +1,6 @@
-// Run with: npm test (inside server/). The cancellation refund rule: cancelling before the booked date refunds the whole verified down
-// payment; cancelling on or after the booked date (the booked day, a day after, several days after) refunds it minus a transportation fee the admin enters (0 up to the down payment). The day is
-// worked out on the server in Manila time and nothing the client sends changes it. The real routes run; only the database is replaced.
+// Run with: npm test (inside server/). The cancellation refund rule (E34): a customer who cancels a Pending or Approved booking gets the whole verified down
+// payment back, on any date, and nothing the client sends changes that. Only an admin cancelling for a reason that keeps part of it can deduct (see
+// e34CancelLock.test.js). The real routes run; only the database is replaced.
 const test = require('node:test');
 const { REAL_PNG } = require('./helpers/images');
 const assert = require('node:assert/strict');
@@ -60,49 +60,20 @@ test('before the booked date: the whole verified down payment is refundable, no 
   assert.equal(b.refund.status, 'Processed');
 });
 
-test('on the booked date: nothing is refundable until the admin enters the fee, and the fee is required', async () => {
+test('a customer who cancels on the booked date still gets the whole down payment back: no date rule, no fee (E34)', async () => {
   const b = booking({ date: manilaTodayKey() });
   assert.equal((await cancel()).status, 200);
-  assert.equal(b.refund.isSameDay, true);
-  assert.equal(b.refund.refundableAmount, undefined);
-  const missing = await processRefund({});
-  assert.equal(missing.status, 400);
-  assert.match(missing.body.message, /transportation fee is required/);
   assert.equal(b.refund.status, 'Pending');
-});
-
-test('on the booked date with a fee of 0 (the crew had not left): the whole down payment goes back', async () => {
-  const b = booking({ date: manilaTodayKey() });
-  await cancel();
-  const done = await processRefund({ dispatchDeduction: 0, dispatchReason: 'The crew had not left' });
+  assert.equal(b.refund.isSameDay, false);
+  assert.equal(b.refund.dispatchDeduction, 0);
+  assert.equal(b.refund.refundableAmount, 1000);
+  const done = await processRefund({});
   assert.equal(done.status, 200, JSON.stringify(done.body));
   assert.equal(b.refund.refundableAmount, 1000);
-  assert.equal(b.refund.dispatchDeduction, 0);
-  assert.equal(b.refund.dispatchReason, 'The crew had not left');
-});
-
-test('on the booked date with a normal fee: the refund is the down payment minus the fee, and the fee and reason are on the record', async () => {
-  const b = booking({ date: manilaTodayKey() });
-  await cancel();
-  const done = await processRefund({ dispatchDeduction: 350, dispatchReason: 'Fuel and the crew trip' });
-  assert.equal(done.status, 200, JSON.stringify(done.body));
-  assert.equal(b.refund.refundableAmount, 650);
-  assert.equal(b.refund.computedAmount, 1000);
-  assert.equal(b.refund.dispatchDeduction, 350);
-  assert.equal(b.refund.dispatchReason, 'Fuel and the crew trip');
   assert.equal(b.refund.status, 'Processed');
 });
 
-test('a fee above the down payment is refused and the refund stays pending', async () => {
-  const b = booking({ date: manilaTodayKey() });
-  await cancel();
-  const done = await processRefund({ dispatchDeduction: 1200 });
-  assert.equal(done.status, 400);
-  assert.match(done.body.message, /cannot be more than/);
-  assert.equal(b.refund.status, 'Pending');
-});
-
-test('a date sent by the client changes nothing: the booked date is compared with the Manila day on the server', async () => {
+test('a date sent by the client changes nothing: the refund is the whole down payment either way', async () => {
   const b = booking({ date: goodDate(7) });
   const res = await cancel({ date: goodDate(7), today: goodDate(7), isSameDay: true, cancelledAt: '2000-01-01' });
   assert.equal(res.status, 200);
@@ -111,8 +82,10 @@ test('a date sent by the client changes nothing: the booked date is compared wit
 
   harness.reset({ users: people(), services: [cleaning] });
   const today = booking({ date: manilaTodayKey() });
-  await cancel({ isSameDay: false, today: goodDate(30) });
-  assert.equal(today.refund.isSameDay, true, 'and a client claiming it is another day does not make it so either');
+  await cancel({ isSameDay: false, today: goodDate(30), dispatchDeduction: 500, cancelDeduction: 500, cancelKind: 'customer_unavailable' });
+  assert.equal(today.refund.isSameDay, false);
+  assert.equal(today.refund.dispatchDeduction, 0, 'a customer cannot ask for, or be given, a deduction');
+  assert.equal(today.refund.refundableAmount, 1000);
   assert.equal(state.bookings.length, 1);
 });
 
@@ -128,7 +101,7 @@ test('the refund is audited with the fee and the reason', () => {
   assert.match(src, /feeReason/);
 });
 
-// ---- on or after the booked date: the booked day, the day after, several days after
+// ---- the booked day, the day after and several days after (an Approved booking is still the customer's to cancel)
 const daysFromToday = (n) => addDays(manilaTodayKey(), n);
 
 test('the day before the booked date: the whole down payment is refundable, no fee asked', async () => {
@@ -138,43 +111,39 @@ test('the day before the booked date: the whole down payment is refundable, no f
   assert.equal(b.refund.refundableAmount, 1000);
 });
 
-test('the booked day, the day after and several days after: a transportation fee applies, nothing is refundable until the admin enters it', async () => {
+test('the booked day, the day after and several days after: still the whole down payment, nothing to enter at refund review', async () => {
   for (const offset of [0, -1, -3, -10]) {
     harness.reset({ users: people(), services: [cleaning] });
     const b = booking({ date: daysFromToday(offset) });
     assert.equal((await cancel()).status, 200, `offset ${offset}`);
     assert.equal(b.refund.status, 'Pending', `offset ${offset}`);
-    assert.equal(b.refund.isSameDay, true, `offset ${offset}: on or after the booked date`);
-    assert.equal(b.refund.refundableAmount, undefined, `offset ${offset}: the fee is not known yet`);
-    const missing = await processRefund({});
-    assert.equal(missing.status, 400, `offset ${offset}`);
-    assert.match(missing.body.message, /on or after the booked date/);
+    assert.equal(b.refund.isSameDay, false, `offset ${offset}`);
+    assert.equal(b.refund.refundableAmount, 1000, `offset ${offset}`);
+    const done = await processRefund({});
+    assert.equal(done.status, 200, `offset ${offset}: ${JSON.stringify(done.body)}`);
+    assert.equal(b.refund.refundableAmount, 1000, `offset ${offset}`);
   }
 });
 
-test('after the booked date: a fee of 0, a normal fee, and a fee above the down payment', async () => {
-  const b = booking({ date: daysFromToday(-2) });
-  await cancel();
-  const tooMuch = await processRefund({ dispatchDeduction: 1001 });
-  assert.equal(tooMuch.status, 400);
-  assert.match(tooMuch.body.message, /cannot be more than/);
-  assert.equal(b.refund.status, 'Pending');
-  const normal = await processRefund({ dispatchDeduction: 400, dispatchReason: 'The crew went and found nobody home' });
-  assert.equal(normal.status, 200, JSON.stringify(normal.body));
-  assert.equal(b.refund.refundableAmount, 600);
-  assert.equal(b.refund.dispatchDeduction, 400);
-  assert.equal(b.refund.dispatchReason, 'The crew went and found nobody home');
-  harness.reset({ users: people(), services: [cleaning] });
-  const free = booking({ date: daysFromToday(-5) });
-  await cancel();
-  assert.equal((await processRefund({ dispatchDeduction: 0 })).status, 200);
-  assert.equal(free.refund.refundableAmount, 1000, 'fee 0: the whole down payment goes back');
+test('an older refund that was flagged for a late cancellation still asks for its fee when it is processed (records made before E34)', async () => {
+  const b = booking({ refund: { status: 'Pending', isSameDay: true, downPaymentAmount: 1000 }, status: 'Cancelled', cancelledBy: 'customer' });
+  const missing = await processRefund({});
+  assert.equal(missing.status, 400);
+  assert.match(missing.body.message, /on or after the booked date/);
+  const done = await processRefund({ dispatchDeduction: 350, dispatchReason: 'Fuel and the crew trip' });
+  assert.equal(done.status, 200, JSON.stringify(done.body));
+  assert.equal(b.refund.refundableAmount, 650);
+  assert.equal(b.refund.dispatchDeduction, 350);
 });
 
-test('a fake date sent by the client does not turn a late cancellation into a full refund', async () => {
-  const b = booking({ date: daysFromToday(-3) });
-  const res = await cancel({ date: daysFromToday(30), today: daysFromToday(-30), isSameDay: false, cancelledAt: daysFromToday(-30) });
-  assert.equal(res.status, 200);
-  assert.equal(b.refund.isSameDay, true);
-  assert.equal(b.refund.refundableAmount, undefined);
+test('a deduction decided when the booking was cancelled is the starting point when the refund is processed', () => {
+  const r = resolveRefundAmounts({ amountPaid: 1000, fixedDeduction: 300 });
+  assert.equal(r.problem, null);
+  assert.equal(r.values.computedAmount, 700);
+  assert.equal(r.values.finalAmount, 700);
+  assert.equal(r.values.adjusted, false);
+  const adjusted = resolveRefundAmounts({ amountPaid: 1000, fixedDeduction: 300, finalAmount: 800, reason: 'Goodwill after a call' });
+  assert.equal(adjusted.values.finalAmount, 800);
+  assert.equal(adjusted.values.adjusted, true);
+  assert.equal(resolveRefundAmounts({ amountPaid: 1000, fixedDeduction: 5000 }).values.finalAmount, 0, 'never more than was paid');
 });

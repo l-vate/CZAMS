@@ -1,6 +1,6 @@
 // Run with: npm test (inside server/). The admin's Cancel Booking asks why. "We cannot supply or serve" is the owner cancelling (the whole verified
-// down payment goes back, no transportation fee, on any date); "Customer request" and "Other" use the normal refund rule and only carry a reason,
-// which is kept on the booking, shown to the customer and written in the audit entry. The real routes run; only the database is replaced.
+// down payment goes back, no transportation fee, on any date); "Customer request" and "Other" also refund the whole down payment (E34: no date rule
+// any more) and only carry a reason, which is kept on the booking, shown to the customer and written in the audit entry. The real routes run; only the database is replaced.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const harness = require('./helpers/createBooking');
@@ -77,13 +77,14 @@ for (const [label, body] of [['Customer request', CUSTOMER_REQUEST], ['Other', O
     assert.equal(b.refund.dispatchDeduction, 0);
   });
 
-  test(`${label}, on and after the booked date: the transportation fee is entered at refund review`, async () => {
+  test(`${label}, on and after the booked date: still a full refund, nothing to enter at refund review (E34)`, async () => {
     for (const makeDate of [DATES.on, DATES.after]) {
       harness.reset({ users, services: [cleaning] });
       const b = paid(makeDate());
       assert.equal((await cancel(body)).status, 200);
-      assert.equal(b.refund.isSameDay, true);
-      assert.equal(b.refund.refundableAmount, undefined, 'waits for the admin to enter the fee');
+      assert.equal(b.refund.isSameDay, false);
+      assert.equal(b.refund.dispatchDeduction, 0);
+      assert.equal(b.refund.refundableAmount, 1000, 'the whole down payment, on any date');
       assert.equal(b.refund.ownerInitiated, undefined);
     }
   });

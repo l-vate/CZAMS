@@ -124,7 +124,7 @@ test('a customer cancelling a Pending booking tells no technician (they never sa
 ['Approved', 'In Progress'].forEach((status) => {
   test(`the admin cancelling an ${status} booking tells every technician once`, async () => {
     DB = [booking({ status })];
-    const res = await call('PATCH', '/api/bookings/CZ-1/admin-update', 'ADM1', { status: 'Cancelled' });
+    const res = await call('PATCH', '/api/bookings/CZ-1/admin-update', 'ADM1', status === 'In Progress' ? { status: 'Cancelled', cancelKind: 'technicians_on_the_way', deductionAmount: 0 } : { status: 'Cancelled' });
     assert.equal(res.status, 200, JSON.stringify(res.body));
     assert.deepEqual(usersOf(ofType('booking_cancelled')), ['T1', 'T2']);
     assertLinked();

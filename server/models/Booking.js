@@ -269,6 +269,8 @@ const bookingSchema = new mongoose.Schema({
         // The transportation fee the owner deducted for a cancellation on or after the booked date (0 up to the down payment), and why.
         dispatchDeduction: Number,
         dispatchReason: String,
+        // true when the amount kept was decided by the admin at the moment of cancelling (E34): processing then starts from it and asks for no fee
+        deductionDecided: { type: Boolean, default: false },
         // refundableAmount is what is actually refunded (the final figure). When the admin processes
         // the refund, computedAmount keeps the system's figure so any change is visible, with who
         // changed it, when and why. Refunds processed before these fields existed have none of them.
@@ -341,6 +343,10 @@ const bookingSchema = new mongoose.Schema({
     // Such a cancellation refunds the whole verified down payment with no transportation fee.
     ownerCancelled: { type: Boolean, default: false },
     cancelReason: String,
+    // E34: set only when an admin cancels because the customer was not available at the address or the technicians were already on the way
+    // (constants/cancelKinds.js). cancelDeduction is the amount the admin keeps from the down payment, from 0 up to the down payment.
+    cancelKind: { type: String, enum: ['customer_unavailable', 'technicians_on_the_way'] },
+    cancelDeduction: { type: Number, min: 0 },
     // The owner said it cannot supply the unit on this booking (admin action on a Pending booking). The booking is not cancelled: the
     // customer is told why and can cancel or get in touch. The note may say which units the owner does have.
     unitDecline: {

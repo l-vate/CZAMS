@@ -15,11 +15,15 @@ const peso = (n) => formatMoney(n);
 //
 // On or after the booked date the owner decides a transportation fee (dispatchDeduction): required, from 0 (the crew had not left) up to the
 // down payment, so the refund never goes negative. A short reason for the fee is kept with it (dispatchReason, up to 200 characters).
-function resolveRefundAmounts({ amountPaid, isSameDay, dispatchDeduction, dispatchReason, finalAmount, reason }) {
+// A deduction decided when the booking was cancelled (E34, `fixedDeduction`) is already settled: the computed amount is the down payment less it, and
+// processing asks for no fee. Older refunds that were flagged `isSameDay` keep the rule above.
+function resolveRefundAmounts({ amountPaid, isSameDay, fixedDeduction, dispatchDeduction, dispatchReason, finalAmount, reason }) {
   const paid = Number(amountPaid) || 0;
   let computedAmount = paid;
   let adjustmentReason;
   let feeReasonText;
+  const fixed = !isSameDay && Number.isFinite(Number(fixedDeduction)) && fixedDeduction !== null && fixedDeduction !== undefined ? Math.min(Math.max(Number(fixedDeduction), 0), paid) : null;
+  if (fixed !== null) computedAmount = Math.max(paid - fixed, 0);
 
   if (isSameDay) {
     const deduction = Number(dispatchDeduction);

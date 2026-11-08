@@ -170,19 +170,20 @@ test('owner-initiated, on the booked date and after it: still the whole down pay
   }
 });
 
-test("a customer's own cancellation on the booked date keeps its transportation fee rule", async () => {
+test("a customer's own cancellation on the booked date is a full refund too (E34)", async () => {
   const b = paid(manilaTodayKey());
   assert.equal((await call('PATCH', '/CZ-1/cancel', 'CUS1', {})).status, 200);
-  assert.equal(b.refund.isSameDay, true);
-  assert.equal(b.refund.refundableAmount, undefined, 'waits for the admin to enter the fee');
+  assert.equal(b.refund.isSameDay, false);
+  assert.equal(b.refund.refundableAmount, 1000, 'the whole down payment, no fee to enter');
   assert.equal(b.refund.ownerInitiated, undefined);
 });
 
-test('an admin cancelling for another reason (not owner-initiated) keeps the late fee rule', async () => {
+test('an admin cancelling for another reason (not owner-initiated) refunds the whole down payment too (E34)', async () => {
   const b = paid(manilaTodayKey());
   assert.equal((await call('PATCH', '/CZ-1/admin-update', 'ADM1', { status: 'Cancelled' }, asAdmin)).status, 200);
   assert.equal(Boolean(b.ownerCancelled), false);
-  assert.equal(b.refund.isSameDay, true);
+  assert.equal(b.refund.isSameDay, false);
+  assert.equal(b.refund.refundableAmount, 1000);
 });
 
 test('owner-initiated with the proof still waiting: the refund request is open at the full amount, ready once the proof is verified', async () => {

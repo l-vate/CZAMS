@@ -64,7 +64,8 @@ for (const [now, manilaDay, label] of INSTANTS) {
     assert.equal(expected.today, manilaDay);
     assert.equal(expected.createTwoAhead, 400, 'two days ahead is refused');
     assert.equal(expected.createThreeAhead, 201, 'three days ahead is accepted');
-    assert.deepEqual(expected.cancelToday, { status: 200, sameDay: true }, 'a booking dated today in Manila is same-day');
+    // E34: no date rule on a customer's cancellation, so both are a full refund; the zones must still agree on everything else
+    assert.deepEqual(expected.cancelToday, { status: 200, sameDay: false }, 'a booking dated today in Manila is a full refund too');
     assert.deepEqual(expected.cancelTomorrow, { status: 200, sameDay: false });
   });
 }

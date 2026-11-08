@@ -34,7 +34,7 @@ const PASS_THROUGH = [
   'downPaymentPercent', 'downPaymentPaidAmount', 'pricingVersion', 'unitConfirmedAt', 'paymentMode', 'paymentMode2', 'paymentStatus', 'balancePaid',
   'balancePaymentStatus', 'proofFile', 'balanceProofFile', 'referenceNumber', 'balanceReferenceNumber',
   'distanceAdjustment', 'mobilizationFee', 'promo', 'isCommercial', 'vatAmount', 'poNumber', 'paymentTermsDays', 'paymentDueAt',
-  'feedback', 'completedAt', 'cancelledAt', 'cancelledBy', 'ownerCancelled', 'cancelReason', 'expiredBySystem', 'startedBySystem', 'startedAt', 'reportSubmitted', 'isBackJob', 'backJobId',
+  'feedback', 'completedAt', 'cancelledAt', 'cancelledBy', 'ownerCancelled', 'cancelReason', 'cancelKind', 'cancelDeduction', 'expiredBySystem', 'startedBySystem', 'startedAt', 'reportSubmitted', 'isBackJob', 'backJobId',
   'service', 'customer', 'warranty', 'priceSnapshot', 'quotationTerms', 'taxInclusive', 'site', 'mayNeedWorks',
 ];
 
@@ -99,7 +99,7 @@ function toCustomerView(booking) {
 
   if (b.refund) {
     out.refund = pick(b.refund, [
-      'status', 'isSameDay', 'downPaymentAmount', 'dispatchDeduction', 'dispatchReason', 'refundableAmount', 'computedAmount', 'finalAmount',
+      'status', 'isSameDay', 'deductionDecided', 'downPaymentAmount', 'dispatchDeduction', 'dispatchReason', 'refundableAmount', 'computedAmount', 'finalAmount',
       'adjustmentReason', 'receivedConfirmedAt', 'requestedAt', 'processedAt', 'proofFile', 'ownerInitiated', 'reason', 'systemInitiated', 'expired',
     ]);
     if (b.refund.customerFlag) {

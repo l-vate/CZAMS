@@ -40,6 +40,8 @@ import {
 import { ApiError, orFallback } from '../../services/apiClient';
 import PaymentSettingsUnavailable from '../../components/payment_settings_unavailable';
 import { getBusyTechnicians, createBooking } from '../../services/bookingService';
+import { getAvailability } from '../../services/availabilityService';
+import { blockLabel } from '../../utils/availabilityText';
 import { PAYMENT_STATUS } from '../../constants/paymentStatus';
 import { ONLINE_PAYMENT_MODES } from '../../constants/paymentModes';
 import { TIME_BLOCK_VALUES, TIME_BLOCK } from '../../constants/timeBlocks';
@@ -485,6 +487,32 @@ export function Step3({ form, setForm, technicians }) {
 
   const availableTechnicians = technicians.filter((t) => !busyTechIds.includes(t._id));
 
+  // A time block with no crew left on the chosen date cannot be picked: the same public answer the date picker reads.
+  // Until it arrives (or if it fails) both blocks stay pickable, and the server still checks on booking.
+  const [blockAvailability, setBlockAvailability] = useState(null);
+  useEffect(() => {
+    if (!form.date) { setBlockAvailability(null); return undefined; }
+    let cancelled = false;
+    getAvailability(form.date, form.date)
+      .then((days) => {
+        if (cancelled) return;
+        const day = Array.isArray(days) ? days.find((d) => d.date === form.date) : null;
+        setBlockAvailability(day || null);
+      })
+      .catch(() => { if (!cancelled) setBlockAvailability(null); });
+    return () => { cancelled = true; };
+  }, [form.date]);
+  const blockTaken = (t) => {
+    if (!blockAvailability) return '';
+    const key = t === TIME_BLOCK.MORNING ? 'morning' : 'afternoon';
+    return blockAvailability[key] === false ? blockLabel(false, blockAvailability[`${key}Reason`]) : '';
+  };
+  // a block picked before it was found taken is cleared, so the customer has to choose one that is free
+  useEffect(() => {
+    if (form.time && blockTaken(form.time)) setForm((f) => ({ ...f, time: '' }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only a new answer for the date can clear the choice
+  }, [blockAvailability]);
+
   // Distance-based transportation charge notice - soft, informational only, not
   // a block on submission. QC is CZA's home base; anything outside it may incur
   // an additional distance charge (replaces the old confirmed-service-area warning).
@@ -515,17 +543,27 @@ export function Step3({ form, setForm, technicians }) {
         <div className="bs-field-group">
           <label className="bs-label">Time</label>
           <div className="time-toggle">
-            {TIME_BLOCK_VALUES.map((t) => (
-              <button
-                key={t}
-                type="button"
-                className={`time-btn ${form.time === t ? 'selected' : ''}`}
-                onClick={() => setForm({ ...form, time: t })}
-              >
-                {t === TIME_BLOCK.MORNING ? <FiSunrise /> : <FiSunset />} {t}
-              </button>
-            ))}
+            {TIME_BLOCK_VALUES.map((t) => {
+              const taken = blockTaken(t);
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  className={`time-btn ${form.time === t ? 'selected' : ''}`}
+                  onClick={() => setForm({ ...form, time: t })}
+                  disabled={Boolean(taken)}
+                  title={taken || undefined}
+                >
+                  {t === TIME_BLOCK.MORNING ? <FiSunrise /> : <FiSunset />} {t}
+                </button>
+              );
+            })}
           </div>
+          {TIME_BLOCK_VALUES.some((t) => blockTaken(t)) && (
+            <p className="customer-book-service-x2">
+              {TIME_BLOCK_VALUES.filter((t) => blockTaken(t)).map((t) => `${t}: ${blockTaken(t)}`).join(' · ')}
+            </p>
+          )}
         </div>
       </div>
 

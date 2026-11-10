@@ -1362,10 +1362,8 @@
   margin: 0;
   padding: 28px 32px;
   background: #fff;
-  border-style: solid;
-  border-color: var(--mist);
-  border-width: 1px 0;
-  border-radius: 0;
+  border: 1px solid var(--mist);
+  border-radius: 12px;
 }
 .report-page-title {
   margin: 0 0 16px;
@@ -1401,6 +1399,6 @@
 }
 .report-page-card .form-group { margin-bottom: 16px; }
 
-/* the report card runs edge to edge: the page's own padding and gap are taken away on this page, and the Back link keeps its own space */
-.staff-dashboard-shell .dashboard-body:has(.report-page-card) { padding: 0; gap: 0; }
-.report-page-back.report-page-back { margin: 14px 20px 14px; align-self: flex-start; }
+/* the report card sits in a small margin (10px) and the Back link above it is small */
+.staff-dashboard-shell .dashboard-body:has(.report-page-card) { padding: 10px; gap: 8px; }
+.report-page-back.report-page-back { margin: 0 0 2px 4px; font-size: 0.8rem; align-self: flex-start; }

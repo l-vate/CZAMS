@@ -37,7 +37,7 @@ function BookingDetailsPage() {
       <div className="page-container sdm-page-wrap">
         {/* once the booking is loaded the Back button is inside its card; until then (loading or an error) there is no card */}
         {!booking && (
-          <BackButton label="Back to Bookings" className="sdm-back" onClick={back} />
+          <BackButton label="Back" className="sdm-back" onClick={back} />
         )}
         {loadError ? (
           <p className="req-empty" role="alert">{loadError}</p>

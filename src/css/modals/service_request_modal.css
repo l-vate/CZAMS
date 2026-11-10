@@ -427,19 +427,19 @@
 .sdm-back {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    margin: 0 0 16px;
-    padding: 8px 14px;
+    gap: 6px;
+    margin: 0 0 12px;
+    padding: 4px 10px;
     border: 1.5px solid #e2e8f0;
     border-radius: 10px;
     background: #fff;
     color: #0f172a;
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     font-weight: 700;
     cursor: pointer;
 }
 .sdm-back:hover { background: #f1f5f9; }
-.sdm-back--in-card { margin-bottom: 18px; }
+.sdm-back--in-card { margin-bottom: 12px; }
 /* goes to Payments with this booking searched and the To verify filter on */
 .sdm-verify-payment {
     display: inline-flex;
@@ -492,4 +492,12 @@
     .sdm-footer > .sdm-btn-danger { order: 2; align-self: flex-end; margin-top: 12px; min-height: 44px; min-width: 160px; justify-content: center; }
     /* + Add line and Edit quotation details: right aligned, one width, 44 px tall */
     .sdm-section-action { display: flex; align-items: center; justify-content: center; width: min(100%, 220px); min-height: 44px; margin-left: auto; box-sizing: border-box; }
+}
+
+/* The booking details card sits in a small margin (10px) instead of the page's usual 20px, wide, with a plain border and a small radius. */
+.dashboard-body.dashboard-body:has(.sdm-page-card) { padding: 10px; gap: 10px; }
+.sdm-page-wrap:has(.sdm-page-card) { max-width: none; width: 100%; }
+.sdm-page-card { border-radius: 12px; box-shadow: none; }
+@media (max-width: 620px) {
+    .sdm-page-card { border-radius: 12px; }
 }

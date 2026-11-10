@@ -488,7 +488,7 @@ function SubmitReportPage() {
 
   return (
     <StaffLayout title="Reports">
-      <BackButton label="Back to Reports" className="ma-back-link report-page-back" onClick={backToList} />
+      <BackButton label="Back" className="ma-back-link report-page-back" onClick={backToList} />
       {state === 'loading' && <p className="tech-job-empty">Loading the job...</p>}
       {state === 'failed' && <LoadError message="Could not load this job." onRetry={load} />}
       {state === 'missing' && (

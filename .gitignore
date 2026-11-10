@@ -122,3 +122,6 @@ e31-screenshots/
 
 # manual check screenshots (E32)
 e32-screenshots/
+
+# Screenshots for Chapter IV of the paper. Never tracked.
+paper-figures/

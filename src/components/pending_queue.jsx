@@ -72,10 +72,6 @@ function PendingQueue({ refreshKey, onViewDetails }) {
 
   return (
     <div className="pending-queue">
-      <p className="bs-card-sub">
-        Pending requests in the order they will be handled: first come, first served unless you move them. Moving a
-        request does not approve it. Customers never see their queue position.
-      </p>
       {error && <p className="ma-form-error">{error}</p>}
 
       {queue.length === 0 ? (
@@ -100,7 +96,7 @@ function PendingQueue({ refreshKey, onViewDetails }) {
                     {assigned ? `Assigned: ${assigned}` : 'Nobody assigned yet'}
                   </p>
                   <p className={`queue-capacity${item.overCapacity ? ' queue-capacity--over' : ''}`}>
-                    {item.free} {pluralize(item.free, item.unit)} free for {b.date} {b.time}
+                    {item.freeTechnicians} {pluralize(item.freeTechnicians, 'technician')} available for {b.date} {b.time}
                     {item.positionInBlock ? ` · request ${item.positionInBlock} for this slot` : ''}
                     {item.overCapacity ? ' · Over capacity: more requests than free ' + item.unit + 's' : ''}
                   </p>

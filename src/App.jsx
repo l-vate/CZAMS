@@ -19,6 +19,7 @@ import StaffDashboard from './pages/staff/dashboard';
 import StaffMyJobs from './pages/staff/my_jobs';
 import StaffCalendar from './pages/staff/calendar';
 import StaffReports from './pages/staff/reports';
+import StaffSubmitReport from './pages/staff/submit_report';
 import StaffProfile from './pages/staff/profile';
 import StaffChat from './pages/staff/chat';
 
@@ -88,6 +89,7 @@ function App() {
           <Route path="/staff/my_jobs" element={<StaffMyJobs />} />
           <Route path="/staff/calendar" element={<StaffCalendar />} />
           <Route path="/staff/reports" element={<StaffReports />} />
+          <Route path="/staff/reports/:bookingId/submit" element={<StaffSubmitReport />} />
           <Route path="/staff/profile" element={<StaffProfile />} />
           <Route path="/staff/chat" element={<StaffChat />} />
           <Route path="/staff/notifications" element={<NotificationsPage />} />

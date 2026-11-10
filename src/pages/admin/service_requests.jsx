@@ -101,8 +101,32 @@ function ServiceRequests() {
             searchPlaceholder="Search booking no., customer, email, phone, reference no. or technician..."
         >
             <div className="page-container">
-                <div className="req-page-head">
+                <div className="req-page-head req-page-head--row">
                     <h1 className="dashboard-welcome page-title-in-topbar">Bookings</h1>
+                    <div className="req-tabs admin-service-requests-x1" role="tablist" aria-label="Bookings view">
+                        {VIEWS.map(([key, label], index) => (
+                            <button
+                                key={key}
+                                type="button"
+                                role="tab"
+                                id={`req-tab-${key}`}
+                                ref={(el) => { tabRefs.current[key] = el; }}
+                                aria-selected={view === key}
+                                aria-controls="req-view-panel"
+                                tabIndex={view === key ? 0 : -1}
+                                className={`req-tab${view === key ? ' req-tab--active' : ''}`}
+                                onClick={() => setView(key)}
+                                onKeyDown={(e) => onTabKey(e, index)}
+                            >
+                                {label}
+                            </button>
+                        ))}
+                    </div>
+                    {view === 'queue' && (
+                        <p className="req-queue-note">
+                            Pending requests in the order they will be handled: first come, first served unless you move them. Moving a request does not approve it. Customers never see their queue position.
+                        </p>
+                    )}
                     <button
                         type="button"
                         className="req-new-btn"
@@ -110,25 +134,6 @@ function ServiceRequests() {
                     >
                         <FiPlus aria-hidden="true" /> New Booking
                     </button>
-                </div>
-                <div className="req-tabs admin-service-requests-x1" role="tablist" aria-label="Bookings view">
-                    {VIEWS.map(([key, label], index) => (
-                        <button
-                            key={key}
-                            type="button"
-                            role="tab"
-                            id={`req-tab-${key}`}
-                            ref={(el) => { tabRefs.current[key] = el; }}
-                            aria-selected={view === key}
-                            aria-controls="req-view-panel"
-                            tabIndex={view === key ? 0 : -1}
-                            className={`req-tab${view === key ? ' req-tab--active' : ''}`}
-                            onClick={() => setView(key)}
-                            onKeyDown={(e) => onTabKey(e, index)}
-                        >
-                            {label}
-                        </button>
-                    ))}
                 </div>
 
                 <div id="req-view-panel" role="tabpanel" aria-labelledby={`req-tab-${view}`}>

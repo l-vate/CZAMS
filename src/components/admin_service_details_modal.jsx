@@ -354,7 +354,7 @@ const [report, setReport] = useState(null);
                 {!asPage && <button type="button" className="modal-close-btn sdm-close-position" onClick={onClose}>✕</button>}
                 <div className="sdm-body">
                     {asPage && (
-                        <BackButton label="Back to Bookings" className="sdm-back sdm-back--in-card" onClick={onClose} />
+                        <BackButton label="Back" className="sdm-back sdm-back--in-card" onClick={onClose} />
                     )}
                     <div className="sdm-titlebar">
                         <div>

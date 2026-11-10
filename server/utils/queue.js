@@ -158,6 +158,7 @@ async function getQueue() {
       booking: b,
       position: index + 1,
       free,
+      freeTechnicians, // how many technicians are free in that date and time block (free is in pairs for a two person service)
       unit: solo ? 'technician' : 'pair',
       positionInBlock,
       overCapacity,

@@ -11,6 +11,9 @@ import { ApiError } from '../../services/apiClient';
 import LoadError from '../../components/load_error';
 import { listTechnicianJobs, reportDisruption, requestExtension } from '../../services/bookingService';
 import { listClosures } from '../../services/closureService';
+import { getAvailability } from '../../services/availabilityService';
+import { blockLabel } from '../../utils/availabilityText';
+import ClosureDateInput from '../../components/closure_date_input';
 import { defaultExtensionDate, manilaTodayKey } from '../../utils/workingDays';
 import { getAssignedNames } from '../../utils/assignments';
 import AssignmentHistory from '../../components/assignment_history';
@@ -205,7 +208,33 @@ function DisruptionExtensionModal({ kind, job, onClose, onSubmit, submitting, se
     return () => { cancelled = true; };
   }, [kind, job.date]);
 
+  // The public availability of the chosen extra day: a block with no free crew cannot be chosen, and a taken block is swapped for the free one.
+  const [dayAvailability, setDayAvailability] = useState(null);
+  useEffect(() => {
+    if (kind !== 'extension' || !extraDate) return undefined;
+    let cancelled = false;
+    getAvailability(extraDate, extraDate)
+      .then((days) => { if (!cancelled) setDayAvailability((Array.isArray(days) && days.find((d) => d.date === extraDate)) || null); })
+      .catch(() => { if (!cancelled) setDayAvailability(null); });
+    return () => { cancelled = true; };
+  }, [kind, extraDate]);
+  const blockTaken = (t) => {
+    if (!dayAvailability) return '';
+    const key = t === 'Morning' ? 'morning' : 'afternoon';
+    return dayAvailability[key] === false ? blockLabel(false, dayAvailability[`${key}Reason`]) : '';
+  };
+  useEffect(() => {
+    if (!blockTaken(extraTime)) return;
+    const other = extraTime === 'Morning' ? 'Afternoon' : 'Morning';
+    if (!blockTaken(other)) setExtraTime(other);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only a new answer for the day can change the block
+  }, [dayAvailability]);
+
   const handleSubmit = () => {
+    if (kind === 'extension' && blockTaken(extraTime)) {
+      setError(`${extraTime} on ${extraDate} is not available. Choose another day or block.`);
+      return;
+    }
     if (!reason.trim()) {
       setError(kind === 'extension' ? 'Please describe why more time is needed.' : 'Please describe what happened.');
       return;
@@ -244,17 +273,19 @@ function DisruptionExtensionModal({ kind, job, onClose, onSubmit, submitting, se
             {kind === 'extension' && (
               <div className="bs-field-group">
                 <label className="bs-label" htmlFor="extra-day">{copy.extraDayLabel}</label>
-                <input
+                {/* the same picker as booking: Sundays, closed dates, past days and fully booked days cannot be chosen */}
+                <ClosureDateInput
                   id="extra-day"
-                  type="date"
-                  className="bs-input"
                   value={extraDate}
                   min={job.date && job.date > manilaTodayKey() ? job.date : manilaTodayKey()}
-                  onChange={(e) => setExtraDate(e.target.value)}
+                  onChange={setExtraDate}
+                  blockFull
+                  showClosedList={false}
                 />
                 <select className="bs-select" aria-label="Time block for the extra day" value={extraTime} onChange={(e) => setExtraTime(e.target.value)}>
-                  <option value="Morning">Morning</option>
-                  <option value="Afternoon">Afternoon</option>
+                  {['Morning', 'Afternoon'].map((t) => (
+                    <option key={t} value={t} disabled={Boolean(blockTaken(t))}>{blockTaken(t) ? `${t} (${blockTaken(t)})` : t}</option>
+                  ))}
                 </select>
               </div>
             )}

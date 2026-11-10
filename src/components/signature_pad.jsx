@@ -45,7 +45,7 @@ function SignaturePad({ onChange }) {
     const { x, y } = getPos(e);
     ctx.lineTo(x, y);
     ctx.strokeStyle = '#0b2545';
-    ctx.lineWidth = 2.2;
+    ctx.lineWidth = 4;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.stroke();
@@ -93,8 +93,8 @@ function SignaturePad({ onChange }) {
     <div className="signature-pad-wrap">
       <canvas
         ref={canvasRef}
-        width={400}
-        height={140}
+        width={1000}
+        height={350}
         className="signature-pad-canvas"
         onMouseDown={startDraw}
         onMouseMove={draw}

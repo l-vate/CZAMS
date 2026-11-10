@@ -628,7 +628,7 @@
 
 /* Job Modal */
 .tech-job-modal {
-  max-width: 460px;
+  max-width: min(960px, calc(100vw - 24px));
   gap: 10px;
 }
 
@@ -924,8 +924,8 @@
 
 .signature-pad-canvas {
   width: 100%;
-  max-width: 400px;
-  height: 140px;
+  height: auto;
+  aspect-ratio: 1000 / 350; /* matches the canvas size, so a stroke is not stretched */
   display: block;
   background: #ffffff;
   border: 1px solid var(--mist);
@@ -1354,3 +1354,53 @@
 @media (max-width: 340px) {
   .staff-dashboard-shell .change-password-btn { width: 100%; min-width: 0; }
 }
+
+/* The Submit Service Report page (pages/staff/submit_report.jsx): the form on a card, not in a pop-up. */
+.report-page-card {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 28px 32px;
+  background: #fff;
+  border-style: solid;
+  border-color: var(--mist);
+  border-width: 1px 0;
+  border-radius: 0;
+}
+.report-page-title {
+  margin: 0 0 16px;
+  font-size: 24px;
+  color: var(--navy);
+}
+@media (max-width: 768px) {
+  .report-page-card { padding: 18px 16px; }
+  .report-page-title { font-size: 20px; }
+}
+
+/* Submit Service Report page: Yes / No and the "None" ticks sit on one line with room around them, and the Follow-up question is not boxed. */
+.report-page-card fieldset.form-group {
+  border: 0;
+  margin: 0 0 16px;
+  padding: 0;
+  min-width: 0;
+}
+.report-page-card fieldset.form-group legend {
+  padding: 0;
+  margin-bottom: 8px;
+}
+.report-page-card .staff-reports-x9.staff-reports-x9 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 24px 0 0;
+}
+.report-page-card .staff-reports-x9 input[type="radio"],
+.report-page-card .staff-reports-x9 input[type="checkbox"] {
+  margin: 0;
+  flex: 0 0 auto;
+}
+.report-page-card .form-group { margin-bottom: 16px; }
+
+/* the report card runs edge to edge: the page's own padding and gap are taken away on this page, and the Back link keeps its own space */
+.staff-dashboard-shell .dashboard-body:has(.report-page-card) { padding: 0; gap: 0; }
+.report-page-back.report-page-back { margin: 14px 20px 14px; align-self: flex-start; }

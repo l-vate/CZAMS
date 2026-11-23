@@ -10,7 +10,7 @@ const auth = require('../middleware/auth');
 const { createUploader, discardUploads, storeUploads, IMAGE_TYPES } = require('../utils/uploadSafety');
 const { KINDS } = require('../storage/fileStore');
 const { clearAuthCache } = require('../utils/authCache');
-const { validateNewPassword, validateRegistrationPassword } = require('../utils/passwordRules');
+const { validateRegistrationPassword } = require('../utils/passwordRules');
 const { RESET_LINK_INVALID, waitForFloor, issueUnusedToken, issueResetToken, consumeResetToken, isResetTokenLive, retireResetTokens, deliverResetLink } = require('../utils/passwordReset');
 const { recordAudit } = require('../utils/audit');
 const { listFieldTechnicians } = require('../utils/technicians');
@@ -325,41 +325,6 @@ router.post('/change-password/email', auth, passwordChangeLimiter, async (req, r
     res.json({ message: `We sent a link to ${user.email}. Open it to choose a new password. It expires in 30 minutes.` });
   } catch (err) {
     console.error('Password change email failed:', describeError(err));
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-router.put('/change-password', auth, passwordChangeLimiter, async (req, res) => {
-  try {
-    const { currentPassword, newPassword } = req.body;
-
-    // Checked first, so a bad new password is a clear 400 and nothing below ever sees it.
-    const problem = validateNewPassword({ currentPassword, newPassword });
-    if (problem) return res.status(problem.status).json({ message: problem.message });
-
-    const user = await User.findById(req.userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    const isMatch = await verifyPassword(user, currentPassword);
-
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Current password is incorrect' });
-    }
-
-    user.password = await hashPassword(newPassword);
-    user.passwordChangedAt = new Date();
-    await user.save();
-
-    // Every other token for this account stops working at once (middleware/auth.js). The cache is cleared
-    // so that holds on the very next request, and this response carries a fresh token so the person
-    // changing the password stays signed in on this device.
-    clearAuthCache(req.userId);
-    const token = signToken(user);
-    res.json({ message: 'Password updated successfully', token });
-  } catch (err) {
-    console.error(err);
     res.status(500).json({ message: 'Server error' });
   }
 });

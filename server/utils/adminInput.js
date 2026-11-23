@@ -5,7 +5,7 @@
 const { ROLE_VALUES } = require('../constants/roles');
 const { SERVICE_TYPE_VALUES, SERVICE_TYPE } = require('../constants/serviceTypes');
 const { invalid } = require('./validation');
-const { EMAIL_PATTERN, NAME_MAX } = require('./accountInput');
+const { EMAIL_PATTERN, NAME_MAX, NAME_PATTERN } = require('./accountInput');
 const { normalizeContactNumber } = require('./contactNumber');
 const { MIN_PASSWORD_LENGTH } = require('./passwordRules');
 
@@ -17,6 +17,8 @@ const has = (v) => v !== undefined;
 function userInputProblem(body, { creating }) {
   const { name, email, phone, address, role, password, isActive, clientType } = body || {};
   if (has(name) && (!isText(name) || name.trim().length > NAME_MAX * 2)) return invalid(`The name must be text of ${NAME_MAX * 2} characters or fewer.`);
+  // only on create: an edit may resend an older name saved before this rule
+  if (creating && (!isText(name) || !NAME_PATTERN.test(name.trim()))) return invalid('Name is required and can only have letters, spaces, hyphens, apostrophes and periods.');
   if (creating || has(email)) {
     if (!isText(email) || !email.trim()) return invalid('Email is required.');
     if (email.trim().length > 254 || !EMAIL_PATTERN.test(email.trim())) return invalid('Enter a valid email address.');
@@ -86,9 +88,10 @@ function serviceInputProblem(body, { creating, current } = {}) {
       if (!entry || !isText(entry.unitType) || !entry.unitType.trim()) return { problem: invalid('Each unit price needs a unit type.') };
       const problem = priceProblem(entry.price, `The price for ${entry.unitType}`);
       if (problem) return { problem };
-      if (seen.has(entry.unitType)) return { problem: invalid(`${entry.unitType} is listed twice.`) };
-      seen.add(entry.unitType);
-      cleaned.push({ unitType: entry.unitType.trim(), price: toNumber(entry.price) });
+      const unitType = entry.unitType.trim();
+      if (seen.has(unitType)) return { problem: invalid(`${unitType} is listed twice.`) };
+      seen.add(unitType);
+      cleaned.push({ unitType, price: toNumber(entry.price) });
     }
     out.unitTypePricing = cleaned;
   }

@@ -37,6 +37,7 @@ test('a good account passes; each bad field has its own message', () => {
   assert.match(msg({ isActive: 0 }), /true or false/);
   assert.match(msg({ name: 42 }), /name must be text/);
   assert.match(msg({ clientType: 'Corporate' }), /Residential or Commercial/);
+  ['', '   ', '12345', '<img src=x onerror=alert(1)>', undefined].forEach((name) => assert.match(msg({ name }), /Name is required/, String(name)));
 });
 
 test('an update does not need an email, but one that is sent must be real; no password is fine', () => {
@@ -59,6 +60,7 @@ test('a service needs a positive price within the limit, a known type and sane t
   assert.match(bad({ isActive: 'yes' }).message, /true or false/);
   assert.match(bad({ unitTypePricing: [{ unitType: 'Split Type', price: -1 }] }).message, /greater than 0/);
   assert.match(bad({ unitTypePricing: [{ unitType: 'Split Type', price: 5 }, { unitType: 'Split Type', price: 6 }] }).message, /listed twice/);
+  assert.match(bad({ unitTypePricing: [{ unitType: 'Split', price: 5 }, { unitType: 'Split ', price: 6 }] }).message, /listed twice/);
   assert.match(bad({ unitTypePricing: 'many' }).message, /list/);
 });
 
@@ -141,7 +143,7 @@ test.describe('the routes', () => {
   });
 
   test('a duplicate email, in any letter case, is a 409 on create and on update', async () => {
-    assert.equal((await send('POST', '/users', { email: 'BEA@example.com', role: 'staff' })).status, 409);
+    assert.equal((await send('POST', '/users', { name: 'Bea Lim', email: 'BEA@example.com', role: 'staff' })).status, 409);
     users.push({ _id: 'STF1', role: 'staff', isActive: true, email: 'tech@example.com' });
     assert.equal((await send('PUT', '/users/STF1', { email: 'bea@EXAMPLE.com' })).status, 409);
     assert.equal((await send('PUT', '/users/STF1', { email: 'tech@example.com' })).status, 200, 'its own email is fine');

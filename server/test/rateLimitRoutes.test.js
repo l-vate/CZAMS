@@ -138,7 +138,7 @@ test('the limiters sit on the routes that need them, after the login check and b
   assert.match(bookings, /refund', auth, auditSpecs\.refundProcess, allowRoles\(ROLE\.ADMIN\), uploadLimiter, upload\.single/);
   const auth = read('authRoutes.js');
   assert.match(auth, /'\/profile\/photo', auth, uploadLimiter, upload\.single/);
-  assert.match(auth, /'\/change-password', auth, passwordChangeLimiter,/);
+  assert.match(auth, /'\/change-password\/email', auth, passwordChangeLimiter,/);
   assert.match(auth, /'\/login', loginLimiter,/);
   assert.match(auth, /'\/register', registerLimiter,/);
   assert.match(read('reportRoutes.js'), /router\.post\('\/', auth, uploadLimiter, receivePhoto,/);

@@ -46,10 +46,6 @@ export function uploadProfilePhoto(file) {
   return upload('/api/auth/profile/photo', formData);
 }
 
-export function changePassword(passwords) {
-  return request('/api/auth/change-password', { method: 'PUT', body: passwords });
-}
-
 // Emails the signed-in user a link to choose a new password.
 export function requestPasswordChangeEmail() {
   return request('/api/auth/change-password/email', { method: 'POST' });

@@ -152,7 +152,7 @@ function validateAdminStatusChange(current, requested) {
   }
   if (requested === BOOKING_STATUS.CANCELLED) return null;
   if (requested === BOOKING_STATUS.IN_PROGRESS || requested === BOOKING_STATUS.COMPLETED) {
-    return invalid('A booking becomes In Progress automatically when its time block starts, and Completed when the technician submits the service report. It cannot be set by hand.');
+    return invalid('A booking becomes In Progress automatically on its service day, and Completed when the technician submits the service report. It cannot be set by hand.');
   }
   return invalid('A booking cannot be moved back to Pending.');
 }

@@ -10,6 +10,7 @@ const router = express.Router();
 const { requireObjectId } = require('../utils/idParam');
 requireObjectId(router, 'id');
 const auth = require('../middleware/auth');
+const { allowRoles } = require('../middleware/roles');
 const Report = require('../models/Report');
 const Booking = require('../models/Booking');
 const User = require('../models/User'); // Add this import
@@ -59,7 +60,7 @@ async function backJobLink(booking) {
 // ============================================
 
 // Create a new report for a booking
-router.post('/', auth, uploadLimiter, receivePhoto, async (req, res) => {
+router.post('/', auth, allowRoles(ROLE.STAFF), uploadLimiter, receivePhoto, async (req, res) => {
     try {
         const {
             bookingId,

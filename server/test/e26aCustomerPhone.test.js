@@ -352,9 +352,9 @@ test('A9: on a phone the button is 44 by 44 px with the words hidden visually; a
 
 test('A9: every "Back to ..." button of the app uses it, with the same destination as before', () => {
   const details = src('pages', 'admin', 'booking_details_page.jsx');
-  assert.match(details, /<BackButton label="Back to Bookings" className="sdm-back" onClick=\{back\} \/>/);
+  assert.match(details, /<BackButton label="Back" className="sdm-back" onClick=\{back\} \/>/);
   assert.match(details, /const back = \(\) => navigate\('\/admin\/services\/requests'\);/);
-  assert.match(src('components', 'admin_service_details_modal.jsx'), /<BackButton label="Back to Bookings" className="sdm-back sdm-back--in-card" onClick=\{onClose\} \/>/);
+  assert.match(src('components', 'admin_service_details_modal.jsx'), /<BackButton label="Back" className="sdm-back sdm-back--in-card" onClick=\{onClose\} \/>/);
   assert.match(src('pages', 'admin', 'manage_accounts.jsx'), /<BackButton label="Back to Account List" className="ma-back-link" onClick=\{onCancel\} \/>/);
   for (const file of [['pages', 'admin', 'booking_details_page.jsx'], ['components', 'admin_service_details_modal.jsx'], ['pages', 'admin', 'manage_accounts.jsx']]) {
     assert.doesNotMatch(src(...file), /<FiArrowLeft \/> Back to|&larr; Back to/, `${file.join('/')} has no hand made Back button left`);

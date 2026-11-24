@@ -100,6 +100,8 @@ function NavSearch({ navigate, services }) {
       .catch(() => setFeedbackSummary(null));
   }, []);
 
+  // The panel opens on typing or clicking the box, NOT on focus: when the panel closes, the modal manager gives the focus back to this input, and an
+  // onFocus opener reopened the panel at once, so the X, Escape and an outside click all seemed to do nothing.
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (e) => { if (e.key === 'Escape') setOpen(false); };
@@ -150,8 +152,8 @@ function NavSearch({ navigate, services }) {
           placeholder="Search services"
           aria-label="Search services or technicians"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => setOpen(true)}
+          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+          onClick={() => setOpen(true)}
           onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
         />
       </div>
@@ -168,7 +170,7 @@ function NavSearch({ navigate, services }) {
               <span className="nav-search-modal-title">
                 {totalResults > 0 ? `Results for "${query.trim()}"` : 'Search'}
               </span>
-              <button className="modal-close-btn" onClick={() => setOpen(false)}>✕</button>
+              <button className="modal-close-btn" onClick={() => setOpen(false)} aria-label="Close search results">✕</button>
             </div>
 
             <div className="nav-search-modal-body">

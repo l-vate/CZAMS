@@ -4,6 +4,7 @@ import CustomerLayout from './customer_layout';
 import ReceiptModal from '../../components/receipt_modal';
 import FeedbackModal from '../../components/feedback_modal';
 import BackJobModal from '../../components/back_job_modal';
+import BackButton from '../../components/back_button';
 import ServiceReportViewer from '../../components/service_report_viewer';
 import { getBookingLineItems, getPaymentBreakdown, formatPeso } from '../../utils/bookingPricing';
 import QuotationTerms from '../../components/quotation_terms';
@@ -436,6 +437,8 @@ function BookDetails() {
   const { bookingId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  // back to where the customer came from (My Bookings, Billings, a notification); a page opened directly goes to My Bookings
+  const goBack = () => (location.key !== 'default' ? navigate(-1) : navigate('/customer/bookings'));
   const { downPaymentPercentages, paymentMethods } = usePaymentSettings();
   const { notice, showNotice, clearNotice } = useNotice();
   const [showPay, setShowPay] = useState(false);
@@ -499,6 +502,7 @@ function BookDetails() {
   if (loading) {
     return (
       <CustomerLayout title="Booking Details">
+        <BackButton label="Back" className="sdm-back" onClick={goBack} />
         <p>Loading booking...</p>
       </CustomerLayout>
     );
@@ -507,6 +511,7 @@ function BookDetails() {
   if (!booking) {
     return (
       <CustomerLayout title="Booking Details">
+        <BackButton label="Back" className="sdm-back" onClick={goBack} />
         <p className="customer-book-details-x5">{loadError || 'Booking not found.'}</p>
         {loadError && loadError !== 'Booking not found.' && (
           <button type="button" className="bs-next-btn" onClick={() => { setLoadError(''); setLoading(true); setReloadKey((k) => k + 1); }}>Try again</button>
@@ -655,6 +660,7 @@ function BookDetails() {
 
   return (
     <CustomerLayout title="Booking Details">
+      <BackButton label="Back" className="sdm-back" onClick={goBack} />
       <Notice message={notice} onClose={clearNotice} />
       {balanceDue && (
         <section className="balance-reminder" role="status" aria-label="Payment reminder">

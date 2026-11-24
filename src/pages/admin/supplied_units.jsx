@@ -3,7 +3,7 @@ import AdminLayout from './admin_layout';
 import { attempt, orFallback } from '../../services/apiClient';
 import { listSuppliedUnits, addSuppliedUnit, updateSuppliedUnit, setSuppliedUnitActive, deleteSuppliedUnit } from '../../services/suppliedUnitService';
 import { UNIT_TYPES } from '../../constants/unitTypes';
-import { HP_OPTIONS } from '../../constants/unitOptions';
+import { HP_OPTIONS, AC_BRANDS, OTHER_BRAND } from '../../constants/unitOptions';
 import { formatPeso } from '../../utils/bookingPricing';
 import { hpChoiceFor } from '../../utils/suppliedUnitChoice';
 import { hpLabel } from '../../utils/hpLabel';
@@ -17,6 +17,7 @@ const EMPTY = { brand: '', model: '', type: UNIT_TYPES[0], hp: HP_OPTIONS[2], in
 function SuppliedUnits() {
   const [items, setItems] = useState([]);
   const [form, setForm] = useState(EMPTY);
+  const [brandOther, setBrandOther] = useState(false); // true while the brand is typed (Other) instead of picked
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -32,9 +33,10 @@ function SuppliedUnits() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const reset = () => { setForm(EMPTY); setEditingId(null); };
+  const reset = () => { setForm(EMPTY); setBrandOther(false); setEditingId(null); };
   const edit = (item) => {
     setEditingId(item._id);
+    setBrandOther(!AC_BRANDS.includes(item.brand)); // a brand that is not on the list opens as Other, with its name in the box
     setForm({ brand: item.brand, model: item.model || '', type: item.type, hp: hpChoiceFor(HP_OPTIONS, item.hp), inverter: String(item.inverter), price: String(item.price) });
     setError('');
     setNotice('');
@@ -90,8 +92,27 @@ function SuppliedUnits() {
         <div className="scope-form">
           <label>
             Brand
-            <input className="ma-input" type="text" maxLength={40} value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} required />
+            <select
+              className="ma-input"
+              value={brandOther ? OTHER_BRAND : form.brand}
+              onChange={(e) => {
+                const chosen = e.target.value;
+                setBrandOther(chosen === OTHER_BRAND);
+                setForm({ ...form, brand: chosen === OTHER_BRAND ? '' : chosen });
+              }}
+              required
+            >
+              <option value="">Select a brand</option>
+              {AC_BRANDS.map((brand) => <option key={brand} value={brand}>{brand}</option>)}
+              <option value={OTHER_BRAND}>Other</option>
+            </select>
           </label>
+          {brandOther && (
+            <label>
+              Brand name
+              <input className="ma-input" type="text" maxLength={40} value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} placeholder="Type the brand" required />
+            </label>
+          )}
           <label>
             Model (optional)
             <input className="ma-input" type="text" maxLength={40} value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} />

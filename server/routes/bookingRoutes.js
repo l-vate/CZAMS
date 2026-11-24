@@ -152,7 +152,7 @@ function validateAdminStatusChange(current, requested) {
   }
   if (requested === BOOKING_STATUS.CANCELLED) return null;
   if (requested === BOOKING_STATUS.IN_PROGRESS || requested === BOOKING_STATUS.COMPLETED) {
-    return invalid('A booking becomes In Progress automatically when its time block starts, and Completed when the technician submits the service report. It cannot be set by hand.');
+    return invalid('A booking becomes In Progress automatically on its service day, and Completed when the technician submits the service report. It cannot be set by hand.');
   }
   return invalid('A booking cannot be moved back to Pending.');
 }
@@ -2382,14 +2382,13 @@ router.patch('/:bookingId/admin-update', auth, auditSpecs.adminUpdate, async (re
     // Admin-initiated cancellation opens the same refund request the customer's own
     // /cancel route would, and is bound by the same rule: only bookings still
     // Pending/Approved/In Progress can be cancelled (never a Completed one).
-    let adminCancelOutcome = 'none';
     if (status === BOOKING_STATUS.CANCELLED) {
       if (![BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(booking.status)) {
         return res.status(400).json({ message: 'This booking can no longer be cancelled.' });
       }
       const cancelProblem = applyAdminCancel(booking, { ownerInitiated, cancelReason, cancelKind, deductionAmount });
       if (cancelProblem) return sendProblem(res, cancelProblem);
-      adminCancelOutcome = openRefundIfEligible(booking);
+      openRefundIfEligible(booking);
     }
 
     // Admin Dashboard + Analytics Module: capture the first time this booking is

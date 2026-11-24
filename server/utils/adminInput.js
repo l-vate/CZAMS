@@ -6,7 +6,6 @@ const { ROLE_VALUES } = require('../constants/roles');
 const { SERVICE_TYPE_VALUES, SERVICE_TYPE } = require('../constants/serviceTypes');
 const { invalid } = require('./validation');
 const { EMAIL_PATTERN, NAME_MAX, NAME_PATTERN } = require('./accountInput');
-const { normalizeContactNumber } = require('./contactNumber');
 const { MIN_PASSWORD_LENGTH } = require('./passwordRules');
 
 const isText = (v) => typeof v === 'string';
@@ -23,7 +22,8 @@ function userInputProblem(body, { creating }) {
     if (!isText(email) || !email.trim()) return invalid('Email is required.');
     if (email.trim().length > 254 || !EMAIL_PATTERN.test(email.trim())) return invalid('Enter a valid email address.');
   }
-  if (has(phone) && phone !== '' && (!isText(phone) || !normalizeContactNumber(phone))) return invalid('Enter a valid contact number (7 to 15 digits).');
+  // the format of the number (a Philippine mobile number, +63 then 10 digits) is checked by the account routes; here only that it is text
+  if (has(phone) && phone !== '' && !isText(phone)) return invalid('The phone number must be text.');
   if (has(address) && (!isText(address) || address.trim().length > 300)) return invalid('The address must be text of 300 characters or fewer.');
   if (has(role) && (!isText(role) || !ROLE_VALUES.includes(role))) return invalid(`The role must be one of: ${ROLE_VALUES.join(', ')}.`);
   if (has(isActive) && typeof isActive !== 'boolean') return invalid('Active must be true or false.');

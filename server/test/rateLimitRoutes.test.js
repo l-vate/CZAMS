@@ -141,7 +141,7 @@ test('the limiters sit on the routes that need them, after the login check and b
   assert.match(auth, /'\/change-password\/email', auth, passwordChangeLimiter,/);
   assert.match(auth, /'\/login', loginLimiter,/);
   assert.match(auth, /'\/register', registerLimiter,/);
-  assert.match(read('reportRoutes.js'), /router\.post\('\/', auth, uploadLimiter, receivePhoto,/);
+  assert.match(read('reportRoutes.js'), /router\.post\('\/', auth, allowRoles\(ROLE\.STAFF\), uploadLimiter, receivePhoto,/);
   assert.match(read('availabilityRoutes.js'), /'\/public', availabilityLimiter,/);
 });
 

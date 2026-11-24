@@ -1,11 +1,17 @@
 import { useState, useEffect } from 'react';
 import { API_BASE } from '../config/api';
 import { ApiError, attempt } from '../services/apiClient';
-import { updateUser, updateClassification } from '../services/userService';
+import { updateUser, updateClassification, deleteUser } from '../services/userService';
 import { ROLE } from '../constants/roles';
 import CustomerHistory from './customer_history';
 import { POSITION_MAX, POSITION_SUGGESTIONS, COMPANY_NAME_MAX, REPRESENTATIVE_NAME_MAX } from '../constants/profileFields';
 import { LIMITS } from '../constants/inputLimits';
+import PhoneField from './phone_field';
+import AddressFields from './address_fields';
+import { buildAddress, addressPartsProblem, isBlankParts } from '../utils/addressParts';
+import { partsForForm } from '../constants/addressOptions';
+import { localDigits, isPhMobile, formatPhMobile } from '../utils/philippinePhone';
+import { hasFieldPosition } from '../utils/technicians';
 
 function Icon({ name }) {
   const common = {
@@ -50,12 +56,19 @@ async function setActiveWithConfirmation(userId, isActive) {
   }
 }
 
-function UserDetailsModal({ user, onClose, onUpdated }) {
+// What the role is called on screen: a staff account with a field position is a technician (the stored role stays "staff").
+function roleLabel(role, position) {
+  if (role === ROLE.STAFF) return hasFieldPosition(position) ? 'Technician' : 'Staff';
+  return role.charAt(0).toUpperCase() + role.slice(1);
+}
+
+function UserDetailsModal({ user, onClose, onUpdated, onDeleted }) {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
     address: '',
+    addressParts: partsForForm(null),
     role: ROLE.CUSTOMER,
     isActive: true,
     classificationChoice: '', // '' = auto-computed, else a manual override ('Regular' | 'Return')
@@ -65,6 +78,8 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
     representativeName: '',
     agreedPaymentTermsDays: '', // days agreed with a Commercial client, 7 to 10, or '' for none
   });
+  const [phoneTouched, setPhoneTouched] = useState(false); // an untouched number is sent back as it was saved
+  const [showPhoneError, setShowPhoneError] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -74,8 +89,10 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
       setFormData({
         name: user.name || '',
         email: user.email || '',
-        phone: user.phone || '',
+        // the 10 digits after +63 when the saved number is one, otherwise the digits as saved (shown so the admin can fix them)
+        phone: isPhMobile(user.phone) ? localDigits(user.phone) : String(user.phone || '').replace(/\D/g, '').slice(0, 10),
         address: user.address || '',
+        addressParts: partsForForm(user.addressParts),
         role: user.role || ROLE.CUSTOMER,
         isActive: user.isActive !== undefined ? user.isActive : true,
         classificationChoice: user.manualClassification || '',
@@ -86,16 +103,32 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
         agreedPaymentTermsDays: user.agreedPaymentTermsDays ?? '',
       });
       setIsEditing(false);
+      setPhoneTouched(false);
+      setShowPhoneError(false);
     }
   }, [user]);
 
   if (!user) return null;
 
   const handleSave = async () => {
+    if (phoneTouched && !isPhMobile(formData.phone)) {
+      setShowPhoneError(true);
+      setError('Check the phone number.');
+      return;
+    }
+    // some address boxes filled means all the required ones, and a ZIP of exactly 4 digits; all empty keeps the saved address
+    const addressProblem = isBlankParts(formData.addressParts) ? '' : addressPartsProblem(formData.addressParts);
+    if (addressProblem) {
+      setError(addressProblem);
+      return;
+    }
     setSaving(true);
     setError('');
     try {
-      const saved = await attempt(updateUser(user._id, formData), 'Failed to update user details.');
+      const phone = phoneTouched ? formatPhMobile(formData.phone) : (user.phone || '');
+      const { addressParts, address, ...rest } = formData;
+      const addressFields = isBlankParts(addressParts) ? { address } : { addressParts };
+      const saved = await attempt(updateUser(user._id, { ...rest, ...addressFields, phone }), 'Failed to update user details.');
       if (saved.error) {
         setError(saved.error);
         return;
@@ -121,6 +154,27 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
       onUpdated?.(data);
     } catch (err) {
       console.error('Error updating user:', err);
+      setError('Network error. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Deleting removes only the account; the server refuses it with a reason when the account still has open items or a job history.
+  const handleDelete = async () => {
+    const sentence = `Delete the account of ${formData.name || user._id}? This cannot be undone. Completed bookings and reports stay in the records.`;
+    if (!window.confirm(sentence)) return;
+    setSaving(true);
+    setError('');
+    try {
+      await deleteUser(user._id);
+      onDeleted?.(user._id);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message || 'Failed to delete the account.');
+        return;
+      }
+      console.error('Error deleting user:', err);
       setError('Network error. Please try again.');
     } finally {
       setSaving(false);
@@ -181,7 +235,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
               <Icon name="user" />
             )}
             <span className="user-details-modal-x2">{formData.name || 'No Name'}</span>
-            <span className="sdm-muted">· Role: {formData.role.toUpperCase()}</span>
+            <span className="sdm-muted">· Role: {roleLabel(formData.role, formData.position)}</span>
           </div>
 
           {/* Details / Edit View */}
@@ -226,14 +280,14 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
                 <div>
                   <span className="sdm-row-label">PHONE NUMBER</span>
                   {isEditing ? (
-                    <input maxLength={LIMITS.phone}
-                      type="text"
-                      className="ma-input"
+                    <PhoneField
+                      id="sdm-phone"
                       value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      showError={showPhoneError}
+                      onChange={(digits) => { setPhoneTouched(true); setFormData({ ...formData, phone: digits }); }}
                     />
                   ) : (
-                    <p className="sdm-row-value">{formData.phone || '-'}</p>
+                    <p className="sdm-row-value">{user.phone || '-'}</p>
                   )}
                 </div>
               </div>
@@ -243,12 +297,16 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
                 <div>
                   <span className="sdm-row-label">ADDRESS</span>
                   {isEditing ? (
-                    <textarea maxLength={LIMITS.address}
-                      className="ma-textarea"
-                      rows={2}
-                      value={formData.address}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    />
+                    <>
+                      {formData.address && isBlankParts(formData.addressParts) && (
+                        <p className="address-saved-note">Saved address: {formData.address}. Fill in the boxes below to replace it, or leave them empty to keep it.</p>
+                      )}
+                      <AddressFields
+                        idPrefix="sdm"
+                        value={formData.addressParts}
+                        onChange={(parts) => setFormData({ ...formData, addressParts: parts, address: isBlankParts(parts) ? (user.address || '') : buildAddress(parts) })}
+                      />
+                    </>
                   ) : (
                     <p className="sdm-row-value">{formData.address || '-'}</p>
                   )}
@@ -271,7 +329,7 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
                     </select>
                   ) : (
                     <p className="sdm-row-value user-details-modal-x4">
-                      {formData.role}
+                      {roleLabel(formData.role, formData.position)}
                     </p>
                   )}
                 </div>
@@ -436,13 +494,20 @@ function UserDetailsModal({ user, onClose, onUpdated }) {
 
         {/* Footer Actions */}
         <div className="sdm-footer">
-          <button
-            className={`sdm-btn ${formData.isActive ? 'sdm-btn-danger' : 'sdm-btn-primary'}`}
-            onClick={handleToggleStatus}
-            disabled={saving}
-          >
-            {formData.isActive ? 'Deactivate Account' : 'Activate Account'}
-          </button>
+          <div className="sdm-footer-actions">
+            <button
+              className={`sdm-btn ${formData.isActive ? 'sdm-btn-danger' : 'sdm-btn-primary'}`}
+              onClick={handleToggleStatus}
+              disabled={saving}
+            >
+              {formData.isActive ? 'Deactivate Account' : 'Activate Account'}
+            </button>
+            {user.role !== ROLE.ADMIN && (
+              <button className="sdm-btn sdm-btn-danger" onClick={handleDelete} disabled={saving}>
+                Delete Account
+              </button>
+            )}
+          </div>
 
           <div className="sdm-footer-actions">
             {isEditing ? (

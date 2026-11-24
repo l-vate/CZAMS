@@ -43,7 +43,7 @@ import { getBusyTechnicians, createBooking } from '../../services/bookingService
 import { getAvailability } from '../../services/availabilityService';
 import { blockLabel } from '../../utils/availabilityText';
 import { PAYMENT_STATUS } from '../../constants/paymentStatus';
-import { ONLINE_PAYMENT_MODES } from '../../constants/paymentModes';
+import { isOnlinePaymentMode } from '../../constants/paymentModes';
 import { TIME_BLOCK_VALUES, TIME_BLOCK } from '../../constants/timeBlocks';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
 
@@ -665,7 +665,7 @@ function Step4({ form, setForm, services, isReturnCustomer, isCommercial = false
   // An installation is confirmed by the owner first (the unit and the price), so its down payment is sent later from Payment & Billing.
   const isInstallationBooking = services.find((x) => x.id === form.service)?.serviceType === SERVICE_TYPE.INSTALLATION;
   // A customer pays online by GCash or Bank Transfer only, for both payments. Cash and cheque are recorded by our team on site.
-  const onlineMethods = paymentMethods.filter((m) => ONLINE_PAYMENT_MODES.includes(m.name));
+  const onlineMethods = paymentMethods.filter((m) => isOnlinePaymentMode(m.name)); // GCash and any bank transfer, however the admin named it
 
 const handleSubmitPayment = ({ proof, referenceNumber }) => {
     setForm({ ...form, paymentStatus: PAYMENT_STATUS.TO_VERIFY, proofFile: proof?.name || null, proofFileObj: proof || null, referenceNumber: referenceNumber || '' });

@@ -1,5 +1,5 @@
 // The audit log, for admins only: newest first, paginated, filtered by date range (Manila days, both ends included), who
-// did it, what, and to which kind of record.
+// did it (an admin, a technician or a customer), what, and to which kind of record.
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
@@ -17,6 +17,8 @@ const ENTITY_TYPES = ['Booking', 'User', 'PaymentSettings', 'Promo', 'Service', 
 // Manila day boundaries as real instants (Manila is UTC+8 all year).
 const startOfManilaDay = (key) => new Date(`${key}T00:00:00.000+08:00`);
 const endOfManilaDay = (key) => new Date(`${key}T23:59:59.999+08:00`);
+
+const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Reads the query into a Mongo filter. Every value must be plain text of the expected shape, so no operator can be
 // smuggled in through a query parameter. Returns { problem } or { filter }.
@@ -37,8 +39,13 @@ function readFilter(query) {
     if (to) filter.createdAt.$lte = endOfManilaDay(to);
   }
   const actor = text(query.actor);
-  if (query.actor !== undefined && query.actor !== '' && !(actor && actor.length <= 80)) return { problem: invalid('That admin filter is not valid.') };
-  if (actor) filter['actor.id'] = actor;
+  if (query.actor !== undefined && query.actor !== '' && !(actor && actor.length <= 80)) return { problem: invalid('That person filter is not valid.') };
+  // Any person: an admin, a technician or a customer, found by account id (exactly) or by part of the name. A line about that person's own account
+  // (an admin editing or deactivating it) is found by the id too.
+  if (actor) {
+    const exact = new RegExp(`^${escapeRegex(actor)}$`, 'i');
+    filter.$or = [{ 'actor.id': exact }, { 'actor.name': new RegExp(escapeRegex(actor), 'i') }, { entityType: 'User', entityId: exact }];
+  }
   const action = text(query.action);
   if (query.action !== undefined && query.action !== '' && !(action && ACTION_PATTERN.test(action))) return { problem: invalid('That action filter is not valid.') };
   if (action) filter.action = action;

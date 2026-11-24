@@ -30,7 +30,7 @@ test('each upload shows the picked file before sending', () => {
   [
     'components/payment_modal.jsx', // down payment proof and balance proof
     'components/discount_option.jsx', // Senior or PWD ID photo
-    'pages/staff/reports.jsx', // signed paper form photo
+    'pages/staff/submit_report.jsx', // signed paper form photo
     'pages/admin/payments.jsx', // refund proof
     'pages/admin/walk_in_booking.jsx', // walk-in proof
   ].forEach((f) => assert.match(read(f), /<FilePreview /, f));
@@ -42,5 +42,5 @@ test('each upload shows the picked file before sending', () => {
 test('the allowed file types did not change', () => {
   assert.match(read('components/payment_modal.jsx'), /accept="image\/jpeg,image\/png"/);
   assert.match(read('components/discount_option.jsx'), /accept="image\/jpeg,image\/png,image\/webp,\.pdf"/);
-  assert.match(read('pages/staff/reports.jsx'), /accept="image\/jpeg,image\/png"/);
+  assert.match(read('pages/staff/submit_report.jsx'), /accept="image\/jpeg,image\/png"/);
 });

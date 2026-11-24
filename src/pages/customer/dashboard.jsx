@@ -71,9 +71,8 @@ function Dashboard() {
   // ---- Derived stats ----
   const stats = {
     pending: bookings.filter((b) => b.status === BOOKING_STATUS.PENDING).length,
-    ongoing: bookings.filter((b) =>
-      [BOOKING_STATUS.APPROVED, BOOKING_STATUS.IN_PROGRESS].includes(b.status)
-    ).length,
+    // only a service that has really started (In Progress); an Approved one is upcoming, and shows under Next service. Same as the In Progress tab of My Bookings.
+    ongoing: bookings.filter((b) => b.status === BOOKING_STATUS.IN_PROGRESS).length,
     completed: bookings.filter((b) => b.status === BOOKING_STATUS.COMPLETED).length,
   };
 

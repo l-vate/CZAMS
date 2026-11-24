@@ -21,12 +21,13 @@ export function getRequestsPerMonth(bookings, { fromKey, toKey, months = 6, date
   return countPerMonth(bookings, { fromKey, toKey, months, dateOf, skip: (b) => !!b.isBackJob });
 }
 
-// Bookings by status, in the order a booking moves through them. Every booking counts
-// here, back-job visits included, because this shows the whole pipeline.
+// Bookings by status, in the order a booking moves through them. Free back-job visits are left out, the same as in
+// Total Bookings and in the requests per month: they are a redo of a service already counted, not a new request (the paper).
 export function getBookingsByStatus(bookings) {
+  const requests = bookings.filter((b) => !b.isBackJob);
   return STATUS_ORDER.map((status) => ({
     label: status,
-    value: bookings.filter((b) => b.status === status).length,
+    value: requests.filter((b) => b.status === status).length,
     color: getStatusColor(status),
   }));
 }

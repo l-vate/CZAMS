@@ -5,6 +5,7 @@ import AuditEntry from '../../components/audit_entry';
 import { listAuditLog } from '../../services/auditService';
 import { pastWindow, pastRangeProblem } from '../../utils/dateRules';
 import { LIMITS } from '../../constants/inputLimits';
+import { AUDIT_ACTION_GROUPS } from '../../constants/auditActions';
 
 const RECORD_TYPES = ['', 'Booking', 'User', 'PaymentSettings', 'Promo', 'Service', 'Announcement', 'SuppliedUnit', 'Closure', 'TechnicianOff', 'Report', 'BackJob'];
 const EMPTY = { from: '', to: '', actor: '', action: '', entityType: '', entityId: '' };
@@ -44,12 +45,21 @@ function AuditLog() {
 
   return (
     <AdminLayout title="Audit Log">
-      <form className="req-filters" onSubmit={apply} aria-label="Filter the audit log">
+      <form className="req-filters audit-filters" onSubmit={apply} aria-label="Filter the audit log">
         <label>From <input type="date" className="ma-input" min={pastWindow().min} max={pastWindow().max} value={filters.from} onChange={set('from')} /></label>
         <label>To <input type="date" className="ma-input" min={pastWindow().min} max={pastWindow().max} value={filters.to} onChange={set('to')} /></label>
         {rangeProblem && <p className="date-problem" role="alert">{rangeProblem}</p>}
-        <label>Admin id <input maxLength={LIMITS.searchText} type="text" className="ma-input" value={filters.actor} onChange={set('actor')} placeholder="any" /></label>
-        <label>Action <input maxLength={LIMITS.searchText} type="text" className="ma-input" value={filters.action} onChange={set('action')} placeholder="for example payment.verify" /></label>
+        <label>Person <input maxLength={LIMITS.searchText} type="text" className="ma-input" value={filters.actor} onChange={set('actor')} placeholder="name or ID" /></label>
+        <label>Action
+          <select className="ma-input" value={filters.action} onChange={set('action')}>
+            <option value="">Any</option>
+            {AUDIT_ACTION_GROUPS.map((g) => (
+              <optgroup key={g.group} label={g.group}>
+                {g.actions.map(([code, label]) => <option key={code} value={code}>{label}</option>)}
+              </optgroup>
+            ))}
+          </select>
+        </label>
         <label>Record
           <select className="ma-input" value={filters.entityType} onChange={set('entityType')}>
             {RECORD_TYPES.map((t) => <option key={t} value={t}>{t || 'Any'}</option>)}

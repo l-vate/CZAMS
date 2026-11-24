@@ -1,5 +1,5 @@
 // Payment reference numbers (the GCash or bank transfer reference) kept next to the proof file.
-const { PAYMENT_MODE, REFERENCE_REQUIRED_MODES } = require('../constants/paymentModes');
+const { isGcashMode, isOnlinePaymentMode } = require('../constants/paymentModes');
 // GCASH_REFERENCE_DIGITS lives in constants/paymentReference.json, which the payment form reads too, so it changes in one place.
 const { GCASH_REFERENCE_DIGITS } = require('../constants/paymentReference.json');
 const { invalid } = require('./validation');
@@ -10,10 +10,10 @@ const REFERENCE_PATTERN = /^[A-Za-z0-9-]+$/;
 
 const sameName = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
 
-const isGcash = (mode) => sameName(PAYMENT_MODE.GCASH, mode);
+const isGcash = isGcashMode;
 
 function modeNeedsReference(mode) {
-  return REFERENCE_REQUIRED_MODES.some((m) => sameName(m, mode));
+  return isOnlinePaymentMode(mode); // GCash, and any method named "Bank Transfer ..."
 }
 
 // Trimmed and upper-cased, so the same reference typed two ways is recognised as the same.

@@ -251,7 +251,7 @@ test('every date input in the app takes its limits and its sentence from the sha
     'pages/admin/analytics.jsx': /pastWindow\(\)\.max[\s\S]*pastRangeProblem\(range\.fromKey/,
     'pages/admin/audit_log.jsx': /pastRangeProblem\(filters\.from[\s\S]*pastWindow\(\)\.max/,
     'pages/admin/promotions.jsx': /min=\{EARLIEST_DATE\}/,
-    'pages/staff/reports.jsx': /addMonthsKey\(todayKey\(\), BOOKING_MAX_MONTHS\)/,
+    'pages/staff/submit_report.jsx': /addMonthsKey\(todayKey\(\), BOOKING_MAX_MONTHS\)/,
   };
   for (const [file, pattern] of Object.entries(uses)) assert.ok(pattern.test(src(file)), file);
   const picker = src('components/closure_date_input.jsx');

@@ -875,6 +875,8 @@ h1, h2, h3, h4, h5, h6 {
 .chat-admin-layout {
   display: grid;
   grid-template-columns: 280px 1fr;
+  /* one row exactly as tall as the layout: without this the row grows with the thread and the message box ends up below the screen */
+  grid-template-rows: minmax(0, 1fr);
   gap: 16px;
   height: 75vh;
 }
@@ -945,6 +947,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .chat-admin-panel {
   min-width: 0;
+  min-height: 0;
 }
 
 .chat-admin-panel .chat-panel {
@@ -954,11 +957,17 @@ h1, h2, h3, h4, h5, h6 {
 @media (max-width: 768px) {
   .chat-admin-layout {
     grid-template-columns: 1fr;
+    grid-template-rows: auto;
     height: auto;
   }
 
   .chat-inbox {
     max-height: 220px;
+  }
+
+  /* on a phone the thread has its own height and scrolls inside it, like the customer's and the technician's chat */
+  .chat-admin-panel .chat-panel {
+    height: 70vh;
   }
 }
 /* Chat: the booking a customer is writing about (from "Contact owner"), above the message box and as the first line of the message */

@@ -1,6 +1,6 @@
 // Payment reference numbers (the GCash or bank transfer reference) that go with a proof file.
 // The server enforces the same rules (server/utils/paymentReference.js).
-import { PAYMENT_MODE, REFERENCE_REQUIRED_MODES } from '../constants/paymentModes';
+import { isGcashMode as isGcashName, isOnlinePaymentMode } from '../constants/paymentModes';
 // GCASH_REFERENCE_DIGITS lives in server/constants/paymentReference.json, which the server reads too, so it changes in one place.
 import referenceConstants from '../../server/constants/paymentReference.json';
 
@@ -9,14 +9,13 @@ export const REFERENCE_MIN = 4;
 export const REFERENCE_MAX = 30;
 const REFERENCE_PATTERN = /^[A-Za-z0-9-]+$/;
 
-const sameName = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
 
 // True for the modes that need a proof file and a reference number (GCash, Bank Transfer).
 export function needsReference(mode) {
-  return REFERENCE_REQUIRED_MODES.some((m) => sameName(m, mode));
+  return isOnlinePaymentMode(mode); // GCash, and any method named "Bank Transfer ..."
 }
 
-export const isGcashMode = (mode) => sameName(PAYMENT_MODE.GCASH, mode);
+export const isGcashMode = isGcashName;
 
 // What is stored and sent. A GCash reference has its spaces and dashes taken out (the receipt groups the digits, and a pasted value keeps
 // the spaces); any other reference is trimmed and upper-cased, so the same reference typed two ways reads the same.

@@ -189,9 +189,23 @@ function ReviewRequestModal({ payment, onClose, onSuccess }) {
           </div>
 
           <div className="payment-review-cell admin-payments-x4">
-            <span className="confirmation-detail-label">Amount</span>
+            <span className="confirmation-detail-label">Total price</span>
             <span className="confirmation-detail-value">{payment.amount}</span>
           </div>
+
+          {payment.sentAmount !== null && payment.sentAmount !== undefined && (
+            <div className="payment-review-cell admin-payments-x4">
+              <span className="confirmation-detail-label">Customer sent ({payment.sentKind.toLowerCase()})</span>
+              <span className="confirmation-detail-value">{formatMoney(payment.sentAmount)}</span>
+            </div>
+          )}
+
+          {payment.paidSoFar !== null && payment.paidSoFar !== undefined && (
+            <div className="payment-review-cell admin-payments-x4">
+              <span className="confirmation-detail-label">Paid so far (verified)</span>
+              <span className="confirmation-detail-value">{formatMoney(payment.paidSoFar)}</span>
+            </div>
+          )}
 
           <div className="payment-review-cell admin-payments-x4">
             <span className="confirmation-detail-label">Status</span>
@@ -418,7 +432,15 @@ function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
       const serviceType = typeof b.service === 'object' ? (b.service?.name || 'Service') : (b.service || 'Service');
       const detail = getUnitsSummary(b) || b.brandModel || b.problemDescription || 'Detail';
 
-      const { grandTotal } = getPaymentBreakdown(b); // the price with the VAT of a commercial client, the same figure as Billing and the invoice
+      const { grandTotal, downPayment, balance } = getPaymentBreakdown(b); // the price with the VAT of a commercial client, the same figure as Billing and the invoice
+      // What the customer sent for the proof being reviewed (the balance when a balance proof waits, otherwise the down payment), and what has already been verified as paid.
+      const balanceWaiting = b.balancePaymentStatus === BALANCE_PAYMENT_STATUS.TO_VERIFY;
+      const downWaiting = b.paymentStatus === PAYMENT_STATUS.TO_VERIFY;
+      const sentAmount = balanceWaiting ? balance : (downWaiting ? downPayment : null);
+      const sentKind = balanceWaiting ? 'Balance' : 'Down payment';
+      const fullyPaid = b.paymentStatus === PAYMENT_STATUS.FULLY_PAID || b.balancePaid || b.balancePaymentStatus === BALANCE_PAYMENT_STATUS.PAID;
+      const downVerified = b.paymentStatus === PAYMENT_STATUS.PARTIALLY_PAID || fullyPaid;
+      const paidSoFar = fullyPaid ? grandTotal : (downVerified ? downPayment : 0);
 
       let status;
       if (b.isBackJob) {
@@ -464,6 +486,9 @@ function PaymentsPanel({ personFilter, onClearPersonFilter, search = '' }) {
         hasAttachment: Boolean(attachmentUrl),
         attachmentUrl,
         amount: b.isBackJob ? 'Free' : `${formatMoney(grandTotal)}`,
+        sentAmount: b.isBackJob ? null : sentAmount,
+        sentKind,
+        paidSoFar: b.isBackJob ? null : paidSoFar,
         refund: b.refund && b.refund.status !== REFUND_STATUS.NONE ? b.refund : null,
         raw: b,
       };

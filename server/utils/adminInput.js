@@ -6,7 +6,7 @@ const { ROLE_VALUES } = require('../constants/roles');
 const { SERVICE_TYPE_VALUES, SERVICE_TYPE } = require('../constants/serviceTypes');
 const { invalid } = require('./validation');
 const { EMAIL_PATTERN, NAME_MAX, NAME_PATTERN } = require('./accountInput');
-const { MIN_PASSWORD_LENGTH } = require('./passwordRules');
+const { MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH } = require('./passwordRules');
 
 const isText = (v) => typeof v === 'string';
 const has = (v) => v !== undefined;
@@ -30,7 +30,7 @@ function userInputProblem(body, { creating }) {
   if (has(clientType) && clientType !== '' && !['Residential', 'Commercial'].includes(clientType)) return invalid('Client type must be Residential or Commercial.');
   if (has(password) && password !== '' && password !== null) {
     if (!isText(password) || password.length < MIN_PASSWORD_LENGTH) return invalid(`A password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
-    if (password.length > 200) return invalid('That password is too long.');
+    if (password.length > MAX_PASSWORD_LENGTH) return invalid(`A password must be at most ${MAX_PASSWORD_LENGTH} characters.`);
   }
   return null;
 }

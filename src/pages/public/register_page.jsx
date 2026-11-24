@@ -5,7 +5,7 @@ import { COMPANY_NAME_MAX, REPRESENTATIVE_NAME_MAX } from '../../constants/profi
 import { register } from '../../services/authService';
 import AuthShell from '../../components/auth_shell';
 import { TextField, SelectField, PasswordField, PasswordRules, FormAlert, SubmitButton } from '../../components/auth_fields';
-import { passwordIsAcceptable } from '../../utils/passwordChecks';
+import { passwordIsAcceptable, PASSWORD_MAX_LENGTH } from '../../utils/passwordChecks';
 import { namePartProblem } from '../../utils/personName';
 import { LIMITS } from '../../constants/inputLimits';
 
@@ -158,6 +158,7 @@ function RegisterPage() {
           placeholder="Create a password"
           autoComplete="new-password"
           minLength={8}
+          maxLength={PASSWORD_MAX_LENGTH}
           value={formData.password}
           onChange={handleChange}
           required
@@ -168,6 +169,7 @@ function RegisterPage() {
           label="Confirm password"
           placeholder="Re-enter password"
           autoComplete="new-password"
+          maxLength={PASSWORD_MAX_LENGTH}
           value={formData.confirmPassword}
           onChange={handleChange}
           required

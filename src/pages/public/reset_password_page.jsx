@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import AuthShell from '../../components/auth_shell';
 import { ApiError } from '../../services/apiClient';
 import { resetPassword, checkResetLink } from '../../services/authService';
-import { passwordIsAcceptable } from '../../utils/passwordChecks';
+import { passwordIsAcceptable, PASSWORD_MAX_LENGTH } from '../../utils/passwordChecks';
 import { PasswordField, PasswordRules, FormAlert, SubmitButton } from '../../components/auth_fields';
 
 // The token is in the part of the link after #, which is never sent to a server. It is read once and then removed from the address bar.
@@ -36,7 +36,7 @@ function ResetPasswordPage() {
     e.preventDefault();
     setError('');
     if (password !== confirm) return setError('Passwords do not match.');
-    if (!passwordIsAcceptable(password)) return setError('Use a password of at least 8 characters with at least 1 number and 1 special character.');
+    if (!passwordIsAcceptable(password)) return setError('Use a password of at least 8 characters (20 at most) with at least 1 number and 1 special character.');
     setLoading(true);
     try {
       await resetPassword({ token, password });
@@ -73,6 +73,7 @@ function ResetPasswordPage() {
           label="New password"
           placeholder="Create a password"
           autoComplete="new-password"
+          maxLength={PASSWORD_MAX_LENGTH}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
@@ -84,6 +85,7 @@ function ResetPasswordPage() {
           label="Confirm password"
           placeholder="Re-enter your password"
           autoComplete="new-password"
+          maxLength={PASSWORD_MAX_LENGTH}
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           required

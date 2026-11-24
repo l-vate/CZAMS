@@ -618,7 +618,7 @@ function WalkInBooking() {
             )}
             {step === 6 && paymentSettingsReady && (
               <>
-                <Step5 form={form} services={services} technicians={technicians} downPaymentPercentages={downPaymentPercentages} discountPercent={seniorPwdDiscountPercent} promos={promos} />
+                <Step5 form={form} services={services} technicians={technicians} downPaymentPercentages={downPaymentPercentages} discountPercent={seniorPwdDiscountPercent} promos={promos} vatNote={isCommercial} />
                 <div className="bs-card admin-walk-in-booking-x5">
                   <p className="summary-section-title">Customer</p>
                   <div className="summary-row"><span>Name</span><span>{customer?.name || '-'}</span></div>

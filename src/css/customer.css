@@ -759,6 +759,8 @@
 }
 
 .summary-row.total span { font-size: 15px; font-weight: 700; color: var(--navy); }
+/* a short line under Remaining Balance (the walk-in booking of a Commercial client: the VAT comes with the billing) */
+.summary-vat-note { margin: 6px 0 4px; font-size: 13px; line-height: 1.5; color: var(--ink-soft); }
 
 .summary-note {
   text-align: center;

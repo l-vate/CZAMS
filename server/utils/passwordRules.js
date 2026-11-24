@@ -2,6 +2,9 @@
 // Returns null when the new password is acceptable, otherwise { status, message }. Pure, and it never
 // stores or logs the password.
 const MIN_PASSWORD_LENGTH = 8;
+// A new password is at most this long. It applies where a password is CHOSEN (registration, reset, an account an admin creates), never to signing in, so an
+// account made before this rule can still sign in. src/utils/passwordChecks.js has the same number for the screens: a test keeps the two equal.
+const MAX_PASSWORD_LENGTH = 20;
 
 const bad = (message) => ({ status: 400, message });
 
@@ -12,6 +15,9 @@ function validateNewPassword({ currentPassword, newPassword }) {
   if (newPassword.length < MIN_PASSWORD_LENGTH) {
     return bad(`The new password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
   }
+  if (newPassword.length > MAX_PASSWORD_LENGTH) {
+    return bad(`The new password must be at most ${MAX_PASSWORD_LENGTH} characters.`);
+  }
   if (typeof currentPassword === 'string' && newPassword === currentPassword) {
     return bad('The new password must be different from the current one.');
   }
@@ -20,7 +26,7 @@ function validateNewPassword({ currentPassword, newPassword }) {
 
 // A password chosen when registering a new account: the rules above, plus at least one number and one special character.
 // Only registration uses it. Existing accounts are not checked against it, and signing in or changing a password is unchanged.
-const REGISTRATION_PASSWORD_MESSAGE = `Use a password of at least ${MIN_PASSWORD_LENGTH} characters with at least 1 number and 1 special character.`;
+const REGISTRATION_PASSWORD_MESSAGE = `Use a password of at least ${MIN_PASSWORD_LENGTH} characters (${MAX_PASSWORD_LENGTH} at most) with at least 1 number and 1 special character.`;
 
 function validateRegistrationPassword(password) {
   const basic = validateNewPassword({ newPassword: password });
@@ -29,4 +35,4 @@ function validateRegistrationPassword(password) {
   return null;
 }
 
-module.exports = { validateNewPassword, validateRegistrationPassword, REGISTRATION_PASSWORD_MESSAGE, MIN_PASSWORD_LENGTH };
+module.exports = { validateNewPassword, validateRegistrationPassword, REGISTRATION_PASSWORD_MESSAGE, MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH };

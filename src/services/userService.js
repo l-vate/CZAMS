@@ -40,6 +40,10 @@ export function updateUser(userId, fields) {
   return request(`/api/users/${userId}`, { method: 'PUT', body: fields });
 }
 
+export function deleteUser(userId) {
+  return request(`/api/users/${userId}`, { method: 'DELETE' });
+}
+
 // `classification` is the manual override, or null to go back to automatic.
 export function updateClassification(userId, classification) {
   return request(`/api/users/${userId}/classification`, { method: 'PATCH', body: { classification } });

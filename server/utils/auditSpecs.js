@@ -70,6 +70,7 @@ const unitPurchaseProof = audited1('booking.unit_purchase_proof', 'Booking', boo
 
 // ---- accounts
 const userCreate = audited1('user.create', 'User', idOfBody, 'Created an account', (req) => ({ role: req.body && req.body.role }));
+const userDelete = audited1('user.delete', 'User', param('id'), 'Deleted the account');
 const userUpdate = audited({
   entityType: 'User',
   entityId: param('id'),
@@ -122,7 +123,7 @@ const backJobReview = audited1('backjob.review', 'BackJob', param('backJobId'), 
 
 module.exports = {
   adminUpdate, recordPayment, customerCancel, noShowReport, noShowDecision, rescheduleApprove, rescheduleDeny, rescheduleUseDate, assign, discountApprove, discountReject, refundProcess,
-  refundFlagResolve, disruptionReschedule, extensionApprove, extensionDeny, queueMove, unitPurchaseProof, userCreate, userUpdate,
+  refundFlagResolve, disruptionReschedule, extensionApprove, extensionDeny, queueMove, unitPurchaseProof, userCreate, userUpdate, userDelete,
   userClassification, settingsUpdate, promoCreate, promoUpdate, promoDelete, serviceCreate, serviceUpdate, serviceToggle, serviceRemove,
   announcementCreate, announcementUpdate, announcementDelete, closureCreate, closureDelete, technicianOffCreate, technicianOffDelete, reportEdit, reportDelete, backJobReview,
 };

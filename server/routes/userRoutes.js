@@ -16,8 +16,12 @@ const { userInputProblem } = require('../utils/adminInput');
 const { findUserByEmail, normalizeEmail } = require('../utils/accountInput');
 const { generateUserId, createWithUniqueUserId } = require('../utils/uniqueUserId');
 const { sendRouteError } = require('../utils/routeErrors');
+const { formatPhMobile, PH_MOBILE_MESSAGE } = require('../utils/philippinePhone');
+const { cleanParts, buildAddress, addressPartsProblem, isBlankParts, readParts } = require('../utils/addressParts');
 const { isFieldTechnician } = require('../utils/technicians');
 const { memberFilter } = require('../utils/assignments');
+const Report = require('../models/Report');
+const { findDeletionBlockers } = require('../utils/deletionBlockers');
 const { notifyAdmins } = require('../utils/notifications');
 const { NOTIFICATION_TYPE } = require('../constants/notificationTypes');
 const { BOOKING_STATUS } = require('../constants/bookingStatus');
@@ -28,6 +32,29 @@ const clientTypeProblem = (value) => (CLIENT_TYPES.includes(value) ? null : inva
 // The system must always keep at least one active admin. Returns null when the change is fine,
 // otherwise { status, message }. `target` is the account being changed, `changes` the requested
 // { role, isActive }, `actingId` the admin making the request.
+// The address of a new or edited account, from its parts (utils/addressParts.js): { address, addressParts } when parts were sent and are complete
+// (house or block and lot, street, barangay, city, province and a ZIP of exactly 4 digits; the line is built here, never taken from the request),
+// { problem } when some are filled and the rest is not right, and {} when no parts were sent or all are blank (the plain line, if any, is handled by the caller).
+function readAddressFromParts(body) {
+  const sent = readParts(body.addressParts);
+  if (!sent || isBlankParts(sent)) return {};
+  const problem = addressPartsProblem(sent);
+  if (problem) return { problem: invalid(problem) };
+  const addressParts = cleanParts(sent);
+  return { address: buildAddress(addressParts), addressParts };
+}
+
+// The phone number of an edit: { value } when it changed and is a Philippine mobile number (saved as +63 917 123 4567, or '' to clear it),
+// { problem } when it changed to something else, and {} when it was not sent or is the same as the saved one (an older number in another format stays).
+function readPhoneChange(phone, target) {
+  if (phone === undefined) return {};
+  const typed = typeof phone === 'string' ? phone.trim() : '';
+  if (typed === String(target.phone || '').trim()) return {};
+  if (typed === '') return { value: '' };
+  const formatted = formatPhMobile(typed);
+  return formatted ? { value: formatted } : { problem: invalid(PH_MOBILE_MESSAGE) };
+}
+
 async function validateAdminSafety(target, changes, actingId) {
   if (target.role !== ROLE.ADMIN) return null;
 
@@ -143,6 +170,13 @@ router.post('/', auth, auditSpecs.userCreate, async (req, res) => {
     const inputProblem = userInputProblem(req.body, { creating: true });
     if (inputProblem) return sendProblem(res, inputProblem);
 
+    // A phone number, when one is given, is a Philippine mobile number and is saved as +63 917 123 4567.
+    const savedPhone = typeof phone === 'string' && phone.trim() !== '' ? formatPhMobile(phone) : '';
+    if (savedPhone === null) return sendProblem(res, invalid(PH_MOBILE_MESSAGE));
+
+    const addressChange = readAddressFromParts(req.body);
+    if (addressChange.problem) return sendProblem(res, addressChange.problem);
+
     // Found without regard to letter case, so Ana@Mail.com and ana@mail.com are the same account.
     const existingUser = await findUserByEmail(User, email);
     if (existingUser) {
@@ -173,8 +207,9 @@ router.post('/', auth, auditSpecs.userCreate, async (req, res) => {
       name: name ? name.trim() : '',
       email: email.trim().toLowerCase(),
       password: hashedPassword,
-      phone: phone ? phone.trim() : '',
-      address: address ? address.trim() : '',
+      phone: savedPhone,
+      address: addressChange.address || (address ? address.trim() : ''),
+      ...(addressChange.addressParts ? { addressParts: addressChange.addressParts } : {}),
       role: accountRole,
       isActive: true,
       // Only customers have a client type.
@@ -205,6 +240,15 @@ router.put('/:id', auth, auditSpecs.userUpdate, async (req, res) => {
 
     const target = await User.findById(req.params.id);
     if (!target) return res.status(404).json({ message: 'User not found' });
+
+    // A changed phone number must be a Philippine mobile number (saved as +63 917 123 4567). A number that is not changed is left alone, so an
+    // older account with a number in another format can still be edited.
+    const addressChange = readAddressFromParts(req.body);
+    if (addressChange.problem) return sendProblem(res, addressChange.problem);
+
+    const phoneChange = readPhoneChange(phone, target);
+    if (phoneChange.problem) return sendProblem(res, phoneChange.problem);
+    const newPhone = phoneChange.value;
 
     if (email !== undefined && normalizeEmail(email) !== String(target.email).toLowerCase()) {
       const clash = await findUserByEmail(User, email, req.params.id);
@@ -263,8 +307,11 @@ router.put('/:id', auth, auditSpecs.userUpdate, async (req, res) => {
     if (terms.value !== undefined && finalRole === ROLE.CUSTOMER) update.agreedPaymentTermsDays = terms.value;
     if (name !== undefined) update.name = name.trim();
     if (email !== undefined) update.email = email.trim().toLowerCase();
-    if (phone !== undefined) update.phone = phone.trim();
-    if (address !== undefined) {
+    if (newPhone !== undefined) update.phone = newPhone;
+    if (addressChange.address) {
+      update.address = addressChange.address;
+      update.addressParts = addressChange.addressParts;
+    } else if (address !== undefined) {
       update.address = address.trim();
       // a line typed by an admin no longer matches the saved parts, so the parts are dropped (the line stays the truth)
       if (update.address !== (target.address || '')) update.$unset = { addressParts: 1 };
@@ -331,6 +378,44 @@ router.patch('/:id/classification', auth, auditSpecs.userClassification, async (
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// DELETE a customer or technician account (admin only). Only the account goes: completed bookings, reports, chat and files stay as company
+// records, the same as when a customer deletes their own account. Refused (with the reason, and "deactivate it instead" where that is the
+// right answer) for: your own account, any admin account, a customer with something still open (an active booking, an unsettled refund, a
+// claim waiting for review) and a technician who has any job or service report on record.
+router.delete('/:id', auth, auditSpecs.userDelete, async (req, res) => {
+  try {
+    if (req.userRole !== ROLE.ADMIN) return res.status(403).json({ message: 'Forbidden' });
+    if (req.params.id === req.userId) return res.status(400).json({ message: 'You cannot delete your own account.' });
+
+    const target = await User.findById(req.params.id);
+    if (!target) return res.status(404).json({ message: 'User not found' });
+    if (target.role === ROLE.ADMIN) {
+      return res.status(400).json({ message: 'An admin account cannot be deleted. Deactivate it instead.' });
+    }
+
+    if (target.role === ROLE.CUSTOMER) {
+      const blockers = await findDeletionBlockers(target._id, { Booking, BackJob });
+      if (blockers.message) {
+        return res.status(409).json({ message: `This customer cannot be deleted yet. ${blockers.message.replace(/^You cannot delete your account( yet)?.s*/, '').replace('while you have active bookings', 'while they have active bookings')}`, blockers: blockers.counts });
+      }
+    } else {
+      const [jobs, reports] = await Promise.all([
+        Booking.countDocuments(memberFilter(target._id)),
+        Report.countDocuments({ technicianId: String(target._id) }),
+      ]);
+      if (jobs > 0 || reports > 0) {
+        return res.status(409).json({ message: `${target.name || 'This technician'} has ${jobs} job${jobs === 1 ? '' : 's'} and ${reports} service report${reports === 1 ? '' : 's'} on record, so the account cannot be deleted. Deactivate it instead.` });
+      }
+    }
+
+    await User.findByIdAndDelete(target._id);
+    clearAuthCache(String(target._id));
+    res.json({ message: 'Account deleted successfully', _id: target._id });
+  } catch (err) {
+    sendRouteError(res, err);
   }
 });
 

@@ -11,6 +11,11 @@ import { ROLE } from '../../constants/roles';
 import BackButton from '../../components/back_button';
 import { POSITION_MAX, POSITION_SUGGESTIONS, COMPANY_NAME_MAX, REPRESENTATIVE_NAME_MAX } from '../../constants/profileFields';
 import { LIMITS } from '../../constants/inputLimits';
+import PhoneField from '../../components/phone_field';
+import AddressFields from '../../components/address_fields';
+import { addressPartsProblem, isBlankParts } from '../../utils/addressParts';
+import { EMPTY_ADDRESS_PARTS } from '../../constants/addressOptions';
+import { isPhMobile, formatPhMobile } from '../../utils/philippinePhone';
 import { matchesSearch } from '../../utils/adminSearch';
 
 /* ── Small Icon Helpers ───────────────────────────────────── */
@@ -30,13 +35,14 @@ function RegisterForm({ type, onCancel, onSubmit }) {
     name: '',
     email: '',
     phone: '',
-    address: '',
+    addressParts: { ...EMPTY_ADDRESS_PARTS },
     position: '',
     clientType: 'Residential',
     companyName: '',
     representativeName: '',
   });
   const [error, setError] = useState('');
+  const [showPhoneError, setShowPhoneError] = useState(false);
 
   const update = (field) => (e) => setValues({ ...values, [field]: e.target.value });
 
@@ -44,6 +50,18 @@ function RegisterForm({ type, onCancel, onSubmit }) {
     e.preventDefault();
     if (!values.name.trim() || !values.email.trim() || !values.phone.trim()) {
       setError('Name, email, and phone number are required.');
+      setShowPhoneError(true);
+      return;
+    }
+    // an address is optional here, but once a box is filled the required ones and a ZIP of exactly 4 digits are needed
+    const addressProblem = isBlankParts(values.addressParts) ? '' : addressPartsProblem(values.addressParts);
+    if (addressProblem) {
+      setError(addressProblem);
+      return;
+    }
+    if (!isPhMobile(values.phone)) {
+      setError('Check the phone number.');
+      setShowPhoneError(true);
       return;
     }
     setError('');
@@ -88,12 +106,11 @@ function RegisterForm({ type, onCancel, onSubmit }) {
 
             <div className="ma-field-group">
               <label className="ma-label">Phone Number</label>
-              <input maxLength={LIMITS.phone}
-                type="tel"
-                className="ma-input"
-                placeholder="e.g. 0917 123 4567"
+              <PhoneField
+                id="ma-phone"
                 value={values.phone}
-                onChange={update('phone')}
+                showError={showPhoneError}
+                onChange={(digits) => setValues({ ...values, phone: digits })}
               />
             </div>
 
@@ -164,12 +181,10 @@ function RegisterForm({ type, onCancel, onSubmit }) {
             <label className="ma-label">
               Address <span className="ma-label-hint">(Optional)</span>
             </label>
-            <textarea maxLength={LIMITS.address}
-              className="ma-textarea"
-              rows={2}
-              placeholder="House No., Street, Barangay, City"
-              value={values.address}
-              onChange={update('address')}
+            <AddressFields
+              idPrefix="ma"
+              value={values.addressParts}
+              onChange={(parts) => setValues({ ...values, addressParts: parts })}
             />
           </div>
 
@@ -236,8 +251,8 @@ function ManageAccounts() {
       const newAccount = await createUser({
         name: values.name.trim(),
         email: values.email.trim(),
-        phone: values.phone.trim(),
-        address: values.address.trim(),
+        phone: formatPhMobile(values.phone),
+        ...(isBlankParts(values.addressParts) ? {} : { addressParts: values.addressParts }),
         role: registerRole,
         ...(registerRole === ROLE.CUSTOMER ? { clientType: values.clientType } : {}),
         ...(registerRole === ROLE.STAFF ? { position: values.position.trim() } : {}),
@@ -255,6 +270,11 @@ function ManageAccounts() {
       }
       console.error('Error creating user:', err);
     }
+  };
+
+  const handleUserDeleted = (userId) => {
+    setUsers((prev) => prev.filter((u) => u._id !== userId));
+    setSelectedUser(null);
   };
 
   const handleUserUpdated = (updatedUser) => {
@@ -418,6 +438,7 @@ function ManageAccounts() {
           user={selectedUser}
           onClose={() => setSelectedUser(null)}
           onUpdated={handleUserUpdated}
+          onDeleted={handleUserDeleted}
         />
       )}
 

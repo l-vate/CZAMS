@@ -30,7 +30,7 @@ test('a good account passes; each bad field has its own message', () => {
   assert.match(msg({ email: 'nope' }), /valid email/);
   assert.match(msg({ email: undefined }), /Email is required/);
   assert.match(msg({ email: { $ne: '' } }), /Email is required/);
-  assert.match(msg({ phone: 'abc' }), /contact number/);
+  assert.match(msg({ phone: 123 }), /phone number/);
   assert.match(msg({ password: 'short' }), /at least 8 characters/);
   assert.match(msg({ password: 12345678 }), /at least 8 characters/);
   assert.match(msg({ isActive: 'false' }), /true or false/);

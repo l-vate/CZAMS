@@ -45,7 +45,7 @@ function AuditLog() {
 
   return (
     <AdminLayout title="Audit Log">
-      <form className="req-filters" onSubmit={apply} aria-label="Filter the audit log">
+      <form className="req-filters audit-filters" onSubmit={apply} aria-label="Filter the audit log">
         <label>From <input type="date" className="ma-input" min={pastWindow().min} max={pastWindow().max} value={filters.from} onChange={set('from')} /></label>
         <label>To <input type="date" className="ma-input" min={pastWindow().min} max={pastWindow().max} value={filters.to} onChange={set('to')} /></label>
         {rangeProblem && <p className="date-problem" role="alert">{rangeProblem}</p>}

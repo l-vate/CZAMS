@@ -1440,6 +1440,10 @@
 }
 
 .req-filters { display: flex; gap: 10px; flex-wrap: wrap; }
+/* The audit log filters: a gap between each name and its box, and the lists no wider than their longest choice needs. */
+.audit-filters { gap: 12px 20px; align-items: center; }
+.audit-filters label { display: inline-flex; align-items: center; gap: 8px; }
+.audit-filters select.ma-input { width: 190px; max-width: 100%; }
 
 /* Filter buttons here now use the shared .filter-pill primitive (Pass D) instead
    of this page's own outlined style. */

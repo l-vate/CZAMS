@@ -140,21 +140,26 @@ function NavSearch({ navigate, services }) {
     return technicians.filter((t) => t.name?.toLowerCase().includes(q));
   }, [technicians, query]);
 
+  // The panel opens only on Enter or the search button, never while typing, so a whole word can be typed. Closing it keeps the text in the box and it
+  // stays closed (focus going back to the box does not open it).
+  const openSearch = () => { if (query.trim()) setOpen(true); };
+
   const totalResults = serviceResults.length + technicianResults.length;
 
   return (
     <div className="nav-search-wrapper">
       <div className="nav-search-box">
-        <FiSearch className="nav-search-icon" aria-hidden="true" />
+        <button type="button" className="nav-search-icon" aria-label="Search" onClick={openSearch}>
+          <FiSearch aria-hidden="true" />
+        </button>
         <input
           type="search"
           className="search"
           placeholder="Search services"
           aria-label="Search services or technicians"
           value={query}
-          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
-          onClick={() => setOpen(true)}
-          onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); openSearch(); } }}
         />
       </div>
 

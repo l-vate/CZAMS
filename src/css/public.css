@@ -169,11 +169,20 @@
 
 .nav-search-icon {
   position: absolute;
-  left: 12px;
+  left: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--ink-soft);
   font-size: 14px;
-  pointer-events: none;
+  cursor: pointer;
 }
+.nav-search-icon:hover, .nav-search-icon:focus-visible { color: var(--navy); }
 
 .nav-search-box .search {
   width: 200px;

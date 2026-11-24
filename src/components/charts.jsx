@@ -14,9 +14,27 @@ function EmptyChart({ message = 'No data yet' }) {
 }
 
 // Round a maximum up to a tidy axis: returns { step, max } with whole-number ticks.
+// A small maximum keeps its plain whole-number steps (a maximum of 7 gives 0, 2, 4, 6, 8). From a step of 10 up, the step is rounded to 1, 2, 2.5 or 5
+// times a power of ten, so a maximum of 16,500 gives 0, 5,000, 10,000, 15,000, 20,000 and not 0, 4,125, 8,250 ...
 function niceAxis(maxValue, tickCount = 4) {
-  const step = Math.max(1, Math.ceil(maxValue / tickCount));
+  const plain = Math.max(1, Math.ceil(maxValue / tickCount));
+  if (plain < 10) return { step: plain, max: plain * tickCount };
+  const power = 10 ** Math.floor(Math.log10(plain));
+  const step = [1, 2, 2.5, 5, 10].map((k) => k * power).find((candidate) => candidate >= plain && Number.isInteger(candidate)) || plain;
   return { step, max: step * tickCount };
+}
+
+// 16500 -> "16,500": the numbers on a chart are read at a glance.
+const fmt = (n) => Number(n).toLocaleString('en-PH');
+
+// 17900 -> "17.9k" for bars too narrow to carry the whole number.
+const compact = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace(/.0$/, '')}k` : String(n));
+
+// A label that would run into its neighbour is split at its last space ("Jun 2026" -> "Jun" over "2026"). About 6 px a letter at the 11 px chart text.
+function labelLines(label, room) {
+  const text = String(label);
+  const at = text.lastIndexOf(' ');
+  return text.length * 6 > room && at > 0 ? [text.slice(0, at), text.slice(at + 1)] : [text];
 }
 
 function truncate(text, length) {
@@ -30,13 +48,16 @@ export function BarChart({ data, color = 'var(--primary)', xLabel, yLabel, ariaL
   if (!data || data.length === 0 || total === 0) return <EmptyChart />;
 
   const H = 250;
-  const m = { top: 18, right: 10, bottom: 56, left: 42 };
-  const innerW = W - m.left - m.right;
-  const innerH = H - m.top - m.bottom;
   const { step, max } = niceAxis(Math.max(...data.map((d) => d.value)));
   const ticks = Array.from({ length: max / step + 1 }, (_, i) => i * step);
+  // the left margin fits the widest number and, left of it, the title of the axis, so the two never overlap
+  const widestTick = Math.max(...ticks.map((t) => fmt(t).length)) * 6.2;
+  const m = { top: 22, right: 10, bottom: 56, left: Math.max(42, Math.ceil((yLabel ? 22 : 8) + widestTick + 8)) };
+  const innerW = W - m.left - m.right;
+  const innerH = H - m.top - m.bottom;
   const band = innerW / data.length;
   const barW = Math.min(36, band * 0.62);
+  const narrow = band < 40;
   const y = (v) => m.top + innerH - (v / max) * innerH;
 
   return (
@@ -45,7 +66,7 @@ export function BarChart({ data, color = 'var(--primary)', xLabel, yLabel, ariaL
       {ticks.map((t) => (
         <g key={t}>
           <line x1={m.left} x2={W - m.right} y1={y(t)} y2={y(t)} className="chart-grid" />
-          <text x={m.left - 6} y={y(t) + 3} textAnchor="end" className="chart-tick">{t}</text>
+          <text x={m.left - 6} y={y(t) + 3} textAnchor="end" className="chart-tick">{fmt(t)}</text>
         </g>
       ))}
       {data.map((d, i) => {
@@ -60,19 +81,25 @@ export function BarChart({ data, color = 'var(--primary)', xLabel, yLabel, ariaL
               rx="3"
               style={{ fill: color }}
             >
-              <title>{`${d.label}: ${d.value}`}</title>
+              <title>{`${d.label}: ${fmt(d.value)}`}</title>
             </rect>
             {d.value > 0 && (
-              <text x={cx} y={y(d.value) - 4} textAnchor="middle" className="chart-value">{d.value}</text>
+              <text x={cx} y={y(d.value) - 4} textAnchor="middle" className="chart-value">{narrow ? compact(d.value) : fmt(d.value)}</text>
             )}
-            <text x={cx} y={m.top + innerH + 14} textAnchor="middle" className="chart-tick">{d.label}</text>
+            <text textAnchor="middle" className="chart-tick">
+              {labelLines(d.label, band - 2).map((line, n) => {
+                // narrow bars: the year of a month label is written once, where it starts or changes, not under every bar
+                const repeatedYear = narrow && n === 1 && i > 0 && labelLines(data[i - 1].label, band - 2)[1] === line;
+                return <tspan key={line} x={cx} y={m.top + innerH + 14 + n * 12}>{repeatedYear ? '' : line}</tspan>;
+              })}
+            </text>
           </g>
         );
       })}
       <line x1={m.left} x2={m.left} y1={m.top} y2={m.top + innerH} className="chart-axis" />
       <line x1={m.left} x2={W - m.right} y1={m.top + innerH} y2={m.top + innerH} className="chart-axis" />
       {yLabel && (
-        <text transform={`translate(11 ${m.top + innerH / 2}) rotate(-90)`} textAnchor="middle" className="chart-axis-title">{yLabel}</text>
+        <text transform={`translate(10 ${m.top + innerH / 2}) rotate(-90)`} textAnchor="middle" className="chart-axis-title">{yLabel}</text>
       )}
       {xLabel && (
         <text x={m.left + innerW / 2} y={H - 8} textAnchor="middle" className="chart-axis-title">{xLabel}</text>

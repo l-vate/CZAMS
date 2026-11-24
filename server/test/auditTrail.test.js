@@ -207,6 +207,14 @@ test.describe('reading the log', () => {
     }
     const ok = await get('?action=payment.verify&entityType=Booking&actor=ADM1&entityId=CZ-1');
     assert.equal(ok.status, 200);
-    assert.deepEqual(lastFilter, { 'actor.id': 'ADM1', action: 'payment.verify', entityType: 'Booking', entityId: 'CZ-1' });
+    const { $or, ...rest } = lastFilter;
+    assert.deepEqual(rest, { action: 'payment.verify', entityType: 'Booking', entityId: 'CZ-1' });
+    assert.equal($or.length, 3, 'a person is found by account id, by name, or as the account a line is about');
+    assert.ok($or[0]['actor.id'].test('adm1') && !$or[0]['actor.id'].test('ADM12'), 'the id is matched exactly, in any letter case');
+    assert.deepEqual([$or[2].entityType, $or[2].entityId.test('ADM1')], ['User', true]);
+    const { readFilter } = require('../routes/auditRoutes');
+    const byName = readFilter({ actor: 'maria (cruz)' }).filter.$or[1]['actor.name'];
+    assert.ok(byName.test('Maria (Cruz) Santos'), 'part of a name is enough, in any letter case, and brackets are plain text');
+    assert.equal(byName.test('Maria Cruz'), false);
   });
 });

@@ -48,7 +48,7 @@ function AuditLog() {
         <label>From <input type="date" className="ma-input" min={pastWindow().min} max={pastWindow().max} value={filters.from} onChange={set('from')} /></label>
         <label>To <input type="date" className="ma-input" min={pastWindow().min} max={pastWindow().max} value={filters.to} onChange={set('to')} /></label>
         {rangeProblem && <p className="date-problem" role="alert">{rangeProblem}</p>}
-        <label>Admin id <input maxLength={LIMITS.searchText} type="text" className="ma-input" value={filters.actor} onChange={set('actor')} placeholder="any" /></label>
+        <label>Person <input maxLength={LIMITS.searchText} type="text" className="ma-input" value={filters.actor} onChange={set('actor')} placeholder="name or ID: admin, technician or customer" /></label>
         <label>Action <input maxLength={LIMITS.searchText} type="text" className="ma-input" value={filters.action} onChange={set('action')} placeholder="for example payment.verify" /></label>
         <label>Record
           <select className="ma-input" value={filters.entityType} onChange={set('entityType')}>

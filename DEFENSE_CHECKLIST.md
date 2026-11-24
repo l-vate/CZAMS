@@ -55,7 +55,7 @@ Deployed site (Vercel frontend, Render API, Atlas database):
    node scripts/seedDemoData.js --apply
    node scripts/auditServer.js          # API on port 5055, test database only
    ```
-   In another terminal, from the project root: `$env:VITE_API_URL = "http://127.0.0.1:5055"; npm run dev`, then open `http://localhost:5173`. Credentials are in `server/.demo-credentials.json`.
+   In another terminal, from the project root: `$env:VITE_API_URL = "http://127.0.0.1:5055"; npm run dev`, then open `http://localhost:5173`. Your logins are the ones in `server/.demo-accounts.json`; the commercial clients are in `server/.demo-credentials.json`.
    `auditServer.js` refuses any database other than `CZAMS_audit_test` and never reads `server/.env`.
 2. **Screen recording.** Before the defense, record the whole demo once (Windows: Win + G, or OBS) at 1080p with the microphone off, and save it on the laptop and on a USB drive. Name it `czams-demo-backup.mp4`. If the live demo fails, say "we have a recording of the same flow" and play it.
 3. **Paper figures.** The screenshots in the paper are the last fallback.

@@ -24,6 +24,7 @@ import PaymentSettingsUnavailable from '../../components/payment_settings_unavai
 import { REFERENCE_MAX, referenceError } from '../../utils/paymentReference';
 import { listUsers, createUser } from '../../services/userService';
 import { selectableCustomers } from '../../utils/walkInCustomers';
+import { prefillFromCustomer } from '../../utils/walkInPrefill';
 import { ROLE } from '../../constants/roles';
 import { SERVICE_TYPE } from '../../constants/serviceTypes';
 import { bookingDateProblem } from '../../utils/dateRules';
@@ -490,11 +491,11 @@ function WalkInBooking() {
   const isCommercial = customer?.clientType === 'Commercial';
   const isBilledOnTerms = isCommercial && !!form.paymentTermsDays;
 
-  // Picking (or changing) the customer prefills the contact number from their profile
-  // phone; the admin can still edit it on the schedule step.
+  // Picking (or changing) the customer prefills the contact number from their profile phone and, when the account has its address as separate parts, the
+  // address boxes; the admin can still edit both on the schedule step. Changing the customer replaces or clears them (utils/walkInCustomers.js).
   const chooseCustomer = (c) => {
     setCustomer(c);
-    setForm((prev) => ({ ...prev, contactNumber: c?.phone || '' }));
+    setForm((prev) => ({ ...prev, ...prefillFromCustomer(c) }));
   };
 
   const canNext = () => {
@@ -617,7 +618,7 @@ function WalkInBooking() {
             )}
             {step === 6 && paymentSettingsReady && (
               <>
-                <Step5 form={form} services={services} technicians={technicians} downPaymentPercentages={downPaymentPercentages} discountPercent={seniorPwdDiscountPercent} promos={promos} />
+                <Step5 form={form} services={services} technicians={technicians} downPaymentPercentages={downPaymentPercentages} discountPercent={seniorPwdDiscountPercent} promos={promos} vatNote={isCommercial} />
                 <div className="bs-card admin-walk-in-booking-x5">
                   <p className="summary-section-title">Customer</p>
                   <div className="summary-row"><span>Name</span><span>{customer?.name || '-'}</span></div>

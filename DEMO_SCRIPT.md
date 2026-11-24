@@ -6,33 +6,33 @@ The demo runs against the TEST database `CZAMS_audit_test`, never the real one. 
 
 ## Before you start (once, 15 minutes before)
 
-1. Load the demo data (this wipes only `CZAMS_audit_test` and builds it again, so it is safe to repeat):
+1. Your demo logins live in `server/.demo-accounts.json` (git ignored, never committed): a list of `{ "email", "password", "role", "name" }` with 1 admin, 4 technicians and at least 2 customers (role `customer`, `technician` or `admin`). Fill it in once. The seed stops with a clear message if it is missing or incomplete.
+2. Load the demo data (this wipes only `CZAMS_audit_test` and builds it again, so it is safe to repeat):
    ```
    cd server
-   $env:DEMO_PASSWORD = "choose-a-password-you-will-remember"   # optional; without it every account gets a random password
    node scripts/seedDemoData.js --apply
    ```
-   It prints the demo booking ids. Without `DEMO_PASSWORD`, the passwords are in `server/.demo-credentials.json` (git ignored). Never put a password on a slide.
-2. Start the API against the test database: `node scripts/auditServer.js` (port 5055). Start the site with `VITE_API_URL=http://127.0.0.1:5055` and `npm run dev` (or use the deployed site if its API points at the test database).
-3. Open four browser windows (use separate profiles or private windows so the logins do not mix): Landing, Customer, Admin, Technician. Log each one in before the demo starts.
-4. Keep a small JPG or PNG ready for the payment proof (under 8 MB), and a 13 digit number for the GCash reference, for example `1234567890123`.
-5. If anything goes wrong in the middle of the demo and the data gets messy, run the seed command again. It resets everything in under a minute.
+   It prints the demo booking ids. Your admin, technicians and customers keep the passwords you chose; only the three commercial clients get generated passwords, kept in `server/.demo-credentials.json` (git ignored). Never put a password on a slide.
+3. Start the API against the test database: `node scripts/auditServer.js` (port 5055). Start the site with `VITE_API_URL=http://127.0.0.1:5055` and `npm run dev` (or use the deployed site if its API points at the test database).
+4. Open four browser windows (use separate profiles or private windows so the logins do not mix): Landing, Customer, Admin, Technician. Log each one in before the demo starts.
+5. Keep a small JPG or PNG ready for the payment proof (under 8 MB), and a 13 digit number for the GCash reference, for example `1234567890123`.
+6. If anything goes wrong in the middle of the demo and the data gets messy, run the seed command again. It resets everything in under a minute.
 
 ## Accounts
 
-All emails end in `@example.test`.
+The first six rows are the logins of `server/.demo-accounts.json`, in the order of that file (the first customer is the Regular customer, the second the Return customer). The commercial clients have generated logins in `server/.demo-credentials.json`. In the steps below, the short names (`stf9001`, `cus9001` and so on) are the internal ids of these accounts.
 
-| Role | Login | Used for |
+| Role | Account | Used for |
 |---|---|---|
-| Admin (owner) | `adm9001` | queue, payments, approvals, dashboard, reports, back jobs, refunds |
-| Technician 1 | `stf9001` | calendar and jobs (lead on several jobs) |
-| Technician 2 | `stf9002` | the service report with the e-signature (primary technician of the In Progress job) |
-| Technicians 3 and 4 | `stf9003`, `stf9004` | helpers; show the workload table |
-| Regular customer | `cus9001` | the live booking, status, notifications, warranty claim, cancellation and refund |
-| Return customer | `cus9003` | return customer privileges, Senior/PWD request (read only) |
-| Commercial client | `cus9004` | VAT, PO number, payment terms of 7 days (read only) |
-| Sample Hospital (commercial) | `cus9101` | the commercial installations, VAT added on top, PO numbers, 7 day terms (Return customer: 4 completed jobs in 12 months) |
-| Sample Inn (commercial) | `cus9102` | one commercial installation, fully paid (Regular customer) |
+| Admin (owner) | the admin (`adm9001`) | queue, payments, approvals, dashboard, reports, back jobs, refunds |
+| Technician 1 | the first technician (`stf9001`) | calendar and jobs (lead on several jobs) |
+| Technician 2 | the second technician (`stf9002`) | the service report with the e-signature (primary technician of the In Progress job) |
+| Technicians 3 and 4 | the third and fourth (`stf9003`, `stf9004`) | helpers; show the workload table |
+| Regular customer | the first customer (`cus9001`) | the live booking, status, notifications, warranty claim, cancellation and refund |
+| Return customer | the second customer (`cus9003`) | return customer privileges, Senior/PWD request (read only) |
+| Commercial client | `cus9004` (generated) | VAT, PO number, payment terms of 7 days (read only) |
+| Sample Hospital (commercial) | `cus9101` (generated) | the commercial installations, VAT added on top, PO numbers, 7 day terms (Return customer: 4 completed jobs in 12 months) |
+| Sample Inn (commercial) | `cus9102` (generated) | one commercial installation, fully paid (Regular customer) |
 
 ## The demo bookings (ids carry the current year; the seed prints the real ones)
 

@@ -859,7 +859,8 @@ const handleSubmitPayment = ({ proof, referenceNumber }) => {
 }
 
 /* ── Step 5: Booking Summary ──────────────────────────────── */
-export function Step5({ form, services, technicians, downPaymentPercentages, discountPercent = 0, promos = [] }) {
+// `vatNote`: the walk-in booking turns it on for a Commercial client, whose 12% VAT is added to the billing afterwards (a line under Remaining Balance, no amount changes).
+export function Step5({ form, services, technicians, downPaymentPercentages, discountPercent = 0, promos = [], vatNote = false }) {
   const { selected, lineItems, equipment, basePrice, discountAmount, discountLabel, dpPercent, toPayNow, remaining, isFullPay } = getCostBreakdown(form, services, getDefaultDownPaymentPercent(downPaymentPercentages), discountPercent, promos);
   const techName = technicians.find((t) => t._id === form.technician)?.name || 'No preference';
 
@@ -914,6 +915,7 @@ export function Step5({ form, services, technicians, downPaymentPercentages, dis
           <div className="summary-row"><span>Down Payment</span><span>{dpPercent}%</span></div>
           <div className="summary-row"><span>To Pay Now</span><span>{formatMoney(toPayNow)}</span></div>
           <div className="summary-row total"><span>Remaining Balance</span><span>{formatMoney(remaining)}</span></div>
+          {vatNote && <p className="summary-vat-note">12% VAT will be added to the billing and shown on the booking details.</p>}
           <div className="summary-row"><span>Payment Mode</span><span>{form.paymentMode || '-'}</span></div>
           {!isFullPay && (
             <div className="summary-row"><span>2nd Payment Mode</span><span>{form.paymentMode2 || '-'}</span></div>

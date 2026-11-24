@@ -49,6 +49,8 @@ uploads/
 
 # Audit pass: credentials for the test accounts, and screenshots. Never tracked.
 server/.audit-credentials.json
+# The demo logins the owner fills in by hand for the demo seed (emails and passwords). Never tracked.
+server/.demo-accounts.json
 docs/audit-pass/screens/
 
 # Screenshots taken while checking the E11b batch. Never tracked.

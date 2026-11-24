@@ -24,3 +24,24 @@
 .sdm-badge.sdm-badge-inactive {
   background: #ef4444;
 }
+
+/* The account modal has one column of details (the shared two column grid left the right half empty), so the address gets the full width. */
+.sdm-columns:has(> .user-details-modal-x3) { grid-template-columns: minmax(0, 1fr); }
+
+/* The address boxes (components/address_fields.jsx) inside the account modal and the register form: the row's content takes the full width,
+   each pair of boxes lines up at the bottom whatever the label does, and the boxes look like the other fields on these screens. */
+.sdm-row:has(.address-fields) > div:last-child { flex: 1; min-width: 0; }
+.sdm-row .address-fields,
+.ma-field-group .address-fields { width: 100%; }
+.sdm-row .address-fields .address-field,
+.ma-field-group .address-fields .address-field { display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; margin: 0; }
+.sdm-row .address-fields .bs-label,
+.ma-field-group .address-fields .bs-label { margin: 0; font-size: 0.8rem; }
+.sdm-row .address-fields .bs-input,
+.ma-field-group .address-fields .bs-input { width: 100%; box-sizing: border-box; margin: 0; padding: 10px 14px; border: 1px solid #d7dbe0; border-radius: 10px; background: #fff; font-size: 0.9rem; font-family: inherit; }
+.sdm-row .address-fields .bs-input:focus,
+.ma-field-group .address-fields .bs-input:focus { outline: none; border-color: var(--action); }
+@media (max-width: 520px) {
+  .sdm-row .address-grid,
+  .ma-field-group .address-grid { grid-template-columns: minmax(0, 1fr); }
+}

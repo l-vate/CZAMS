@@ -6,6 +6,7 @@ import NotificationBell from '../../components/notification_bell';
 
 import { customerNotificationTarget } from '../../utils/notificationTarget';
 import { LIMITS } from '../../constants/inputLimits';
+import { useTopbarSearch } from '../../hooks/useTopbarSearch';
 // Search moved here (topbar) rather than duplicated per-page - My Bookings and
 // Payment & Billing pass searchValue/onSearchChange/searchPlaceholder to opt
 // into showing it; every other page just omits those props and gets nothing.
@@ -15,11 +16,14 @@ function CustomerLayout({ title, children, searchValue, onSearchChange, searchPl
   // Same pattern as the admin top bar (pages/admin/admin_layout.jsx).
   const [searchOpen, setSearchOpen] = useState(false);
   const searchInputRef = useRef(null);
+  const search = useTopbarSearch(searchValue, onSearchChange);
   const searchToggleRef = useRef(null);
   useEffect(() => {
     if (searchOpen) searchInputRef.current?.focus();
   }, [searchOpen]);
+  // closing the box (the X, or Escape) leaves the search for good: the box is emptied and the list is not filtered any more
   const closeSearch = () => {
+    search.clear();
     setSearchOpen(false);
     searchToggleRef.current?.focus();
   };
@@ -52,26 +56,27 @@ function CustomerLayout({ title, children, searchValue, onSearchChange, searchPl
                 <button
                   type="button"
                   ref={searchToggleRef}
-                  className={`topbar-support-btn topbar-search-toggle${searchValue ? ' has-query' : ''}`}
+                  className={`topbar-support-btn topbar-search-toggle${search.hasText ? ' has-query' : ''}`}
                   onClick={() => setSearchOpen(true)}
-                  aria-label={searchValue ? 'Search, a search is active' : 'Search'}
+                  aria-label={search.hasText ? 'Search, a search is active' : 'Search'}
                   aria-expanded={searchOpen}
                   aria-controls="topbar-search-box"
                 >
                   <FiSearch />
                 </button>
-                <div className="topbar-search" id="topbar-search-box" role="search">
+                <div className={`topbar-search${search.hasText ? ' topbar-search--has-text' : ''}`} id="topbar-search-box" role="search">
                   <FiSearch aria-hidden="true" />
                   <input maxLength={LIMITS.searchText}
                     ref={searchInputRef}
                     type="search"
                     placeholder={searchPlaceholder || 'Search...'}
                     aria-label={(searchPlaceholder || 'Search').replace(/.{3}$/, '')}
-                    value={searchValue}
-                    onChange={(e) => onSearchChange(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Escape' && searchOpen) { e.preventDefault(); closeSearch(); } }}
+                    value={search.text}
+                    title="Type at least 2 letters to search"
+                    onChange={(e) => search.setText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Escape' && (searchOpen || search.hasText)) { e.preventDefault(); closeSearch(); } }}
                   />
-                  <button type="button" className="topbar-search-close" onClick={closeSearch} aria-label="Close search">
+                  <button type="button" className="topbar-search-close" onClick={closeSearch} aria-label="Close search" title="Close search">
                     <FiX />
                   </button>
                 </div>

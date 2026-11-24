@@ -32,13 +32,13 @@ const phoneBlock = (css, after, px = 768) => {
 test('A1: the customer top bar has a search button that opens a full width field, and Escape and Close shut it', () => {
   const layout = src('pages', 'customer', 'customer_layout.jsx');
   assert.match(layout, /className=\{`topbar-support-btn topbar-search-toggle/);
-  assert.match(layout, /aria-label=\{searchValue \? 'Search, a search is active' : 'Search'\}/);
+  assert.match(layout, /aria-label=\{search\.hasText \? 'Search, a search is active' : 'Search'\}/);
   assert.match(layout, /aria-expanded=\{searchOpen\}/);
   assert.match(layout, /aria-controls="topbar-search-box"/);
   assert.match(layout, /if \(searchOpen\) searchInputRef\.current\?\.focus\(\)/, 'opening focuses the field');
-  assert.match(layout, /e\.key === 'Escape' && searchOpen\) \{ e\.preventDefault\(\); closeSearch\(\); \}/, 'Escape closes without the browser clearing the typed text');
+  assert.match(layout, /e\.key === 'Escape' && \(searchOpen \|\| search\.hasText\)\) \{ e\.preventDefault\(\); closeSearch\(\); \}/, 'Escape closes the box and clears the search');
   assert.match(layout, /aria-label="Close search"/);
-  assert.match(layout, /value=\{searchValue\}/, 'the typed text is the page state, so it stays while the field is open or closed');
+  assert.match(layout, /value=\{search\.text\}/, 'the typed text is held by the search hook, which gives the page only what is long enough to filter by; closing clears it');
   assert.match(layout, /aria-label="Contact Support"/, 'chat is unchanged');
   assert.match(layout, /<NotificationBell onNotificationClick/, 'the bell is unchanged');
 });

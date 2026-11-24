@@ -47,7 +47,7 @@ test('the layout opens the search on tap, focuses the input, and closes on Escap
   const src = read('pages/admin/admin_layout.jsx');
   assert.match(src, /onClick=\{\(\) => setSearchOpen\(true\)\}/);
   assert.match(src, /if \(searchOpen\) searchInputRef\.current\?\.focus\(\)/);
-  assert.match(src, /e\.key === 'Escape' && searchOpen/);
+  assert.match(src, /e\.key === 'Escape' && \(searchOpen \|\| search\.hasText\)/, 'Escape leaves the search, on a wide screen too');
   assert.match(src, /onClick=\{closeSearch\}/);
   assert.match(src, /searchToggleRef\.current\?\.focus\(\)/, 'focus goes back to the icon');
   const css = read('css/admin.css');

@@ -31,6 +31,11 @@ Deployed site (Vercel frontend, Render API, Atlas database):
 - [ ] **Data.** Decide which data the panel will see. The deployed database must not hold real customers' private data on a screen shared with the panel. If you want the demo data online, point a separate Render service at `CZAMS_audit_test` and rehearse on that one.
 - [ ] Print or save a PDF copy of the paper and `DEMO_SCRIPT.md`. Charge the laptop and bring the charger.
 
+## Ten minutes before
+
+- [ ] **Open the deployed site 10 minutes early and click through it once**: landing page, then log in as the admin, a technician and a customer and open one page each. This wakes the Render server (a free service sleeps) and warms every account's first request.
+- [ ] **If the "Connection problem" banner appears** (for example at the top of a chat), the server is still waking up or the last refresh failed. Wait **30 seconds, then refresh the page**. It clears by itself on the next successful refresh.
+
 ## One hour before
 
 - [ ] Wake the API: open `/api/health` and wait for `ok`. Then log in once as each role (admin, technician, customer) so the first request is already warm.

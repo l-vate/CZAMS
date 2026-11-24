@@ -31,6 +31,8 @@ All emails end in `@example.test`.
 | Regular customer | `cus9001` | the live booking, status, notifications, warranty claim, cancellation and refund |
 | Return customer | `cus9003` | return customer privileges, Senior/PWD request (read only) |
 | Commercial client | `cus9004` | VAT, PO number, payment terms of 7 days (read only) |
+| Sample Hospital (commercial) | `cus9101` | the commercial installations, VAT added on top, PO numbers, 7 day terms (Return customer: 4 completed jobs in 12 months) |
+| Sample Inn (commercial) | `cus9102` | one commercial installation, fully paid (Regular customer) |
 
 ## The demo bookings (ids carry the current year; the seed prints the real ones)
 
@@ -45,6 +47,8 @@ All emails end in `@example.test`.
 | `CZ-YYYY-9801` | Completed cleaning 3 days ago (Regular customer): warranty claim |
 | `CZ-YYYY-9007` | Cancelled, refund waiting |
 | `CZ-YYYY-9009` | Cancelled, refund already processed |
+| `CZ-YYYY-9022` | Commercial client, Completed: price 2,400.00 + 12% VAT 288.00 = 2,688.00, inside its 7 day terms |
+| `CZ-YYYY-9301` to `9308` | The 8 sample commercial installations (7 for Sample Hospital, 1 for Sample Inn). 9304 is Completed with its balance still due, 9305 Approved, 9306 Pending (in the queue), 9307 In Progress, the others Completed and paid |
 
 ## Run of show
 
@@ -84,6 +88,24 @@ Show My Bookings (statuses), the notification bell (approved, payment verified, 
 1. Dashboard: summary cards, technician workload table, the three charts (requests per month, bookings by status, completed jobs per technician). Switch the client type filter to Commercial: the cards and charts change, the workload table does not.
 2. Reports: pick one of the six (service requests, technician performance, customers, payments, back jobs and warranty claims, cancelled bookings), set a date range, then Print (PDF with company header) and CSV export. Mention the audit log shows who did what.
 *Fallback:* if a chart is empty, widen the date range to the last 6 months. If printing fails, show the CSV.
+
+### 6b. Commercial client: 12% VAT added on top (1 minute) - `cus9101`, then `adm9001`
+This is the paper rule: standard prices do not include VAT, and the system adds 12% on top for a commercial client. Every one of the sample bookings works this way; none uses the "prices include VAT" option.
+1. As Sample Hospital, open Billings, then booking `9304` (nurse station, Completed). Read the payment box out loud: **Total Price 65,000.00 + VAT (12%) 7,800.00 = Total incl. VAT 72,800.00**, with the PO number and "Payment Terms: 7 days after completion". Open the invoice: it carries the PO number, the VAT line and the terms.
+2. Say the same holds for the other sample jobs, each shown as price + VAT = total billed:
+   | Booking | Price | VAT 12% | Total billed |
+   |---|---|---|---|
+   | 9301 | 54,500.00 | 6,540.00 | 61,040.00 |
+   | 9302 | 76,500.00 | 9,180.00 | 85,680.00 |
+   | 9303 | 102,800.00 | 12,336.00 | 115,136.00 |
+   | 9304 | 65,000.00 | 7,800.00 | 72,800.00 |
+   | 9305 | 55,250.00 | 6,630.00 | 61,880.00 |
+   | 9306 | 63,350.00 | 7,602.00 | 70,952.00 |
+   | 9307 | 96,500.00 | 11,580.00 | 108,080.00 |
+   | 9308 (Sample Inn) | 185,500.00 | 22,260.00 | 207,760.00 |
+3. As the admin, open `9304`: the VAT (12%) row, the PO number, the payment terms and the Remaining Balance of 72,800.00. Point at "Record the balance": the admin can record cash or cheque received in person (only the admin can; a technician never sees payments). Payment terms of 7 to 10 days are set by the admin only.
+4. Say there is no down payment because the client is on terms; the 72,800.00 falls due within 7 days of the service, and it is still inside its terms today.
+*Fallback:* if the sample jobs are missing, use `9022` with `cus9004`: 2,400.00 + 288.00 VAT = 2,688.00 due within 7 days.
 
 ### 7. Warranty claim to back job (1 minute) - `cus9001`, then `adm9001`
 1. As the customer, open booking `9801` (cleaning finished 3 days ago, inside the 1 week leak warranty) and file a back job with a short description.

@@ -38,10 +38,8 @@ All emails end in `@example.test`.
 
 | Id | What it is |
 |---|---|
-| `CZ-YYYY-9001` | Pending, technicians already proposed (Regular customer) |
-| `CZ-YYYY-9002` | Pending, no payment: approval must be refused |
-| `CZ-YYYY-9017` | Pending, GCash proof waiting to be verified |
-| `CZ-YYYY-9011` | Pending, Senior/PWD request waiting for the admin |
+| `CZ-YYYY-9017` | Pending (Return customer), dated about 5 weeks ahead: a GCash proof waiting to be verified AND a Senior/PWD request waiting. Approval is refused until the payment is verified |
+| `CZ-YYYY-9306` | Pending, a Sample Hospital installation nobody is assigned to yet, dated about 6 weeks ahead |
 | `CZ-YYYY-9004` | Approved (Regular customer): cancel and refund |
 | `CZ-YYYY-9005` | In Progress today, primary technician Demo Technician 2: service report |
 | `CZ-YYYY-9801` | Completed cleaning 3 days ago (Regular customer): warranty claim |
@@ -64,15 +62,15 @@ Go to Book a Service.
 4. Date: show that today plus 2 days is refused (3 days notice), a Sunday is refused, and the closure date (shown in the landing announcement) is refused. Pick a date at least 3 days ahead and choose Morning (8:00 AM to 12:00 PM) or Afternoon (1:00 PM to 6:00 PM).
 5. Payment: choose a down payment option (30, 50 or 100 percent). Only GCash and Bank Transfer are offered online. Upload the proof and type the 13 digit reference.
 6. Confirm. The booking is Pending and holds its date and time block. Say: a customer can have at most 3 Pending bookings.
-*Fallback:* if the form refuses the date, pick another weekday that is not the closure date. If the upload fails, use a smaller image. If the whole page fails, show booking `9001` in My Bookings and explain the steps from the paper figures.
+*Fallback:* if the form refuses the date, pick another weekday that is not the closure date. If the upload fails, use a smaller image. If the whole page fails, explain the steps from the paper figures.
 
 ### 3. Admin: Pending queue, payment and auto-assign (2 minutes) - `adm9001`, Figures 4.2 and 4.3
 1. Bookings, tab Pending queue. Each row shows how many technicians are free for that date and block. Use Up, Down and Top on a row.
 2. Open the new booking. Show the technicians the system proposed (requested technician first if free, otherwise the lightest workload). Mention that nothing is moved when no one is free: it suggests up to 3 later dates.
-3. Try to approve `9002` (no payment): it is refused until the down payment is verified.
+3. Try to approve `9017` (its payment is waiting): it is refused until the down payment is verified.
 4. Payments: verify the proof of `9017` (or of the new booking), then approve it. Say there is no manual In Progress or Completed button: the system starts a job on its service day and completes it when the primary technician submits the report.
-5. Senior/PWD: open `9011`, view the ID, approve the 20 percent discount. Say it applies to the unit price and the down payment, not to the distance charge, and the ID photo is deleted 30 days after the booking ends.
-*Fallback:* if Approve is refused for a technician conflict, assign a different technician from the list, or pick `9001`, which already has proposed technicians.
+5. Senior/PWD: on `9017` too, view the ID, approve the 20 percent discount. Say it applies to the unit price and the down payment, not to the distance charge, and the ID photo is deleted 30 days after the booking ends.
+*Fallback:* if Approve is refused for a technician conflict, assign a different technician from the list, or use `9017`, which already has proposed technicians.
 
 ### 4. Technician: jobs and service report (2 minutes) - `stf9002`, Figures 4.4 and 4.5
 1. My Jobs and Calendar: show the schedule and the admin notes for the technician. Mention disruption and extension requests (the admin is notified, an extension needs approval).

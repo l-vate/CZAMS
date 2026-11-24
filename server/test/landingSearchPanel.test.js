@@ -24,3 +24,28 @@ test('typing never opens the panel; Enter or the search button does, and the tit
   assert.match(src, /const openSearch = \(\) => \{ if \(query\.trim\(\)\) setOpen\(true\); \};/);
   assert.match(src, /`Results for "\$\{query\.trim\(\)\}"`/);
 });
+
+// the matching itself, run for real: the two small functions are cut out of the page source
+const grab = (name) => src.slice(src.indexOf(`
+function ${name}`)).split(/\r?\n}\r?\n/)[0] + '\n}';
+const { searchTerms, matchesAllTerms } = new Function(`${grab('searchTerms')}\n${grab('matchesAllTerms')}\nreturn { searchTerms, matchesAllTerms };`.replace(/export /g, ''))();
+
+test('every word of the query must match: "technician one" finds Technician One, "clean" finds Cleaning', () => {
+  const find = (q, names) => names.filter((n) => matchesAllTerms(searchTerms(q), n));
+  const techs = ['Technician One', 'Technician Two', 'Technician  Four', 'Technician Three'];
+  assert.deepEqual(find('technician one', techs), ['Technician One']);
+  assert.deepEqual(find('  TECHNICIAN   One ', techs), ['Technician One']);
+  assert.deepEqual(find('one technician', techs), ['Technician One']);
+  assert.deepEqual(find('technician four', techs), ['Technician  Four']);
+  assert.deepEqual(find('technician three', techs), ['Technician Three']);
+  assert.equal(find('technician', techs).length, 4);
+  assert.deepEqual(find('technician five', techs), []);
+  assert.equal(matchesAllTerms(searchTerms('clean'), 'Aircon Cleaning', 'Cleaning'), true);
+  assert.equal(matchesAllTerms(searchTerms('clean split'), 'Aircon Cleaning', 'Cleaning', 'Deep clean of a split type'), true);
+  assert.equal(matchesAllTerms(searchTerms('   '), 'anything'), false);
+});
+
+test('a technician result lists only the name and the company-wide rating, no individual profile', () => {
+  assert.match(src, /Individual ratings are not published/);
+  assert.match(src, /key=\{t\._id \|\| t\.name\}>\{t\.name\}<\/span>/);
+});

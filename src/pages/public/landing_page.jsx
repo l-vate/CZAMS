@@ -47,6 +47,17 @@ function getUnitPrice(service, unitType) {
 const GENERIC_SERVICE_TERMS = ['service', 'services', 'price', 'prices', 'pricing', 'cost', 'costs', 'rate', 'rates'];
 const GENERIC_TECH_TERMS = ['technician', 'technicians', 'staff', 'team', 'tech'];
 
+// What the visitor typed, as lower-case words: trimmed, any run of spaces counts as one. A result matches when EVERY word is found somewhere in the
+// text it is checked against, so "technician one" finds Technician One whatever the spacing, and the order of the words does not matter.
+function searchTerms(query) {
+  return String(query || '').toLowerCase().split(/\s+/).filter(Boolean);
+}
+function matchesAllTerms(terms, ...fields) {
+  if (terms.length === 0) return false;
+  const text = fields.filter(Boolean).join(' ').toLowerCase().split(/\s+/).join(' ');
+  return terms.every((term) => text.includes(term));
+}
+
 // Service.category accent - same idea as the announcement/status accents used
 // elsewhere in the app, just for the categories this model actually has.
 const SERVICE_CATEGORY_ACCENT = {
@@ -100,8 +111,8 @@ function NavSearch({ navigate, services }) {
       .catch(() => setFeedbackSummary(null));
   }, []);
 
-  // The panel opens on typing or clicking the box, NOT on focus: when the panel closes, the modal manager gives the focus back to this input, and an
-  // onFocus opener reopened the panel at once, so the X, Escape and an outside click all seemed to do nothing.
+  // The panel never opens on focus: when it closes, the modal manager gives the focus back to this input, and an onFocus opener reopened the panel at
+  // once, so the X, Escape and an outside click all seemed to do nothing. It opens only on Enter or the search button (openSearch below).
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (e) => { if (e.key === 'Escape') setOpen(false); };
@@ -111,8 +122,9 @@ function NavSearch({ navigate, services }) {
   }, [open]);
 
   const serviceResults = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return [];
+    const terms = searchTerms(query);
+    if (terms.length === 0) return [];
+    const q = terms.join(' ');
     // A generic "services"/"prices" search, or a unit-type name ("window
     // type", "cassette"...), surfaces every service - there's no one service
     // that specific term should narrow down to, so treat it as "show me what
@@ -121,12 +133,7 @@ function NavSearch({ navigate, services }) {
       GENERIC_SERVICE_TERMS.includes(q) || UNIT_TYPES.some((t) => t.toLowerCase().includes(q));
     const matches = isGenericBrowse
       ? services
-      : services.filter(
-          (s) =>
-            s.name?.toLowerCase().includes(q) ||
-            s.category?.toLowerCase().includes(q) ||
-            s.serviceType?.toLowerCase().includes(q)
-        );
+      : services.filter((s) => matchesAllTerms(terms, s.name, s.category, s.serviceType, s.description));
     // Capped (unlike the technician list, small enough to just show in full) -
     // each match renders as a full card with a description and unit-type grid,
     // so an uncapped list could get very long in the popup.
@@ -134,10 +141,10 @@ function NavSearch({ navigate, services }) {
   }, [services, query]);
 
   const technicianResults = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return [];
-    if (GENERIC_TECH_TERMS.includes(q)) return technicians;
-    return technicians.filter((t) => t.name?.toLowerCase().includes(q));
+    const terms = searchTerms(query);
+    if (terms.length === 0) return [];
+    if (GENERIC_TECH_TERMS.includes(terms.join(' '))) return technicians;
+    return technicians.filter((t) => matchesAllTerms(terms, t.name));
   }, [technicians, query]);
 
   // The panel opens only on Enter or the search button, never while typing, so a whole word can be typed. Closing it keeps the text in the box and it

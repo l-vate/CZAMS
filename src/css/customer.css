@@ -2381,17 +2381,20 @@
 @media (min-width: 769px) {
   .tech-job-card.billing-card {
     display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1.2fr) auto;
+    /* the last column has one width for every row, so the dates and the money line up from row to row whatever buttons a row has */
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1.2fr) 290px;
     align-items: center;
     column-gap: 24px;
     row-gap: 4px;
     padding: 16px 20px;
   }
-  .billing-card > .billing-card-head { grid-column: 1; grid-row: 1; }
+  .billing-card > .billing-card-head { grid-column: 1; grid-row: 1; justify-content: flex-start; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+  .billing-card > .billing-card-head .billing-card-service { flex: 0 1 auto; }
+  .billing-card > .billing-card-head .billing-badge { flex: 0 0 auto; }
   .billing-card > .billing-card-id { grid-column: 1; grid-row: 2; }
   .billing-card > .billing-card-dates { grid-column: 2; grid-row: 1 / 3; flex-direction: column; align-items: flex-start; }
   .billing-card > .billing-card-money { grid-column: 3; grid-row: 1 / 3; flex-direction: column; align-items: flex-start; }
-  .billing-card > .billing-card-actions { grid-column: 4; grid-row: 1 / 3; flex-wrap: nowrap; margin-top: 0; justify-content: flex-end; }
+  .billing-card > .billing-card-actions { grid-column: 4; grid-row: 1 / 3; flex-wrap: wrap; margin-top: 0; justify-content: flex-end; }
   .billing-card > .billing-card-actions .billing-btn { flex: 0 0 auto; }
   .billing-card > .customer-billings-x5, .billing-card > .customer-billings-x6 { grid-column: 1 / -1; }
 }

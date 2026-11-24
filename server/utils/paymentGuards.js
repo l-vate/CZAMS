@@ -3,7 +3,7 @@
 const { BOOKING_STATUS } = require('../constants/bookingStatus');
 const { PAYMENT_STATUS, BALANCE_PAYMENT_STATUS } = require('../constants/paymentStatus');
 const { invalid } = require('./validation');
-const { ONLINE_PAYMENT_MODES } = require('../constants/paymentModes');
+const { isOnlinePaymentMode } = require('../constants/paymentModes');
 const { unitAwaitingConfirmation } = require('./paymentDue');
 
 const DOWN_PAYMENT_BOOKING_STATUSES = Object.freeze([BOOKING_STATUS.PENDING, BOOKING_STATUS.APPROVED]);
@@ -19,7 +19,7 @@ const BALANCE_OPEN = Object.freeze([BALANCE_PAYMENT_STATUS.NONE, BALANCE_PAYMENT
 function onlinePaymentModeProblem(mode) {
   const name = String(mode || '').trim().toLowerCase();
   if (name === '') return null;
-  if (ONLINE_PAYMENT_MODES.some((m) => m.toLowerCase() === name)) return null;
+  if (isOnlinePaymentMode(name)) return null;
   return invalid('Customers pay online by GCash or Bank Transfer only. Cash and cheque are recorded by our team on site.');
 }
 // kept under its old name: the first payment is checked by the same rule as every other online payment
